@@ -1,0 +1,20 @@
+{
+  "slug": "github-read",
+  "title": "GitHub Read",
+  "description": "Read files from public GitHub repositories through the GitHub REST contents API (read-only, no credentials).",
+  "version": "0.1.0",
+  "upstream": { "name": "GitHub REST API (public, unauthenticated)", "docs": ["https://docs.github.com/en/rest/repos/contents"] },
+  "tools": ["integration_info", "read_file"],
+  "env": [
+    { "name": "GITHUB_API_BASE_URL", "required": false, "secret": false, "description": "Loopback test fixture override only; production uses https://api.github.com" }
+  ],
+  "smoke": [
+    { "name": "integration_info responds", "steps": [{ "tool": "integration_info", "arguments": {}, "expect": [{ "path": "structuredContent.slug", "op": "equals", "value": "github-read" }] }] },
+    {
+      "name": "fixture: read a README",
+      "fixture": { "name": "github-contents", "config": {} },
+      "env": { "GITHUB_API_BASE_URL": "{{fixture.url}}" },
+      "steps": [{ "tool": "read_file", "arguments": { "owner": "fixture-org", "repo": "legacy", "path": "README.md" }, "expect": [{ "path": "structuredContent.text", "op": "contains", "value": "Legacy README" }] }]
+    }
+  ]
+}

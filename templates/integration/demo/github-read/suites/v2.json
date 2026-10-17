@@ -1,0 +1,259 @@
+[
+ {
+  "id": "github-read-regression",
+  "version": "v2",
+  "kind": "regression",
+  "description": "Regressions distilled from the failing customer trace (fixture data): reading at an explicit ref, default-branch handling, GitHub error surfacing.",
+  "cases": [
+   {
+    "name": "reads README from a repository whose default branch is master",
+    "fixture": {
+     "name": "github-contents",
+     "config": {}
+    },
+    "env": {
+     "GITHUB_API_BASE_URL": "{{fixture.url}}"
+    },
+    "steps": [
+     {
+      "tool": "read_file",
+      "arguments": {
+       "owner": "fixture-org",
+       "repo": "legacy",
+       "path": "README.md"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.text",
+        "op": "contains",
+        "value": "Legacy README"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "missing file surfaces GitHub 404",
+    "fixture": {
+     "name": "github-contents",
+     "config": {}
+    },
+    "env": {
+     "GITHUB_API_BASE_URL": "{{fixture.url}}"
+    },
+    "steps": [
+     {
+      "tool": "read_file",
+      "arguments": {
+       "owner": "fixture-org",
+       "repo": "legacy",
+       "path": "nope.md"
+      },
+      "expect": [
+       {
+        "path": "isError",
+        "op": "equals",
+        "value": true
+       },
+       {
+        "path": "structuredContent.status",
+        "op": "equals",
+        "value": 404
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "reads a file at an explicit release tag ref",
+    "fixture": {
+     "name": "github-contents",
+     "config": {}
+    },
+    "env": {
+     "GITHUB_API_BASE_URL": "{{fixture.url}}"
+    },
+    "steps": [
+     {
+      "tool": "read_file",
+      "arguments": {
+       "owner": "fixture-org",
+       "repo": "modern",
+       "path": "README.md",
+       "ref": "v2.0.0"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.text",
+        "op": "contains",
+        "value": "README at v2.0.0"
+       },
+       {
+        "path": "structuredContent.ref",
+        "op": "equals",
+        "value": "v2.0.0"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "omitted ref reads the repository default branch (main)",
+    "fixture": {
+     "name": "github-contents",
+     "config": {}
+    },
+    "env": {
+     "GITHUB_API_BASE_URL": "{{fixture.url}}"
+    },
+    "steps": [
+     {
+      "tool": "read_file",
+      "arguments": {
+       "owner": "fixture-org",
+       "repo": "modern",
+       "path": "README.md"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.text",
+        "op": "contains",
+        "value": "README at main"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "unknown ref surfaces the GitHub 404 message",
+    "fixture": {
+     "name": "github-contents",
+     "config": {}
+    },
+    "env": {
+     "GITHUB_API_BASE_URL": "{{fixture.url}}"
+    },
+    "steps": [
+     {
+      "tool": "read_file",
+      "arguments": {
+       "owner": "fixture-org",
+       "repo": "modern",
+       "path": "README.md",
+       "ref": "does-not-exist"
+      },
+      "expect": [
+       {
+        "path": "isError",
+        "op": "equals",
+        "value": true
+       },
+       {
+        "path": "structuredContent.status",
+        "op": "equals",
+        "value": 404
+       },
+       {
+        "path": "structuredContent.message",
+        "op": "contains",
+        "value": "No commit found for the ref does-not-exist"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "github-read-heldout",
+  "version": "v2",
+  "kind": "heldout",
+  "description": "Sealed variants (fixture data).",
+  "cases": [
+   {
+    "name": "heldout: branch ref containing a slash",
+    "fixture": {
+     "name": "github-contents",
+     "config": {}
+    },
+    "env": {
+     "GITHUB_API_BASE_URL": "{{fixture.url}}"
+    },
+    "steps": [
+     {
+      "tool": "read_file",
+      "arguments": {
+       "owner": "fixture-org",
+       "repo": "modern",
+       "path": "README.md",
+       "ref": "release/1.x"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.text",
+        "op": "contains",
+        "value": "README at release/1.x"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "heldout: full commit sha ref",
+    "fixture": {
+     "name": "github-contents",
+     "config": {}
+    },
+    "env": {
+     "GITHUB_API_BASE_URL": "{{fixture.url}}"
+    },
+    "steps": [
+     {
+      "tool": "read_file",
+      "arguments": {
+       "owner": "fixture-org",
+       "repo": "modern",
+       "path": "README.md",
+       "ref": "4f1c2a9e8b7d6c5b4a3928170f6e5d4c3b2a1908"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.text",
+        "op": "contains",
+        "value": "README at commit 4f1c2a9"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "heldout: nested path at a tag",
+    "fixture": {
+     "name": "github-contents",
+     "config": {}
+    },
+    "env": {
+     "GITHUB_API_BASE_URL": "{{fixture.url}}"
+    },
+    "steps": [
+     {
+      "tool": "read_file",
+      "arguments": {
+       "owner": "fixture-org",
+       "repo": "modern",
+       "path": "docs/guide.md",
+       "ref": "v2.0.0"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.text",
+        "op": "contains",
+        "value": "Guide at v2.0.0"
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+]

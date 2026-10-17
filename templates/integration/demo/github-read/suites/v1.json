@@ -1,0 +1,69 @@
+[
+ {
+  "id": "github-read-regression",
+  "version": "v1",
+  "kind": "regression",
+  "description": "Day-1 behaviour (fixture data).",
+  "cases": [
+   {
+    "name": "reads README from a repository whose default branch is master",
+    "fixture": {
+     "name": "github-contents",
+     "config": {}
+    },
+    "env": {
+     "GITHUB_API_BASE_URL": "{{fixture.url}}"
+    },
+    "steps": [
+     {
+      "tool": "read_file",
+      "arguments": {
+       "owner": "fixture-org",
+       "repo": "legacy",
+       "path": "README.md"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.text",
+        "op": "contains",
+        "value": "Legacy README"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "missing file surfaces GitHub 404",
+    "fixture": {
+     "name": "github-contents",
+     "config": {}
+    },
+    "env": {
+     "GITHUB_API_BASE_URL": "{{fixture.url}}"
+    },
+    "steps": [
+     {
+      "tool": "read_file",
+      "arguments": {
+       "owner": "fixture-org",
+       "repo": "legacy",
+       "path": "nope.md"
+      },
+      "expect": [
+       {
+        "path": "isError",
+        "op": "equals",
+        "value": true
+       },
+       {
+        "path": "structuredContent.status",
+        "op": "equals",
+        "value": 404
+       }
+      ]
+     }
+    ]
+   }
+  ]
+ }
+]

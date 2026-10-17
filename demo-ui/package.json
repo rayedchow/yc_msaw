@@ -1,0 +1,24 @@
+{
+  "name": "procmem-demo-trace-ui",
+  "private": true,
+  "version": "0.2.0",
+  "type": "module",
+  "description": "Standalone port of AEye's build trace workbench over the procmem demo event log.",
+  "scripts": {
+    "build": "node build.mjs",
+    "typecheck": "tsc --noEmit -p ."
+  },
+  "dependencies": {
+    "lucide-react": "^0.468.0",
+    "markdown-it": "^14.1.0",
+    "react": "^19.0.0",
+    "react-dom": "^19.0.0"
+  },
+  "devDependencies": {
+    "@types/markdown-it": "^14.1.2",
+    "@types/react": "^19.0.0",
+    "@types/react-dom": "^19.0.0",
+    "esbuild": "^0.24.0",
+    "typescript": "~5.9.3"
+  }
+}
