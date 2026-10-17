@@ -5,6 +5,7 @@ import type { ToolSpec } from "./llm.js";
 import { describeScope, scopeAllows, type WriteScope } from "./scope.js";
 import {
   agentPath,
+  MAX_COMMAND_TIMEOUT_MS,
   MAX_KNOWLEDGE_WRITE_BYTES,
   MAX_WORK_WRITE_BYTES,
   parseAgentPath,
@@ -94,12 +95,14 @@ function isPlainObject(v: unknown): v is Record<string, unknown> {
 // ---------------------------------------------------------------------------
 
 const PathArg = z.string().min(1).max(1000);
+export const MAX_SHELL_STDOUT_BYTES = 12 * 1024;
+export const MAX_SHELL_STDERR_BYTES = 2 * 1024;
 const AgentId = z.string().min(1).max(200);
 
 export const TOOL_SCHEMAS = {
   ls: z
     .object({
-      path: PathArg.default("knowledge/").describe("Directory to list, starting with an area: inputs/, published/, knowledge/, parent-draft/ or work/."),
+      path: PathArg.default("knowledge/").describe("Directory to list, starting with an area: inputs/, sources/, published/, knowledge/, parent-draft/ or work/."),
       recursive: z.boolean().default(false).describe("List every file below the directory instead of immediate children."),
       maxEntries: z.number().int().min(1).max(2000).default(200),
     })
@@ -127,6 +130,13 @@ export const TOOL_SCHEMAS = {
       path: PathArg.default("inputs/").describe("Directory to search below."),
       name: z.string().min(1).max(200).describe("Glob: * matches within a path segment, ** across segments, ? one character. Without '/', matches the file name; with '/', the path relative to the search directory."),
       maxResults: z.number().int().min(1).max(2000).default(200),
+    })
+    .strict(),
+  shell: z
+    .object({
+      command: z.string().min(1).max(8000).describe("bash script. cwd is the workspace root, so relative paths work: ls sources/traces/, grep -rn 'error' sources/traces/2026-10-16/, cat inputs/manifest.json, find sources -name events.jsonl | head."),
+      timeoutMs: z.number().int().min(100).max(MAX_COMMAND_TIMEOUT_MS).default(30_000),
+      maxOutputBytes: z.number().int().min(256).max(MAX_SHELL_STDOUT_BYTES).default(8 * 1024).describe(`stdout bytes to return (max ${MAX_SHELL_STDOUT_BYTES}); stderr is bounded to ${MAX_SHELL_STDERR_BYTES}. Narrow with head/sed/grep.`),
     })
     .strict(),
   write: z
@@ -209,6 +219,11 @@ const DESCRIPTIONS: Record<BuiltinToolName, { access: ToolAccess; description: s
   read: { access: "read", description: "Read a file slice by lines (offset/limit) or bytes (byteOffset/byteLimit). Returns sha256, total size and nextOffset; never silently truncates." },
   grep: { access: "read", description: "Search files under a directory for a literal string (default) or regex. Returns area-prefixed path:line matches; truncation is explicit." },
   find: { access: "read", description: "Find files by glob name under a directory." },
+  shell: {
+    access: "read",
+    description:
+      "Run a bash command in your isolated build sandbox with cwd = the workspace root (inputs/, sources/, published/, knowledge/, parent-draft/ when mounted), for ls/find/grep/cat/head/sed/wc/sort/node over traces and pages. Commands run as a separate unprivileged uid: every workspace area is OS read-only for them, including knowledge/ (change pages only with write/edit/move/delete, which enforce your knowledgeWriteScope); work/ is not visible to commands; the only writable directory is $SCRATCH (cmd-scratch/, private, never published or copied). No network, no credentials. Output is bounded with explicit truncation flags.",
+  },
   write: { access: "write", description: "Create or replace a whole file in knowledge/ (only inside your knowledgeWriteScope) or work/. Other areas are read-only." },
   edit: { access: "write", description: "Replace exact old_text (must occur exactly once) with new_text in a knowledge/ or work/ file." },
   move: { access: "write", description: "Move/rename a file within knowledge/ (both paths inside your scope) or within work/, e.g. promote knowledge/foo.md to knowledge/foo/index.md. Fails if the destination exists. Fix links afterwards (validate lists broken ones)." },
@@ -228,7 +243,7 @@ const DESCRIPTIONS: Record<BuiltinToolName, { access: ToolAccess; description: s
 };
 
 // Delegation tools are listed right after orientation tools: they are the primary way to cover a multi-area cohort.
-const COMMON_TOOLS: BuiltinToolName[] = ["ls", "read", "grep", "find", "spawn_agents", "wait_agents", "read_agent_result", "decide_agent_results", "cancel_agents", "write", "edit", "move", "delete", "validate"];
+const COMMON_TOOLS: BuiltinToolName[] = ["ls", "read", "grep", "find", "shell", "spawn_agents", "wait_agents", "read_agent_result", "decide_agent_results", "cancel_agents", "write", "edit", "move", "delete", "validate"];
 export const ROOT_TOOLS: readonly BuiltinToolName[] = [...COMMON_TOOLS, "publish"];
 export const CHILD_TOOLS: readonly BuiltinToolName[] = [...COMMON_TOOLS, "complete_task"];
 
@@ -313,7 +328,8 @@ export class AgentToolbox {
     private readonly control: ControlPlane,
     providers: Map<string, ProviderTool>,
   ) {
-    this.builtins = state.isRoot ? ROOT_TOOLS : CHILD_TOOLS;
+    // shell is offered only where the workspace backend really executes commands (Modal sandbox).
+    this.builtins = (state.isRoot ? ROOT_TOOLS : CHILD_TOOLS).filter((n) => n !== "shell" || state.workspace.commands);
     this.#providers = providers;
   }
 
@@ -348,7 +364,9 @@ export class AgentToolbox {
       if (!this.builtins.includes(builtin)) {
         throw new ToolError(
           "not_available",
-          builtin === "publish" ? "publish is root-only: children hand back a proposal with complete_task and the parent decides it" : "complete_task is only for child agents; the root finishes with publish",
+          builtin === "shell"
+            ? "shell is not available in this workspace backend (commands run only in the Modal build sandbox)"
+            : builtin === "publish" ? "publish is root-only: children hand back a proposal with complete_task and the parent decides it" : "complete_task is only for child agents; the root finishes with publish",
         );
       }
       const parsed = TOOL_SCHEMAS[builtin].safeParse(args);
@@ -371,6 +389,8 @@ export class AgentToolbox {
         return this.#grep(args as ToolArgs<"grep">);
       case "find":
         return this.#find(args as ToolArgs<"find">);
+      case "shell":
+        return this.#shell(args as ToolArgs<"shell">);
       case "write":
         return this.#write(args as ToolArgs<"write">);
       case "edit":
@@ -404,6 +424,28 @@ export class AgentToolbox {
 
   #mountedOrThrow(area: BuildArea) {
     if (!this.#ws.mounted(area)) throw new ToolError("not_mounted", `${area}/ is not mounted for this agent`);
+  }
+
+  async #shell(args: ToolArgs<"shell">) {
+    const r = await this.#ws.runCommand({ command: args.command, timeoutMs: args.timeoutMs, maxOutputBytes: args.maxOutputBytes });
+    const clip = (text: string, max: number, already: boolean) => {
+      const b = Buffer.from(text, "utf8");
+      if (b.length <= max) return { text, truncated: already };
+      return { text: b.subarray(0, max).toString("utf8").replace(/\uFFFD$/, ""), truncated: true };
+    };
+    const out = clip(r.stdout, args.maxOutputBytes, r.stdoutTruncated);
+    const err = clip(r.stderr, MAX_SHELL_STDERR_BYTES, r.stderrTruncated);
+    return {
+      exitCode: r.exitCode,
+      timedOut: r.timedOut,
+      durationMs: r.durationMs,
+      cwd: "workspace root (inputs/ sources/ published/ knowledge/ ...)",
+      runAs: r.runAs,
+      stdout: out.text,
+      stdoutTruncated: out.truncated,
+      stderr: err.text,
+      stderrTruncated: err.truncated,
+    };
   }
 
   /** Writable-area + scope policy, enforced before any backend call. */

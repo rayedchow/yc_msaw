@@ -1,25 +1,35 @@
+import { spawn } from "node:child_process";
 import { promises as fs } from "node:fs";
 import os from "node:os";
 import path from "node:path";
-import type { SandboxLease } from "../sandbox/types.js";
-import { newId } from "../util.js";
+import { READER_UID, type SandboxLease } from "../sandbox/types.js";
+import type { TraceArchiveSnapshot } from "../traces/archive.js";
+import { newId, sha256 } from "../util.js";
 import { normalizeWikiPath } from "../wiki/paths.js";
 
 /**
  * Per-agent build workspace (AEye/Silicon layout, adapted):
  *   inputs/        read-only  daily trace cohort: manifest.json, sessions/<id>/{session.json,events.jsonl,payloads/*}
+ *   sources/       read-only  archive of ALL retained traces of the host tenant (src/traces/archive.ts):
+ *                             README.md, manifest.json, traces/<day>/<sessionId>/{session.json,events.jsonl,payloads/*}
  *   published/     read-only  pinned published memory revision
  *   knowledge/     writable   this agent's draft (root: copy of published; child: parent's draft at spawn,
  *                             writable only inside its knowledgeWriteScope - enforced by tools.ts)
  *   parent-draft/  read-only  point-in-time snapshot of the root draft (only for includeParentDraft children)
  *   work/          writable   private scratch and handoff notes; never published, never copied to children
+ *   cmd-scratch/   (Modal only) the only directory the `shell` command uid may write; not an FS-tool area
+ *
+ * Two unprivileged uids in Modal: AGENT_UID owns knowledge/ and work/ and runs only host-fixed argv
+ * for the FS tools (which enforce knowledgeWriteScope); READER_UID runs model-authored `shell`
+ * commands with cwd = the workspace root and owns nothing but cmd-scratch/, so every area is
+ * OS read-only for commands (no scope bypass, no rename/delete/symlink replacement).
  *
  * The host validates every agent-supplied path (parseAgentPath) before any
  * backend call. Backends receive only (area, canonical relative path).
  */
-export type BuildArea = "inputs" | "published" | "knowledge" | "parent-draft" | "work";
+export type BuildArea = "inputs" | "sources" | "published" | "knowledge" | "parent-draft" | "work";
 export type WritableArea = "knowledge" | "work";
-export const BUILD_AREAS: readonly BuildArea[] = ["inputs", "published", "knowledge", "parent-draft", "work"];
+export const BUILD_AREAS: readonly BuildArea[] = ["inputs", "sources", "published", "knowledge", "parent-draft", "work"];
 export const WIKI_AREAS: ReadonlySet<BuildArea> = new Set(["published", "knowledge", "parent-draft"]);
 
 export const MAX_READ_FILE_BYTES = 32 * 1024 * 1024;
@@ -32,7 +42,7 @@ const MAX_PLAIN_DEPTH = 12;
 
 export class WorkspaceError extends Error {
   constructor(
-    readonly code: "invalid_path" | "read_only" | "not_found" | "not_mounted" | "too_large" | "backend_error" | "already_exists",
+    readonly code: "invalid_path" | "read_only" | "not_found" | "not_mounted" | "too_large" | "backend_error" | "already_exists" | "unsupported",
     message: string,
   ) {
     super(message);
@@ -117,14 +127,44 @@ export interface GrepResult {
 
 export interface WorkspaceSeed {
   inputs: ReadonlyMap<string, string>;
+  /** Read-only trace archive mounted at sources/ (omitted/null = not mounted). The same snapshot for every agent of a build. */
+  sources?: TraceArchiveSnapshot | null;
   published: ReadonlyMap<string, string>;
   knowledge: ReadonlyMap<string, string>;
   parentDraft: ReadonlyMap<string, string> | null;
 }
 
+export const MAX_COMMAND_TIMEOUT_MS = 120_000;
+export const MAX_COMMAND_OUTPUT_BYTES = 64 * 1024;
+
+export interface CommandRequest {
+  /** bash script (model-authored); runs with cwd = workspace root (inputs/, sources/, published/, knowledge/ ...). */
+  command: string;
+  timeoutMs: number;
+  /** Per-stream capture bound. */
+  maxOutputBytes: number;
+  stdin?: string;
+}
+
+export interface CommandResult {
+  exitCode: number | null;
+  stdout: string;
+  stderr: string;
+  stdoutTruncated: boolean;
+  stderrTruncated: boolean;
+  timedOut: boolean;
+  durationMs: number;
+  /** Execution identity, host-chosen (never by the model). */
+  runAs: "sandbox-reader-uid" | "trusted-host-test";
+}
+
 export interface BuildWorkspace {
   readonly kind: "local" | "modal";
   readonly id: string;
+  /** True when runCommand executes commands (Modal; or the explicitly trusted local test mode). */
+  readonly commands: boolean;
+  /** Run a model-authored command where every workspace area is read-only (see class docs). */
+  runCommand(req: CommandRequest): Promise<CommandResult>;
   /** Materialize all areas. inputs/, published/ and parent-draft/ become read-only. */
   init(seed: WorkspaceSeed): Promise<void>;
   mounted(area: BuildArea): boolean;
@@ -164,15 +204,34 @@ function compileGrep(opts: GrepOptions): (line: string) => boolean {
 
 const MATCH_TEXT_MAX = 300;
 
+/** Validate every archive path before it reaches any backend. */
+function archiveEntries(snapshot: TraceArchiveSnapshot): Array<[string, string]> {
+  return [...snapshot.files.entries()].map(([rel, c]) => [checkAreaPath("sources", rel), c]);
+}
+
 /**
- * Host temp-directory workspace. Only validated file operations run here (no
- * command execution), so it is safe for offline builds and tests.
+ * Host temp-directory workspace. Only validated file operations run here, so
+ * it is safe for offline builds and tests. Commands are rejected unless the
+ * caller opts into `trustedHostCommands` (tests only: runs bash on the host as
+ * the current user with cwd = the workspace root; there is NO OS isolation
+ * beyond read-only file modes, so never use it for model-authored commands in
+ * production).
  */
 export class LocalBuildWorkspace implements BuildWorkspace {
   readonly kind = "local" as const;
   readonly id = newId("ws");
+  readonly commands: boolean;
   #root = "";
   #mounted = new Set<BuildArea>();
+
+  constructor(opts: { trustedHostCommands?: boolean } = {}) {
+    this.commands = opts.trustedHostCommands === true;
+  }
+
+  /** Absolute host root (tests). */
+  get rootDir(): string {
+    return this.#root;
+  }
 
   async init(seed: WorkspaceSeed): Promise<void> {
     this.#root = await fs.mkdtemp(path.join(os.tmpdir(), "procmem-build-"));
@@ -193,6 +252,20 @@ export class LocalBuildWorkspace implements BuildWorkspace {
       this.#mounted.add("parent-draft");
       for (const [rel, c] of seed.parentDraft) await put("parent-draft", rel, c, 0o444);
     }
+    if (seed.sources) {
+      await fs.mkdir(path.join(this.#root, "sources", "traces"), { recursive: true });
+      for (const [rel, c] of archiveEntries(seed.sources)) await put("sources", rel, c, 0o444);
+      await chmodDirs(path.join(this.#root, "sources"), 0o555);
+      this.#mounted.add("sources");
+    }
+    if (this.commands) await fs.mkdir(path.join(this.#root, "cmd-scratch"), { recursive: true });
+  }
+
+  async runCommand(req: CommandRequest): Promise<CommandResult> {
+    if (!this.commands) throw new WorkspaceError("unsupported", "Commands are not available in the local build workspace (production commands run in the Modal sandbox)");
+    if (!this.#root) throw new WorkspaceError("backend_error", "Workspace not initialized");
+    const scratch = path.join(this.#root, "cmd-scratch");
+    return runHostCommand(req, this.#root, { PATH: process.env.PATH ?? "/usr/bin:/bin", HOME: scratch, TMPDIR: scratch, SCRATCH: scratch, LANG: "C.UTF-8", LC_ALL: "C.UTF-8" });
   }
 
   mounted(area: BuildArea): boolean {
@@ -292,9 +365,71 @@ export class LocalBuildWorkspace implements BuildWorkspace {
   }
 
   async dispose(): Promise<void> {
-    if (this.#root) await fs.rm(this.#root, { recursive: true, force: true });
+    if (this.#root) {
+      await chmodDirs(path.join(this.#root, "sources"), 0o755).catch(() => undefined);
+      await fs.rm(this.#root, { recursive: true, force: true });
+    }
     this.#root = "";
   }
+}
+
+async function chmodDirs(dir: string, mode: number): Promise<void> {
+  const st = await fs.lstat(dir).catch(() => null);
+  if (!st?.isDirectory()) return;
+  if (mode & 0o200) await fs.chmod(dir, mode);
+  for (const e of await fs.readdir(dir, { withFileTypes: true })) if (e.isDirectory()) await chmodDirs(path.join(dir, e.name), mode);
+  if (!(mode & 0o200)) await fs.chmod(dir, mode);
+}
+
+/** Trusted-host test runner: bash -c in cwd with a minimal env, deadline and bounded capture. */
+function runHostCommand(req: CommandRequest, cwd: string, env: Record<string, string>): Promise<CommandResult> {
+  const started = Date.now();
+  return new Promise((resolve, reject) => {
+    const child = spawn("/bin/bash", ["-c", req.command], { cwd, env, detached: true, stdio: ["pipe", "pipe", "pipe"] });
+    const cap = (max: number) => {
+      const parts: Buffer[] = [];
+      let n = 0;
+      let truncated = false;
+      return {
+        push(b: Buffer) {
+          if (n >= max) return void (truncated = true);
+          const take = b.subarray(0, max - n);
+          if (take.length < b.length) truncated = true;
+          parts.push(take);
+          n += take.length;
+        },
+        get text() {
+          return Buffer.concat(parts).toString("utf8");
+        },
+        get truncated() {
+          return truncated;
+        },
+      };
+    };
+    const out = cap(req.maxOutputBytes);
+    const err = cap(req.maxOutputBytes);
+    let timedOut = false;
+    const timer = setTimeout(() => {
+      timedOut = true;
+      try {
+        process.kill(-child.pid!, "SIGKILL");
+      } catch {
+        /* already gone */
+      }
+    }, req.timeoutMs);
+    child.stdout.on("data", (b: Buffer) => out.push(b));
+    child.stderr.on("data", (b: Buffer) => err.push(b));
+    child.on("error", (e) => {
+      clearTimeout(timer);
+      reject(new WorkspaceError("backend_error", `Command failed to start: ${e.message}`));
+    });
+    child.on("close", (code) => {
+      clearTimeout(timer);
+      resolve({ exitCode: timedOut ? null : code, stdout: out.text, stderr: err.text, stdoutTruncated: out.truncated, stderrTruncated: err.truncated, timedOut, durationMs: Date.now() - started, runAs: "trusted-host-test" });
+    });
+    child.stdin.on("error", () => undefined);
+    child.stdin.end(req.stdin ?? "");
+  });
 }
 
 /**
@@ -307,6 +442,7 @@ export class LocalBuildWorkspace implements BuildWorkspace {
 export class ModalBuildWorkspace implements BuildWorkspace {
   readonly kind = "modal" as const;
   readonly id = newId("ws");
+  readonly commands = true;
   #lease: SandboxLease | null = null;
   #mounted = new Set<BuildArea>();
   readonly root: string;
@@ -335,24 +471,46 @@ export class ModalBuildWorkspace implements BuildWorkspace {
     if (!this.#lease) throw new WorkspaceError("backend_error", "Workspace not initialized");
     return this.#lease;
   }
-  async #exec(argv: string[], opts: { user?: "agent" | "root"; stdin?: string; maxOutputBytes?: number } = {}) {
-    const r = await this.#l().exec(argv, { user: opts.user ?? "agent", timeoutMs: this.#timeoutMs, stdin: opts.stdin, maxOutputBytes: opts.maxOutputBytes ?? 1024 * 1024 });
-    if (r.timedOut) throw new WorkspaceError("backend_error", `Sandbox command ${argv[0]} timed out after ${this.#timeoutMs}ms`);
+  async #exec(argv: string[], opts: { user?: "agent" | "root"; stdin?: string; maxOutputBytes?: number; timeoutMs?: number } = {}) {
+    const timeoutMs = opts.timeoutMs ?? this.#timeoutMs;
+    const r = await this.#l().exec(argv, { user: opts.user ?? "agent", timeoutMs, stdin: opts.stdin, maxOutputBytes: opts.maxOutputBytes ?? 1024 * 1024 });
+    if (r.timedOut) throw new WorkspaceError("backend_error", `Sandbox command ${argv[0]} timed out after ${timeoutMs}ms`);
     return r;
   }
 
   async init(seed: WorkspaceSeed): Promise<void> {
     this.#lease = await this.leaseFactory();
     const lease = this.#lease;
-    const areas: BuildArea[] = ["inputs", "published", ...(seed.parentDraft ? (["parent-draft"] as const) : [])];
+    const areas: BuildArea[] = ["inputs", "published", ...(seed.parentDraft ? (["parent-draft"] as const) : []), ...(seed.sources ? (["sources"] as const) : [])];
     const mk = await this.#exec(["mkdir", "-p", "--", ...areas.map((a) => this.#dir(a)), `${this.root}/.seed/knowledge`], { user: "root" });
     if (mk.exitCode !== 0) throw new WorkspaceError("backend_error", `mkdir failed: ${mk.stderr.slice(0, 400)}`);
-    const files: Array<{ path: string; content: string }> = [];
+    const files: Array<{ path: string; content: string | Uint8Array }> = [];
     for (const [rel, c] of seed.inputs) files.push({ path: this.#abs("inputs", checkAreaPath("inputs", rel)), content: c });
     for (const [rel, c] of seed.published) files.push({ path: this.#abs("published", checkAreaPath("published", rel)), content: c });
     for (const [rel, c] of seed.parentDraft ?? []) files.push({ path: this.#abs("parent-draft", checkAreaPath("parent-draft", rel)), content: c });
     for (const [rel, c] of seed.knowledge) files.push({ path: `${this.root}/.seed/knowledge/${checkAreaPath("knowledge", rel)}`, content: c });
+    let bundle: { path: string; sha256: string; files: number; bytes: number } | null = null;
+    if (seed.sources) {
+      // One compressed, digest-pinned bundle per sandbox (built once per build and shared), unpacked by root.
+      const entries = archiveEntries(seed.sources);
+      const gz = seed.sources.bundle();
+      bundle = { path: `${this.root}/.seed/sources.bundle.gz`, sha256: sha256(gz), files: entries.length, bytes: entries.reduce((n, [, c]) => n + Buffer.byteLength(c, "utf8"), 0) };
+      files.push({ path: bundle.path, content: gz });
+    }
     if (files.length) await lease.writeFiles(files);
+    if (bundle) {
+      const r = await this.#exec(["/usr/local/bin/node", "-e", UNPACK_ARCHIVE_JS, bundle.path, `${this.#dir("sources")}`, bundle.sha256], { user: "root", timeoutMs: Math.max(this.#timeoutMs, 300_000) });
+      if (r.exitCode !== 0) throw new WorkspaceError("backend_error", `Unpacking sources/ failed (exit ${r.exitCode}): ${r.stderr.trim().slice(0, 400)}`);
+      let got: { files?: number; bytes?: number } = {};
+      try {
+        got = JSON.parse(r.stdout) as typeof got;
+      } catch {
+        /* reported below */
+      }
+      if (got.files !== bundle.files || got.bytes !== bundle.bytes) {
+        throw new WorkspaceError("backend_error", `sources/ unpack mismatch: expected ${bundle.files} files / ${bundle.bytes} bytes, sandbox reported ${r.stdout.trim().slice(0, 200)}`);
+      }
+    }
     for (const a of areas) {
       await lease.protectTree(this.#dir(a));
       this.#mounted.add(a);
@@ -364,6 +522,13 @@ export class ModalBuildWorkspace implements BuildWorkspace {
     if (cp.exitCode !== 0) throw new WorkspaceError("backend_error", `Seeding knowledge/ failed: ${cp.stderr.slice(0, 400)}`);
     const rm = await this.#exec(["rm", "-rf", "--", `${this.root}/.seed`], { user: "root" });
     if (rm.exitCode !== 0) throw new WorkspaceError("backend_error", `Removing seed failed: ${rm.stderr.slice(0, 400)}`);
+    // knowledge/ stays agent-owned (FS tools enforce scopes) but becomes world-readable so `shell`
+    // commands (READER uid) can read the draft; work/ stays 0700. cmd-scratch/ is the reader's only writable dir.
+    const perm = await this.#exec(
+      ["/bin/bash", "-c", 'set -e; chmod -R go-w,go+rX -- "$1"; chmod 0755 -- "$1"; mkdir -p -- "$2"; chown -h "$3" -- "$2"; chmod 0700 -- "$2"', "procmem-perm", this.#dir("knowledge"), this.#scratch, `${READER_UID}:${READER_UID}`],
+      { user: "root" },
+    );
+    if (perm.exitCode !== 0) throw new WorkspaceError("backend_error", `Preparing command permissions failed: ${perm.stderr.slice(0, 400)}`);
     this.#mounted.add("knowledge");
     this.#mounted.add("work");
   }
@@ -383,9 +548,25 @@ export class ModalBuildWorkspace implements BuildWorkspace {
     return Buffer.from(r.stdout, "utf8");
   }
 
+  get #scratch(): string {
+    return `${this.root}/cmd-scratch`;
+  }
+
+  async runCommand(req: CommandRequest): Promise<CommandResult> {
+    const r = await this.#l().exec(["/bin/bash", "-c", req.command], {
+      user: "reader",
+      cwd: this.root,
+      timeoutMs: Math.min(Math.max(req.timeoutMs, 100), MAX_COMMAND_TIMEOUT_MS),
+      maxOutputBytes: Math.min(req.maxOutputBytes, MAX_COMMAND_OUTPUT_BYTES),
+      ...(req.stdin !== undefined ? { stdin: req.stdin } : {}),
+      env: { HOME: this.#scratch, TMPDIR: this.#scratch, SCRATCH: this.#scratch },
+    });
+    return { ...r, runAs: "sandbox-reader-uid" };
+  }
+
   async writeFile(area: WritableArea, rel: string, content: string): Promise<void> {
     this.#requireMounted(area);
-    const r = await this.#exec(["bash", "-c", 'mkdir -p -- "$(dirname -- "$1")" && cat > "$1"', "bash", this.#abs(area, rel)], { stdin: content });
+    const r = await this.#exec(["bash", "-c", 'umask 022 && mkdir -p -- "$(dirname -- "$1")" && cat > "$1"', "bash", this.#abs(area, rel)], { stdin: content });
     if (r.exitCode !== 0) throw new WorkspaceError("backend_error", `Write failed for ${agentPath(area, rel)}: ${r.stderr.trim().slice(0, 300)}`);
   }
 
@@ -464,8 +645,36 @@ export class ModalBuildWorkspace implements BuildWorkspace {
   }
 }
 
+/**
+ * Root-run unpacker for the sources/ bundle: verifies the bundle digest, refuses unsafe paths,
+ * creates every file exclusively (O_EXCL|O_NOFOLLOW) and reports {files, bytes} for the host to compare.
+ * argv: <bundle> <destDir> <sha256>
+ */
+const UNPACK_ARCHIVE_JS = `
+const fs = require("fs"), path = require("path"), zlib = require("zlib"), crypto = require("crypto");
+const [bundle, dest, expected] = process.argv.slice(1);
+const raw = fs.readFileSync(bundle);
+if (crypto.createHash("sha256").update(raw).digest("hex") !== expected) { console.error("bundle digest mismatch"); process.exit(3); }
+const doc = JSON.parse(zlib.gunzipSync(raw).toString("utf8"));
+fs.mkdirSync(path.join(dest, "traces"), { recursive: true, mode: 0o755 });
+let files = 0, bytes = 0;
+for (const [rel, content] of doc.files) {
+  if (typeof rel !== "string" || typeof content !== "string" || rel.startsWith("/") || rel.split("/").some((s) => s === "" || s === "." || s === "..")) { console.error("unsafe path in bundle"); process.exit(4); }
+  const p = path.join(dest, rel);
+  fs.mkdirSync(path.dirname(p), { recursive: true, mode: 0o755 });
+  const fd = fs.openSync(p, fs.constants.O_WRONLY | fs.constants.O_CREAT | fs.constants.O_EXCL | fs.constants.O_NOFOLLOW, 0o444);
+  const b = Buffer.from(content, "utf8");
+  try { fs.writeFileSync(fd, b); } finally { fs.closeSync(fd); }
+  files++; bytes += b.length;
+}
+fs.rmSync(bundle, { force: true });
+process.stdout.write(JSON.stringify({ files, bytes }));
+`;
+
 /** Factory helpers. */
 export const localWorkspaceFactory: BuildWorkspaceFactory = () => new LocalBuildWorkspace();
+/** TESTS ONLY: local workspaces whose `shell` runs bash on the host (no OS isolation). */
+export const trustedLocalCommandWorkspaceFactory: BuildWorkspaceFactory = () => new LocalBuildWorkspace({ trustedHostCommands: true });
 export function modalWorkspaceFactory(leaseFactory: (spec: WorkspaceSpec) => Promise<SandboxLease>, opts: { execTimeoutMs?: number } = {}): BuildWorkspaceFactory {
   return (spec) => new ModalBuildWorkspace(() => leaseFactory(spec), opts);
 }

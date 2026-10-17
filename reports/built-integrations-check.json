@@ -1,9 +1,9 @@
 {
-  "at": "2026-10-17T22:02:58.305Z",
+  "at": "2026-10-17T23:28:46.109Z",
   "builtChunks": {
-    "builder": "builder-B3NLPhrK.js",
-    "integrations": "integrations-DW3Pb6_e.js",
-    "builderImport": "./integrations-DW3Pb6_e.js"
+    "builder": "builder-DHpSj3I0.js",
+    "integrations": "integrations-CHB6jGSk.js",
+    "builderImport": "./integrations-CHB6jGSk.js"
   },
   "toolsByScope": {
     "builder-research": [

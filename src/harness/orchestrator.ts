@@ -17,6 +17,7 @@ import {
   type ToolProviderRegistration,
 } from "./tools.js";
 import { parseAgentPath, type BuildWorkspace, type BuildWorkspaceFactory } from "./workspace.js";
+import type { TraceArchiveSnapshot } from "../traces/archive.js";
 
 /**
  * Recursive build-agent tree (AEye workspace-agent semantics, adapted):
@@ -48,6 +49,8 @@ export interface OrchestratorOptions {
   baseRevision: string;
   sources: readonly string[];
   inputs: ReadonlyMap<string, string>;
+  /** Read-only archive of all retained tenant traces, mounted at sources/ for every agent (one snapshot per build). */
+  traceArchive?: TraceArchiveSnapshot | null;
   published: ReadonlyMap<string, string>;
   profiles: ProfileRegistry;
   clientFactory: ChatClientFactory;
@@ -231,7 +234,7 @@ export class BuildOrchestrator implements ControlPlane {
       root.workspace = ws;
       root.workspaceInfo = { kind: ws.kind, id: ws.id };
       try {
-        await ws.init({ inputs: this.#o.inputs, published: this.#o.published, knowledge: this.#o.published, parentDraft: null });
+        await ws.init({ inputs: this.#o.inputs, sources: this.#o.traceArchive ?? null, published: this.#o.published, knowledge: this.#o.published, parentDraft: null });
       } catch (error) {
         root.status = "failed";
         root.failure = { code: "workspace_init_failed", message: errorText(error) };
@@ -276,6 +279,8 @@ export class BuildOrchestrator implements ControlPlane {
         selectableProfiles: this.#o.profiles.selectable,
         defaultChildProfileId: this.#o.profiles.defaultChild.id,
         providerGuidance: providerGuidance(this.#o.toolProviders ?? [], !isRoot),
+        sourcesMounted: node.workspace!.mounted("sources"),
+        commands: toolbox.names().includes("shell"),
       };
       const scopeList = node.scope === "all" ? [] : node.scope.map(describeEntry);
       const systemPrompt = isRoot ? rootSystemPrompt(promptCtx) : childSystemPrompt({ ...promptCtx, depth: node.depth, scope: scopeList, hasParentDraft: node.includeParentDraft });
@@ -290,6 +295,7 @@ export class BuildOrchestrator implements ControlPlane {
             cohortOverview: cohortOverview(this.#o.inputs),
             cohortBytes: [...this.#o.inputs.values()].reduce((n, c) => n + Buffer.byteLength(c, "utf8"), 0),
             instructions: this.#o.instructions,
+            ...(this.#o.traceArchive ? { archive: archiveOverview(this.#o.traceArchive, this.#o.inputs) } : {}),
           })
         : childTaskPrompt({ objective: node.objective, context: node.context, paths: node.paths, scope: scopeList, parentId: node.parentId! });
       const client = this.#o.clientFactory(node.profile, { buildId: this.#o.buildId, agentId: node.id, parentId: node.parentId, depth: node.depth, objective: node.objective });
@@ -514,7 +520,7 @@ export class BuildOrchestrator implements ControlPlane {
         const ws = this.#o.workspaceFactory({ buildId: this.#o.buildId, agentId: c.id, depth: c.depth });
         c.workspace = ws;
         c.workspaceInfo = { kind: ws.kind, id: ws.id };
-        await ws.init({ inputs: this.#o.inputs, published: this.#o.published, knowledge: c.base, parentDraft: c.includeParentDraft ? base : null });
+        await ws.init({ inputs: this.#o.inputs, sources: this.#o.traceArchive ?? null, published: this.#o.published, knowledge: c.base, parentDraft: c.includeParentDraft ? base : null });
       }),
     );
     const failedInit = inits.find((r): r is PromiseRejectedResult => r.status === "rejected");
@@ -838,6 +844,23 @@ export function cohortOverview(inputs: ReadonlyMap<string, string>, max = 60): s
   const out = [...sessions.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).slice(0, max).map(([id, s]) => `${id}: ${s.events} event(s)${s.payloads ? `, ${s.payloads} payload(s)` : ""}, ${Math.ceil(s.bytes / 1024)} KiB${s.objective ? ` - objective (untrusted, as captured): ${JSON.stringify(s.objective)}` : ""}`);
   if (sessions.size > max) out.push(`... and ${sessions.size - max} more session(s); see inputs/manifest.json and ls inputs/sessions/`);
   return out;
+}
+
+/** Host-computed archive facts for the root task prompt (bounded). */
+export function archiveOverview(archive: TraceArchiveSnapshot, inputs: ReadonlyMap<string, string>, maxDays = 30) {
+  const current = new Set([...inputs.keys()].map((k) => /^sessions\/([^/]+)\//.exec(k)?.[1]).filter((x): x is string => !!x));
+  const days = archive.dayList;
+  return {
+    sha256: archive.sha256,
+    disabled: archive.disabled,
+    days: days.length,
+    sessions: archive.stats.sessions,
+    events: archive.stats.events,
+    bytes: archive.stats.bytes,
+    currentCohortSessionsInArchive: [...current].filter((s) => archive.sessionDays.has(s)).length,
+    historicalSessions: [...archive.sessionDays.keys()].filter((s) => !current.has(s)).length,
+    dayList: days.length > maxDays ? [...days.slice(0, 5), `... ${days.length - maxDays} more ...`, ...days.slice(-(maxDays - 5))] : [...days],
+  };
 }
 
 function errorText(error: unknown): string {

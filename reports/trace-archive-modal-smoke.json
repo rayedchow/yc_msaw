@@ -1,0 +1,252 @@
+{
+  "schema": "procmem.trace-archive-modal-smoke/v1",
+  "at": "2026-10-17T23:24:22.189Z",
+  "durationMs": 26659,
+  "workspaces": [
+    "root:modal",
+    "root.1:modal",
+    "root.1.1:modal"
+  ],
+  "traceArchive": {
+    "schema": "procmem.trace-archive/v1",
+    "sha256": "a923d8d7dd5b6c9e52a8903c9f938be8ff80b08b6e282564cec6ef155560f472",
+    "disabled": false,
+    "days": 3,
+    "sessions": 3,
+    "partitions": 4,
+    "chunks": 5,
+    "events": 7,
+    "files": 14,
+    "bytes": 33208,
+    "firstDay": "2026-10-14",
+    "lastDay": "2026-10-16"
+  },
+  "buildStatus": "published",
+  "checks": [
+    {
+      "name": "inputs = current cohort only",
+      "pass": true,
+      "detail": [
+        "sessions/ses-cross/session.json",
+        "sessions/ses-today/session.json"
+      ]
+    },
+    {
+      "name": "build published on Modal",
+      "pass": true,
+      "detail": {
+        "status": "published",
+        "backend": "modal"
+      }
+    },
+    {
+      "name": "archive non-empty",
+      "pass": true,
+      "detail": {
+        "schema": "procmem.trace-archive/v1",
+        "sha256": "a923d8d7dd5b6c9e52a8903c9f938be8ff80b08b6e282564cec6ef155560f472",
+        "disabled": false,
+        "days": 3,
+        "sessions": 3,
+        "partitions": 4,
+        "chunks": 5,
+        "events": 7,
+        "files": 14,
+        "bytes": 33208,
+        "firstDay": "2026-10-14",
+        "lastDay": "2026-10-16"
+      }
+    },
+    {
+      "name": "root: shell offered",
+      "pass": true
+    },
+    {
+      "name": "root: shell runs as reader uid in workspace root",
+      "pass": true,
+      "detail": "uid=1001\npwd=/build\ndays=2026-10-14 2026-10-15 2026-10-16 \ngrep=sources/traces/2026-10-14/ses-old/events.jsonl \nfiles=14\nsha=775eac4f4545b085326132dd54d44e3b259fa3231690eb0175ac6540df34f0a7\nother=\n{\"a"
+    },
+    {
+      "name": "root: ls sources/traces lists all days",
+      "pass": true,
+      "detail": "days=2026-10-14 2026-10-15 2026-10-16 "
+    },
+    {
+      "name": "root: grep reaches historical session",
+      "pass": true,
+      "detail": "grep=sources/traces/2026-10-14/ses-old/events.jsonl "
+    },
+    {
+      "name": "root: cat reads event content",
+      "pass": true
+    },
+    {
+      "name": "root: other tenant invisible",
+      "pass": true,
+      "detail": "other="
+    },
+    {
+      "name": "root: every shell mutation/network attempt denied",
+      "pass": true,
+      "detail": {
+        "leaks": [],
+        "denied": 14
+      }
+    },
+    {
+      "name": "root: archive intact + scratch writable",
+      "pass": true
+    },
+    {
+      "name": "root: no secrets in command env",
+      "pass": true,
+      "detail": [
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "PATH",
+        "PWD",
+        "SCRATCH",
+        "SHLVL",
+        "TMPDIR",
+        "_"
+      ]
+    },
+    {
+      "name": "root: FS write/delete to sources rejected",
+      "pass": true
+    },
+    {
+      "name": "root.1: shell offered",
+      "pass": true
+    },
+    {
+      "name": "root.1: shell runs as reader uid in workspace root",
+      "pass": true,
+      "detail": "uid=1001\npwd=/build\ndays=2026-10-14 2026-10-15 2026-10-16 \ngrep=sources/traces/2026-10-14/ses-old/events.jsonl \nfiles=14\nsha=775eac4f4545b085326132dd54d44e3b259fa3231690eb0175ac6540df34f0a7\nother=\n{\"a"
+    },
+    {
+      "name": "root.1: ls sources/traces lists all days",
+      "pass": true,
+      "detail": "days=2026-10-14 2026-10-15 2026-10-16 "
+    },
+    {
+      "name": "root.1: grep reaches historical session",
+      "pass": true,
+      "detail": "grep=sources/traces/2026-10-14/ses-old/events.jsonl "
+    },
+    {
+      "name": "root.1: cat reads event content",
+      "pass": true
+    },
+    {
+      "name": "root.1: other tenant invisible",
+      "pass": true,
+      "detail": "other="
+    },
+    {
+      "name": "root.1: every shell mutation/network attempt denied",
+      "pass": true,
+      "detail": {
+        "leaks": [],
+        "denied": 14
+      }
+    },
+    {
+      "name": "root.1: archive intact + scratch writable",
+      "pass": true
+    },
+    {
+      "name": "root.1: no secrets in command env",
+      "pass": true,
+      "detail": [
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "PATH",
+        "PWD",
+        "SCRATCH",
+        "SHLVL",
+        "TMPDIR",
+        "_"
+      ]
+    },
+    {
+      "name": "root.1: FS write/delete to sources rejected",
+      "pass": true
+    },
+    {
+      "name": "root.1.1: shell offered",
+      "pass": true
+    },
+    {
+      "name": "root.1.1: shell runs as reader uid in workspace root",
+      "pass": true,
+      "detail": "uid=1001\npwd=/build\ndays=2026-10-14 2026-10-15 2026-10-16 \ngrep=sources/traces/2026-10-14/ses-old/events.jsonl \nfiles=14\nsha=775eac4f4545b085326132dd54d44e3b259fa3231690eb0175ac6540df34f0a7\nother=\n{\"a"
+    },
+    {
+      "name": "root.1.1: ls sources/traces lists all days",
+      "pass": true,
+      "detail": "days=2026-10-14 2026-10-15 2026-10-16 "
+    },
+    {
+      "name": "root.1.1: grep reaches historical session",
+      "pass": true,
+      "detail": "grep=sources/traces/2026-10-14/ses-old/events.jsonl "
+    },
+    {
+      "name": "root.1.1: cat reads event content",
+      "pass": true
+    },
+    {
+      "name": "root.1.1: other tenant invisible",
+      "pass": true,
+      "detail": "other="
+    },
+    {
+      "name": "root.1.1: every shell mutation/network attempt denied",
+      "pass": true,
+      "detail": {
+        "leaks": [],
+        "denied": 14
+      }
+    },
+    {
+      "name": "root.1.1: archive intact + scratch writable",
+      "pass": true
+    },
+    {
+      "name": "root.1.1: no secrets in command env",
+      "pass": true,
+      "detail": [
+        "HOME",
+        "LANG",
+        "LC_ALL",
+        "PATH",
+        "PWD",
+        "SCRATCH",
+        "SHLVL",
+        "TMPDIR",
+        "_"
+      ]
+    },
+    {
+      "name": "root.1.1: FS write/delete to sources rejected",
+      "pass": true
+    },
+    {
+      "name": "child shell reads its FS-tool draft but cannot write it",
+      "pass": true,
+      "detail": "# Billing\n\n- [Refunds](refunds.md): refunds.\n\n[Up](../index.md)\n/bin/bash: line 1: knowledge/billing/index.md: Permission denied\nexit=1\n"
+    },
+    {
+      "name": "scoped FS writes from all depths published",
+      "pass": true,
+      "detail": [
+        "billing/index.md",
+        "billing/refunds.md",
+        "index.md"
+      ]
+    }
+  ]
+}

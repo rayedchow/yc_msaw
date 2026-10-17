@@ -15,6 +15,14 @@
  *  - Every exec has a deadline and bounded stdout/stderr capture.
  *  - terminate() is idempotent and always called from a finally block.
  */
+/**
+ * Separate unprivileged uid for model-authored build commands (builder `shell` tool). It owns no
+ * workspace tree, so OS permissions make every area read-only for it (knowledge/ and work/ are owned
+ * by the agent uid 1000); it can only write its own private scratch directory and /tmp.
+ */
+export const READER_UID = 1001;
+export const READER_GID = 1001;
+
 export interface SandboxLease {
   readonly provider: "modal" | "local";
   readonly id: string;
@@ -32,8 +40,12 @@ export interface SandboxLease {
 }
 
 export interface ExecOptions {
-  /** "agent" = unprivileged uid; "root" only for host-owned setup/inspection. */
-  user: "agent" | "root";
+  /**
+   * "agent" = unprivileged uid that owns writable trees; "reader" = a second unprivileged uid that owns
+   * no workspace tree (model-authored build commands: everything is OS read-only except its own scratch);
+   * "root" only for host-owned setup/inspection. Never chosen by a model.
+   */
+  user: "agent" | "reader" | "root";
   cwd?: string;
   timeoutMs: number;
   stdin?: string;

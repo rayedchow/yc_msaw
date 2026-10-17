@@ -192,8 +192,8 @@ SDK entry points:
 | Path | What |
 |---|---|
 | `src/sdk/` → `packages/procmem-sdk` | Trace SDK (recorder, transports, Pi adapter); `live/` registry, Pi hot tools, stdio bridge; `oauth-refresh.ts` OAuth refresh provider |
-| `src/traces/` | Tenant-isolated ingest by receipt day (UTC); immutable daily manifests with catch-up; `materializeCohort` |
-| `src/harness/` | AEye-ported recursive build harness (`spawn_agents`, `wait_agents`, `read_agent_result`, `decide_agent_results`, `complete_task`, `publish`). Budgets maxDepth 4, maxChildren 32, maxDescendants 32, maxTurns 24, maxToolCalls 64. ToolProvider hook that registers the integration runtime |
+| `src/traces/` | Tenant-isolated ingest by receipt day (UTC); immutable daily manifests with catch-up; `materializeCohort`; `buildTraceArchive` (all retained traces → read-only builder `sources/`, see `docs/builder-trace-archive.md`) |
+| `src/harness/` | AEye-ported recursive build harness (`spawn_agents`, `wait_agents`, `read_agent_result`, `decide_agent_results`, `complete_task`, `publish`). Budgets maxDepth 4, maxChildren 32, maxDescendants 32, maxTurns 24, maxToolCalls 64. ToolProvider hook that registers the integration runtime. Every agent reads `inputs/` (today's cohort) and `sources/` (all history); in Modal a `shell` tool runs as a separate uid for which every area is read-only |
 | `src/daily/` | Daily build service: manifest pin, lease-fenced claim, heartbeat, crash recovery, catch-up, durable receipts |
 | `src/store/` | `ObjectStore` (immutable objects, listing, CAS refs). Modal Volume backend with a Dict create-only lock and multipart up to 32 MiB (`modal_worker/store_app.py`). `MemoryRepo` content-addressed revisions |
 | `src/customer/`, `src/sandbox/` | Customer FS workspace; Modal sandbox lease (protected trees, uid 1000, command handles) |

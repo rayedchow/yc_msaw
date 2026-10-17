@@ -1,5 +1,6 @@
 import { ConflictError, type MemoryRepo } from "../store/memory.js";
-import { newId } from "../util.js";
+import { buildTraceArchive, emptyTraceArchive, TraceArchiveSnapshot, type TraceArchiveOptions, type TraceArchiveSummary } from "../traces/archive.js";
+import { errorMessage, newId } from "../util.js";
 import { resolveBudget, type InvestigationBudget } from "./budget.js";
 import { manifestSha256 } from "./patch.js";
 import { runBuildTree, type AgentReceipt, type BuildLogger, type PublishCallback } from "./orchestrator.js";
@@ -21,6 +22,14 @@ export interface MemoryBuildOptions {
   inputs: ReadonlyMap<string, string>;
   /** Daily manifest ids this cohort was pinned from (recorded as revision provenance). */
   sources: readonly string[];
+  /**
+   * Read-only archive of all retained traces mounted at sources/ for every agent:
+   *  - undefined or TraceArchiveOptions: built once from repo.store + repo.ns (the host tenant) before the first attempt;
+   *  - a TraceArchiveSnapshot: used as-is (must belong to repo.ns);
+   *  - "disabled": an empty sources/ whose README says the host disabled it.
+   * Any archive error (integrity, over cap) fails the build explicitly; nothing is dropped.
+   */
+  traceArchive?: TraceArchiveSnapshot | TraceArchiveOptions | "disabled";
   profiles: ProfileRegistry;
   clientFactory: ChatClientFactory;
   budget?: Partial<InvestigationBudget>;
@@ -56,6 +65,8 @@ export interface BuildReceipt {
   status: BuildStatus;
   sources: string[];
   inputs: { files: number; manifestSha256: string };
+  /** The archive snapshot every agent saw at sources/ (null when it could not be built; see failure). */
+  traceArchive: TraceArchiveSummary | null;
   workspaceBackend: string | null;
   profiles: { root: string; selectable: string[]; defaultChild: string };
   budget: InvestigationBudget;
@@ -101,6 +112,31 @@ async function runMemoryBuildInner(opts: MemoryBuildOptions): Promise<Omit<Build
   const initialHead = await opts.repo.ensureHead();
   const attempts: BuildAttemptReceipt[] = [];
   let backend: string | null = null;
+  let archive: TraceArchiveSnapshot;
+  try {
+    archive = await resolveArchive(opts);
+  } catch (error) {
+    opts.log?.({ at: new Date().toISOString(), agentId: "host", event: "trace_archive_failed", detail: { message: errorMessage(error) } });
+    return {
+      schema: "procmem.build-receipt/v1",
+      buildId,
+      status: "failed",
+      sources: [...opts.sources],
+      inputs: { files: opts.inputs.size, manifestSha256: manifestSha256(opts.inputs) },
+      traceArchive: null,
+      workspaceBackend: null,
+      profiles: { root: opts.profiles.root.id, selectable: opts.profiles.selectable.map((p) => p.id), defaultChild: opts.profiles.defaultChild.id },
+      budget,
+      ...(opts.instructions ? { instructions: opts.instructions } : {}),
+      initialHead,
+      revisionId: initialHead,
+      failure: { code: "trace_archive_failed", message: errorMessage(error) },
+      startedAt,
+      finishedAt: new Date().toISOString(),
+      attempts,
+    };
+  }
+  opts.log?.({ at: new Date().toISOString(), agentId: "host", event: "trace_archive_ready", detail: { ...archive.summary(), cachedPartitions: archive.stats.cachedPartitions, renderedPartitions: archive.stats.renderedPartitions } });
   const workspaceFactory: BuildWorkspaceFactory = (spec) => {
     const ws = opts.workspaceFactory(spec);
     backend = ws.kind;
@@ -131,6 +167,7 @@ async function runMemoryBuildInner(opts: MemoryBuildOptions): Promise<Omit<Build
       baseRevision: base,
       sources: opts.sources,
       inputs: opts.inputs,
+      traceArchive: archive,
       published,
       profiles: opts.profiles,
       clientFactory: opts.clientFactory,
@@ -169,6 +206,7 @@ async function runMemoryBuildInner(opts: MemoryBuildOptions): Promise<Omit<Build
     status: final.status,
     sources: [...opts.sources],
     inputs: { files: opts.inputs.size, manifestSha256: manifestSha256(opts.inputs) },
+    traceArchive: archive.summary(),
     workspaceBackend: backend,
     profiles: { root: opts.profiles.root.id, selectable: opts.profiles.selectable.map((p) => p.id), defaultChild: opts.profiles.defaultChild.id },
     budget,
@@ -181,4 +219,14 @@ async function runMemoryBuildInner(opts: MemoryBuildOptions): Promise<Omit<Build
     finishedAt: new Date().toISOString(),
     attempts,
   };
+}
+
+async function resolveArchive(opts: MemoryBuildOptions): Promise<TraceArchiveSnapshot> {
+  const a = opts.traceArchive;
+  if (a === "disabled") return emptyTraceArchive(opts.repo.ns, { disabled: true, reason: "traceArchive: disabled" });
+  if (a instanceof TraceArchiveSnapshot) {
+    if (a.ns !== opts.repo.ns) throw new Error(`Trace archive belongs to namespace ${a.ns}, not the build's ${opts.repo.ns}`);
+    return a;
+  }
+  return buildTraceArchive(opts.repo.store, opts.repo.ns, a ?? {});
 }

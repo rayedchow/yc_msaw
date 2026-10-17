@@ -10,6 +10,7 @@ import {
   type ToolProviderRegistration,
 } from "../harness/index.js";
 import type { ProcmemConfig } from "../config.js";
+import { TraceArchiveCache, traceArchiveCacheBytesFromEnv, type TraceArchiveOptions } from "../traces/archive.js";
 import type { MemoryBuilder } from "./service.js";
 
 export interface BuilderOverrides {
@@ -20,6 +21,8 @@ export interface BuilderOverrides {
   integrations?: "on" | "off" | "required";
   /** Let the root agent call host-deploy tools (Manufact publish/rollback). Default: PROCMEM_INTEGRATION_DEPLOY=1. */
   allowIntegrationDeploy?: boolean;
+  /** sources/ trace archive: options (caps/paging) or "disabled". Default: every retained trace of the build's tenant. */
+  traceArchive?: Omit<TraceArchiveOptions, "cache"> | "disabled";
 }
 
 function profileIdFor(model: string): string {
@@ -40,6 +43,9 @@ export function createConfiguredBuilder(config: ProcmemConfig, log: (m: string) 
   const workspaceFactory =
     config.sandbox === "modal" ? createModalBuildWorkspaceFactory({ tags: { purpose: "memory-build" } }) : localWorkspaceFactory;
 
+  // Rendered (day, session) partitions are immutable: reuse them across this builder's daily builds.
+  const archiveCache = new TraceArchiveCache(traceArchiveCacheBytesFromEnv());
+  const traceArchive = overrides.traceArchive === "disabled" ? ("disabled" as const) : { ...(overrides.traceArchive ?? {}), cache: archiveCache };
   const integrationsMode = overrides.integrations ?? ((process.env.PROCMEM_INTEGRATIONS as "on" | "off" | "required" | undefined) ?? "on");
 
   return async ({ repo, ns, buildId, inputs, sources, signal }) => {
@@ -54,6 +60,7 @@ export function createConfiguredBuilder(config: ProcmemConfig, log: (m: string) 
       profiles,
       clientFactory: fireworksClientFactory(config.fireworksApiKey),
       workspaceFactory,
+      traceArchive,
       ...(overrides.budget ? { budget: overrides.budget } : {}),
       // Per-build integration runtime bound to the HOST tenant ns + buildId; runMemoryBuild closes
       // providers in its finally (persists repo bundles, terminates the Modal sandbox).

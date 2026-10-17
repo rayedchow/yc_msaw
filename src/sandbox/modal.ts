@@ -1,6 +1,6 @@
 import { randomUUID } from "node:crypto";
 import { ModalClient, type ContainerProcess, type Sandbox } from "modal";
-import type { CommandHandle, CommandPoll, ExecOptions, ExecResult, SandboxLease } from "./types.js";
+import { READER_GID, READER_UID, type CommandHandle, type CommandPoll, type ExecOptions, type ExecResult, type SandboxLease } from "./types.js";
 
 /**
  * Modal Sandbox implementation of SandboxLease.
@@ -19,6 +19,7 @@ import type { CommandHandle, CommandPoll, ExecOptions, ExecResult, SandboxLease 
 
 export const AGENT_UID = 1000;
 export const AGENT_GID = 1000;
+export { READER_UID, READER_GID } from "./types.js";
 export const DEFAULT_MODAL_IMAGE = "node:22-slim";
 export const DEFAULT_MODAL_APP = "procmem-sandbox";
 const CONTROL_DIR = "/opt/procmem";
@@ -122,10 +123,10 @@ function assertManagedPath(p: string): string {
   return p;
 }
 
-function sanitizeEnv(extra: Record<string, string> | undefined, user: "agent" | "root"): string[] {
+function sanitizeEnv(extra: Record<string, string> | undefined, user: ExecOptions["user"]): string[] {
   const env: Record<string, string> = {
     PATH: AGENT_PATH,
-    HOME: user === "agent" ? "/tmp" : "/root",
+    HOME: user === "root" ? "/root" : "/tmp",
     LANG: "C.UTF-8",
     LC_ALL: "C.UTF-8",
     TMPDIR: "/tmp",
@@ -145,11 +146,13 @@ function wrapArgv(argv: string[], opts: ExecOptions): string[] {
     if (typeof a !== "string" || a.includes("\0")) throw new Error("argv elements must be strings without NUL bytes");
   }
   const env = sanitizeEnv(opts.env, opts.user);
-  if (opts.user === "agent") {
+  if (opts.user !== "agent" && opts.user !== "reader" && opts.user !== "root") throw new Error(`Unknown exec user ${String(opts.user)}`);
+  if (opts.user === "agent" || opts.user === "reader") {
+    const [uid, gid] = opts.user === "agent" ? [AGENT_UID, AGENT_GID] : [READER_UID, READER_GID];
     return [
       "/usr/bin/setpriv",
-      `--reuid=${AGENT_UID}`,
-      `--regid=${AGENT_GID}`,
+      `--reuid=${uid}`,
+      `--regid=${gid}`,
       "--clear-groups",
       "--no-new-privs",
       "--inh-caps=-all",
