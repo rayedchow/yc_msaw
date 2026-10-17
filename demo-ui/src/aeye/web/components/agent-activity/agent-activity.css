@@ -1,0 +1,190 @@
+/* Shared agent-activity timeline (build trace, Chat answers, Edit
+   conversations): work groups, calls, thoughts, compactions, tasks and
+   cards. One type scale: 13px rows, 11px meta, 11.5px payload mono. */
+
+.activity-rows { list-style: none; margin: 0; padding: 0; }
+.activity-row { content-visibility: auto; contain-intrinsic-size: auto 32px; }
+.activity-row + .activity-row { margin-top: 2px; }
+.activity-history-content { display: contents; }
+.activity-history-button {
+  display: block; min-height: 32px; margin: 4px 0; padding: 4px 6px;
+  border: 0; background: none; box-shadow: none; color: var(--color-link);
+  font: inherit; font-size: 12px; text-align: left; cursor: pointer;
+}
+.activity-history-button:hover { text-decoration: underline; }
+.activity-history-button:focus-visible { outline: 2px solid var(--color-border-strong); outline-offset: 2px; }
+
+/* A host notice inside a response, and a model call's provider retries. */
+.activity-notice { margin: 6px 0; color: var(--color-muted); font-size: 12px; }
+.activity-model-retry { display: flex; align-items: flex-start; gap: 6px; margin: 6px 0; color: var(--color-muted); font-size: 12px; list-style: none; }
+.activity-model-retry > svg, .activity-model-retry > .activity-spinner { flex: none; margin-top: 2px; }
+.activity-model-retry > span { flex: 1; min-width: 0; overflow-wrap: anywhere; }
+.activity-model-retry .activity-duration { color: var(--color-faint); font-variant-numeric: tabular-nums; }
+.activity-model-retry--stopped { color: var(--color-text); }
+
+.activity-icon { flex: none; color: var(--color-faint); }
+.activity-icon--failed { color: var(--color-danger); }
+.activity-icon--good { color: var(--color-good); }
+.activity-spin { animation: activity-spin 1s linear infinite; }
+@keyframes activity-spin { to { transform: rotate(360deg); } }
+.activity-chevron { flex: none; color: var(--color-faint); transition: transform 180ms ease; }
+[aria-expanded="true"] > .activity-chevron,
+[aria-expanded="true"] > .activity-trailing > .activity-chevron { transform: rotate(90deg); }
+
+/* Row toggles: work groups, single calls, thoughts, the task. */
+.activity-toggle {
+  display: flex; align-items: center; gap: 8px; width: 100%; min-height: 28px; margin: 0; padding: 3px 6px;
+  border: 0; border-radius: 6px; background: transparent; box-shadow: none;
+  color: var(--color-muted); font: inherit; font-size: 13px; font-weight: 400; line-height: 1.4; letter-spacing: normal;
+  text-align: left; text-transform: none; cursor: pointer;
+  transition: background-color 120ms ease, color 120ms ease;
+}
+.activity-toggle:hover { background: var(--color-surface); color: var(--color-text); }
+.activity-label { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-label strong { color: var(--color-text); font-weight: 600; }
+/* A live elapsed clock: fixed-width digits, so the label does not shift as it ticks. */
+.activity-elapsed { font-variant-numeric: tabular-nums; }
+.activity-trailing { flex: none; display: inline-flex; align-items: center; gap: 6px; margin-left: auto; }
+.activity-trailing time { flex: none; color: var(--color-faint); font-size: 11px; font-variant-numeric: tabular-nums; opacity: 0; transition: opacity 120ms ease; }
+.activity-toggle:hover time,
+.activity-toggle:focus-visible time { opacity: 1; }
+.activity-duration { flex: none; color: var(--color-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+/* A live group's running time: one width from 0:00 to 59:59, so nothing beside it moves. */
+.activity-trailing > .activity-elapsed { min-width: 5ch; text-align: right; }
+.activity-badge { flex: none; padding: 0 6px; border-radius: 999px; background: var(--color-surface); color: var(--color-muted); font-size: 10.5px; line-height: 18px; }
+.activity-badge--failed { background: var(--color-danger-surface); color: var(--color-danger); }
+.activity-badge--running { background: var(--color-working-surface, var(--color-surface)); color: var(--color-working, var(--color-muted)); }
+
+.activity-lines { list-style: none; margin: 0; padding: 0; }
+.activity-lines > li { margin: 0; padding: 0; }
+.activity-lines--grouped { margin: 2px 0 6px 13px; padding-left: 10px; border-left: 1px solid var(--color-border); }
+.activity-line--failed .activity-label { color: var(--color-danger); }
+
+/* Details: input, output, result. */
+.activity-details { margin: 4px 0 8px 28px; display: grid; gap: 6px; }
+.activity-payload { margin: 0; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); overflow: hidden; }
+.activity-payload > header { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding: 4px 8px; border-bottom: 1px solid var(--color-border); color: var(--color-faint); font-size: 10.5px; text-transform: uppercase; letter-spacing: .03em; }
+.activity-payload > header button { min-height: 0; margin: 0; padding: 0; border: 0; background: none; color: var(--color-link); font-size: 11px; text-transform: none; letter-spacing: 0; cursor: pointer; }
+.activity-payload > pre { max-height: 22rem; margin: 0; padding: 8px 10px; overflow: auto; border: 0; border-radius: 0; background: transparent; white-space: pre-wrap; overflow-wrap: anywhere; font: 11.5px/1.5 var(--font-mono); color: var(--color-text); }
+.activity-payload--failed { border-color: color-mix(in srgb, var(--color-danger) 35%, var(--color-border)); }
+.activity-payload--failed > pre { color: var(--color-danger); }
+.activity-thought-text { padding: 8px 10px; border-left: 2px solid var(--color-border); color: var(--color-muted); font-size: 13px; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; }
+.activity-muted { margin: 0; color: var(--color-muted); font-size: 12px; }
+.activity-error-text { margin: 6px 0 0; color: var(--color-danger); font-size: 12px; overflow-wrap: anywhere; }
+.activity-retried-text { margin-top: 6px; overflow-wrap: anywhere; }
+
+/* Cards: subagent launches and handoffs. */
+.activity-card { margin: 8px 0; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface-raised); font-size: 13px; }
+.activity-card--failed { border-color: color-mix(in srgb, var(--color-danger) 35%, var(--color-border)); }
+.activity-card > header { display: flex; align-items: center; gap: 8px; font-size: 13px; }
+.activity-card > header strong { font-weight: 600; }
+.activity-card > header time { margin-left: auto; color: var(--color-faint); font-size: 11px; font-variant-numeric: tabular-nums; }
+.activity-card .activity-card-body { margin-top: 8px; font-size: 13px; line-height: 1.6; color: var(--color-text); overflow-wrap: anywhere; }
+.activity-card .activity-details { margin-left: 0; }
+.activity-card > .activity-muted { margin-top: 6px; }
+.activity-link-button { display: inline; min-height: 0; margin: 8px 0 0; padding: 0; border: 0; background: none; box-shadow: none; color: var(--color-link); font: inherit; font-size: 11.5px; cursor: pointer; }
+.activity-link-button:hover,
+.activity-link-button:focus-visible { outline: none; box-shadow: none; text-decoration: underline; }
+.activity-card-actions { display: flex; flex-wrap: wrap; align-items: baseline; gap: 14px; }
+a.activity-link-button { text-decoration: none; }
+a.activity-link-button:hover, a.activity-link-button:focus-visible { text-decoration: underline; }
+
+.activity-agent-chips { list-style: none; margin: 8px 0 0; padding: 0; display: grid; gap: 4px; }
+.activity-agent-chip { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: center; gap: 8px; width: 100%; min-height: 0; margin: 0; padding: 6px 8px; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); box-shadow: none; color: var(--color-text); font: inherit; font-size: 13px; text-align: left; cursor: pointer; }
+.activity-agent-chip--static { cursor: default; }
+button.activity-agent-chip:hover,
+.activity-agent-chip[aria-current="true"] { border-color: var(--color-border-strong); background: var(--color-surface-raised); }
+.activity-agent-chip-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-agent-chip-open { color: var(--color-link); font-size: 11.5px; }
+
+/* Task. */
+.activity-task { margin: 0 0 6px; }
+.activity-task-body { margin: 4px 0 10px 28px; padding: 10px 12px; border: 1px solid var(--color-border); border-radius: 8px; background: var(--color-surface); font-size: 13px; line-height: 1.6; color: var(--color-muted); }
+
+/* Compaction divider. */
+.activity-divider { margin: 10px 0; }
+.activity-divider > button { display: flex; align-items: center; gap: 8px; width: 100%; min-height: 0; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; color: var(--color-faint); font: inherit; font-size: 11px; cursor: pointer; }
+.activity-divider > button::before,
+.activity-divider > button::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--color-border); }
+.activity-divider > button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* A resume or a new attempt: a quiet, left-aligned line. */
+.activity-resumption { display: flex; align-items: center; gap: 8px; margin: 12px 0; padding: 0; color: var(--color-faint); font-size: 11px; list-style: none; }
+.activity-resumption::after { content: ""; flex: 1 1 auto; height: 1px; background: var(--color-border); }
+.activity-resumption > time { flex: none; min-width: 0; white-space: nowrap; }
+
+/* Expand / collapse. */
+.activity-collapse { display: grid; grid-template-rows: 0fr; opacity: 0; transition: grid-template-rows 200ms ease, opacity 160ms ease; }
+.activity-collapse[data-expanded] { grid-template-rows: 1fr; opacity: 1; }
+.activity-collapse-inner { min-height: 0; overflow: hidden; }
+
+/* Skeletons. */
+.activity-skeleton { display: grid; gap: 14px; padding: 8px 0; }
+.activity-skeleton-row { display: flex; align-items: center; gap: 8px; }
+.activity-skeleton-row--prose .activity-skeleton-bar { height: 11px; }
+.activity-skeleton-icon { flex: none; width: 14px; height: 14px; border-radius: 4px; }
+.activity-skeleton-bar { display: block; height: 9px; border-radius: 4px; }
+.activity-skeleton-icon,
+.activity-skeleton-bar {
+  background: linear-gradient(90deg, var(--color-surface) 0%, var(--color-border) 50%, var(--color-surface) 100%);
+  background-size: 200% 100%;
+  animation: activity-shimmer 1.4s ease-in-out infinite;
+}
+@keyframes activity-shimmer { from { background-position: 100% 0; } to { background-position: -100% 0; } }
+
+/* Buttons here never shrink on press and never show a green ring on click;
+   keyboard focus keeps a quiet neutral ring. */
+:is(.activity-rows, .activity-task, .activity-card) :is(button, a):active:not(:disabled) { transform: none !important; }
+:is(.activity-rows, .activity-task, .activity-card) button:focus:not(:focus-visible) { outline: none; box-shadow: none; }
+:is(.activity-rows, .activity-task, .activity-card) :is(button, a):focus-visible { outline: 2px solid var(--color-border-strong); outline-offset: 1px; box-shadow: none; }
+
+/* Narrow columns keep labels readable. */
+.activity-scope { container-type: inline-size; }
+@container (max-width: 34rem) {
+  .activity-duration,
+  .activity-trailing time { display: none; }
+  .activity-details { margin-left: 8px; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .activity-collapse,
+  .activity-chevron { transition: none; }
+  .activity-spin,
+  .activity-skeleton-icon,
+  .activity-skeleton-bar { animation: none; }
+}
+.activity-agent-chip { grid-template-columns: auto minmax(0, 1fr) auto; }
+.activity-agent-chip--static { grid-template-columns: auto minmax(0, 1fr); }
+.activity-agent-chip-name { color: var(--color-muted); font-size: 12px; font-weight: 600; white-space: nowrap; }
+/* A grade reads as plain colored text, never a badge. */
+.activity-verdict { margin-left: 2px; color: var(--color-muted); }
+.activity-verdict[data-verdict="pass"] { color: var(--color-good, var(--color-text)); }
+.activity-verdict[data-verdict="partial"] { color: var(--color-working, var(--color-muted)); }
+.activity-verdict[data-verdict="fail"] { color: var(--color-danger); }
+.activity-verdict-meta { margin-top: 6px; }
+
+/* An edit or write call as its change: removed and added lines in a
+   bounded frame that scrolls both ways; the exact call behind a disclosure. */
+.activity-file-change { display: grid; gap: 6px; min-width: 0; }
+.activity-file-change > header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; min-width: 0; font-size: 12px; }
+.activity-file-change-path { min-width: 0; overflow: hidden; color: var(--color-text); font: 11.5px/1.5 var(--font-mono); text-overflow: ellipsis; white-space: nowrap; }
+.activity-file-change-stat { flex: none; font-size: 11px; font-variant-numeric: tabular-nums; }
+.activity-file-change-stat ins { color: var(--color-good, #24643d); text-decoration: none; }
+.activity-file-change-stat del { color: var(--color-danger); text-decoration: none; }
+.activity-file-change-meta { color: var(--color-faint); font-size: 11px; }
+.activity-diff { min-width: 0; border: 1px solid var(--color-border); border-radius: 6px; background: var(--color-surface); overflow: hidden; }
+.activity-diff-rows { max-height: 22rem; margin: 0; padding: 6px 0; overflow: auto; list-style: none; font: 11.5px/1.5 var(--font-mono); color: var(--color-text); }
+.activity-diff-row { display: flex; min-width: max-content; padding: 0 10px 0 0; }
+.activity-diff-row > code { flex: 1 0 auto; padding: 0; background: none; font: inherit; white-space: pre; }
+.activity-diff-sign { flex: none; width: 2ch; padding-left: 6px; color: var(--color-faint); user-select: none; }
+.activity-diff-number { flex: none; min-width: 4ch; padding: 0 6px; color: var(--color-faint); text-align: right; font-variant-numeric: tabular-nums; user-select: none; }
+.activity-diff-row--add { background: #edf7f0; color: #24643d; }
+.activity-diff-row--add > .activity-diff-sign { color: #24643d; }
+.activity-diff-row--del { background: #fdf0ef; color: #98362f; }
+.activity-diff-row--del > .activity-diff-sign { color: #98362f; }
+.activity-diff-more { margin: 6px 10px; }
+.activity-diff-note { padding: 0 10px 6px; }
+.activity-exact > summary { width: fit-content; color: var(--color-link); font-size: 11.5px; cursor: pointer; list-style: none; }
+.activity-exact > summary::-webkit-details-marker { display: none; }
+.activity-exact > summary:hover { text-decoration: underline; }
+.activity-exact-body { display: grid; gap: 6px; margin-top: 6px; }

@@ -4,45 +4,12 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="referrer" content="no-referrer">
-  <title>Demo trace · procmem</title>
+  <title>Build trace</title>
   <link rel="icon" href="/favicon.svg" type="image/svg+xml">
   <link rel="stylesheet" href="/trace.css">
 </head>
 <body>
-  <div class="build-trace-page">
-    <header class="trace-topbar">
-      <div class="trace-topbar-title">
-        <span class="trace-brand">procmem · demo trace</span>
-        <h1 id="run-title" class="build-trace-title">Connecting…</h1>
-        <span id="run-mode" class="trace-pill">Connecting</span>
-        <span id="run-status" class="trace-pill" hidden></span>
-      </div>
-      <div class="trace-thread-toolbar">
-        <label class="trace-search">
-          <span class="sr-only">Search this trace</span>
-          <svg aria-hidden="true" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.3-4.3"/></svg>
-          <input id="search" type="search" placeholder="Search trace" autocomplete="off" spellcheck="false">
-          <kbd aria-hidden="true">/</kbd>
-        </label>
-        <button type="button" id="follow" class="trace-tool-button" aria-pressed="true" title="Follow new activity (f)">Following</button>
-        <a id="export" class="trace-tool-button" href="/api/snapshot" download title="Download the sanitized events and state as JSON">Export snapshot</a>
-      </div>
-      <p id="run-meta" class="trace-thread-meta"></p>
-    </header>
-    <p id="banner" class="trace-banner" role="status" hidden></p>
-    <div class="build-ide trace-ide" id="ide">
-      <div class="trace-main" id="main"></div>
-      <div class="build-ide-separator" id="separator" role="separator" aria-label="Resize panes" aria-orientation="vertical" aria-valuemin="24" aria-valuemax="70" tabindex="0"></div>
-      <aside class="trace-panel" aria-label="Files, diff and agents">
-        <div class="trace-panel-tabs" role="tablist" aria-label="Panel" id="tabs">
-          <button type="button" role="tab" id="tab-files" aria-controls="panel-body" data-tab="files">Files</button>
-          <button type="button" role="tab" id="tab-diff" aria-controls="panel-body" data-tab="diff">Diff</button>
-          <button type="button" role="tab" id="tab-agents" aria-controls="panel-body" data-tab="agents">Agents</button>
-        </div>
-        <div class="trace-panel-body" id="panel-body" role="tabpanel"></div>
-      </aside>
-    </div>
-  </div>
+  <div id="root"></div>
   <script type="module" src="/app.js"></script>
 </body>
 </html>

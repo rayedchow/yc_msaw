@@ -1,0 +1,46 @@
+/*
+ * Local layer for the standalone page (after the AEye files). The trace is
+ * the whole page here: no app header or workspace bar. Everything else only
+ * guards narrow splits so long names, model ids, paths and payloads stay in
+ * their own column (ellipsis with a title, or their own scroll region).
+ */
+:root {
+  --font-geist-sans: "Geist", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-geist-mono: "Geist Mono", ui-monospace, "SF Mono", Menlo, monospace;
+  --header-height: 0px;
+  --workspace-bar-height: 0px;
+}
+html, body { height: 100%; }
+#root { height: 100%; min-width: 0; }
+.build-trace-page { height: 100dvh; }
+.build-trace-page > .trace-ide { border-top: 0; }
+
+/* Columns never grow past the split. */
+.trace-main, .trace-panel, .trace-thread, .trace-scroll, .trace-column, .trace-panel-body { min-width: 0; max-width: 100%; }
+.trace-thread-header { min-width: 0; }
+.trace-thread-heading { min-width: 0; flex-basis: 12rem; }
+.trace-thread-meta > * { min-width: 0; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.trace-thread-toolbar { min-width: 0; max-width: 100%; }
+.trace-thread-toolbar .trace-attempt { min-width: 0; max-width: 100%; }
+.trace-thread-toolbar .trace-attempt select { max-width: min(18rem, 100%); text-overflow: ellipsis; }
+.trace-agent-item { min-width: 0; }
+.trace-agent-item > .trace-agent-name { flex: 0 1 auto; min-width: 0; max-width: 45%; overflow: hidden; text-overflow: ellipsis; }
+.activity-agent-chip-name { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+.trace-prose, .activity-card-body, .activity-task-body { min-width: 0; max-width: 100%; }
+.trace-prose pre, .activity-task-body pre, .activity-card-body pre { max-width: 100%; overflow-x: auto; }
+.markdown-table-wrap { max-width: 100%; }
+.activity-details { min-width: 0; }
+.activity-payload, .activity-diff { min-width: 0; max-width: 100%; }
+.trace-placeholder { text-align: center; padding: 24px; }
+.trace-placeholder-line { display: inline-flex; align-items: center; gap: 8px; }
+
+/* Files panel. */
+.build-ide-tree .docs-file > a { min-width: 0; }
+.build-ide-preview { min-width: 0; }
+.build-file-heading h3 { min-width: 0; margin: 0 0 8px; overflow: hidden; font-family: var(--font-mono); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.trace-diff-list { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px 32px; display: grid; align-content: start; gap: 14px; }
+.trace-diff-list > * { min-width: 0; }
+
+/* Run panel: the operator's own records, compact. */
+.trace-run-log { padding: 6px 8px 24px; }
+.trace-run-log .activity-details { margin-left: 6px; }

@@ -61,8 +61,8 @@ const REPORT_FILE = options.customDataDir
 const ASSETS: Readonly<Record<string, { file: string; type: string }>> = {
   "/": { file: "index.html", type: "text/html; charset=utf-8" },
   "/index.html": { file: "index.html", type: "text/html; charset=utf-8" },
-  "/app.js": { file: "app.js", type: "text/javascript; charset=utf-8" },
-  "/trace.css": { file: "trace.css", type: "text/css; charset=utf-8" },
+  "/app.js": { file: "dist/app.js", type: "text/javascript; charset=utf-8" },
+  "/trace.css": { file: "dist/trace.css", type: "text/css; charset=utf-8" },
   "/favicon.svg": { file: "favicon.svg", type: "image/svg+xml" },
 };
 
@@ -307,6 +307,22 @@ function json(response: ServerResponse, request: IncomingMessage, status: number
   send(response, request, status, "application/json; charset=utf-8", JSON.stringify(value), extra);
 }
 
+/**
+ * Whether the process the state file names (state.pid) is still running, by
+ * signal 0 (no signal is delivered). Null when the state names no pid. Lets
+ * the page say "producer stopped" instead of trusting a stale "running".
+ */
+function producerLiveness(state: unknown): { pid: number; alive: boolean } | null {
+  const pid = state && typeof state === "object" ? (state as { pid?: unknown }).pid : undefined;
+  if (typeof pid !== "number" || !Number.isSafeInteger(pid) || pid <= 1) return null;
+  try {
+    process.kill(pid, 0);
+    return { pid, alive: true };
+  } catch (error) {
+    return { pid, alive: (error as NodeJS.ErrnoException).code === "EPERM" };
+  }
+}
+
 function allowedHost(host: string | undefined, port: number): boolean {
   return host === `127.0.0.1:${port}` || host === `localhost:${port}`;
 }
@@ -353,6 +369,7 @@ async function handle(request: IncomingMessage, response: ServerResponse, port: 
       state: knownState !== null && knownState === state.stateHash ? undefined : state.state,
       stateHash: state.stateHash,
       stateError: state.stateError,
+      producer: producerLiveness(state.state),
       redacted: { events: events.redacted, state: state.redacted },
       eventsFile: { exists: events.exists, size: events.size },
       key: events.key,
@@ -437,4 +454,3 @@ for (const signal of ["SIGINT", "SIGTERM"] as const) {
     setTimeout(() => process.exit(0), 1_000).unref();
   });
 }
-

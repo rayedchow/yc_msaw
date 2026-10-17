@@ -1,98 +1,119 @@
 # Demo trace viewer
 
-A read-only live view of the real end-to-end demo: what the customer agent,
-the builder and its subagents, and the host checks are doing, as they do it.
+A read-only view of the real end-to-end demo that shows each agent's own
+conversation the way AEye's build trace does. The left side is the agent's
+thread: its task, its Markdown messages, and its tool calls with the exact
+arguments and results. The right side has Files, Subagents and Run tabs. The
+page has no header, phase strip, check list, replay controls or search: it is
+the AEye trace workbench and nothing else.
 
 ```sh
+npm --prefix demo-ui ci            # once: React, markdown-it, lucide-react, esbuild (isolated from the root package)
+npm --prefix demo-ui run build     # writes demo-ui/dist/app.js and dist/trace.css
 npx tsx scripts/serve-demo-trace.ts                 # http://127.0.0.1:4318/
 npx tsx scripts/serve-demo-trace.ts --port 4320     # if 4318 is taken (or TRACE_UI_PORT=4320)
-npx tsx scripts/serve-demo-trace.ts --data-dir /tmp/some-fixture   # fixture data, flagged in the UI
+npx tsx scripts/serve-demo-trace.ts --data-dir /tmp/some-fixture   # fixture data instead of .context
 ```
 
-No build step, no new dependencies: `index.html`, `app.js` (a vanilla ES
-module) and `trace.css` are served as they are.
+`dist/` is git-ignored by the root `.gitignore`, so build it before serving.
+The server reads assets from disk on every request: after a rebuild, reloading
+the page is enough.
 
-## What it reads
+Checks:
 
-Only these files, by fixed path. The server takes no path parameters.
+```sh
+npm --prefix demo-ui run typecheck
+npx tsx demo-ui/tests/adapter-lifecycle.test.ts     # lifecycle, dedup and contract checks of the adapter
+```
 
-| File | Written by | Read as |
-| --- | --- | --- |
-| `.context/real-demo-events.jsonl` | the demo orchestrator, append-only | complete lines only, incrementally by byte offset; a partly written last line waits for its newline |
-| `.context/real-demo-state.json` | the demo orchestrator, atomically replaced | whole file, resent only when its hash changes |
-| `reports/real-integration-e2e.json` | the demo orchestrator, optional | shown under "Report" once the run has ended, if present |
+## What is ported, and what is adapted
 
-With `--data-dir <dir>` the first two (and `real-integration-e2e.json`) are
-read from `<dir>` instead, and the page shows a "Fixture data" banner.
+The AEye source comes from `askshepherd/aeye-shepherd`, branch `main` at
+`a49aae10e219a7b3aa36102099b649340c2d42b0`. It is vendored under
+`src/aeye/`, mirroring AEye's paths.
 
-Event lines follow the shared contract
-`{id, at, agentId, parentId?, kind, title, status?, text?, data?}`. Known kinds
-are `phase`, `message`, `tool_call`, `tool_result`, `agent_start`,
-`agent_end`, `files`, `memory_diff`, `source_diff`, `sdk_update`, `check`,
-`run_end`; any other kind is shown as a plain row labeled with its kind, and a
-line that is not JSON is shown as "Unreadable line". Calls and results pair by
-`data.callId` within one agent (or, without ids, an adjacent call and result
-for the same tool).
-
-A new run is detected when `runId` changes, the event file disappears or
-shrinks, or its first line changes; the view then starts over.
-
-## API (GET/HEAD only, 127.0.0.1 only)
-
-- `GET /api/poll?offset=&key=&state=` – events after `offset`, state (unless unchanged).
-- `GET /api/report` – the fixed report, or 404.
-- `GET /api/snapshot` – everything above as one downloadable JSON file ("Export snapshot").
-- `GET /healthz`.
-
-Anything else is 404; other methods are 405; a Host header other than
-`127.0.0.1:<port>` or `localhost:<port>` is refused (DNS rebinding). Responses
-carry a strict CSP (`script-src 'self'`, no inline script or style) and
-`no-store`. As defense in depth the server replaces values that look like
-credentials (keys named like `token`/`apiKey`/`authorization`, and values
-shaped like provider keys, JWTs or bearer tokens) with `[redacted]` and the
-page shows how many it replaced. The client builds every node with
-`textContent`; nothing from the API reaches `innerHTML`.
-
-## Using it
-
-- **Main view** (left): the whole run in recorded order, with an author line
-  whenever the agent changes, or one agent's thread (View menu, or "Open in
-  main view"). Tool calls open to their exact input and result; a running call
-  shows a live elapsed clock.
-- **Phases / Checks** strip: phase progression from `phase` events (click one
-  to jump to it) and `state.checks` as recorded.
-- **Files / Diff / Agents** (right): changed memory and source files, read-only,
-  as contents or a line diff; the run-wide diff; the agent tree (parents and
-  nested subagents) – click an agent to read its thread in the panel.
-- **Live vs recorded**: "Live" while `state.status` is `running`/`waiting`;
-  "Recorded run" once it has ended. A recorded run can be stepped through
-  event by event (Replay); this reveals the retained events in order at a fixed
-  pace and always shows their recorded times.
-- **Following**: new rows scroll into view while you are at the bottom;
-  scrolling up (or pressing `f`) stops it, and "Jump to latest" shows how many
-  rows arrived.
-- Keys: `/` search, `f` follow, `1` `2` `3` panel tabs, `Esc` back / clear.
-- The URL hash keeps the view: `#view=<agentId>&tab=files&file=<path>&agent=<agentId>`.
-
-## Attribution
-
-The layout, class names, CSS and component structure are ported from AEye
-(`askshepherd/aeye-shepherd`, branch `main` at
-`a49aae10e219a7b3aa36102099b649340c2d42b0`), adapted from React/Next to a
-dependency-free page over this demo's event contract:
-
-| AEye source | Used for |
+| File (under `src/aeye/`) | Status |
 | --- | --- |
-| `web/components/build-trace-workbench.tsx` | split workbench (`.build-ide.trace-ide`), resizable separator (pointer + keyboard, persisted), thread header/meta/toolbar, "Jump to latest", Files / Subagents panel tabs, agent list with `--trace-level` indentation, "All agents" / "Open in main view" panel thread |
-| `web/components/build-trace-view.tsx`, `web/app/.../builds/[buildId]/trace/page.tsx` | page frame (`.build-trace-page`) |
-| `web/components/build-trace.css` | thread, panel, pills, dots, agent list, skeleton styles (nearly verbatim) |
-| `web/components/agent-activity/agent-activity.css` | activity rows, toggles, payload blocks, cards, agent chips, task row, dividers, collapse, file-change diff rows (nearly verbatim) |
-| `web/components/agent-activity/activity-rows.tsx` | tool line anatomy: icon or spinner, label, trailing badges + duration/time + chevron; Input / Output / Result payloads |
-| `web/components/agent-activity/trace-activity.ts` | merging call / result events into one tool row by call id; providers reusing an id start a new call |
-| `web/components/knowledge-changes-panel.tsx` | run-wide read-only change list (Diff tab) |
-| `web/components/workspace/live-agent-files.css` | files bar and segmented Contents / Diff toggle |
-| `web/app/globals.css` | color, type and radius tokens; `.build-ide` grid, separator and file tree rules |
+| `web/components/agent-activity/activity-rows.tsx`, `activity-model.ts`, `activity-format.ts`, `activity-file-change.tsx`, `edit-call.ts`, `resumption.ts`, `trace-activity.ts` | verbatim |
+| `web/lib/duration-format.ts`, `src/build/workspace_display.ts`, `src/web/text_diff.ts` | verbatim |
+| `web/components/agent-activity/agent-activity.css`, `web/components/build-trace.css`, `web/components/workspace/live-agent-files.css` | verbatim |
+| `web/components/workspace/workspace-panel-modes.css` | the Whole / Diff switch rules of `workspace-panel.css` |
+| `src/build/build_trace_threads.ts` | the database-free part: types, `describeToolCall`, `toolLabelForStatus` and helpers verbatim; `mapEvent` kept as `traceThreadEvent` without the benchmark grade lookup |
+| `src/build/run_resumptions.ts` | the `RunResumption` type only |
+| `src/web/markdown.ts` | the same markdown-it setup (HTML off, linkify, external link `rel`, tables), without KaTeX, citations or Knowledge links |
+| `src/styles/aeye-globals.css` | whole rules copied from `web/app/globals.css`: tokens, type, prose, `.build-ide`, file tree |
 
-Icons are path data from [Lucide](https://lucide.dev) (ISC license), the icon
-set AEye uses. The fonts fall back to the system UI and monospace faces
-(AEye loads Geist).
+The following are ports of `web/components/build-trace-workbench.tsx`:
+
+- `src/workbench.tsx` keeps:
+  - the `AgentThread` layout, including the header meta, the task row, `MessageRow`, the shared activity rows, subagent cards, the wait line, `Working…`, `Jump to latest`, scroll following and per-agent scroll memory;
+  - the resizable split, the Files / Subagents panel with its "All agents" / "Open in main view" thread, and the default main agent rule.
+- Adaptations:
+  - Threads come from the in-memory event log instead of the paging API and EventSource.
+  - "Attempt N of M" becomes a menu over the customer agent and the build root, which are separate roots.
+  - Files shows the files the run recorded, not a sandbox snapshot.
+  - A Run tab holds the operator's own records (seed, deploy, checks, phases), so these never enter an agent's conversation.
+- `src/styles/local.css`:
+  - sets no app header;
+  - keeps long names, model ids, paths and payloads inside their own column, using ellipsis with a title or the payload's own scroll.
+
+## How the event log becomes AEye's trace (`src/adapter.ts`)
+
+The server reads only these files, by fixed path, and never writes:
+
+- `.context/real-demo-events.jsonl`: complete lines only, read incrementally by byte offset.
+- `.context/real-demo-state.json`: resent only when its hash changes.
+- `reports/real-integration-e2e.json`: the snapshot export only.
+
+The adapter maps the log's records onto AEye's trace like this:
+
+- **Agents** are the customer agent (state `role: "customer"`, or `customer`) and the build agents (`root`, `root.1`, …).
+  - `host`, `builder` and any `role: "operator"` row are operators. Their events go to the Run tab.
+- **Messages:**
+  - An assistant message becomes `assistant_text`, which renders as Markdown.
+  - The first user prompt (or `task_start.data.prompt`) is the agent's task.
+  - A later prompt becomes an inline "Prompt given to this agent" row.
+  - `task_end` and prompt errors become notice rows, worded as recorded.
+- **Calls:**
+  - The model's `tool_call` becomes `tool_start` with its exact arguments.
+  - The `tool_result` with the same `callId` becomes its result, with the exact text or else the exact data.
+  - The host's other records of the same call appear under that call as receipts, not as extra rows:
+    - the integration provider call and its result;
+    - the build logger's outcome, which also gives a result its status when the model-side result carries none;
+    - Pi's result details.
+  - A record that joins nothing is shown on its own.
+
+Lifecycle follows `.context/demo-lifecycle-contract.md`. For each agent, the strongest evidence wins:
+
+1. The agent's own terminal receipt (`agent_end`, using `status` or else `data.harnessStatus`).
+2. A terminal status on its state row.
+3. The end of the run (an operator `run_end` or a terminal state status), or for a build agent the build service's `run_end`, with no receipt of its own. This shows as **unknown**, never as success or failure. The builder's `run_end` does not end the customer agent or the run.
+4. A run that is not live:
+   - its producer process (`state.pid`) is gone with no end recorded;
+   - or this page lost the server.
+
+   Either shows as **unknown**.
+5. Explicit `turn_start` (running) and `turn_end` (waiting, idle) boundaries. A newer start outranks a stale waiting row.
+6. For older logs without boundaries, the customer agent:
+   - is idle once an operator phase begins after its last turn activity;
+   - otherwise is running while a call is open, a result is unanswered, or a prompt is fresh;
+   - is idle after its final answer.
+
+   Phase titles are never read.
+
+Silence alone never stops an agent.
+
+The labels partial, interrupted, pending and unknown are kept as recorded.
+The thread's closing line says which one applies.
+
+## Server
+
+`scripts/serve-demo-trace.ts` binds 127.0.0.1 only and accepts GET/HEAD only.
+
+- **Host header:** requests without `127.0.0.1:<port>` or `localhost:<port>` are refused.
+- **Headers:** responses carry a strict CSP (`script-src 'self'; style-src 'self'`) and `no-store`.
+- **Assets:** served from a fixed allowlist: `index.html`, `dist/app.js`, `dist/trace.css`, `favicon.svg`.
+- **Redaction:** values shaped like credentials are replaced with `[redacted]`.
+- **Producer liveness:** `/api/poll` reports whether `state.pid` is still running (signal 0), so the page can say "outcome unknown" instead of trusting a stale "running".
+
+Other endpoints: `/api/report`, `/api/snapshot` and `/healthz`.

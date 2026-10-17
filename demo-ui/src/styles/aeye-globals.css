@@ -1,0 +1,327 @@
+/*
+ * Extract of AEye web/app/globals.css (askshepherd/aeye-shepherd @ a49aae10e219a7b3aa36102099b649340c2d42b0):
+ * the tokens and base rules the build trace inherits (type, links, Markdown
+ * prose, the .build-ide split and file tree). Rules are copied whole; nothing
+ * else from the app shell is included.
+ */
+:root {
+  /* shadcn/ui tokens, namespaced so they never collide with the legacy
+     --muted/--border/--accent fallbacks used by older page rules. */
+  --ui-background: #fbfcfb;
+  --ui-foreground: #161917;
+  --ui-card: #ffffff;
+  --ui-popover: var(--ui-card);
+  --ui-primary: #1f6f43;
+  --ui-primary-foreground: #ffffff;
+  --ui-secondary: #eef2ef;
+  --ui-muted: #f1f4f2;
+  --ui-muted-foreground: #666d68;
+  --ui-accent: #e8ede9;
+  --ui-destructive: #a8332b;
+  --ui-border: #e3e8e4;
+  --ui-input: #d2d8d4;
+  --ui-ring: #5f6662;
+  --ui-sidebar: #f5f7f6;
+  --ui-sidebar-foreground: #2a2e2b;
+  --ui-sidebar-accent: #e6ebe7;
+  --ui-sidebar-border: var(--ui-border);
+
+  /* Page tokens used by the server-rendered surfaces; shared values alias
+     the component tokens above so each color is defined once. */
+  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, "SF Mono", Menlo, monospace;
+  --color-bg: var(--ui-background);
+  --color-surface: var(--ui-muted);
+  --color-surface-raised: var(--ui-card);
+  --color-border: var(--ui-border);
+  --color-border-strong: var(--ui-input);
+  --color-text: var(--ui-foreground);
+  --color-muted: #636965;
+  --color-faint: #9aa29d;
+  --color-link: #1e7a45;
+  --color-danger: var(--ui-destructive);
+  --color-danger-surface: #fbeeec;
+  --color-good: #1e7a45;
+  --color-good-surface: #e8f6ed;
+  --color-working: #9a6700;
+  --color-working-surface: #fbf3e3;
+  --radius: 6px;
+  --radius-small: 4px;
+  /* Controls: one radius, no drop shadows, no hairline outlines on buttons.
+     Buttons and dropdown triggers are a quiet fill; text fields keep one
+     clear border. Items inside menus use the smaller radius. */
+  --radius-control: 8px;
+  --radius-menu-item: 6px;
+  --control-fill: var(--ui-secondary);
+  --control-fill-hover: var(--ui-accent);
+  --control-border: var(--ui-input);
+  /* Focus is a darker neutral edge, never a coloured glow. */
+  --focus-border: #5f6662;
+  --header-height: 48px;
+  --workspace-bar-height: 56px;
+  --customer-sidebar-width: 248px;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--color-text);
+  background: var(--color-bg);
+  -webkit-font-smoothing: antialiased;
+}
+
+code,
+kbd,
+pre,
+.hash,
+.path {
+  font-family: var(--font-mono);
+  font-size: 0.92em;
+}
+
+a {
+  color: var(--color-link);
+  text-decoration: none;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+h1,
+h2,
+h3,
+h4 {
+  font-weight: 600;
+  line-height: 1.3;
+  margin: 0 0 8px;
+}
+
+h1 {
+  font-size: 19px;
+}
+
+h2 {
+  font-size: 15px;
+}
+
+h3 {
+  font-size: 13.5px;
+}
+
+p {
+  margin: 0 0 10px;
+}
+
+.visually-hidden {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.muted {
+  color: var(--color-muted);
+}
+
+.workspace-page {
+  min-width: 0;
+}
+
+/* Markdown prose */
+
+.prose {
+  overflow-wrap: anywhere;
+}
+
+.prose h1 {
+  font-size: 21px;
+  margin: 0 0 14px;
+}
+
+.prose h2 {
+  font-size: 16px;
+  margin: 26px 0 8px;
+  padding-top: 10px;
+  border-top: 1px solid var(--color-border);
+}
+
+.prose h3 {
+  font-size: 14px;
+  margin: 18px 0 6px;
+}
+
+.prose pre {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius);
+  padding: 10px 12px;
+  overflow-x: auto;
+  line-height: 1.5;
+}
+
+.prose code {
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-small);
+  padding: 0 4px;
+}
+
+.prose pre code {
+  background: none;
+  border: 0;
+  padding: 0;
+}
+
+.prose blockquote {
+  margin: 0 0 10px;
+  padding: 2px 12px;
+  border-left: 2px solid var(--color-border-strong);
+  color: var(--color-muted);
+}
+
+.prose ul,
+.prose ol {
+  padding-left: 22px;
+  margin: 0 0 10px;
+}
+
+.prose a[href^="/citations/"] {
+  color: var(--color-muted);
+  font-size: 11px;
+  font-variant-numeric: tabular-nums;
+  vertical-align: super;
+  line-height: 1;
+}
+
+.prose a[href^="/citations/"]:hover {
+  color: var(--color-link);
+}
+
+.markdown-table-wrap,
+.table-wrap {
+  overflow-x: auto;
+  max-width: 100%;
+  margin: 0 0 12px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 12.5px;
+}
+
+th,
+td {
+  text-align: left;
+  padding: 5px 10px;
+  border: 1px solid var(--color-border);
+  vertical-align: top;
+}
+
+th {
+  background: var(--color-surface);
+  font-weight: 600;
+}
+
+.build-ide { --build-ide-right: 42%; display: grid; grid-template-columns: minmax(0, 1fr) 1px minmax(360px, var(--build-ide-right)); height: calc(100dvh - var(--header-height) - var(--workspace-bar-height)); min-height: 36rem; overflow: hidden; }
+.build-ide > .transcript-shell { min-width: 0; min-height: 0; max-width: none; margin: 0; overflow-y: auto; overflow-x: hidden; overflow-anchor: none; scrollbar-gutter: stable; }
+/* A neutral divider: the border color, a darker neutral while hovered or dragged (never an accent). */
+.build-ide-separator { position: relative; z-index: 2; width: 1px; min-height: 0; border: 0; background: var(--color-border); cursor: col-resize; touch-action: none; }
+.build-ide-separator::before { content: ""; position: absolute; inset: 0 -4px; }
+.build-ide-separator:hover,
+.build-ide-separator[data-dragging="true"] { background: var(--focus-border); box-shadow: 0 0 0 1px var(--focus-border); }
+.build-ide-separator:focus { outline: 0; }
+.build-ide-separator:focus-visible { background: var(--focus-border); box-shadow: 0 0 0 1px var(--focus-border); }
+.build-ide-files { container-type: inline-size; height: 100%; min-width: 0; min-height: 0; display: grid; grid-template-rows: auto minmax(0, 1fr); background: var(--color-surface); }
+.build-ide-files > header { display: flex; justify-content: space-between; gap: 12px; padding: 12px 14px; border-bottom: 1px solid var(--color-border); }
+.build-ide-files h2 { margin: 0; font-size: 13px; }
+.build-ide-files header p { margin: 2px 0 0; color: var(--color-faint); font-size: 10.5px; }
+.build-ide-files header > span { color: var(--color-good); font-size: 10.5px; text-transform: uppercase; letter-spacing: .04em; }
+.build-ide-files-body { min-width: 0; min-height: 0; display: grid; grid-template-columns: minmax(11rem, 15rem) minmax(0, 1fr); }
+.build-ide-tree { min-width: 0; min-height: 0; overflow: auto; padding: 9px; border-right: 1px solid var(--color-border); background: var(--color-surface); scrollbar-gutter: stable; }
+.build-ide-tree > p { color: var(--color-muted); font-size: 12px; }
+.build-ide-tree ul { list-style: none; margin: 0; padding: 0 0 0 12px; }
+.build-ide-tree > ul { padding-left: 0; }
+.build-ide-tree summary { display: flex; align-items: center; gap: 6px; min-height: 30px; cursor: pointer; padding: 3px 4px; color: var(--color-muted); font-size: 11.5px; font-weight: 600; }
+.build-ide-tree .docs-file > a { display: flex; align-items: center; gap: 6px; min-height: 30px; padding: 3px 5px; border-radius: var(--radius-menu-item); color: var(--color-muted); font-size: 11.5px; text-decoration: none; }
+.build-ide-tree .docs-file > a:hover { color: var(--color-text); background: var(--color-surface-muted); }
+.build-ide-tree .docs-file > a[aria-current="page"] { color: var(--color-text); background: var(--color-surface-muted); font-weight: 600; }
+.build-ide-tree .docs-file > a span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.build-ide-tree .docs-file > a small { margin-left: auto; color: var(--color-faint); font-size: 9px; }
+/* Rows match the Knowledge sidebar: fixed 14px icons that never shrink, one row height, a neutral keyboard focus edge. */
+.build-ide-tree summary,
+.build-ide-tree .docs-file > a { min-height: 30px; padding: 5px 7px; border-radius: var(--radius-menu-item); color: #5f5e59; font-size: 13px; line-height: 1.25; }
+.build-ide-tree summary { font-weight: 500; list-style: none; }
+.build-ide-tree summary::-webkit-details-marker { display: none; }
+.build-ide-tree summary:hover { color: var(--color-text); background: var(--color-surface-muted); }
+.build-ide-tree summary[aria-current="page"] { color: var(--color-text); background: var(--color-surface-muted); font-weight: 600; }
+.build-ide-tree summary span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.build-ide-tree svg { flex: none; width: 14px; height: 14px; color: var(--color-faint); }
+.build-ide-tree summary:focus,
+.build-ide-tree a:focus,
+.build-ide-tree button:focus { outline: 0; }
+.build-ide-tree summary:focus-visible,
+.build-ide-tree a:focus-visible,
+.build-ide-tree button:focus-visible { outline: 1px solid var(--focus-border); outline-offset: -1px; }
+
+/* While the divider is dragged: no transitions, no text selection, and no
+   frame (PDF or page preview) can swallow the pointer. */
+html[data-workspace-resizing],
+html[data-workspace-resizing] * {
+  cursor: col-resize !important;
+  user-select: none !important;
+}
+
+html[data-workspace-resizing] .chat-shell,
+html[data-workspace-resizing] .knowledge-edit-shell,
+html[data-workspace-resizing] .build-ide {
+  transition: none !important;
+}
+
+html[data-workspace-resizing] iframe,
+html[data-workspace-resizing] object,
+html[data-workspace-resizing] embed {
+  pointer-events: none !important;
+}
+
+/* A cited span: light yellow, nothing else changes. */
+.cited-text { background: #fff4b8; color: inherit; border-radius: 2px; }
+.build-ide-preview { min-height: 0; overflow: auto; padding: 12px 14px; background: var(--color-surface-raised); }
+/* A narrow filesystem pane stacks the tree above the preview instead of squeezing the file into a sliver. */
+@container (max-width: 38rem) {
+  .build-ide-files-body { grid-template-columns: minmax(0, 1fr); grid-template-rows: minmax(8rem, 38%) minmax(0, 1fr); }
+  .build-ide-tree { border-right: 0; border-bottom: 1px solid var(--color-border); }
+}
+.build-ide-preview > p,
+.build-ide-preview > pre { margin: 8px 0 0; }
+.build-ide-preview > pre,
+.build-ide-preview .agent-feed-diff pre { max-height: none; border: 0; padding: 0; background: transparent; white-space: pre-wrap; overflow-wrap: anywhere; font: 11.5px/1.55 var(--font-mono); }
+
+.build-agent-markdown > :first-child {
+  margin-top: 0;
+}
+
+.build-agent-markdown > :last-child {
+  margin-bottom: 0;
+}
+
+.build-agent-markdown pre {
+  white-space: pre;
+  max-width: 100%;
+}
