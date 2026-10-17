@@ -117,6 +117,7 @@ describe("runEval scripted-fixture (offline, Pi faux model + real trace SDK + re
     expect(base.duplicates).toBeGreaterThan(0);
     expect(base.activeTools).toEqual(["deliver", "get_deliveries", "list_notifications"]);
     expect(fixture.calls().open_memory).toBe(1);
+    expect(fixture.calls().read).toBeGreaterThanOrEqual(2); // explicit index.md read + linked page
     expect(JSON.stringify(report)).not.toContain("fixture-token");
   }, 60_000);
 });

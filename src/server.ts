@@ -18,7 +18,7 @@ import {
   dispatchCustomerTool,
   toolErrorReceipt,
 } from "./customer/index.js";
-import { describePage, MemoryRepo } from "./store/memory.js";
+import { MemoryRepo } from "./store/memory.js";
 import type { ObjectStore } from "./store/objects.js";
 import { handleTraceRequest, type TraceIngestor } from "./traces/index.js";
 import { errorMessage } from "./util.js";
@@ -63,7 +63,7 @@ export interface ServerDeps {
 
 export const SERVER_INSTRUCTIONS = [
   "Procedural memory for agents. This server exposes a read-only filesystem of procedural knowledge learned from previous agent runs (APIs/systems behavior, workflows that worked, failure modes and fixes), plus a private writable scratch area.",
-  "Call open_memory once at the start of a task: it pins the latest published memory revision, returns the root index, and gives you a workspaceId. Then navigate with read/ls/find/grep under $KNOWLEDGE (start at $KNOWLEDGE/index.md and follow index links) before acting on unfamiliar systems.",
+  "Call open_memory once at the start of a task: it only pins the latest published memory revision into a workspace and returns a small receipt with the workspaceId (no file contents). Then read $KNOWLEDGE/index.md and follow its links with read/ls/find/grep before acting on unfamiliar systems.",
   "$KNOWLEDGE is immutable. Use $WORK/scratch for notes or scripts; shell runs in an isolated, network-blocked sandbox. Memory is rebuilt daily from captured traces; you do not need to write memory yourself.",
 ].join("\n");
 
@@ -204,7 +204,7 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       name: "open_memory",
       title: "Open procedural memory",
       description:
-        "Start here. Pins the latest published procedural-memory revision into a new workspace and returns its workspaceId, the root $KNOWLEDGE/index.md, and an outline of the wiki. " +
+        "Start here. Pins the latest published procedural-memory revision into a new workspace and returns a small receipt (workspaceId, revision id/publishedAt/page count, entrypoint). It returns no file contents: next, read $KNOWLEDGE/index.md and follow its links. " +
         CUSTOMER_WORKSPACE_ORIENTATION,
       inputSchema: z.object({}).strict(),
       annotations: { readOnlyHint: true, openWorldHint: false },
@@ -213,18 +213,16 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
     async (_input, ctx) => {
       try {
         const p = principalOf(ctx, SCOPES.memoryRead);
-        const { workspaceId, revisionId, files, manifest } = await openWorkspace(p);
-        const outline = [...files.entries()]
-          .filter(([path]) => path.split("/").length <= 3)
-          .sort(([a], [b]) => a.localeCompare(b))
-          .slice(0, 80)
-          .map(([path, content]) => ({ path: `$KNOWLEDGE/${path}`, ...describePage(content) }));
+        const { workspaceId, revisionId, manifest } = await openWorkspace(p);
+        // Bounded receipt only: no page contents, outlines or summaries. Content is read explicitly.
         return json({
+          status: "opened",
           workspaceId,
-          revision: { id: revisionId, publishedAt: manifest.createdAt, pages: manifest.files.length, summary: manifest.summary },
-          rootIndex: files.get("index.md") ?? "",
-          outline,
-          orientation: CUSTOMER_WORKSPACE_ORIENTATION,
+          revision: { id: revisionId, publishedAt: manifest.createdAt, pages: manifest.files.length },
+          entrypoint: "$KNOWLEDGE/index.md",
+          knowledge: { path: "$KNOWLEDGE", readOnly: true },
+          scratch: { path: "$WORK/scratch", readOnly: false },
+          next: "read $KNOWLEDGE/index.md, then follow its links (read/ls/find/grep). Pass this workspaceId on every call.",
         });
       } catch (error) {
         return json(toolErrorReceipt("open_memory", error), true);

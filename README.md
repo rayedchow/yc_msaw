@@ -23,7 +23,7 @@ any agent ──(GET /v1/integrations + POST …/token)──► connect to a ch
 
 ## The customer MCP (`/mcp`, filesystem-only)
 
-Tools: `open_memory` (pins the latest revision and returns the root `index.md`, an outline and a `workspaceId`), plus `read`, `grep`, `find`, `ls`, `shell`, `poll_command`, `write_command`, `cancel_command`, `write`, `edit` and `view_file`, ported from the AEye workspace tools.
+Tools: `open_memory` (pins the latest revision into a workspace and returns only a small receipt: `status: "opened"`, `workspaceId`, revision id/publishedAt/page count and the entrypoint `$KNOWLEDGE/index.md`; no file contents, so agents then `read` the index and follow its links), plus `read`, `grep`, `find`, `ls`, `shell`, `poll_command`, `write_command`, `cancel_command`, `write`, `edit` and `view_file`, ported from the AEye workspace tools.
 
 - `$KNOWLEDGE/…` is the published wiki. It is immutable (root-owned and read-only for the agent's uid).
 - `$WORK/scratch/…` is private per caller and never published.

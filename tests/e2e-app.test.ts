@@ -14,6 +14,7 @@ import { generateStaticKey } from "../src/auth/index.js";
 import type { MemoryBuilder } from "../src/daily/service.js";
 import { LocalLease } from "../src/sandbox/local.js";
 import { HttpTraceTransport, TraceRecorder } from "../src/sdk/index.js";
+import { MemoryRepo } from "../src/store/memory.js";
 import { DirectoryObjectStore } from "../src/store/objects.js";
 import { sniffImage } from "../src/customer/workspace.js";
 
@@ -46,13 +47,14 @@ const tenantA = generateStaticKey("tenant-a", ["memory:read", "traces:write", "m
 const tenantB = generateStaticKey("tenant-b", ["memory:read"]);
 const ingestOnly = generateStaticKey("tenant-a", ["traces:write"]);
 const catalogReader = generateStaticKey("tenant-a", ["integrations:read"]);
+const tenantLarge = generateStaticKey("tenant-large", ["memory:read"]);
 
 function env(): NodeJS.ProcessEnv {
   return {
     PORT: "0",
     HOST: "127.0.0.1",
     AUTH_MODE: "static",
-    PROCMEM_STATIC_KEYS: [tenantA.entry, tenantB.entry, ingestOnly.entry, catalogReader.entry].join(","),
+    PROCMEM_STATIC_KEYS: [tenantA.entry, tenantB.entry, ingestOnly.entry, catalogReader.entry, tenantLarge.entry].join(","),
     PROCMEM_STORE: "directory",
     PROCMEM_SANDBOX: "local",
     PROCMEM_DATA_DIR: dir,
@@ -146,8 +148,10 @@ describe("procmem end-to-end", () => {
       const names = (await client.listTools()).tools.map((t) => t.name).sort();
       expect(names).toEqual(["cancel_command", "edit", "find", "grep", "ls", "open_memory", "poll_command", "read", "shell", "view_file", "write", "write_command"]);
       const opened = body(await client.callTool({ name: "open_memory", arguments: {} }));
-      expect(opened.rootIndex).toContain("workflows/index.md");
+      expect(opened).toMatchObject({ status: "opened", entrypoint: "$KNOWLEDGE/index.md", revision: { id: receipt.revisionId } });
       const workspaceId = String(opened.workspaceId);
+      const root = body(await client.callTool({ name: "read", arguments: { path: "$KNOWLEDGE/index.md", workspaceId } }));
+      expect(JSON.stringify(root)).toContain("workflows/index.md");
 
       const page = body(await client.callTool({ name: "read", arguments: { path: "$KNOWLEDGE/workflows/recover-deliveries.md", workspaceId } }));
       expect(JSON.stringify(page)).toContain("503 temporarily_unavailable");
@@ -180,9 +184,62 @@ describe("procmem end-to-end", () => {
     const client = await mcp(tenantB.key);
     try {
       const opened = body(await client.callTool({ name: "open_memory", arguments: {} }));
-      expect(String(opened.rootIndex)).toContain("No workflows have been learned yet");
+      expect(opened.status).toBe("opened");
+      const root = body(await client.callTool({ name: "read", arguments: { path: "$KNOWLEDGE/index.md", workspaceId: String(opened.workspaceId) } }));
+      expect(JSON.stringify(root)).toContain("No workflows have been learned yet");
       const missing = await client.callTool({ name: "read", arguments: { path: "$KNOWLEDGE/workflows/recover-deliveries.md" } });
       expect((missing as { isError?: boolean }).isError).toBe(true);
+    } finally {
+      await client.close();
+    }
+  });
+
+  it("open_memory is a bounded receipt: no wiki contents, outlines or summaries regardless of wiki size", async () => {
+    const repo = new MemoryRepo(new DirectoryObjectStore(path.join(dir, "objects")), "tenant-large");
+    const SENTINEL = "ROOTSENTINEL_7f3a";
+    const pad = (n: number) => "lorem ipsum dolor ".repeat(Math.ceil(n / 18)).slice(0, n);
+    const wiki = (tag: string) => {
+      const files = new Map<string, string>();
+      const links: string[] = [];
+      for (let i = 0; i < 60; i++) {
+        const subject = `subject-${i}`;
+        files.set(`${subject}/index.md`, `# ${tag} SUBJECTSENTINEL_${i} index\n\n- [Page](page.md): ${tag} PAGESENTINEL_${i} ${pad(3000)}\n`);
+        files.set(`${subject}/page.md`, `# ${tag} PAGESENTINEL_${i}\n\n${pad(8000)}\n`);
+        links.push(`- [${subject}](${subject}/index.md): ${tag} subject ${i}`);
+      }
+      files.set("index.md", `# ${tag} ${SENTINEL}\n\n${links.join("\n")}\n\n${pad(8900 - links.join("\n").length - 80)}\n`);
+      return files;
+    };
+    const rev1 = (await repo.publish(await repo.ensureHead(), wiki("REV1"), { buildId: "large-1", summary: `SUMMARYSENTINEL ${pad(3500)}`, sources: [] })).revisionId;
+
+    const client = await mcp(tenantLarge.key);
+    try {
+      const raw = await client.callTool({ name: "open_memory", arguments: {} });
+      const text = (raw as { content: Array<{ text: string }> }).content.map((c) => c.text).join("");
+      for (const leak of [SENTINEL, "SUBJECTSENTINEL", "PAGESENTINEL", "SUMMARYSENTINEL", "lorem ipsum", "rootIndex", "outline"]) expect(text).not.toContain(leak);
+      expect(text.length).toBeLessThan(1_000);
+      const opened = JSON.parse(text) as Record<string, unknown>;
+      expect(opened).toMatchObject({
+        status: "opened",
+        entrypoint: "$KNOWLEDGE/index.md",
+        revision: { id: rev1, pages: 121 },
+        knowledge: { path: "$KNOWLEDGE", readOnly: true },
+        scratch: { path: "$WORK/scratch", readOnly: false },
+      });
+      expect(Object.keys(opened.revision as object).sort()).toEqual(["id", "pages", "publishedAt"]);
+      const ws1 = String(opened.workspaceId);
+
+      // Contents arrive only through explicit filesystem reads.
+      const root = await client.callTool({ name: "read", arguments: { path: "$KNOWLEDGE/index.md", workspaceId: ws1 } });
+      expect(JSON.stringify(root)).toContain(`REV1 ${SENTINEL}`);
+
+      // A newer publish does not move the already-open workspace; a fresh open pins the latest.
+      const rev2 = (await repo.publish(rev1, wiki("REV2"), { buildId: "large-2", summary: "second", sources: [] })).revisionId;
+      expect(JSON.stringify(await client.callTool({ name: "read", arguments: { path: "$KNOWLEDGE/index.md", workspaceId: ws1 } }))).toContain(`REV1 ${SENTINEL}`);
+      const reopened = body(await client.callTool({ name: "open_memory", arguments: {} }));
+      expect((reopened.revision as { id: string }).id).toBe(rev2);
+      expect(reopened.workspaceId).not.toBe(ws1);
+      expect(JSON.stringify(await client.callTool({ name: "read", arguments: { path: "$KNOWLEDGE/index.md", workspaceId: String(reopened.workspaceId) } }))).toContain(`REV2 ${SENTINEL}`);
     } finally {
       await client.close();
     }

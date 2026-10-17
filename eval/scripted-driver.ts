@@ -143,12 +143,16 @@ export function scriptedNotificationAgent(spec: ScriptedAgentSpec): ScriptedAgen
     let policy: ScriptedPolicyName = spec.basePolicy;
     let consulted = "";
     if (spec.memoryPolicy) {
+      // open_memory only pins a workspace (no contents); the root index is read explicitly.
       const opened = await ctx.call(`mcp__${MEMORY_SERVER_NAME}__open_memory`, {});
-      consulted = opened.text;
+      const workspaceId = /"workspaceId"\s*:\s*"([^"]+)"/.exec(opened.text)?.[1];
+      const ws = workspaceId ? { workspaceId } : {};
+      const root = await ctx.call(`mcp__${MEMORY_SERVER_NAME}__read`, { path: "$KNOWLEDGE/index.md", ...ws });
+      consulted = root.isError ? "" : root.text;
       // Follow up to 5 markdown links from the root index (e.g. "(notifications/redelivery.md)").
       const links = [...new Set([...consulted.matchAll(/\(([\w./-]+\.md)\)/g)].map((m) => m[1]!))].slice(0, 5);
       for (const link of links) {
-        const page = await ctx.call(`mcp__${MEMORY_SERVER_NAME}__read`, { path: `$KNOWLEDGE/${link.replace(/^\.?\//, "")}` });
+        const page = await ctx.call(`mcp__${MEMORY_SERVER_NAME}__read`, { path: `$KNOWLEDGE/${link.replace(/^\.?\//, "")}`, ...ws });
         if (!page.isError) consulted += `\n${page.text}`;
       }
       if ((spec.guidanceKeywords ?? /idempot/i).test(consulted)) policy = spec.memoryPolicy;

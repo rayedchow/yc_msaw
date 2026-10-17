@@ -26,7 +26,8 @@ Long steps are run **before** the demo; the table shows their measured durations
 4. **The build fixes integrations itself (60 s).** In `reports/integration-llm-run-20261017-5a8be8.json`, the build agent read the faulty notify-hub repo and edited the client: cursor pagination, a content-derived Idempotency-Key, and retries for 429/503. It then ran `npm test`, validated against host suites (regressions 6/6, sealed held-out 4/4), committed, promoted, and called `integration_publish`. The result is the live child `https://warm-cloud-e1lye.run.mcp-use.com/mcp`, whose probe passed. The setup revision was scripted; everything after it was model-authored.
 
 5. **Any agent reads memory (60 s, live).** Connect an MCP client to `https://wild-zero-kq08i.run.mcp-use.com/mcp`. WorkOS OAuth runs through discovery, DCR and consent. Then:
-   - `open_memory` → root index
+   - `open_memory` → small "opened" receipt (workspaceId + pinned revision, no contents)
+   - `read $KNOWLEDGE/index.md`, then follow links
    - `read $KNOWLEDGE/...`
    - `write $WORK/scratch/notes.md`
    - `shell "id -u; touch $KNOWLEDGE/x"`, which shows uid 1000 and a read-only error

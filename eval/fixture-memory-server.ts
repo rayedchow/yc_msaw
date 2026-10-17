@@ -44,18 +44,25 @@ export async function startFixtureMemoryServer(token = "fixture-token"): Promise
     await next();
   });
   server.tool(
-    { name: "open_memory", description: "Open the pinned memory revision; returns its root index.md.", inputSchema: z.object({}) },
+    {
+      name: "open_memory",
+      description: "Pin the latest memory revision into a workspace; returns a small receipt (no contents). Then read $KNOWLEDGE/index.md.",
+      inputSchema: z.object({}),
+    },
     async () => {
       count("open_memory");
       return {
         content: [
-          { type: "text", text: JSON.stringify({ revision, workspaceId: "fixture", root: "$KNOWLEDGE", index: files["index.md"] }) },
+          {
+            type: "text",
+            text: JSON.stringify({ status: "opened", workspaceId: "fixture", revision: { id: revision, pages: Object.keys(files).length }, entrypoint: "$KNOWLEDGE/index.md" }),
+          },
         ],
       };
     },
   );
   server.tool(
-    { name: "read", description: "Read a file under $KNOWLEDGE.", inputSchema: z.object({ path: z.string() }) },
+    { name: "read", description: "Read a file under $KNOWLEDGE.", inputSchema: z.object({ path: z.string(), workspaceId: z.string().optional() }) },
     async ({ path }) => {
       count("read");
       const rel = path.replace(/^\$KNOWLEDGE\/?/, "");

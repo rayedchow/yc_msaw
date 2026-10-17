@@ -711,7 +711,12 @@ async function mcpChecks(c: HostedClient, receipt: Receipt, open: Set<Mcp>, runI
   const revision = (opened.body.revision ?? {}) as { id?: string; pages?: number; publishedAt?: string };
   must("mcp.open_memory", !opened.isError && /^[0-9a-f-]{36}$/.test(workspaceId), { isError: opened.isError, code: opened.body.code, hasWorkspaceId: workspaceId.length > 0 });
   check("mcp.open_memory_pins_built_revision", revision.id === receipt.revisionId, { revision: revision.id, built: receipt.revisionId });
-  check("mcp.open_memory_root_index", typeof opened.body.rootIndex === "string" && opened.body.rootIndex.length > 0, { rootIndexChars: String(opened.body.rootIndex ?? "").length });
+  const openedChars = JSON.stringify(opened.body).length;
+  check(
+    "mcp.open_memory_thin_receipt",
+    opened.body.status === "opened" && opened.body.entrypoint === "$KNOWLEDGE/index.md" && !("rootIndex" in opened.body) && !("outline" in opened.body) && openedChars < 1_000,
+    { status: opened.body.status, entrypoint: opened.body.entrypoint, keys: Object.keys(opened.body), chars: openedChars },
+  );
   out.revision = { id: revision.id, pages: revision.pages, publishedAt: revision.publishedAt };
   out.workspaceIdExplicit = true;
 
