@@ -60,7 +60,7 @@ import { createPiLiveTools } from "../src/sdk/live/pi.js";
 import { MemoryRepo } from "../src/store/memory.js";
 import { ModalObjectStore } from "../src/store/modal-objects.js";
 import { gunzipSync } from "node:zlib";
-import { finalizeAgentRows, harnessStatusToDemo, TERMINAL_STATUSES, type DemoAgentRow, type DemoStatus } from "./real-integration-e2e-render.js";
+import { boundEventData, extractGithubFileEvidence, finalizeAgentRows, githubProofOk, harnessStatusToDemo, TERMINAL_STATUSES, type DemoAgentRow, type DemoStatus, type GithubFileEvidence } from "./real-integration-e2e-render.js";
 
 const { values } = parseArgs({
   options: {
@@ -158,7 +158,7 @@ function writeState(): Promise<void> {
 }
 let writeChain: Promise<unknown> = Promise.resolve();
 function emit(e: Omit<DemoEvent, "id" | "at"> & { at?: string }): DemoEvent {
-  const ev: DemoEvent = { id: `${RUN_ID}-${String(++evSeq).padStart(5, "0")}`, at: e.at ?? new Date().toISOString(), agentId: e.agentId, parentId: e.parentId ?? null, kind: e.kind, title: scrub(e.title).slice(0, 300), ...(e.status ? { status: e.status } : {}), ...(e.text !== undefined ? { text: bounded(e.text, 8000) as string } : {}), ...(e.data !== undefined ? { data: bounded(e.data, 12000) } : {}) };
+  const ev: DemoEvent = { id: `${RUN_ID}-${String(++evSeq).padStart(5, "0")}`, at: e.at ?? new Date().toISOString(), agentId: e.agentId, parentId: e.parentId ?? null, kind: e.kind, title: scrub(e.title).slice(0, 300), ...(e.status ? { status: e.status } : {}), ...(e.text !== undefined ? { text: bounded(e.text, 8000) as string } : {}), ...(e.data !== undefined ? { data: boundEventData(e.data, 12000, scrub) } : {}) };
   allEvents.push(ev);
   const line = `${JSON.stringify(ev)}\n`;
   writeChain = writeChain
@@ -251,10 +251,42 @@ const integrations = new IntegrationStore(store, NS);
 const repo = new MemoryRepo(store, NS);
 
 // ------------------------------------------------------------------ helpers
-async function gh(route: string): Promise<{ status: number; requestId: string | null; rateRemaining: string | null; body: Record<string, unknown> }> {
+// Host GitHub checks: primary = the user-authorized `gh` CLI (authenticated; gh handles the token, which this
+// process never reads or prints); fallback = unauthenticated REST. Every result records which path ran, and a
+// 403/rate-limit result is kept as recorded (never retried into a different semantic path).
+let ghCliAuthenticated: boolean | null = null;
+function ghCliAvailable(): boolean {
+  if (ghCliAuthenticated === null) {
+    try {
+      execFileSync("gh", ["auth", "status"], { stdio: "ignore", timeout: 15_000 });
+      ghCliAuthenticated = true;
+    } catch {
+      ghCliAuthenticated = false;
+    }
+  }
+  return ghCliAuthenticated;
+}
+async function gh(route: string): Promise<{ status: number; requestId: string | null; rateRemaining: string | null; body: Record<string, unknown>; via: "gh-cli-authenticated" | "rest-unauthenticated" }> {
+  if (ghCliAvailable()) {
+    let out = "";
+    try {
+      out = execFileSync("gh", ["api", "--include", route.replace(/^\//, ""), "-H", `Accept: ${GH_HEADERS.accept}`, "-H", "X-GitHub-Api-Version: 2022-11-28"], { encoding: "utf8", maxBuffer: 16 * 1024 * 1024, timeout: 30_000 });
+    } catch (error) {
+      out = String((error as { stdout?: string }).stdout ?? ""); // gh exits non-zero on 4xx but still prints headers/body
+    }
+    const split = out.indexOf("\r\n\r\n") >= 0 ? out.indexOf("\r\n\r\n") : out.indexOf("\n\n");
+    const head = split >= 0 ? out.slice(0, split) : out;
+    let body: Record<string, unknown> = {};
+    try {
+      body = JSON.parse(split >= 0 ? out.slice(split).trim() : "{}");
+    } catch {
+      /* non-JSON body: keep {} */
+    }
+    return { status: Number(/^HTTP\/[\d.]+ (\d{3})/.exec(head)?.[1] ?? 0), requestId: /x-github-request-id:\s*(\S+)/i.exec(head)?.[1] ?? null, rateRemaining: /x-ratelimit-remaining:\s*(\S+)/i.exec(head)?.[1] ?? null, body, via: "gh-cli-authenticated" };
+  }
   const res = await fetch(`https://api.github.com${route}`, { headers: GH_HEADERS });
   const body = (await res.json().catch(() => ({}))) as Record<string, unknown>;
-  return { status: res.status, requestId: res.headers.get("x-github-request-id"), rateRemaining: res.headers.get("x-ratelimit-remaining"), body };
+  return { status: res.status, requestId: res.headers.get("x-github-request-id"), rateRemaining: res.headers.get("x-ratelimit-remaining"), body, via: "rest-unauthenticated" };
 }
 const sha256 = (s: string | Buffer) => createHash("sha256").update(s).digest("hex");
 async function catalog(): Promise<{ status: number; integrations: Array<Record<string, unknown>> }> {
@@ -304,6 +336,7 @@ let disposeSession: (() => void) | null = null;
 let ok = false;
 let aborted = false;
 const transcript: Array<Record<string, unknown>> = [];
+const rawToolResults = new Map<string, { isError: boolean; result: unknown }>();
 
 try {
   // ---------------------------------------------------------------- preflight
@@ -332,7 +365,7 @@ try {
   const ghMaster = await gh(`/repos/${OWNER}/${REPO}/contents/${FILE}?ref=master`);
   const ghRef = await gh(`/repos/${OWNER}/${REPO}/contents/${FILE}?ref=${REF}`);
   const refText = typeof ghRef.body.content === "string" ? Buffer.from(ghRef.body.content, "base64").toString("utf8") : "";
-  const truth = { defaultBranch: ghRepo.body.default_branch, masterStatus: ghMaster.status, masterMessage: ghMaster.body.message, masterRequestId: ghMaster.requestId, refStatus: ghRef.status, refRequestId: ghRef.requestId, sha: ghRef.body.sha, size: ghRef.body.size, textSha256: sha256(refText), containsFact: refText.includes(FACT), rateLimitRemaining: ghRef.rateRemaining, docs: "https://docs.github.com/en/rest/repos/contents" };
+  const truth = { via: { repo: ghRepo.via, master: ghMaster.via, ref: ghRef.via }, defaultBranch: ghRepo.body.default_branch, masterStatus: ghMaster.status, masterMessage: ghMaster.body.message, masterRequestId: ghMaster.requestId, refStatus: ghRef.status, refRequestId: ghRef.requestId, sha: ghRef.body.sha, size: ghRef.body.size, textSha256: sha256(refText), containsFact: refText.includes(FACT), rateLimitRemaining: ghRef.rateRemaining, docs: "https://docs.github.com/en/rest/repos/contents" };
   phases.githubTruth = truth;
   emit({ agentId: "host", kind: "tool_result", title: `GitHub: default branch ${String(truth.defaultBranch)}; ?ref=master -> ${ghMaster.status} "${String(ghMaster.body.message)}"; ?ref=${REF} -> ${ghRef.status} sha ${String(truth.sha)}`, status: "succeeded", data: truth });
   const pre404 = check("github.masterIs404", ghMaster.status === 404 && /No commit found for the ref master/.test(String(ghMaster.body.message)), { requestId: ghMaster.requestId });
@@ -437,12 +470,16 @@ try {
       }
     } else if (e.type === "tool_execution_start") {
       transcript.push({ at, type: "tool_call", callId: e.toolCallId, name: e.toolName, args: e.args });
-      emit({ at, agentId: "customer", kind: "tool_call", title: String(e.toolName), status: "running", data: { callId: e.toolCallId, args: e.args } });
+      emit({ at, agentId: "customer", kind: "tool_call", title: String(e.toolName), status: "running", data: { callId: e.toolCallId, tool: e.toolName, source: "Pi tool_execution_start (live)", args: e.args } });
     } else if (e.type === "tool_execution_end") {
       const result = e.result as { content?: Array<{ type: string; text?: string }>; details?: unknown } | undefined;
       const text = (result?.content ?? []).filter((c) => c.type === "text").map((c) => c.text ?? "").join("\n");
-      transcript.push({ at, type: "tool_result", callId: e.toolCallId, name: e.toolName, isError: e.isError === true, text: bounded(text, 30_000), details: bounded(result?.details, 30_000) });
-      emit({ at, agentId: "customer", kind: "tool_result", title: `${String(e.toolName)}${e.isError ? " (error)" : ""}`, status: e.isError ? "failed" : "succeeded", text, data: { callId: e.toolCallId, details: result?.details } });
+      // Evidence is extracted from the RAW result before anything is bounded for display; the raw result itself
+      // is kept in memory (rawToolResults) for verification only and never written to reports.
+      rawToolResults.set(String(e.toolCallId), { isError: e.isError === true, result });
+      const evidenceMeta = extractGithubFileEvidence(result?.details ?? result, (x) => sha256(x));
+      transcript.push({ at, type: "tool_result", callId: e.toolCallId, name: e.toolName, isError: e.isError === true, evidence: evidenceMeta, text: bounded(text, 30_000), details: bounded(result?.details, 30_000) });
+      emit({ at, agentId: "customer", kind: "tool_result", title: `${String(e.toolName)}${e.isError ? " (error)" : ""}`, status: e.isError ? "failed" : "succeeded", text, data: { callId: e.toolCallId, tool: e.toolName, source: "Pi tool_execution_end (live)", evidence: evidenceMeta, details: result?.details } });
     }
   });
   const recorder = new TraceRecorder({ transport: new HttpTraceTransport({ baseUrl: BASE, token: client.keys.trace }), agent: { id: "customer-pi-agent", name: "customer Pi agent", model: resolveModelId(values.customer!), harness: "pi" }, flushIntervalMs: 0 });
@@ -685,23 +722,13 @@ try {
   const r2 = readFileResults(t2Start);
   const c2 = readFileCalls(t2Start);
   const answer2 = lastAssistant() ?? "";
-  // Find the structured GitHub metadata the repaired child returned (Pi details carry the MCP result).
-  const findMeta = (v: unknown): Record<string, unknown> | null => {
-    if (!v || typeof v !== "object") return null;
-    const o = v as Record<string, unknown>;
-    if (typeof o.sha === "string" && o.github && typeof o.github === "object") return o;
-    for (const x of Object.values(o)) {
-      const hit = findMeta(x);
-      if (hit) return hit;
-    }
-    return null;
-  };
+  // Verify from the RAW (unbounded) tool results by callId, pairing each with its own call arguments.
   const okResult = r2.find((t) => {
-    const meta = findMeta(t.details);
-    const g = meta?.github as { status?: number; requestId?: string } | undefined;
-    return t.isError !== true && meta?.sha === truth.sha && meta?.ref === REF && g?.status === 200 && typeof g.requestId === "string" && g.requestId.length > 0;
+    const raw = rawToolResults.get(String(t.callId));
+    const call = c2.find((c) => c.callId === t.callId);
+    return !!raw && raw.isError !== true && githubProofOk(extractGithubFileEvidence((raw.result as { details?: unknown } | undefined)?.details ?? raw.result), { ref: REF, sha: String(truth.sha) }, call?.args);
   });
-  const okMeta = okResult ? findMeta(okResult.details) : null;
+  const okMeta = okResult ? (okResult.evidence as GithubFileEvidence | null) : null;
   const okCall = okResult ? c2.find((c) => c.callId === okResult.callId) : undefined;
   const reopened = transcript.slice(t2Start).filter((t) => t.type === "tool_result" && t.name === "memory__open_memory");
   const seq2 = transcript.slice(t2Start).filter((t) => t.type === "tool_call").map((t) => String(t.name));
@@ -721,7 +748,7 @@ try {
   check("attempt2.realGithub200SameShaAsHostCheck", !!okResult, { expectedSha: truth.sha, returned: okMeta });
   check("attempt2.answerHasFact", answer2.includes(FACT), { answer: answer2.slice(0, 600) });
   const ghAfter = await gh(`/repos/${OWNER}/${REPO}/contents/${FILE}?ref=${REF}`);
-  phases.githubAfter = { status: ghAfter.status, requestId: ghAfter.requestId, sha: ghAfter.body.sha, rateLimitRemaining: ghAfter.rateRemaining };
+  phases.githubAfter = { via: ghAfter.via, status: ghAfter.status, requestId: ghAfter.requestId, sha: ghAfter.body.sha, rateLimitRemaining: ghAfter.rateRemaining };
   check("github.independentAfterSameSha", ghAfter.status === 200 && ghAfter.body.sha === truth.sha);
 
   ok = Object.values(state.checks).every(Boolean);

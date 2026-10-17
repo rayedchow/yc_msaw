@@ -143,3 +143,92 @@ export function finalizeAgentRows(rows: DemoAgentRow[], aborted: boolean, runOk:
   }
   return rows;
 }
+
+// ------------------------------------------------------------------ evidence extraction (raw, unbounded inputs only)
+
+/** Compact, verifiable GitHub-file evidence extracted from a RAW (never truncated/bounded) MCP tool result. */
+export interface GithubFileEvidence {
+  sha: string;
+  ref: string;
+  owner?: string;
+  repo?: string;
+  path?: string;
+  size?: number;
+  githubStatus: number;
+  requestId: string;
+  textSha256?: string;
+  textChars?: number;
+}
+
+/**
+ * Find the structured GitHub metadata the child returned ({sha, ref, github:{status, requestId}}) anywhere in a
+ * raw result object. Returns null for bounded/truncated previews ({truncated, preview}) or text-only results:
+ * evidence must come from the structured payload, never from rendered text.
+ */
+export function extractGithubFileEvidence(raw: unknown, sha256Hex?: (s: string) => string): GithubFileEvidence | null {
+  const seen = new Set<unknown>();
+  const visit = (v: unknown, depth: number): GithubFileEvidence | null => {
+    if (!v || typeof v !== "object" || depth > 8 || seen.has(v)) return null;
+    seen.add(v);
+    const o = v as Record<string, unknown>;
+    if ("truncated" in o && "preview" in o && Object.keys(o).length <= 3) return null; // a bounded preview is not evidence
+    const g = o.github as Record<string, unknown> | undefined;
+    if (typeof o.sha === "string" && typeof o.ref === "string" && g && typeof g === "object" && typeof g.status === "number" && typeof g.requestId === "string" && g.requestId.length > 0) {
+      const text = typeof o.text === "string" ? o.text : undefined;
+      return {
+        sha: o.sha,
+        ref: o.ref,
+        ...(typeof o.owner === "string" ? { owner: o.owner } : {}),
+        ...(typeof o.repo === "string" ? { repo: o.repo } : {}),
+        ...(typeof o.path === "string" ? { path: o.path } : {}),
+        ...(typeof o.size === "number" ? { size: o.size } : {}),
+        githubStatus: g.status,
+        requestId: g.requestId,
+        ...(text !== undefined && sha256Hex ? { textSha256: sha256Hex(text), textChars: text.length } : {}),
+      };
+    }
+    for (const x of Object.values(o)) {
+      const hit = visit(x, depth + 1);
+      if (hit) return hit;
+    }
+    return null;
+  };
+  return visit(raw, 0);
+}
+
+/** The repaired-call proof: own args.ref, real 200 from GitHub, request id, and sha equal to the independent host check. */
+export function githubProofOk(e: GithubFileEvidence | null, expect: { ref: string; sha: string }, args: unknown): boolean {
+  return !!e && e.githubStatus === 200 && e.requestId.length > 0 && e.ref === expect.ref && e.sha === expect.sha && (args as { ref?: unknown } | null)?.ref === expect.ref;
+}
+
+// ------------------------------------------------------------------ event payload bounding (identity-preserving)
+
+/** Envelope identity fields kept verbatim (primitives only) even when the rest of an event payload is clipped. */
+export const EVENT_IDENTITY_KEYS = ["callId", "tool", "name", "source", "attempt", "phase", "model", "harnessStatus"] as const;
+
+/**
+ * Bound an event `data` payload for the UI. Allowlisted identity fields survive as top-level primitives
+ * (strings capped at 200 chars, after scrub). A compact `evidence` object is kept if it is small. Everything else
+ * becomes an honest bounded preview with truncation metadata. Never returns the unbounded raw payload; the full
+ * record is the persistent SDK trace.
+ */
+export function boundEventData(data: unknown, max: number, scrub: (s: string) => string): unknown {
+  if (data === undefined) return undefined;
+  const full = scrub(typeof data === "string" ? data : JSON.stringify(data));
+  if (full.length <= max) return typeof data === "string" ? full : JSON.parse(full);
+  if (typeof data === "string") return `${full.slice(0, max)}…[truncated ${full.length - max} chars]`;
+  const identity: Record<string, string | number | boolean> = {};
+  if (data && typeof data === "object" && !Array.isArray(data)) {
+    const o = data as Record<string, unknown>;
+    for (const k of EVENT_IDENTITY_KEYS) {
+      const v = o[k];
+      if (typeof v === "string") identity[k] = scrub(v).slice(0, 200);
+      else if (typeof v === "number" || typeof v === "boolean") identity[k] = v;
+    }
+    if (o.evidence && typeof o.evidence === "object") {
+      const ev = scrub(JSON.stringify(o.evidence));
+      if (ev.length <= 2000) (identity as Record<string, unknown>).evidence = JSON.parse(ev);
+    }
+  }
+  return { ...identity, truncated: true, originalChars: full.length, preview: `${full.slice(0, max)}…` };
+}

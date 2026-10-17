@@ -1,0 +1,86 @@
+{
+  "kind": "parent-followup-deploy-verification",
+  "at": "2026-10-17T23:47:09.476Z",
+  "baseUrl": "https://wild-zero-kq08i.run.mcp-use.com",
+  "checks": [
+    {
+      "name": "healthz",
+      "ok": true,
+      "detail": {
+        "status": 200
+      }
+    },
+    {
+      "name": "anonymous.rejected",
+      "ok": true,
+      "detail": {
+        "status": 401
+      }
+    },
+    {
+      "name": "invalid.rejected",
+      "ok": true,
+      "detail": {
+        "status": 401
+      }
+    },
+    {
+      "name": "tools.discovered",
+      "ok": true,
+      "detail": {
+        "count": 18
+      }
+    },
+    {
+      "name": "open.thin",
+      "ok": true,
+      "detail": {
+        "bytes": 424,
+        "revision": {
+          "id": "rev-0a0cefcf1537a9df1e5c9497",
+          "publishedAt": "2026-10-17T23:41:47.290Z",
+          "pages": 5
+        },
+        "keys": [
+          "status",
+          "workspaceId",
+          "revision",
+          "entrypoint",
+          "knowledge",
+          "scratch",
+          "next"
+        ]
+      }
+    },
+    {
+      "name": "read.index",
+      "ok": true,
+      "detail": {
+        "isError": false
+      }
+    },
+    {
+      "name": "github.repaired",
+      "ok": true,
+      "detail": {
+        "sha": "e43507d88d2e7545f54724fea6509ba00f40f57d",
+        "status": 200,
+        "requestId": "85C8:388F58:5999F1:121C664:6AD408FC"
+      }
+    }
+  ],
+  "deployment": {
+    "id": "b665baed-a734-4a10-8813-c54e39845e6f",
+    "trigger": "webhook",
+    "status": "running",
+    "managedCommit": "06783a5d3348964949ed523921863322f691222a",
+    "serverId": "f2352b28-1558-4c0c-9520-738517ab933d",
+    "account": "ishan@askshepherd.ai",
+    "orgSlug": "org-84350150-jpcs9"
+  },
+  "oauth": {
+    "kind": "existing approved WorkOS CLI grant refreshed automatically; authenticated tools/list",
+    "toolCount": 12,
+    "at": "2026-10-17T23:47:54.783Z"
+  }
+}

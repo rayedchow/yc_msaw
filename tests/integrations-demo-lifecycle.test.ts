@@ -55,3 +55,71 @@ describe("demo lifecycle", () => {
     expect(by.host!.status).toBe("failed");
   });
 });
+
+describe("demo evidence extraction (raw results only)", () => {
+  const sha = "e43507d88d2e7545f54724fea6509ba00f40f57d";
+  const bigText = "x".repeat(41_000) + "npx create-mcp-use-app my-server";
+  const raw = {
+    content: [{ type: "text", text: `mcp-use/mcp-use/README.md@v1.5.0 (sha ${sha}):\n${bigText}` }],
+    details: { structuredContent: { owner: "mcp-use", repo: "mcp-use", path: "README.md", ref: "v1.5.0", sha, size: 19725, text: bigText, truncated: false, github: { status: 200, requestId: "C5DC:1", rateLimitRemaining: "59" } } },
+  };
+  const hex = (s: string) => `len${s.length}`;
+
+  it("a ~41k structured tool payload keeps its metadata and passes the proof", async () => {
+    const { extractGithubFileEvidence, githubProofOk } = await import("../scripts/real-integration-e2e-render.js");
+    const e = extractGithubFileEvidence(raw, hex);
+    expect(JSON.stringify(raw).length).toBeGreaterThan(41_000);
+    expect(e).toMatchObject({ sha, ref: "v1.5.0", githubStatus: 200, requestId: "C5DC:1", textChars: bigText.length });
+    expect(githubProofOk(e, { ref: "v1.5.0", sha }, { owner: "mcp-use", repo: "mcp-use", path: "README.md", ref: "v1.5.0" })).toBe(true);
+  });
+
+  it("bounded previews, text-only results, wrong ref/args or non-200 are rejected", async () => {
+    const { extractGithubFileEvidence, githubProofOk } = await import("../scripts/real-integration-e2e-render.js");
+    const preview = { truncated: true, originalChars: 41_500, preview: JSON.stringify(raw).slice(0, 30_000) };
+    expect(extractGithubFileEvidence(preview)).toBeNull();
+    expect(extractGithubFileEvidence({ details: preview })).toBeNull();
+    expect(extractGithubFileEvidence({ content: raw.content })).toBeNull(); // text mentions the sha, but text is not evidence
+    const e = extractGithubFileEvidence(raw)!;
+    expect(githubProofOk(e, { ref: "v1.5.0", sha }, { ref: "main" })).toBe(false);
+    expect(githubProofOk(e, { ref: "v1.5.0", sha: "0".repeat(40) }, { ref: "v1.5.0" })).toBe(false);
+    expect(githubProofOk({ ...e, githubStatus: 404 }, { ref: "v1.5.0", sha }, { ref: "v1.5.0" })).toBe(false);
+    expect(githubProofOk({ ...e, requestId: "" }, { ref: "v1.5.0", sha }, { ref: "v1.5.0" })).toBe(false);
+    expect(githubProofOk(null, { ref: "v1.5.0", sha }, { ref: "v1.5.0" })).toBe(false);
+  });
+});
+
+describe("demo event payload bounding", () => {
+  it("keeps call identity on a ~41k payload while the payload stays bounded and scrubbed", async () => {
+    const { boundEventData } = await import("../scripts/real-integration-e2e-render.js");
+    const SECRET = "sk-live-SECRET-0123456789abcdef";
+    const scrub = (s: string) => s.split(SECRET).join("[REDACTED]");
+    const data = {
+      callId: "call_65de0e5681684206ba9b7a3d",
+      tool: "integration__github-read__read_file",
+      source: "Pi tool_execution_end (live)",
+      attempt: 2,
+      evidence: { sha: "e43507d8", ref: "v1.5.0", githubStatus: 200, requestId: "C5DC:1" },
+      details: { text: "y".repeat(41_000), leaked: SECRET },
+      // not allowlisted: must not be lifted out of the bounded preview
+      authorization: `Bearer ${SECRET}`,
+      nested: { callId: "should-not-replace" },
+    };
+    const out = boundEventData(data, 12_000, scrub) as Record<string, unknown>;
+    expect(out).toMatchObject({ callId: data.callId, tool: data.tool, source: data.source, attempt: 2, truncated: true, evidence: data.evidence });
+    expect(out.originalChars).toBeGreaterThan(41_000);
+    expect(String(out.preview).length).toBeLessThanOrEqual(12_001);
+    expect(out).not.toHaveProperty("details");
+    expect(out).not.toHaveProperty("authorization");
+    expect(JSON.stringify(out)).not.toContain(SECRET);
+    expect(JSON.stringify(out).length).toBeLessThan(13_000);
+  });
+
+  it("small payloads pass through unchanged (scrubbed); identity values are capped and scrubbed", async () => {
+    const { boundEventData } = await import("../scripts/real-integration-e2e-render.js");
+    const scrub = (s: string) => s.replaceAll("TOPSECRET", "[REDACTED]");
+    expect(boundEventData({ callId: "c1", args: { ref: "v1.5.0" } }, 12_000, scrub)).toEqual({ callId: "c1", args: { ref: "v1.5.0" } });
+    const big = boundEventData({ callId: `TOPSECRET${"z".repeat(500)}`, blob: "q".repeat(20_000) }, 1000, scrub) as Record<string, unknown>;
+    expect(String(big.callId)).toMatch(/^\[REDACTED\]z+$/);
+    expect(String(big.callId).length).toBe(200);
+  });
+});

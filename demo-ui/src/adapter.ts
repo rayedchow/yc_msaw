@@ -151,6 +151,55 @@ function callIdOf(event: DemoEvent): string | null {
   const id = isObject(event.data) ? event.data.callId ?? event.data.toolCallId : undefined;
   return typeof id === "string" || typeof id === "number" ? String(id) : null;
 }
+/** A result whose data the producer cut to `{ truncated, originalChars, preview }`. */
+function clipped(event: DemoEvent): { originalChars: number | null; preview: string } | null {
+  const data = event.data;
+  if (!isObject(data) || data.truncated !== true || typeof data.preview !== "string") return null;
+  return { originalChars: typeof data.originalChars === "number" ? data.originalChars : null, preview: data.preview };
+}
+/** The call id a clipped record's own preview starts with (`{"callId":"…"`): recorded, not inferred. */
+function previewCallId(event: DemoEvent): string | null {
+  const cut = clipped(event);
+  const match = cut ? /^\{"(?:callId|toolCallId)":"([^"\\]{1,200})"/u.exec(cut.preview) : null;
+  return match ? match[1]! : null;
+}
+function resultToolName(event: DemoEvent): string {
+  const data = isObject(event.data) ? event.data : {};
+  return typeof data.tool === "string" ? data.tool : event.title.replace(/ \(error\)$/u, "");
+}
+
+/**
+ * The call each tool_result answers, per agent, oldest first: its callId;
+ * else the callId its clipped data's preview recorded; else, only for a
+ * clipped result, the one open call of the same tool (never a guess between
+ * several). Null when no call can be named.
+ */
+function resolveResultCalls(events: readonly DemoEvent[]): Map<string, { callId: string | null; how: "id" | "preview" | "only-open" | "ambiguous" | "none" }> {
+  const out = new Map<string, { callId: string | null; how: "id" | "preview" | "only-open" | "ambiguous" | "none" }>();
+  const open: Array<{ callId: string; tool: string }> = [];
+  for (const event of events) {
+    if (event.kind === "tool_call") {
+      const callId = callIdOf(event);
+      const data = isObject(event.data) ? event.data : {};
+      if (callId && !sourceOf(event).startsWith("integration provider")) open.push({ callId, tool: typeof data.tool === "string" ? data.tool : event.title });
+      continue;
+    }
+    if (event.kind !== "tool_result") continue;
+    let callId = callIdOf(event);
+    let how: "id" | "preview" | "only-open" | "ambiguous" | "none" = callId ? "id" : "none";
+    if (!callId) { callId = previewCallId(event); if (callId) how = "preview"; }
+    if (!callId && clipped(event)) {
+      const tool = resultToolName(event);
+      const candidates = open.filter((call) => sameTool(call.tool, tool));
+      if (candidates.length === 1) { callId = candidates[0]!.callId; how = "only-open"; }
+      else if (candidates.length > 1) how = "ambiguous";
+    }
+    if (callId) { const index = open.findIndex((call) => call.callId === callId); if (index >= 0) open.splice(index, 1); }
+    out.set(event.id, { callId, how });
+  }
+  return out;
+}
+
 function sameTool(a: string, b: string): boolean {
   return a === b || a.endsWith(`__${b}`) || b.endsWith(`__${a}`);
 }
@@ -232,6 +281,7 @@ function buildThread(events: readonly DemoEvent[]): { thread: AgentThreadModel; 
     return null;
   };
   const taskPrompts = new Set<string>();
+  const resolved = resolveResultCalls(events);
   for (const event of events) {
     const data = isObject(event.data) ? event.data : {};
     const source = sourceOf(event);
@@ -287,7 +337,9 @@ function buildThread(events: readonly DemoEvent[]): { thread: AgentThreadModel; 
       continue;
     }
     if (event.kind === "tool_result") {
-      const callId = callIdOf(event);
+      const resolution = resolved.get(event.id);
+      const callId = resolution?.callId ?? null;
+      const cut = clipped(event);
       const failed = event.status === "failed" || data.isError === true;
       if (callId && providerCalls.has(callId)) {
         receipt(providerCalls.get(callId)!, { label: `Integration provider result · ${event.title}`, text: pretty(data.result ?? data.error ?? omit(event.data, ["callId", "source"]) ?? event.text ?? ""), failed, at: event.at });
@@ -303,10 +355,22 @@ function buildThread(events: readonly DemoEvent[]): { thread: AgentThreadModel; 
           continue;
         }
       }
-      const details = data.details ?? data.result ?? data.error;
-      const body = event.text && event.text.length > 0 ? event.text : pretty(details ?? omit(event.data, ["callId", "toolCallId", "source"]) ?? "");
-      const toolName = typeof data.tool === "string" ? data.tool : event.title.replace(/ \(error\)$/u, "");
+      const details = cut ? undefined : data.details ?? data.result ?? data.error;
+      const body = event.text && event.text.length > 0 ? event.text : pretty(cut ? cut.preview : details ?? omit(event.data, ["callId", "toolCallId", "source"]) ?? "");
+      const toolName = resultToolName(event);
       push({ id: event.seq, kind: "tool_result", call_id: callId, tool_name: toolName, status: event.status === "failed" || failed ? "failed" : event.status === "succeeded" ? "succeeded" : null, detail: body, created_at: at });
+      if (cut && callId) {
+        receipt(callId, {
+          label: `Result data as recorded (cut by the demo from ${cut.originalChars?.toLocaleString() ?? "?"} characters${resolution?.how === "only-open" ? "; matched to the only open call of this tool" : ""})`,
+          text: cut.preview,
+          failed: false,
+          at: event.at,
+        });
+      } else if (cut) {
+        parts.push({ type: "notice", key: `${event.id}:unpaired`, at: event.at, failed: false,
+          text: `A ${toolName} result was recorded with its data cut (from ${cut.originalChars?.toLocaleString() ?? "?"} characters) and no call id; ${resolution?.how === "ambiguous" ? "several calls of this tool were open, so it is shown on its own." : "no open call of this tool matches it, so it is shown on its own."}` });
+        current = null;
+      }
       if (callId && event.text && details !== undefined && details !== null) {
         receipt(callId, { label: "Result details", text: pretty(details), failed: false, at: event.at });
       }
@@ -371,8 +435,9 @@ function lifecycle({ customer, list, listed, end, active, ended, buildEnd, phase
     if (!last) return listed === "pending" ? { status: "waiting", label: "pending" } : WAITING;
     if (phases.some((phase) => phase.seq > last.seq)) return WAITING;
     const open = new Set<string>();
+    const resolved = resolveResultCalls(convo);
     for (const event of convo) {
-      const callId = callIdOf(event);
+      const callId = event.kind === "tool_result" ? resolved.get(event.id)?.callId ?? null : callIdOf(event);
       if (!callId) continue;
       if (event.kind === "tool_call") open.add(callId);
       else if (event.kind === "tool_result") open.delete(callId);

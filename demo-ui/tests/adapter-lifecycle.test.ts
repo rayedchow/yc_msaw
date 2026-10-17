@@ -193,4 +193,51 @@ const retry = [...build,
   const globalEnd = adaptRun([...build, ev(30, "host", "run_end", "ABORTED: crash", { status: "failed" })], state("running", [["root", "running", null]]), alive);
   assert.equal(labelOf(globalEnd, "root"), "unknown", "a run end without a receipt claims no outcome");
 }
+// Regression (live attempt-2, call_65de0e5681684206ba9b7a3d): the producer cut a 41k result's whole
+// data to { truncated, originalChars, preview }; callId survives only at the start of the preview.
+{
+  const big = "# mcp-use\n" + "x".repeat(8000);
+  const callArgs = { owner: "mcp-use", repo: "mcp-use", path: "README.md", ref: "v1.5.0" };
+  const clippedData = (preview: string) => ({ truncated: true, originalChars: 41445, preview });
+  const base = [
+    phase(0, "Same Pi session: reopen memory, use the repaired tool against real GitHub", "attempt-2"),
+    ev(1, "customer", "message", "user prompt", { text: "Retry." }),
+    ev(2, "customer", "tool_call", "integration__github-read__read_file", { status: "running", data: { callId: "call_65de0e5681684206ba9b7a3d", args: callArgs } }),
+  ];
+  const real = [...base, ev(3, "customer", "tool_result", "integration__github-read__read_file", { status: "succeeded", text: big,
+    data: clippedData(`{"callId":"call_65de0e5681684206ba9b7a3d","details":{"source":"integration:github-read","upstreamN`) })];
+  const run = adaptRun(real, state("running", [["customer", "running", null]]), alive);
+  const thread = run.threads.get("customer")!;
+  const rows = thread.parts.flatMap((part) => (part.type === "events" ? part.events : []));
+  assert.equal(rows.filter((row) => row.kind === "tool_start").length, 1);
+  const result = rows.find((row) => row.kind === "tool_result");
+  assert.equal(result?.callId, "call_65de0e5681684206ba9b7a3d", "the preview's recorded call id pairs the result");
+  assert.equal(result?.length, big.length, "the recorded result text is kept whole (shown via Show all)");
+  assert.equal(thread.full.get(result!.id), big);
+  assert.match(thread.receipts.get("call_65de0e5681684206ba9b7a3d")?.[0]?.label ?? "", /cut by the demo from 41,445 characters\)$/u);
+  assert.equal(thread.parts.some((part) => part.type === "notice"), false);
+  assert.equal(statusOf(run, "customer"), "running", "an answered call is no longer open (the model has not replied yet)");
+  const replied = adaptRun([...real, ev(4, "customer", "message", "assistant", { text: "Found it." })], state("running", [["customer", "running", null]]), alive);
+  assert.equal(statusOf(replied, "customer"), "waiting", "the clipped result closes its call");
+
+  // Preview without an id, one open call of that tool: paired, and the receipt says how.
+  const noId = [...base, ev(3, "customer", "tool_result", "integration__github-read__read_file", { status: "succeeded", text: big, data: clippedData(`{"details":{"source":"integration`) })];
+  const single = adaptRun(noId, state("running", []), alive).threads.get("customer")!;
+  const singleRows = single.parts.flatMap((part) => (part.type === "events" ? part.events : []));
+  assert.equal(singleRows.find((row) => row.kind === "tool_result")?.callId, "call_65de0e5681684206ba9b7a3d");
+  assert.match(single.receipts.get("call_65de0e5681684206ba9b7a3d")?.[0]?.label ?? "", /only open call of this tool/u);
+
+  // Two concurrent calls of the same tool, a clipped result without an id: no guess.
+  const concurrent = [...base,
+    ev(2, "customer", "tool_call", "integration__github-read__read_file", { status: "running", data: { callId: "call_other", args: { ...callArgs, path: "docs/a.md" } } }),
+    ev(3, "customer", "tool_result", "integration__github-read__read_file", { status: "succeeded", text: big, data: clippedData(`{"details":{}}`) }),
+  ];
+  const ambiguous = adaptRun(concurrent, state("running", []), alive).threads.get("customer")!;
+  const ambiguousRows = ambiguous.parts.flatMap((part) => (part.type === "events" ? part.events : []));
+  assert.equal(ambiguousRows.find((row) => row.kind === "tool_result")?.callId, null, "not paired with either open call");
+  assert.equal(ambiguousRows.filter((row) => row.kind === "tool_start").length, 2);
+  const notice = ambiguous.parts.find((part) => part.type === "notice");
+  assert.ok(notice && notice.type === "notice" && /several calls of this tool were open/u.test(notice.text), "the unpaired result says why");
+  assert.equal(ambiguous.receipts.size, 0, "no receipt is attached to a guessed call");
+}
 console.log("adapter lifecycle checks passed");
