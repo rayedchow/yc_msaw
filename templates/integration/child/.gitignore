@@ -1,0 +1,7 @@
+node_modules/
+.mcp-use/
+mcp-env.d.ts
+dist/
+.env
+.env.*
+*.log

@@ -1,0 +1,13 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+.context/
+.data/
+.venv/
+__pycache__/
+reports/live-*.json
+.mcp-use/
+reports/*.tmp
+artifacts/

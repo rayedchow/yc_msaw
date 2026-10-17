@@ -1,0 +1,82 @@
+{
+  "at": "2026-10-17T21:45:38.220Z",
+  "parentMcpUrl": "https://wild-zero-kq08i.run.mcp-use.com/mcp",
+  "tokenEndpoint": "https://sincere-umbrella-45-staging.authkit.app/oauth2/token",
+  "resource": "https://wild-zero-kq08i.run.mcp-use.com/mcp",
+  "clientAuthMethod": "none",
+  "aliasConfigured": true,
+  "refresh": {
+    "ok": true,
+    "durationMs": 568,
+    "concurrentCalls": 8,
+    "distinctTokens": 1,
+    "networkRefreshes": 1,
+    "refreshAttempts": 2,
+    "adoptedFromStore": 1,
+    "rotated": true,
+    "expiresInSec": 299
+  },
+  "events": [
+    {
+      "type": "refresh_started"
+    },
+    {
+      "type": "refresh_started"
+    },
+    {
+      "type": "refresh_succeeded",
+      "rotated": true
+    },
+    {
+      "type": "adopted_from_store"
+    }
+  ],
+  "persisted": {
+    "primaryUpdated": true,
+    "primaryRefreshRotated": true,
+    "primaryMode": "600",
+    "primaryKeys": [
+      "access_token",
+      "expires_in",
+      "id_token",
+      "issuer",
+      "refresh_token",
+      "token_type"
+    ],
+    "aliasUpdated": true,
+    "aliasKeys": [
+      "access_token",
+      "expires_in",
+      "id_token",
+      "issuer",
+      "refresh_token",
+      "token_type"
+    ],
+    "aliasMode": "600"
+  },
+  "toolsList": {
+    "ok": true,
+    "toolCount": 12,
+    "durationMs": 1876
+  },
+  "providerStatus": {
+    "a": {
+      "state": "valid",
+      "expiresAt": 1792273838239,
+      "hasRefreshToken": true,
+      "refreshCount": 1,
+      "adoptedCount": 0,
+      "consecutiveFailures": 0,
+      "lastRefreshAt": 1792273538613
+    },
+    "b": {
+      "state": "valid",
+      "expiresAt": 1792273838239,
+      "hasRefreshToken": true,
+      "refreshCount": 0,
+      "adoptedCount": 1,
+      "consecutiveFailures": 0
+    }
+  },
+  "errors": []
+}

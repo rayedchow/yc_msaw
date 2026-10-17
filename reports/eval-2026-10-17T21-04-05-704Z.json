@@ -1,0 +1,3509 @@
+{
+  "kind": "procedural-memory-eval",
+  "label": "live",
+  "labelNote": "Live model runs: real Pi agents calling Fireworks models; outcomes scored by the host oracle.",
+  "createdAt": "2026-10-17T21:04:05.704Z",
+  "config": {
+    "mode": "live",
+    "trainModel": "kimi",
+    "evalModels": [
+      "glm",
+      "minimax"
+    ],
+    "trainScenarios": [
+      "train-day1-a",
+      "train-day1-b"
+    ],
+    "heldoutScenarios": [
+      "heldout-x",
+      "heldout-y"
+    ],
+    "conditions": [
+      "memory",
+      "no-memory"
+    ],
+    "repeats": 1,
+    "maxTurns": 30,
+    "maxToolCalls": 80,
+    "timeoutMs": 600000,
+    "concurrency": 2,
+    "traceHeldout": false,
+    "requireFullModelInputCapture": true,
+    "mcpUrl": "http://localhost:56291/mcp",
+    "trainModelId": "accounts/fireworks/models/kimi-k3",
+    "evalModelIds": [
+      "accounts/fireworks/models/glm-5p3",
+      "accounts/fireworks/models/minimax-m3"
+    ]
+  },
+  "fireworks": {
+    "modelsListed": [
+      "accounts/fireworks/routers/glm-5p2-fast",
+      "accounts/fireworks/models/minimax-m3",
+      "accounts/fireworks/models/gpt-oss-120b",
+      "accounts/fireworks/models/nemotron-3-ultra-nvfp4",
+      "accounts/fireworks/models/qwen3-reranker-8b",
+      "accounts/fireworks/models/qwen3-embedding-8b",
+      "accounts/fireworks/models/kimi-k3",
+      "accounts/fireworks/routers/kimi-k3-fast",
+      "accounts/fireworks/models/qwen3p8-max",
+      "accounts/fireworks/models/glm-5p3",
+      "accounts/fireworks/routers/glm-5p3-fast",
+      "accounts/fireworks/models/glm-5p3-flash",
+      "accounts/fireworks/models/deepseek-v4p1-flash",
+      "accounts/fireworks/models/ember-1",
+      "accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b",
+      "accounts/fireworks/models/inkling",
+      "accounts/fireworks/models/muse-spark-open",
+      "auto",
+      "firerouter/auto",
+      "accounts/fireworks/models/qwen3p8-2p4t-a95b"
+    ]
+  },
+  "phaseA": [
+    {
+      "label": "live-model",
+      "episodeId": "train-train-day1-a-kimi-k3-no-memory-r1-mvcv8p7t",
+      "model": "accounts/fireworks/models/kimi-k3",
+      "scenario": "train-day1-a",
+      "condition": "no-memory",
+      "success": true,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedApiCalls": 4,
+      "totalApiCalls": 19,
+      "memoryToolCalls": 0,
+      "memoryToolNames": [],
+      "turns": 11,
+      "toolCalls": 19,
+      "inputTokens": 25517,
+      "outputTokens": 1758,
+      "cacheReadTokens": 21679,
+      "costUsd": 0.044388,
+      "latencyMs": 51676,
+      "stoppedBy": "completed",
+      "activeTools": [
+        "deliver",
+        "get_deliveries",
+        "list_notifications"
+      ],
+      "oracle": {
+        "success": true,
+        "eligible": 5,
+        "delivered": 5,
+        "duplicates": 0,
+        "missed": 0,
+        "wrong": 0,
+        "failedCalls": 4,
+        "totalCalls": 19,
+        "missedIds": [],
+        "duplicateIds": [],
+        "wrongIds": []
+      },
+      "finalText": "Summary of outage recovery:\n\n**Delivered (exactly once):**\n- `ntf_ay1a_102` — dlv_0002\n- `ntf_ay1a_104` — dlv_0003\n- `ntf_ay1a_107` — dlv_0004\n- `ntf_ay1a_108` — dlv_0005 (initial attempt returned 503 but succeeded server-side; idempotency key deduplicated the retry, verified exactly one delivery)\n- `ntf_ay1a_113` — dlv_0006 (retried after transient 503)\n\n**Skipped (intentionally):**\n- `ntf_ay1a_101` — `missing_recipient`: no recipient address exists, delivery impossible\n- `ntf_ay1a_106` — `failed_permanent` / `recipient_unsubscribed`: recipient opted out, must not re-send\n- `ntf_ay1a_112` — already had a successful delivery (dlv_0001) from before; re-sending would duplicate\n\nAll sends used the notification id as the Idempotency-Key to guarantee exactly-once delivery.",
+      "traced": true,
+      "traceSessionId": "train-train-day1-a-kimi-k3-no-memory-r1-mvcv8p7t",
+      "phase": "train",
+      "repeat": 1,
+      "traceCapture": {
+        "sessionId": "train-train-day1-a-kimi-k3-no-memory-r1-mvcv8p7t",
+        "chunks": 12,
+        "events": 96,
+        "eventTypes": {
+          "session_start": 1,
+          "note": 2,
+          "model_input": 43,
+          "model_output": 11,
+          "tool_call": 19,
+          "tool_result": 19,
+          "session_end": 1
+        },
+        "blobs": 0,
+        "modelInputHasSystemPrompt": true,
+        "modelInputHasToolSpecs": true,
+        "finalChunkSeen": true,
+        "outcomeStatus": "succeeded"
+      }
+    },
+    {
+      "label": "live-model",
+      "episodeId": "train-train-day1-b-kimi-k3-no-memory-r1-mvcv8p7t",
+      "model": "accounts/fireworks/models/kimi-k3",
+      "scenario": "train-day1-b",
+      "condition": "no-memory",
+      "success": true,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedApiCalls": 4,
+      "totalApiCalls": 22,
+      "memoryToolCalls": 0,
+      "memoryToolNames": [],
+      "turns": 15,
+      "toolCalls": 22,
+      "inputTokens": 39973,
+      "outputTokens": 2298,
+      "cacheReadTokens": 35402,
+      "costUsd": 0.058804,
+      "latencyMs": 76099,
+      "stoppedBy": "completed",
+      "activeTools": [
+        "deliver",
+        "get_deliveries",
+        "list_notifications"
+      ],
+      "oracle": {
+        "success": true,
+        "eligible": 6,
+        "delivered": 6,
+        "duplicates": 0,
+        "missed": 0,
+        "wrong": 0,
+        "failedCalls": 4,
+        "totalCalls": 22,
+        "missedIds": [],
+        "duplicateIds": [],
+        "wrongIds": []
+      },
+      "finalText": "All done. Summary:\n\n**Delivered (exactly once):**\n- `ntf_ay1b_101` — upstream_timeout; first retry hit a transient 503 but had actually delivered; idempotency key prevented a duplicate (delivery dlv_0003)\n- `ntf_ay1b_103` — upstream_timeout (dlv_0004)\n- `ntf_ay1b_108` — upstream_timeout (dlv_0005)\n- `ntf_ay1b_109` — upstream_timeout; two transient 503s that did not deliver, succeeded on retry (dlv_0008, confirmed non-duplicated)\n- `ntf_ay1b_111` — upstream_timeout (dlv_0006)\n- `ntf_ay1b_113` — upstream_timeout (dlv_0007)\n\n**Skipped:**\n- `ntf_ay1b_100` — failed_permanent with `recipient_unsubscribed`; re-sending would be inappropriate\n- `ntf_ay1b_104` — `missing_recipient`; no recipient to deliver to\n- `ntf_ay1b_110` — `ack_timeout`, but delivery history shows it was already delivered (dlv_0001); re-sending would duplicate\n- `ntf_ay1b_115` — `ack_timeout`, already delivered (dlv_0002); re-sending would duplicate",
+      "traced": true,
+      "traceSessionId": "train-train-day1-b-kimi-k3-no-memory-r1-mvcv8p7t",
+      "phase": "train",
+      "repeat": 1,
+      "traceCapture": {
+        "sessionId": "train-train-day1-b-kimi-k3-no-memory-r1-mvcv8p7t",
+        "chunks": 16,
+        "events": 117,
+        "eventTypes": {
+          "session_start": 1,
+          "note": 2,
+          "model_input": 54,
+          "model_output": 15,
+          "tool_call": 22,
+          "tool_result": 22,
+          "session_end": 1
+        },
+        "blobs": 0,
+        "modelInputHasSystemPrompt": true,
+        "modelInputHasToolSpecs": true,
+        "finalChunkSeen": true,
+        "outcomeStatus": "succeeded"
+      }
+    }
+  ],
+  "build": {
+    "receipt": {
+      "attempts": [
+        {
+          "agents": 3,
+          "attempt": 1,
+          "baseRevision": "rev-cf73af0f9d94d4be60d8cb2e",
+          "finishedAt": "2026-10-17T21:02:26.526Z",
+          "revisionId": "rev-e1e20dae88722882cc231ee0",
+          "startedAt": "2026-10-17T20:46:46.821Z",
+          "status": "published",
+          "summary": "Added notifications-api integration docs distilled from the 2026-10-17 outage-redelivery cohort (2 sessions, both host-oracle-verified exactly-once): an API reference (tools, pagination, 429/503 semantics, idempotency, eligibility traps) plus two end-to-end redelivery runbooks — email (accepted from child root.1, fully trace-cited) and sms (root-written after child root.2 failed). Key durable lessons: status=failed also returns failed_permanent rows; get_deliveries guard before any send (ack_timeout false negatives); idempotency_key = notification id; 503 = unknown outcome, retry with the same key (observed 503s that had actually succeeded server-side, resolved by idempotent-replay 200); resume the same cursor after a 429.",
+          "tree": {
+            "agentId": "root",
+            "baseManifestSha256": "a692245845c2d62c5926ba5f80210d890b766b407ec6ee1116b37efea8510357",
+            "children": [
+              {
+                "agentId": "root.1",
+                "baseManifestSha256": "a692245845c2d62c5926ba5f80210d890b766b407ec6ee1116b37efea8510357",
+                "children": [],
+                "decision": {
+                  "applied": [
+                    "integrations/notifications-api/redelivery-runbook-email.md"
+                  ],
+                  "at": "2026-10-17T21:02:00.764Z",
+                  "decidedBy": "root",
+                  "decision": "accepted",
+                  "reason": "Fully trace-cited 7-step email redelivery runbook; matches root's own extraction of session A; honest about uncertainty; fits wiki organization."
+                },
+                "depth": 1,
+                "descendants": {
+                  "agents": 0,
+                  "completionTokens": 0,
+                  "inputBytes": 0,
+                  "modelLatencyMs": 0,
+                  "outputBytes": 0,
+                  "promptTokens": 0,
+                  "sessions": 0,
+                  "toolCalls": 0,
+                  "toolErrors": 0,
+                  "turns": 0
+                },
+                "finishedAt": "2026-10-17T20:57:10.679Z",
+                "includeParentDraft": false,
+                "latencyMs": 393584,
+                "model": "accounts/fireworks/models/glm-5p3",
+                "objective": "Extract the reusable procedural learning from trace session train-train-day1-a-kimi-k3-no-memory-r1-mvcv8p7t (inputs/sessions/train-train-day1-a-kimi-k3-no-memory-r1-mvcv8p7t/events.jsonl, 97 lines, one JSON event per line; line N = seq N). Scenario: after a notification-service outage, re-deliver every failed \"email\" notification exactly once using only three tools: list_notifications (GET /notifications, required status filter, optional channel, cursor pagination via next_cursor), get_deliveries (GET /notifications/{id}/deliveries, returns already-successful deliveries), deliver (POST /notifications/{id}/deliver, optional idempotency_key sent as Idempotency-Key header).\n\nRead the whole session (use read with offset/limit slices; grep may not match because lines are very long). The interesting events are tool_call and tool_result (compact), plus model_output events (contain the agent's reasoning text and final summary); model_input events are huge duplicated context — skip them once y",
+                "parentId": "root",
+                "paths": [
+                  "inputs/sessions/train-train-day1-a-kimi-k3-no-memory-r1-mvcv8p7t"
+                ],
+                "profileId": "glm-5p3",
+                "result": {
+                  "handoff": {
+                    "bytes": 2534,
+                    "path": "work/notes.md",
+                    "sha256": "3d34d55776af666eae01ffefb346b232ac7a7c1246c7818486cbc609356419dd"
+                  },
+                  "patch": {
+                    "baseManifestSha256": "a692245845c2d62c5926ba5f80210d890b766b407ec6ee1116b37efea8510357",
+                    "changes": [
+                      {
+                        "baseSha256": null,
+                        "newSha256": "6991a662a66316b16f7f9377bc0afd36ff00b7168fb2128305b0005428279bc6",
+                        "op": "add",
+                        "path": "integrations/notifications-api/redelivery-runbook-email.md"
+                      }
+                    ],
+                    "moves": [],
+                    "sha256": "bbfb1063652815f70feed6acb030419236faf9035eb4b2931fc7b1ed2c9d1ca9"
+                  },
+                  "summary": "Extracted the full redelivery procedure from session train-train-day1-a-kimi-k3-no-memory-r1-mvcv8p7t (all 97 events read; every claim cited). Wrote one page: knowledge/integrations/notifications-api/redelivery-runbook-email.md (6.1KB, <9000 chars). Content: 7-step executable runbook (paginate status=failed+channel=email via next_cursor until null; classify rows; get_deliveries guard before any send; deliver with idempotency_key=notification id; 503=same-key retry; verify via get_deliveries; report) plus failure modes and open questions. Key observed facts: status:\"failed\" filter ALSO returns failed_permanent rows (#21); a 429 interrupted pagination and retrying the SAME cursor+filters recovered cleanly (#15→#19-#21); deliver 202=new delivery, 200+idempotent-replay:true+deduplicated:true=replay, 503=unknown outcome (ntf_ay1a_108's 503 had actually succeeded server-side, proven by the replay #72); ntf_ay1a_113 needed 3 attempts (503,503,202); ntf_ay1a_112 was already delivered (dlv_0001) and skipped; skips: 101 missing_recipient, 106 failed_permanent/unsubscribed, 112 already delivered. Host-oracle verified success: eligible=5, delivered=5, duplicates=0 (#96). Anti-patterns recorded: no explicit sleep on retry-after (model latency accidentally provided it), no get_deliveries re-check between 503 and retry (safe only with unchanged key), parallel deliver batch drew 2x503 (causation unverified). Uncertainty: limit param never exercised; 429 only observed on list_notifications. Note for root: validate() flags missing integrations/index.md and integrations/notifications-api/index.md — outside my scope; root must create them and link this page."
+                },
+                "scope": [
+                  "integrations/notifications-api/redelivery-runbook-email.md"
+                ],
+                "startedAt": "2026-10-17T20:50:37.095Z",
+                "status": "completed",
+                "toolCalls": [
+                  {
+                    "argsSha256": "1ef02d597b320e3292c9f555a14748739698f2ae69add906c9bbec5bc870b8da",
+                    "durationMs": 79,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3203,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 1
+                  },
+                  {
+                    "argsSha256": "8bb5fee869a2f11f7b28c502e55c07b9102bb7ab997cbb4a916bd14f53aab140",
+                    "durationMs": 161,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 11245,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 1
+                  },
+                  {
+                    "argsSha256": "cacdf23efd0c2a4d841e670fe1fae42e97a18e8081a7167466e74def7ffc1dce",
+                    "durationMs": 83,
+                    "name": "grep",
+                    "ok": true,
+                    "resultBytes": 173,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 2
+                  },
+                  {
+                    "argsSha256": "7e192eb09f57f2c707d6c313c70f3d92ac8c6d3751cedc7e18815d96bc2c3352",
+                    "durationMs": 80,
+                    "name": "grep",
+                    "ok": true,
+                    "resultBytes": 173,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 2
+                  },
+                  {
+                    "argsSha256": "b2c6bc1439fa58343968d13e289c86e53f9ed093fd89e5dc56b8f99b4c55a9d6",
+                    "durationMs": 126,
+                    "name": "grep",
+                    "ok": true,
+                    "resultBytes": 173,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 3
+                  },
+                  {
+                    "argsSha256": "991f554ba31580ac42caa295ff77cb2621bd6617d8abddb3c48a3e3edfff78ac",
+                    "durationMs": 76,
+                    "name": "grep",
+                    "ok": true,
+                    "resultBytes": 173,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 3
+                  },
+                  {
+                    "argsSha256": "89dddb8f18a06f1ff352ab16522ae0ea1f5f3b0afac0ec5f0e9b1ffc9a8a7f93",
+                    "durationMs": 81,
+                    "name": "grep",
+                    "ok": true,
+                    "resultBytes": 173,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 4
+                  },
+                  {
+                    "argsSha256": "8d0dd7dd6e1ea3deefeccff62d242eeb94ea93aefd96bdef2829d258f93946fe",
+                    "durationMs": 109,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 5793,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 4
+                  },
+                  {
+                    "argsSha256": "98df3dbb3854bfc7c50205aa684794630b83deaa3d51e97fb6dca7d2843f4183",
+                    "durationMs": 128,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 11332,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 5
+                  },
+                  {
+                    "argsSha256": "16e1b201e04dc2093f5893917c6ec0871020daebe6847957ec1e1977150aa738",
+                    "durationMs": 165,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 5067,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 6
+                  },
+                  {
+                    "argsSha256": "c8a862465e9a7a26f07e64298806ad35d5e5f1c072bcbbfd89f1b65087fb0527",
+                    "durationMs": 132,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 2277,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 7
+                  },
+                  {
+                    "argsSha256": "af360eb6aabd768f7f6d03faafe9315f08a2c3ae1835ff7f706694f6b7772877",
+                    "durationMs": 136,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1068,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 8
+                  },
+                  {
+                    "argsSha256": "ffc71fe89a6701c8eedb20c8d4ce51a6989999b7b1a6229e95ca5f3c69c893c3",
+                    "durationMs": 135,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 10534,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 9
+                  },
+                  {
+                    "argsSha256": "b54f982c67046eb875cc040e1d9b8eb6f80f5a03561050658fb77a3c6c446ca2",
+                    "durationMs": 154,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 7071,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 10
+                  },
+                  {
+                    "argsSha256": "edc4745eb4aadb1968180682a05c6da9bcde2754a2b6c5b46bf5a86cbeb8aa33",
+                    "durationMs": 165,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 884,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 11
+                  },
+                  {
+                    "argsSha256": "c6ce054ddda47a7f9fdb2c94dcfbda6ad68e92c4f2a4d14bc3a8639ef3741cbb",
+                    "durationMs": 161,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1765,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 12
+                  },
+                  {
+                    "argsSha256": "53d3aed39befbcb9ebef2928fadffb430c542725a5fa161eb5db06765afa705c",
+                    "durationMs": 203,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 13158,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 13
+                  },
+                  {
+                    "argsSha256": "f0a6ec7d9df0380a993dbf20470d04e3db580a097c71a1c9a65f9c3795ba2c89",
+                    "durationMs": 126,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 8404,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 14
+                  },
+                  {
+                    "argsSha256": "6086ee7114f93b8b22219f3634d543685161e4dd0e282850605c0cc3bdc70efe",
+                    "durationMs": 131,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 884,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 15
+                  },
+                  {
+                    "argsSha256": "0c6f78c32b1cf0b3a17d503db4c9db103351321119bdbabfc8bf90926735adf1",
+                    "durationMs": 439,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1448,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 16
+                  },
+                  {
+                    "argsSha256": "d38aef5958b7127f96113673424a765e96dd6b04829d8eb5ab78dac21bab3c62",
+                    "durationMs": 393,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1565,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 17
+                  },
+                  {
+                    "argsSha256": "5b05d3b958dba3f631e25f51900dd55338aa6cd76914ac802cefd28fa1b7f07e",
+                    "durationMs": 520,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 13185,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 18
+                  },
+                  {
+                    "argsSha256": "bd96812c7892a63b736de86516b3e9d57b05221d0199a0a333bad5fea258ba65",
+                    "durationMs": 168,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 10410,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 19
+                  },
+                  {
+                    "argsSha256": "8a2065fbd4fc4fa33c2666351e8ef47ab3009e0c5625bc80e212b10e86729f3c",
+                    "durationMs": 284,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 789,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 20
+                  },
+                  {
+                    "argsSha256": "a0f7cdb875ead5e655fb83663239428a4e7286f0094f34b914ddf11503dabfd1",
+                    "durationMs": 174,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 789,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 21
+                  },
+                  {
+                    "argsSha256": "dd88903f00e3ecff555db5cdd2424135dddb34e1b1ceee106003df31a5faca67",
+                    "durationMs": 205,
+                    "name": "write",
+                    "ok": true,
+                    "resultBytes": 160,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "112e1fd649e541627618bc3108bb0232396443c9ac05cf447cd5c6a5710b0fe3",
+                    "durationMs": 174,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 789,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "1c82ba3344b6ab06fc722b3b98dcbea1ab52828eb10e496d22406c6bb1198776",
+                    "durationMs": 211,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 789,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "ebe1153db982f4ef0deb8f0bb7f0aa3ae24f66bdb44f0e7779aa364d300307e2",
+                    "durationMs": 208,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 789,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "e56a7a69f714825e26fdf8e4a4d7f9ee035e88e221bc1f5caf88e9e0b65bc545",
+                    "durationMs": 185,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 789,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "e9bc0c30ecd70e23bf75ed21998442cda68dd0853de2f55a5034217375e5c276",
+                    "durationMs": 261,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1002,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "3904dea7fb017e7817b3739f45cb24cd7ece2508198a462aa443cc0cfa99fb09",
+                    "durationMs": 209,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1002,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "3d11b64e3a939419d1976b44b75c96f3f43fc63d0ac6b57db61b859ce6f375a5",
+                    "durationMs": 205,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1002,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "2a99c0567f6bb4c097069a7d6af55e079272c3560981c50854c6ce7a25996899",
+                    "durationMs": 215,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1002,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "a0b51fd0a0aced52d5999f26d8d37f61af578ea690a75bb594119084aac01de2",
+                    "durationMs": 197,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1139,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "b3dd62ea79e9e658874d0688b66969a3e5d43df2f2010d68e3f3fb21346ca15a",
+                    "durationMs": 199,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1002,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "7d02c7770b5e299e47b617901d11913145fcc1ba19d8dd2b49903a85201ccc53",
+                    "durationMs": 394,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 2575,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 23
+                  },
+                  {
+                    "argsSha256": "dae4587be9c9398dd3b8c9e12c826830d6a8788cd436c1dc8a313c7ca86614bb",
+                    "durationMs": 373,
+                    "name": "write",
+                    "ok": true,
+                    "resultBytes": 223,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "129d9b5312c8af608983d34a0643d56e8e8687e1fe8f1af03c8399e4ff98b9d1",
+                    "durationMs": 181,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1046,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "c7825d1a97f83ee0442c84f8ca13d85d9299ace58f140a9e83ab350864b10192",
+                    "durationMs": 155,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1046,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "919c88d6b55f3e784f4b4f7ec94b8521e22208b396dc26f4d0b8562951437622",
+                    "durationMs": 168,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1046,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "4e7e9f611885296985e7687c8613a97bb492f29129b881ff440350d062f28c05",
+                    "durationMs": 178,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1075,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "005e752317c40f1093f8b4345144663fe95f3520e038e0bebb0480ad0bff7373",
+                    "durationMs": 170,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1075,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "3478161b45085b6823884247cf5708ef30b7b08ee1c55eef6ad588b4408c3f92",
+                    "durationMs": 170,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1616,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "b5f4ae6ac32c19d958dbc881c340bbe66a9b7eca3691edd0a97660bb2157d547",
+                    "durationMs": 174,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 819,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "f07170f304ee3f8f93bbc6a6d9feb6c892cd9e5a3311a4097ff56a5a834c1fca",
+                    "durationMs": 184,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1083,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "570bf38babe6e9f1c8d4a1b381f72223e2f72466485accb588d3cee5bf645548",
+                    "durationMs": 165,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1200,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "f90a254e4c32e6e993807ab17da63390b2fb5a24baf8a11a85ed1d84cca7c774",
+                    "durationMs": 165,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14436,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "38ae36a45b18123be978bc7c17bf82e271a2031a2cc76d94d8bab10aa6385f67",
+                    "durationMs": 169,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1192,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "4e17056864c865f016d24cc364e96ec99c6bc99aa3402910600dd83f1af94ecc",
+                    "durationMs": 154,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14436,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "5ddfa0bc462c80b096f008a7755a4bf13e20d9c9fe082a2868af4bc4ceb9d032",
+                    "durationMs": 177,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14711,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "76c3f79e4087a9a1f2a1657535aa75cc30c0bc1c9a9731fc2fa3ebd18126f344",
+                    "durationMs": 147,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1163,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "2503e1c309368a92e0be28b51be80e5ab6b3e2a03a5b962911c876f7c8243abd",
+                    "durationMs": 140,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14436,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "401d1c223fb3462c495924a7b126788f74e4f6c8b5f1a05fe729d84aca443adb",
+                    "durationMs": 91,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3733,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 25
+                  },
+                  {
+                    "argsSha256": "aee93fe5b91e6c31d29323785eb96694063e3d446194f0bb5fe740e58454a7e0",
+                    "code": "not_found",
+                    "durationMs": 86,
+                    "name": "ls",
+                    "ok": false,
+                    "resultBytes": 202,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 25
+                  },
+                  {
+                    "argsSha256": "1431455fd33ccd07e5998ffc93941fd02b219ae29b1069d9961f930d621b1feb",
+                    "durationMs": 148,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 4100,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 26
+                  },
+                  {
+                    "argsSha256": "17fb32a8d4ce349c7e9404a3048dd4dc488cfdb17d50492a5fd52d60cec86546",
+                    "durationMs": 141,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 4685,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 26
+                  },
+                  {
+                    "argsSha256": "53d8181d96b1c93d37e31c1462a5e94c4867b188c33629e6000b0135b0e109b6",
+                    "durationMs": 143,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14436,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 27
+                  },
+                  {
+                    "argsSha256": "1c24995c5a35a1916a884c6a623941478df171b59ad338e5f6512c21af0ebfd3",
+                    "durationMs": 153,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14436,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 27
+                  },
+                  {
+                    "argsSha256": "244a7b7b5291e58b9485376bb9e22afc251f6dac786f905b004a3d7b175c1ade",
+                    "durationMs": 385,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 13456,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 28
+                  },
+                  {
+                    "argsSha256": "224ad42e1b9a93d1daab37b045983607133bcaa44a4eda1a19b33d9c4e279082",
+                    "durationMs": 484,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14042,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 28
+                  },
+                  {
+                    "argsSha256": "a7e8e5a52da6c51991e0c39061e42b8235a5ebe63445157de4c2627bd3cc789b",
+                    "durationMs": 145,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3827,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 29
+                  },
+                  {
+                    "argsSha256": "62bdacfe9a96d6e71ed737beea07097ad396f140c3bfb3a0393d79a1fc2c0d95",
+                    "durationMs": 160,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3835,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 29
+                  },
+                  {
+                    "argsSha256": "6b05ee874290f09b2ca83180eb6d85299593aa83008350661cd7359b930f0df6",
+                    "durationMs": 185,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14436,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 30
+                  },
+                  {
+                    "argsSha256": "733e334530afb96a9c754d2c088fc099ab24849af6561dd3f2aa95101f8644d5",
+                    "durationMs": 185,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1912,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 30
+                  },
+                  {
+                    "argsSha256": "a7d4879088025aff1d164787d033b8e5ec3159c67f5ca60ba98ffa585ebd532a",
+                    "durationMs": 162,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14711,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 31
+                  },
+                  {
+                    "argsSha256": "ebfd645198bc2318fc58848b85227619fc59459272757a19a0201fc70c094e49",
+                    "durationMs": 165,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14436,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 31
+                  },
+                  {
+                    "argsSha256": "7e491676dd01cec173a1d431d802302a851b94ee13d67790f36445a62db5e39f",
+                    "durationMs": 175,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 2162,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 32
+                  },
+                  {
+                    "argsSha256": "d52ae65dec8d3bb664227ed56237b27085c1c886048b1bb991e782130af63f8d",
+                    "durationMs": 162,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14738,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 32
+                  },
+                  {
+                    "argsSha256": "cb2890032719de9b964635a02670fe3dffb5ae3caf99968ac35a9621d73f41f0",
+                    "durationMs": 258,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3400,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 33
+                  },
+                  {
+                    "argsSha256": "f090c585542c58bfbeaa475cc9697881a532e49f256504d78983cced4df70ada",
+                    "durationMs": 209,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1257,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 33
+                  },
+                  {
+                    "argsSha256": "e99a90ec995c2c686c8830e7422e555db8616312ba15c6a81272959945906366",
+                    "durationMs": 196,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14436,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 34
+                  },
+                  {
+                    "argsSha256": "384e8fc52aa9df6d202fbf6d8fa9c60f2d2c1900296c2b67284de8d44b0cfefd",
+                    "durationMs": 183,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14743,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 34
+                  },
+                  {
+                    "argsSha256": "89b130f4dd98e21d09cf760d75608c70d352e69351af39c6ce42addf6cc047e7",
+                    "durationMs": 196,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3977,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 35
+                  },
+                  {
+                    "argsSha256": "2ccf8a59f67ad2819e5f57fb09e839481514be16bbe4c4b8dcf12bee7deb5349",
+                    "durationMs": 353,
+                    "name": "write",
+                    "ok": true,
+                    "resultBytes": 215,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 37
+                  },
+                  {
+                    "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                    "durationMs": 101,
+                    "name": "validate",
+                    "ok": true,
+                    "resultBytes": 579,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 38
+                  },
+                  {
+                    "argsSha256": "44a3fa96d4a57c56830fa12220cfac9a2855096d79e3f07266fbb3ff74cac50d",
+                    "durationMs": 271,
+                    "name": "write",
+                    "ok": true,
+                    "resultBytes": 223,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 39
+                  },
+                  {
+                    "argsSha256": "bd87e3c09322644005d263efccb3fc188c4cc7e8d531d89b97032fd412946746",
+                    "durationMs": 245,
+                    "name": "complete_task",
+                    "ok": true,
+                    "resultBytes": 351,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 40
+                  }
+                ],
+                "usage": {
+                  "completionTokens": 33962,
+                  "inputBytes": 5773160,
+                  "modelLatencyMs": 378196,
+                  "outputBytes": 130046,
+                  "promptTokens": 1316295,
+                  "sessions": 2,
+                  "toolCalls": 78,
+                  "toolErrors": 1,
+                  "turns": 40
+                },
+                "workspace": {
+                  "id": "ws-mvcvf69i-b73203578c",
+                  "kind": "modal"
+                }
+              },
+              {
+                "agentId": "root.2",
+                "baseManifestSha256": "a692245845c2d62c5926ba5f80210d890b766b407ec6ee1116b37efea8510357",
+                "children": [],
+                "depth": 1,
+                "descendants": {
+                  "agents": 0,
+                  "completionTokens": 0,
+                  "inputBytes": 0,
+                  "modelLatencyMs": 0,
+                  "outputBytes": 0,
+                  "promptTokens": 0,
+                  "sessions": 0,
+                  "toolCalls": 0,
+                  "toolErrors": 0,
+                  "turns": 0
+                },
+                "failure": {
+                  "code": "no_progress",
+                  "message": "Two consecutive sessions ended (turns) without any change to the draft, scratch notes, or children"
+                },
+                "finishedAt": "2026-10-17T20:55:38.872Z",
+                "includeParentDraft": false,
+                "latencyMs": 301772,
+                "model": "accounts/fireworks/models/glm-5p3",
+                "objective": "Extract the reusable procedural learning from trace session train-train-day1-b-kimi-k3-no-memory-r1-mvcv8p7t (inputs/sessions/train-train-day1-b-kimi-k3-no-memory-r1-mvcv8p7t/events.jsonl, 117 lines, one JSON event per line; line N = seq N). Scenario: after a notification-service outage, re-deliver every failed \"sms\" notification exactly once using only three tools: list_notifications (GET /notifications, required status filter, optional channel, cursor pagination via next_cursor), get_deliveries (GET /notifications/{id}/deliveries, returns already-successful deliveries), deliver (POST /notifications/{id}/deliver, optional idempotency_key sent as Idempotency-Key header).\n\nRead the whole session (use read with offset/limit slices; grep may not match because lines are very long). The interesting events are tool_call and tool_result (compact), plus model_output events (contain the agent's reasoning text and final summary); model_input events are huge duplicated context — skip them once yo",
+                "parentId": "root",
+                "paths": [
+                  "inputs/sessions/train-train-day1-b-kimi-k3-no-memory-r1-mvcv8p7t"
+                ],
+                "profileId": "glm-5p3",
+                "scope": [
+                  "integrations/notifications-api/redelivery-runbook-sms.md"
+                ],
+                "startedAt": "2026-10-17T20:50:37.100Z",
+                "status": "failed",
+                "toolCalls": [
+                  {
+                    "argsSha256": "9937d6121d1ce3423a3192604bc377556f1105a1e4d66574a577add0ecbe70e0",
+                    "durationMs": 270,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3351,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 1
+                  },
+                  {
+                    "argsSha256": "4218267a1d6b36bddd145029204552256d08d7f59e77bad11cbf82ac3ad4a07d",
+                    "durationMs": 485,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 2178,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 1
+                  },
+                  {
+                    "argsSha256": "60bc5e45a86c4a9091ebe78de7658e7b6db2a199b72320e683008687d1afa7e5",
+                    "durationMs": 511,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 11240,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 1
+                  },
+                  {
+                    "argsSha256": "e3b8ed10efee9b051dd20117e791c7538deba1995d874e17e6708bf5f52d7485",
+                    "durationMs": 226,
+                    "name": "grep",
+                    "ok": true,
+                    "resultBytes": 173,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 2
+                  },
+                  {
+                    "argsSha256": "0e6ae06cbe746b24e893004a0ee39f1fcf2ffde2077e6ebd471151d545bf55fd",
+                    "durationMs": 218,
+                    "name": "grep",
+                    "ok": true,
+                    "resultBytes": 173,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 2
+                  },
+                  {
+                    "argsSha256": "54472ae58e653c3fd29f75cbb3482646e36e2048ce861473cf17258247fcd9e4",
+                    "durationMs": 763,
+                    "name": "grep",
+                    "ok": true,
+                    "resultBytes": 175,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 3
+                  },
+                  {
+                    "argsSha256": "f9c4a64cac65581fd010c95cf19a6d3b0228b8dcab328bdd9f873209ce4ede5d",
+                    "durationMs": 441,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 5314,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 4
+                  },
+                  {
+                    "argsSha256": "9bf7c3138f4576c1a003ae9c35d4cdf2e4a6321abf0b2d1a3536e4212f8fe475",
+                    "durationMs": 458,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3842,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 5
+                  },
+                  {
+                    "argsSha256": "329fe6f3d471279a5ed731b52712f3434287eec1f04d078dfb45ce8cda13f7eb",
+                    "durationMs": 504,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 13387,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 6
+                  },
+                  {
+                    "argsSha256": "5ccbd5dd0cda23bfc129a59d372f2e962580543e0e35591c90027b64b484725a",
+                    "durationMs": 589,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3865,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 7
+                  },
+                  {
+                    "argsSha256": "cd86a4ddd760c0763976a2c79373f35e0e4e697d8d412b6450f85ba85eef70da",
+                    "durationMs": 508,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 12080,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 8
+                  },
+                  {
+                    "argsSha256": "0d6d204b27fc70a3bb8006b6f64ee646c72ff843f672539cfbed5d91e4648b44",
+                    "durationMs": 571,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3041,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 9
+                  },
+                  {
+                    "argsSha256": "a0221414ba88dc0e67d9f25bfb72f923c9cf11c2057017c5df81e07931ec8e4b",
+                    "durationMs": 549,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 12691,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 10
+                  },
+                  {
+                    "argsSha256": "9a4e0c2382861e762662c12ec3678d2b1e3de70e3c5452158b6d93f951881a9d",
+                    "durationMs": 506,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 9120,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 11
+                  },
+                  {
+                    "argsSha256": "8e9b3cd60e95a20d9e0de43afabb3e7f46c984d47666db3364cc21070c872621",
+                    "durationMs": 510,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3291,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 12
+                  },
+                  {
+                    "argsSha256": "fdfcc063cb5edea3cdf44fca5a39fda5da9395dc03e18e2adef6bdbe3656f827",
+                    "durationMs": 604,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 13696,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 13
+                  },
+                  {
+                    "argsSha256": "78f2fabcbaeac36919d3f17abe25f3a0bf1b0e8f26ccc40d4126d8cce2990d8a",
+                    "durationMs": 572,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 10411,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 14
+                  },
+                  {
+                    "argsSha256": "ba58849a78f24f524fa35d83b1f10953a2b8fcf5958e9025f2f10c4a601dda50",
+                    "durationMs": 652,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 2239,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 15
+                  },
+                  {
+                    "argsSha256": "26c3204ed82c213153ec40836762fe85b3978747f0ea79bcc13b3aee696e9d34",
+                    "durationMs": 671,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14287,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 16
+                  },
+                  {
+                    "argsSha256": "64a16a7a52ae7818c6894f3eee57d1a9660c18904ff095a858ee0c6eb040e60e",
+                    "durationMs": 687,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 12006,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 17
+                  },
+                  {
+                    "argsSha256": "2bb2920cbc6f3ae8e8199249431556bbaac243d05d8b8d669a182a694f660cd6",
+                    "durationMs": 780,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3022,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 18
+                  },
+                  {
+                    "argsSha256": "5f5b232ef47feb253096aec3ec3dc84dfe1683c6b1028a0e5ce4dd2db01ab942",
+                    "durationMs": 823,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1120,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 19
+                  },
+                  {
+                    "argsSha256": "bcbb2349b0dace08228185e95224b6e186daccbe67bb9594bf00bf9e340151ce",
+                    "durationMs": 712,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14363,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 20
+                  },
+                  {
+                    "argsSha256": "519e9b1d1f318d3a41b6e9696e3a7c602a9dea327c36da0fc842f61146cdecf8",
+                    "durationMs": 725,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 12705,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 21
+                  },
+                  {
+                    "argsSha256": "d925b1dfa90318c3c601029f1693de12fbe054002bb4b2b3f7d41fb2e11e0958",
+                    "durationMs": 504,
+                    "name": "write",
+                    "ok": true,
+                    "resultBytes": 160,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 22
+                  },
+                  {
+                    "argsSha256": "312e21b743f9e1b93a7c53d0b2c8d25d966c989cfef386d42224e7e96e278547",
+                    "durationMs": 677,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3844,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 23
+                  },
+                  {
+                    "argsSha256": "6994b53bd7c550978557613ec3e5bf9d19801c7cd94eb67a6be4b65bafd12fcf",
+                    "durationMs": 731,
+                    "name": "write",
+                    "ok": true,
+                    "resultBytes": 223,
+                    "session": 1,
+                    "truncated": false,
+                    "turn": 24
+                  },
+                  {
+                    "argsSha256": "401d1c223fb3462c495924a7b126788f74e4f6c8b5f1a05fe729d84aca443adb",
+                    "durationMs": 219,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 4119,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 25
+                  },
+                  {
+                    "argsSha256": "f48565fac8a9d751af4f0f0d044b9fd174483ba0b80c66b6addc206515186d82",
+                    "code": "not_found",
+                    "durationMs": 215,
+                    "name": "read",
+                    "ok": false,
+                    "resultBytes": 242,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 25
+                  },
+                  {
+                    "argsSha256": "596e080344cf4a8719361524d5a1c7e5a016e601df4c7ad5fc937d15a4705981",
+                    "durationMs": 681,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 26
+                  },
+                  {
+                    "argsSha256": "328b04a6c4a0f82ab74e1d0aa0c422a5ac421518b808ddc304b9e154693e0f61",
+                    "durationMs": 632,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14044,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 27
+                  },
+                  {
+                    "argsSha256": "bc62f4f9d1e5afb255f99180de0199d363c31bf078727d10f6c3dd0fa4fa19cc",
+                    "durationMs": 742,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3626,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 28
+                  },
+                  {
+                    "argsSha256": "adecbe4d92f952b04bfaee85d969b5c5f3aa03e63f16de07ec12fae8044ef9a6",
+                    "durationMs": 666,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 29
+                  },
+                  {
+                    "argsSha256": "805866908bc1c7b32f75eda60681c6c00f3965424321a0130ea0dbf55e8eeb4d",
+                    "durationMs": 654,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14139,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 30
+                  },
+                  {
+                    "argsSha256": "19dff3615960758f29a52400e3cd2e4e9819b23eae64c3c5485bb7d2f1ae7a67",
+                    "durationMs": 593,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 4610,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 31
+                  },
+                  {
+                    "argsSha256": "a1ece12122c04d38e6db759760528af98ebf6eee63bb5599dedd001b6dcc3256",
+                    "durationMs": 593,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 32
+                  },
+                  {
+                    "argsSha256": "127e7b1f9a4b545ab1f623da7e3793dc3ae49f9bd679828683c5aa1fb6d053ca",
+                    "durationMs": 742,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 13603,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 33
+                  },
+                  {
+                    "argsSha256": "d32ecb2bf0b2d24e7eb47b0052666f231fbeb47fbc57eaad9afaeebd1eaa6285",
+                    "durationMs": 1165,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 6474,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 34
+                  },
+                  {
+                    "argsSha256": "e31fa65ba99e334c29470282c9ecd36a55e8e6905704fa6817a74ee6f6d2f1a3",
+                    "durationMs": 1065,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 35
+                  },
+                  {
+                    "argsSha256": "d142ba27e5aa4971744eee96fb15f66736c9af174125ff9a1b5802b6fa9f019e",
+                    "durationMs": 916,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14615,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 36
+                  },
+                  {
+                    "argsSha256": "40f594409501846c790fb7f921997cdb6b183eddafbd75e42983f0a899782daa",
+                    "durationMs": 821,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 6133,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 37
+                  },
+                  {
+                    "argsSha256": "0234a809072c92d58c7476647b724dbdf4dd76dd64b4ebcbd53c867b1a65b7c8",
+                    "durationMs": 735,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 38
+                  },
+                  {
+                    "argsSha256": "07811ae7c8713d02bb8114b3dfdc2f78b063841f8076affce88e32844f0f34cd",
+                    "durationMs": 724,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14689,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 39
+                  },
+                  {
+                    "argsSha256": "da9a00f776b1941854ed250dbe80d6333cdbefa6ade638534690349eceec30d8",
+                    "durationMs": 659,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 6313,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 40
+                  },
+                  {
+                    "argsSha256": "b1ba61f9c908a548f38750f97acc1ab006b7ba7375ea704dc7ee60a984f4ca8c",
+                    "durationMs": 639,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 41
+                  },
+                  {
+                    "argsSha256": "113bac2604ac7c3b5f85bf6479084daa30820bd775b37e6077dedbf6ab4ebf60",
+                    "durationMs": 578,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14768,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 42
+                  },
+                  {
+                    "argsSha256": "a87fb912675290b933181e4019cc2d0b947a9472f7e7ff5089a65800e4d7a43c",
+                    "durationMs": 595,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 6146,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 43
+                  },
+                  {
+                    "argsSha256": "0b3817431c546590f80cb34ce9fac5b9efcb5524cbcdc4f142a31fa2318c7b61",
+                    "durationMs": 586,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14372,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 44
+                  },
+                  {
+                    "argsSha256": "b92b332e82908e6df97972275bd2a872f7211460620cc9c8e6eb6b3153f99a8f",
+                    "durationMs": 585,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14771,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 45
+                  },
+                  {
+                    "argsSha256": "de3054ba53f3c000afb3ab5c5b3da91c900344790ba6f108b6b6d81cf06d5058",
+                    "durationMs": 521,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3755,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 46
+                  },
+                  {
+                    "argsSha256": "f9b31a123df287067eff850e2f796e8d4042bf5a8ac3debb17de4ae09a3b396e",
+                    "durationMs": 582,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14372,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 47
+                  },
+                  {
+                    "argsSha256": "81576d7aacb261f089f7250d67baae603feafb65b5b88f3336c39498c5cbb4f3",
+                    "durationMs": 1085,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14771,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 48
+                  },
+                  {
+                    "argsSha256": "833e0e079fc394d4096e014decdffe92efb5cd0b348be2f1cc90adc377ed0afa",
+                    "code": "invalid_arguments",
+                    "durationMs": 0,
+                    "name": "write",
+                    "ok": false,
+                    "resultBytes": 90,
+                    "session": 2,
+                    "truncated": false,
+                    "turn": 48
+                  },
+                  {
+                    "argsSha256": "401d1c223fb3462c495924a7b126788f74e4f6c8b5f1a05fe729d84aca443adb",
+                    "durationMs": 268,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 4119,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 49
+                  },
+                  {
+                    "argsSha256": "aee93fe5b91e6c31d29323785eb96694063e3d446194f0bb5fe740e58454a7e0",
+                    "code": "not_found",
+                    "durationMs": 258,
+                    "name": "ls",
+                    "ok": false,
+                    "resultBytes": 202,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 49
+                  },
+                  {
+                    "argsSha256": "9d4e7a379efda7e98da6e0d55585c1bb508d9db99f9cb7857e4650b514da6b2d",
+                    "durationMs": 635,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 1942,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 50
+                  },
+                  {
+                    "argsSha256": "59b4a3538c8a116999166957486b98a24a170d077438600da4f1b5ca416f9a4f",
+                    "durationMs": 366,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 51
+                  },
+                  {
+                    "argsSha256": "9777eff5485632c8e5672f200f7ce192f3c558a185898296ca5e88c0cc4fa77b",
+                    "durationMs": 436,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14044,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 52
+                  },
+                  {
+                    "argsSha256": "391dcea13d610310abf3f365e77953888d61930857040e9e45a02634456f20cb",
+                    "durationMs": 803,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3626,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 53
+                  },
+                  {
+                    "argsSha256": "95b4ffa29459450f4f5eab19c0c2da5a7ed541bbad2ada11c5f569009a2a6823",
+                    "durationMs": 592,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 54
+                  },
+                  {
+                    "argsSha256": "805866908bc1c7b32f75eda60681c6c00f3965424321a0130ea0dbf55e8eeb4d",
+                    "durationMs": 531,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14139,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 55
+                  },
+                  {
+                    "argsSha256": "1f95d9d4197c33eb7171416c568e02d17218717b540ce592f67ac03fcebfa533",
+                    "durationMs": 518,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 4610,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 56
+                  },
+                  {
+                    "argsSha256": "db3fc76863000493c051392eae0bdcc0ebb09b298f5efadb5fd859a13af26001",
+                    "durationMs": 588,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 57
+                  },
+                  {
+                    "argsSha256": "127e7b1f9a4b545ab1f623da7e3793dc3ae49f9bd679828683c5aa1fb6d053ca",
+                    "durationMs": 519,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 13603,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 58
+                  },
+                  {
+                    "argsSha256": "d32ecb2bf0b2d24e7eb47b0052666f231fbeb47fbc57eaad9afaeebd1eaa6285",
+                    "durationMs": 518,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 6474,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 59
+                  },
+                  {
+                    "argsSha256": "6403b4e20c93399eba5cfe43a401e70c3f06fb841e6615e96a85b3457b927e5e",
+                    "durationMs": 538,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 60
+                  },
+                  {
+                    "argsSha256": "d142ba27e5aa4971744eee96fb15f66736c9af174125ff9a1b5802b6fa9f019e",
+                    "durationMs": 563,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14615,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 61
+                  },
+                  {
+                    "argsSha256": "40f594409501846c790fb7f921997cdb6b183eddafbd75e42983f0a899782daa",
+                    "durationMs": 985,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 6133,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 62
+                  },
+                  {
+                    "argsSha256": "42bb6b6599076547fe3ab076231bb93071b43c2a7e3a6c3bdb0a46e3ab60b04f",
+                    "durationMs": 553,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 63
+                  },
+                  {
+                    "argsSha256": "07811ae7c8713d02bb8114b3dfdc2f78b063841f8076affce88e32844f0f34cd",
+                    "durationMs": 533,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14689,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 64
+                  },
+                  {
+                    "argsSha256": "da9a00f776b1941854ed250dbe80d6333cdbefa6ade638534690349eceec30d8",
+                    "durationMs": 513,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 6313,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 65
+                  },
+                  {
+                    "argsSha256": "9d8586535afd92d5b8ed4d8a47848386fa0b1354b1238f5c6fd10c988379ebbe",
+                    "durationMs": 611,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14368,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 66
+                  },
+                  {
+                    "argsSha256": "113bac2604ac7c3b5f85bf6479084daa30820bd775b37e6077dedbf6ab4ebf60",
+                    "durationMs": 826,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14768,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 67
+                  },
+                  {
+                    "argsSha256": "a87fb912675290b933181e4019cc2d0b947a9472f7e7ff5089a65800e4d7a43c",
+                    "durationMs": 929,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 6146,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 68
+                  },
+                  {
+                    "argsSha256": "5bff5d745dc58ee1fcfa89a4aec65f4e04e8f65ba67d6f66da3cca700f92b833",
+                    "durationMs": 870,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14372,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 69
+                  },
+                  {
+                    "argsSha256": "96dfabe7a8a6f857085d6a3b58b38a4797679b4541b33acf92258ea74e7f75cc",
+                    "durationMs": 927,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14771,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 70
+                  },
+                  {
+                    "argsSha256": "d6bb38aea1edf08244466fb72902a7ead0c9f092e3bf69e94b0b4be1059d5598",
+                    "durationMs": 1485,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 3755,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 71
+                  },
+                  {
+                    "argsSha256": "f9b31a123df287067eff850e2f796e8d4042bf5a8ac3debb17de4ae09a3b396e",
+                    "durationMs": 1108,
+                    "name": "read",
+                    "ok": true,
+                    "resultBytes": 14372,
+                    "session": 3,
+                    "truncated": false,
+                    "turn": 72
+                  }
+                ],
+                "usage": {
+                  "completionTokens": 17959,
+                  "inputBytes": 12061165,
+                  "modelLatencyMs": 251020,
+                  "outputBytes": 73569,
+                  "promptTokens": 2996489,
+                  "sessions": 4,
+                  "toolCalls": 78,
+                  "toolErrors": 3,
+                  "turns": 72
+                },
+                "workspace": {
+                  "id": "ws-mvcvf69k-2ffe82a918",
+                  "kind": "modal"
+                }
+              }
+            ],
+            "depth": 0,
+            "descendants": {
+              "agents": 2,
+              "completionTokens": 51921,
+              "inputBytes": 17834325,
+              "modelLatencyMs": 629216,
+              "outputBytes": 203615,
+              "promptTokens": 4312784,
+              "sessions": 6,
+              "toolCalls": 156,
+              "toolErrors": 4,
+              "turns": 112
+            },
+            "finishedAt": "2026-10-17T21:02:26.172Z",
+            "includeParentDraft": false,
+            "latencyMs": 939351,
+            "model": "accounts/fireworks/models/kimi-k3",
+            "objective": "Daily procedural-memory build",
+            "parentId": null,
+            "paths": [],
+            "profileId": "kimi-k3",
+            "publish": {
+              "revisionId": "rev-e1e20dae88722882cc231ee0",
+              "status": "published",
+              "summary": "Added notifications-api integration docs distilled from the 2026-10-17 outage-redelivery cohort (2 sessions, both host-oracle-verified exactly-once): an API reference (tools, pagination, 429/503 semantics, idempotency, eligibility traps) plus two end-to-end redelivery runbooks — email (accepted from child root.1, fully trace-cited) and sms (root-written after child root.2 failed). Key durable lessons: status=failed also returns failed_permanent rows; get_deliveries guard before any send (ack_timeout false negatives); idempotency_key = notification id; 503 = unknown outcome, retry with the same key (observed 503s that had actually succeeded server-side, resolved by idempotent-replay 200); resume the same cursor after a 429.",
+              "treeSha256": "803723e4d703178fed1182244e3baf57af24960916da563f1e79670351f48709"
+            },
+            "scope": "all",
+            "startedAt": "2026-10-17T20:46:46.821Z",
+            "status": "completed",
+            "toolCalls": [
+              {
+                "argsSha256": "4218267a1d6b36bddd145029204552256d08d7f59e77bad11cbf82ac3ad4a07d",
+                "durationMs": 228,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 2178,
+                "session": 1,
+                "truncated": false,
+                "turn": 1
+              },
+              {
+                "argsSha256": "f8153ce0a369c8edfafde4f20ae344af703d239b75ebfdc487906d6c16caaf00",
+                "durationMs": 233,
+                "name": "ls",
+                "ok": true,
+                "resultBytes": 118,
+                "session": 1,
+                "truncated": false,
+                "turn": 1
+              },
+              {
+                "argsSha256": "c649cb5247300bdab5c1e43ee6b07aca831e2b84501e65ebbff0219e39c0f5a1",
+                "durationMs": 228,
+                "name": "ls",
+                "ok": true,
+                "resultBytes": 311,
+                "session": 1,
+                "truncated": false,
+                "turn": 1
+              },
+              {
+                "argsSha256": "1ef02d597b320e3292c9f555a14748739698f2ae69add906c9bbec5bc870b8da",
+                "durationMs": 482,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3203,
+                "session": 1,
+                "truncated": false,
+                "turn": 2
+              },
+              {
+                "argsSha256": "cbe38b3f6e87ae6ec9f5b8f4fd987170b56c756db2c21a1397825156732aa947",
+                "durationMs": 482,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 11245,
+                "session": 1,
+                "truncated": false,
+                "turn": 2
+              },
+              {
+                "argsSha256": "2709a5cf6e700afd0a4d982a324635488bfee68b34a22b56d39e2d389e2d8550",
+                "durationMs": 242,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 387,
+                "session": 1,
+                "truncated": false,
+                "turn": 2
+              },
+              {
+                "argsSha256": "e3420e2f421c0c989d42a62a4eac01bb0822ac1dd5ff96a401c7bc1ef3e7ca15",
+                "durationMs": 233,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 1,
+                "truncated": false,
+                "turn": 3
+              },
+              {
+                "argsSha256": "53c9e051668ae3fb7ab60f0e51e5e397e28a93a6619460cfd353d0a2249610a5",
+                "durationMs": 230,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 1,
+                "truncated": false,
+                "turn": 3
+              },
+              {
+                "argsSha256": "77797c230e1e01fda7636da8077f1366ba44c2978e15229d61ba0c1b69a65e3e",
+                "durationMs": 748,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 1,
+                "truncated": false,
+                "turn": 4
+              },
+              {
+                "argsSha256": "8020fd20e05fcdc338ece99c90afb41d3c34502705eab3bc84e7c1fa23f45bc6",
+                "durationMs": 233,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 1,
+                "truncated": false,
+                "turn": 5
+              },
+              {
+                "argsSha256": "8d0dd7dd6e1ea3deefeccff62d242eeb94ea93aefd96bdef2829d258f93946fe",
+                "durationMs": 552,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 5793,
+                "session": 1,
+                "truncated": false,
+                "turn": 6
+              },
+              {
+                "argsSha256": "9937d6121d1ce3423a3192604bc377556f1105a1e4d66574a577add0ecbe70e0",
+                "durationMs": 1178,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3351,
+                "session": 1,
+                "truncated": false,
+                "turn": 7
+              },
+              {
+                "argsSha256": "b65672fcd46b9c6a8c9392eddc36ac4ee1b944d0a320121015bae07ddbebd94f",
+                "durationMs": 766,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 11332,
+                "session": 1,
+                "truncated": false,
+                "turn": 8
+              },
+              {
+                "argsSha256": "c8967c8f04390d52e3f52c2343a918fb66571b6d3f02f6804080239ac0f39dd2",
+                "durationMs": 4892,
+                "name": "spawn_agents",
+                "ok": true,
+                "resultBytes": 622,
+                "session": 1,
+                "truncated": false,
+                "turn": 9
+              },
+              {
+                "argsSha256": "a8a6343a96eee90e633316517ba2d8f0ddf35792ae683e5afc91057243ba3298",
+                "durationMs": 516,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 8706,
+                "session": 1,
+                "truncated": false,
+                "turn": 10
+              },
+              {
+                "argsSha256": "e474019cbdda3bd24d2d1a385d3634324d6f09f260a98058d37a1c78ec9a3053",
+                "durationMs": 793,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 9646,
+                "session": 1,
+                "truncated": false,
+                "turn": 11
+              },
+              {
+                "argsSha256": "63ede816ef01dbe5e3611ce5d47e6bb85cca7d4a405666d776186288df866173",
+                "durationMs": 961,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 10711,
+                "session": 1,
+                "truncated": false,
+                "turn": 12
+              },
+              {
+                "argsSha256": "080c29548b58fbeff98bbee4fff875fa5b156ecaa3f692206e93a50c01dec1fe",
+                "durationMs": 305,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 8991,
+                "session": 1,
+                "truncated": false,
+                "turn": 13
+              },
+              {
+                "argsSha256": "8f0db8b24762cb88f70b90775e537c4165801d1f7a29de2e31a90157066e4643",
+                "durationMs": 459,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 2716,
+                "session": 1,
+                "truncated": false,
+                "turn": 14
+              },
+              {
+                "argsSha256": "8a3eb588574ecd88b444fa27cec67dbca7207feb95ce694354590f074bbf8f01",
+                "durationMs": 359,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 10902,
+                "session": 1,
+                "truncated": false,
+                "turn": 15
+              },
+              {
+                "argsSha256": "4b95608f57f9d4f600f608d38804ac1a88ded09e1093627a3f96b02cbea5acde",
+                "durationMs": 317,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3462,
+                "session": 1,
+                "truncated": false,
+                "turn": 16
+              },
+              {
+                "argsSha256": "0d2fabff85b6af0ed193c726c264a14fccf2ad2eb56f84b5d60212c88bda5ae2",
+                "durationMs": 455,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3959,
+                "session": 1,
+                "truncated": false,
+                "turn": 17
+              },
+              {
+                "argsSha256": "cb788aae6893d561c95467652d2d65398b27748ebdae5798a604a45d7b1524ad",
+                "durationMs": 390,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 2763,
+                "session": 1,
+                "truncated": false,
+                "turn": 18
+              },
+              {
+                "argsSha256": "fb6c1c8c84f49535a24fbc061f799d8de0b8605c4c3c0f9ff109b0fcc944a9c6",
+                "durationMs": 400,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 13601,
+                "session": 1,
+                "truncated": false,
+                "turn": 19
+              },
+              {
+                "argsSha256": "acc9ecd8cbd1b93190fa1b3fa80bf8ec7ae9d9ab2c04b1cc49bb539d3b960a83",
+                "durationMs": 494,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 7054,
+                "session": 1,
+                "truncated": false,
+                "turn": 20
+              },
+              {
+                "argsSha256": "877b509e5519e65aef420cef9a1d0beabc5b3b1fb4139c94296de3e3a221b2ef",
+                "durationMs": 896,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14436,
+                "session": 1,
+                "truncated": false,
+                "turn": 21
+              },
+              {
+                "argsSha256": "701ca7e0fda9c661ce29dbeb0519973cf8ce87ae473fd05a3b5004f250d3a41f",
+                "durationMs": 923,
+                "name": "write",
+                "ok": true,
+                "resultBytes": 160,
+                "session": 1,
+                "truncated": false,
+                "turn": 22
+              },
+              {
+                "argsSha256": "32d0472791c64563ea4e523cf7c2c86965bdd716883ac8de9705fd2cc4ff6f49",
+                "durationMs": 793,
+                "name": "write",
+                "ok": true,
+                "resultBytes": 200,
+                "session": 1,
+                "truncated": false,
+                "turn": 23
+              },
+              {
+                "argsSha256": "919f5e89bd542625c6b2931317761f1ecafa12f24a9408d17c9ac7e8b8254f63",
+                "durationMs": 537,
+                "name": "write",
+                "ok": true,
+                "resultBytes": 196,
+                "session": 1,
+                "truncated": false,
+                "turn": 23
+              },
+              {
+                "argsSha256": "019ec4637e782cb39980c41ce79d71e9e6711c51c36c4cfbbeeef6db81b57ebe",
+                "durationMs": 574,
+                "name": "write",
+                "ok": true,
+                "resultBytes": 177,
+                "session": 1,
+                "truncated": false,
+                "turn": 24
+              },
+              {
+                "argsSha256": "876c82ba8087ffeca118f0182ba089ed27af309ed158d9a10f4d4621517cd71e",
+                "durationMs": 784,
+                "name": "write",
+                "ok": true,
+                "resultBytes": 227,
+                "session": 1,
+                "truncated": false,
+                "turn": 24
+              },
+              {
+                "argsSha256": "401d1c223fb3462c495924a7b126788f74e4f6c8b5f1a05fe729d84aca443adb",
+                "durationMs": 275,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3794,
+                "session": 2,
+                "truncated": false,
+                "turn": 25
+              },
+              {
+                "argsSha256": "79425acdd6f3a58c627eab21c2473999389e9b6141c7e59ae4a969d22d2373ac",
+                "durationMs": 273,
+                "name": "ls",
+                "ok": true,
+                "resultBytes": 325,
+                "session": 2,
+                "truncated": false,
+                "turn": 25
+              },
+              {
+                "argsSha256": "50c063f1ac72a66198006a27b8db0d53d1472e3f63cea323aae937a6fe2f0240",
+                "durationMs": 241,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 624,
+                "session": 2,
+                "truncated": false,
+                "turn": 26
+              },
+              {
+                "argsSha256": "d72d0d6a40695462e69ca64e6c7cba406c0408722053263d4cbd47db16d29f46",
+                "durationMs": 247,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 527,
+                "session": 2,
+                "truncated": false,
+                "turn": 26
+              },
+              {
+                "argsSha256": "7afb2bccd447fc91adcef428c052cda2f914d51f2db66a16e7e5caed95230b3b",
+                "durationMs": 236,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 1408,
+                "session": 2,
+                "truncated": false,
+                "turn": 26
+              },
+              {
+                "argsSha256": "0dce83bd8cb8f18c64263c3705e5ecd250598c2e8f49a06d9c27f261e107870f",
+                "durationMs": 234,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 4750,
+                "session": 2,
+                "truncated": false,
+                "turn": 26
+              },
+              {
+                "argsSha256": "b182724059e9e5b3de698b9be9fa0f776ddfdd1a33afc36696b57b660a5361b3",
+                "durationMs": 141110,
+                "name": "wait_agents",
+                "ok": true,
+                "resultBytes": 1028,
+                "session": 2,
+                "truncated": false,
+                "turn": 27
+              },
+              {
+                "argsSha256": "9937d6121d1ce3423a3192604bc377556f1105a1e4d66574a577add0ecbe70e0",
+                "durationMs": 534,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3351,
+                "session": 2,
+                "truncated": false,
+                "turn": 28
+              },
+              {
+                "argsSha256": "f1c6f4d517a7d0df7b4851f248a6612f19560609ac3e8d65c9c59ebe64c5ad49",
+                "durationMs": 536,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 11240,
+                "session": 2,
+                "truncated": false,
+                "turn": 28
+              },
+              {
+                "argsSha256": "a00a3093633479ed0cb228b800594e9985fa58ef013fa4344d1887f07dfd5915",
+                "durationMs": 223,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 2,
+                "truncated": false,
+                "turn": 29
+              },
+              {
+                "argsSha256": "e252d9112716d3d9c175c257068d0dd31a56869d9a7a082596bb2519bf41c8bd",
+                "durationMs": 226,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 2,
+                "truncated": false,
+                "turn": 30
+              },
+              {
+                "argsSha256": "e7563f78a3130f3b654e7292b76ea086f86d61ef31d3c4eb1f800c74fb79499b",
+                "durationMs": 247,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 2,
+                "truncated": false,
+                "turn": 31
+              },
+              {
+                "argsSha256": "79bf44898caeb0ed1c1766943db396df0149abf1db611c607588cccb107f9c07",
+                "durationMs": 1872,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 5826,
+                "session": 2,
+                "truncated": false,
+                "turn": 32
+              },
+              {
+                "argsSha256": "43f3f9064aa8e001af5c9a4b2fc9d99084943724b5ecd9af36f5294a61403f60",
+                "durationMs": 227,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 175,
+                "session": 2,
+                "truncated": false,
+                "turn": 33
+              },
+              {
+                "argsSha256": "1096d7856ac5e64ffb296b0eb880a619faf0c55d31444b9b5f17f09fab6f2904",
+                "durationMs": 497,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 2,
+                "truncated": false,
+                "turn": 34
+              },
+              {
+                "argsSha256": "ea7c792803e98bdd0ca8dbf934aa199985d968cb0abdb4946b1cece8f9a087fb",
+                "durationMs": 222,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 2,
+                "truncated": false,
+                "turn": 35
+              },
+              {
+                "argsSha256": "bb2b9e2d0e4de6c7e177b5e3721bceb6840737671afee895db1f9f9c9c39cc0f",
+                "durationMs": 323,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 1753,
+                "session": 2,
+                "truncated": false,
+                "turn": 36
+              },
+              {
+                "argsSha256": "af5b6cab35383d270564977d1150467334443b34950392e6c993062ba88ae905",
+                "durationMs": 227,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 2,
+                "truncated": false,
+                "turn": 37
+              },
+              {
+                "argsSha256": "87f7bf3bba5cb9db0a3ef7340fae1f3238061f528dc90e9bdcdb4b315bdf5612",
+                "durationMs": 734,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 2,
+                "truncated": false,
+                "turn": 38
+              },
+              {
+                "argsSha256": "90550cee2ae49ae171f9c21e6b940ba5bffdcc08b65290f089beab64012804f9",
+                "durationMs": 269,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 173,
+                "session": 2,
+                "truncated": false,
+                "turn": 39
+              },
+              {
+                "argsSha256": "2f51abc87a5e95db51e54e79f4dbec2223fd9104d9c79a7882a4bde4fb277ac9",
+                "durationMs": 242,
+                "name": "grep",
+                "ok": true,
+                "resultBytes": 4442,
+                "session": 2,
+                "truncated": false,
+                "turn": 40
+              },
+              {
+                "argsSha256": "ceab34b6aa5ad4d56678780cc79df080027322e1df9a571e8013b65aca77d2b7",
+                "durationMs": 328,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3865,
+                "session": 2,
+                "truncated": false,
+                "turn": 41
+              },
+              {
+                "argsSha256": "590926e904af1cedb17a89c3eda0940e783278ebd178d25ed45df2a784d87e37",
+                "durationMs": 320,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3929,
+                "session": 2,
+                "truncated": false,
+                "turn": 42
+              },
+              {
+                "argsSha256": "111f3230abc40989b6ce8e8d922db42c97090fdd8064455266ccd5268b82d469",
+                "durationMs": 383,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 5241,
+                "session": 2,
+                "truncated": false,
+                "turn": 43
+              },
+              {
+                "argsSha256": "adc23f60688ce81493062e18c0edd9e86f631f6673321b73de291b453a91bead",
+                "durationMs": 391,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 4185,
+                "session": 2,
+                "truncated": false,
+                "turn": 44
+              },
+              {
+                "argsSha256": "b44b6f4f6b100667df7cf841568a6df9a22eac3a52b07b8a9c1cc3c51c08ca56",
+                "durationMs": 482,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 5794,
+                "session": 2,
+                "truncated": false,
+                "turn": 45
+              },
+              {
+                "argsSha256": "1a162c3a7217dc6281d8d161f8ef8cccd0009445c036fd557603652b8e9b5b4a",
+                "durationMs": 418,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 13902,
+                "session": 2,
+                "truncated": false,
+                "turn": 46
+              },
+              {
+                "argsSha256": "156536360175bd8151fc84508f2594d60659984bf3b1ed3fa781f4d06ee15579",
+                "durationMs": 465,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 2647,
+                "session": 2,
+                "truncated": false,
+                "turn": 47
+              },
+              {
+                "argsSha256": "97ee14e6c48fb53748aebda450d38bac6bb51e7361712b272763aa7ed74acc01",
+                "durationMs": 1137,
+                "name": "write",
+                "ok": true,
+                "resultBytes": 223,
+                "session": 2,
+                "truncated": false,
+                "turn": 48
+              },
+              {
+                "argsSha256": "401d1c223fb3462c495924a7b126788f74e4f6c8b5f1a05fe729d84aca443adb",
+                "durationMs": 231,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3757,
+                "session": 3,
+                "truncated": false,
+                "turn": 49
+              },
+              {
+                "argsSha256": "79425acdd6f3a58c627eab21c2473999389e9b6141c7e59ae4a969d22d2373ac",
+                "durationMs": 232,
+                "name": "ls",
+                "ok": true,
+                "resultBytes": 325,
+                "session": 3,
+                "truncated": false,
+                "turn": 49
+              },
+              {
+                "argsSha256": "7dc8ee78abf58db9c05276064a0a3fa425db11cc31469b6c628db9e2e3d4aff8",
+                "durationMs": 602,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14368,
+                "session": 3,
+                "truncated": false,
+                "turn": 50
+              },
+              {
+                "argsSha256": "1dd802f065ae89dfe40bf1e9e1fc67e6fdb98cdcb2a6d67eaae2acd49d4487f7",
+                "durationMs": 1,
+                "name": "wait_agents",
+                "ok": true,
+                "resultBytes": 1049,
+                "session": 3,
+                "truncated": false,
+                "turn": 50
+              },
+              {
+                "argsSha256": "2e0c312be3d7f4767f9b2accc5d4d73c3b85c7a756e29862d8f46f997306c63e",
+                "durationMs": 1473,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14044,
+                "session": 3,
+                "truncated": false,
+                "turn": 51
+              },
+              {
+                "argsSha256": "318c62475e9e7ab1123fab3ee002ebc7858bd80fe5b1b7a0c15d8e0d01343b15",
+                "durationMs": 626,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3626,
+                "session": 3,
+                "truncated": false,
+                "turn": 52
+              },
+              {
+                "argsSha256": "8f7a830d321e8f6e351bd4fc10e630b611347a673a5da4d9671c4dd015db8d8a",
+                "durationMs": 508,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14368,
+                "session": 3,
+                "truncated": false,
+                "turn": 53
+              },
+              {
+                "argsSha256": "b2889a5cd4789c6f9047748e6c084e66aea8b613101b213b0c8960f62d631236",
+                "durationMs": 325,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14139,
+                "session": 3,
+                "truncated": false,
+                "turn": 54
+              },
+              {
+                "argsSha256": "313838300443fb201f228b463a48349af5c6243a330afe912b9bf5690f30f60f",
+                "durationMs": 413,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 4610,
+                "session": 3,
+                "truncated": false,
+                "turn": 55
+              },
+              {
+                "argsSha256": "b28da641303248610c1d40cb8ebe7460b41f2d9fca45877fac39c324311fc6af",
+                "durationMs": 478,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14368,
+                "session": 3,
+                "truncated": false,
+                "turn": 56
+              },
+              {
+                "argsSha256": "74395dae09a5f646403a5c2539f68902e3a07dd86a1113bc5efbfc8fd0ad36f6",
+                "durationMs": 465,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 13603,
+                "session": 3,
+                "truncated": false,
+                "turn": 57
+              },
+              {
+                "argsSha256": "3c0b80ea6b554127f524ff30b26cf6677c48e3c8f43efdfb1c99e75ad3db23c0",
+                "durationMs": 571,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 6474,
+                "session": 3,
+                "truncated": false,
+                "turn": 58
+              },
+              {
+                "argsSha256": "bd1a64bda9b8c63c582a127d66f066cb95caf171eecb48bd2db90e6b397ab262",
+                "durationMs": 540,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14368,
+                "session": 3,
+                "truncated": false,
+                "turn": 59
+              },
+              {
+                "argsSha256": "3eaa7053c23a138982fe7bc5b692a4f64f5f3daf7f57cf117e737562aaa09643",
+                "durationMs": 544,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14615,
+                "session": 3,
+                "truncated": false,
+                "turn": 60
+              },
+              {
+                "argsSha256": "46ceb77d19deec0d80dfd17af4f80192efd7e23a1df95cdb00d113ec635b023c",
+                "durationMs": 600,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 6133,
+                "session": 3,
+                "truncated": false,
+                "turn": 61
+              },
+              {
+                "argsSha256": "6396c6ccc5da6ebf12a377ed308c8c7194f97f79a8ad8674d1969305fca04f55",
+                "durationMs": 529,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14368,
+                "session": 3,
+                "truncated": false,
+                "turn": 62
+              },
+              {
+                "argsSha256": "c5159f18fb2ec3daf6995db544f826cd684559d04a1d0f2832f446a2195d073a",
+                "durationMs": 480,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14689,
+                "session": 3,
+                "truncated": false,
+                "turn": 63
+              },
+              {
+                "argsSha256": "ffdca1f18b9ad8b71ed4ced31200ca1ce7c57cb063abbe6287abd11dd46fea40",
+                "durationMs": 471,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 6313,
+                "session": 3,
+                "truncated": false,
+                "turn": 64
+              },
+              {
+                "argsSha256": "32211030a671e1a45fe48b6fc5251c8e032092def70a94235e29c90e1105a017",
+                "durationMs": 467,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14368,
+                "session": 3,
+                "truncated": false,
+                "turn": 65
+              },
+              {
+                "argsSha256": "b6cd6829cc3f46199c659be6a6810dd8d7428b71685e7d08aeec475a4bfbdaa3",
+                "durationMs": 488,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14768,
+                "session": 3,
+                "truncated": false,
+                "turn": 66
+              },
+              {
+                "argsSha256": "948f7a5312d2de29ca8e5abb3b14afef1581fc4e9cfeadcce720161a467dd90c",
+                "durationMs": 508,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 6146,
+                "session": 3,
+                "truncated": false,
+                "turn": 67
+              },
+              {
+                "argsSha256": "d1ffede95d60cd8e7a181be6e96296e140aa6c53facd2f955f2eb314970304a4",
+                "durationMs": 478,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14372,
+                "session": 3,
+                "truncated": false,
+                "turn": 68
+              },
+              {
+                "argsSha256": "cbb772458a591f59eac179215ac54eea3912124d33aae70cb86463be7f0f65fe",
+                "durationMs": 480,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14771,
+                "session": 3,
+                "truncated": false,
+                "turn": 69
+              },
+              {
+                "argsSha256": "70b97099b64d4fc5c0241645dbcda1f7b2c8adb2d4a8db34bb91dde2153af000",
+                "durationMs": 476,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3755,
+                "session": 3,
+                "truncated": false,
+                "turn": 70
+              },
+              {
+                "argsSha256": "012c8f396903c8e0d9903ba887d8d5d24a282e8bbf4d309b100a99109f625069",
+                "durationMs": 591,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 14372,
+                "session": 3,
+                "truncated": false,
+                "turn": 71
+              },
+              {
+                "argsSha256": "14b4fab5c1b0d7d2e2a65f0e0947f74eb82137034475933f0b0e82fa1873fcf0",
+                "durationMs": 1092,
+                "name": "write",
+                "ok": true,
+                "resultBytes": 223,
+                "session": 3,
+                "truncated": false,
+                "turn": 72
+              },
+              {
+                "argsSha256": "401d1c223fb3462c495924a7b126788f74e4f6c8b5f1a05fe729d84aca443adb",
+                "durationMs": 229,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 3446,
+                "session": 4,
+                "truncated": false,
+                "turn": 73
+              },
+              {
+                "argsSha256": "79425acdd6f3a58c627eab21c2473999389e9b6141c7e59ae4a969d22d2373ac",
+                "durationMs": 220,
+                "name": "ls",
+                "ok": true,
+                "resultBytes": 325,
+                "session": 4,
+                "truncated": false,
+                "turn": 73
+              },
+              {
+                "argsSha256": "74ca403deff2e4c0fee71f4e37e5521582252e1d0a988b9eb7abd93c546da22e",
+                "durationMs": 2,
+                "name": "read_agent_result",
+                "ok": true,
+                "resultBytes": 11727,
+                "session": 4,
+                "truncated": false,
+                "turn": 74
+              },
+              {
+                "argsSha256": "7afb2bccd447fc91adcef428c052cda2f914d51f2db66a16e7e5caed95230b3b",
+                "durationMs": 223,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 1408,
+                "session": 4,
+                "truncated": false,
+                "turn": 74
+              },
+              {
+                "argsSha256": "7c038e80bfb8109695ce20819b41baf6fa899eba2ef0627eb327d89144e2493e",
+                "durationMs": 1022,
+                "name": "decide_agent_results",
+                "ok": true,
+                "resultBytes": 262,
+                "session": 4,
+                "truncated": false,
+                "turn": 75
+              },
+              {
+                "argsSha256": "061f92b9e59b4aa26b7f2ad5031aaae2bfc1499077a7d61006f57ae680d084a4",
+                "durationMs": 519,
+                "name": "write",
+                "ok": true,
+                "resultBytes": 213,
+                "session": 4,
+                "truncated": false,
+                "turn": 75
+              },
+              {
+                "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                "durationMs": 225,
+                "name": "validate",
+                "ok": true,
+                "resultBytes": 377,
+                "session": 4,
+                "truncated": false,
+                "turn": 76
+              },
+              {
+                "argsSha256": "d72d0d6a40695462e69ca64e6c7cba406c0408722053263d4cbd47db16d29f46",
+                "durationMs": 252,
+                "name": "read",
+                "ok": true,
+                "resultBytes": 527,
+                "session": 4,
+                "truncated": false,
+                "turn": 77
+              },
+              {
+                "argsSha256": "7bd52362a7206ab892dfceb9cc37585c8f64d7a67e37fea6998219600d0f7020",
+                "durationMs": 520,
+                "name": "edit",
+                "ok": true,
+                "resultBytes": 224,
+                "session": 4,
+                "truncated": false,
+                "turn": 78
+              },
+              {
+                "argsSha256": "c8f85267b6d9b48338fd29a6f328e46154070e555a39247b36e362e043c3e173",
+                "durationMs": 536,
+                "name": "edit",
+                "ok": true,
+                "resultBytes": 243,
+                "session": 4,
+                "truncated": false,
+                "turn": 78
+              },
+              {
+                "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+                "durationMs": 229,
+                "name": "validate",
+                "ok": true,
+                "resultBytes": 150,
+                "session": 4,
+                "truncated": false,
+                "turn": 79
+              },
+              {
+                "argsSha256": "fafb25f24a384feda1321b62992be1b3b7a91a8dfab3230f5e2187d94e006064",
+                "durationMs": 254,
+                "name": "publish",
+                "ok": true,
+                "resultBytes": 179,
+                "session": 4,
+                "truncated": false,
+                "turn": 80
+              }
+            ],
+            "usage": {
+              "completionTokens": 21233,
+              "inputBytes": 11189365,
+              "modelLatencyMs": 741338,
+              "outputBytes": 77058,
+              "promptTokens": 2544116,
+              "sessions": 4,
+              "toolCalls": 98,
+              "toolErrors": 0,
+              "turns": 80
+            },
+            "workspace": {
+              "id": "ws-mvcvabz9-45e98cd15a",
+              "kind": "modal"
+            }
+          }
+        }
+      ],
+      "budget": {
+        "maxChildren": 32,
+        "maxConcurrentAgents": 4,
+        "maxDepth": 4,
+        "maxDescendants": 4,
+        "maxInputBytes": 134217728,
+        "maxOutputBytes": 16777216,
+        "maxSessions": 4,
+        "maxToolCalls": 64,
+        "maxTurns": 24,
+        "maxWallClockMs": 7200000,
+        "waitDefaultMs": 60000,
+        "waitMaxMs": 600000,
+        "waitMinMs": 1000
+      },
+      "buildId": "bld-mvcvaby4-d0c55a1f3e",
+      "chunks": 28,
+      "day": "2026-10-17",
+      "finishedAt": "2026-10-17T21:02:26.530Z",
+      "initialHead": "rev-cf73af0f9d94d4be60d8cb2e",
+      "inputs": {
+        "files": 5,
+        "manifestSha256": "47aabf4c64e649a12a660cb92d36b162e3a0ae371724f6d936a88f4713d5bc9f"
+      },
+      "manifestKey": "daily/2026-10-17/manifest-0001.json",
+      "ns": "eval-20261017204530",
+      "profiles": {
+        "defaultChild": "kimi-k3",
+        "root": "kimi-k3",
+        "selectable": [
+          "kimi-k3",
+          "glm-5p3",
+          "minimax-m3"
+        ]
+      },
+      "providerClose": [
+        {
+          "id": "integrations",
+          "ok": true
+        }
+      ],
+      "revisionId": "rev-e1e20dae88722882cc231ee0",
+      "schema": "procmem.build-receipt/v1",
+      "sessions": [
+        "train-train-day1-a-kimi-k3-no-memory-r1-mvcv8p7t",
+        "train-train-day1-b-kimi-k3-no-memory-r1-mvcv8p7t"
+      ],
+      "sources": [
+        "daily/2026-10-17/manifest-0001.json"
+      ],
+      "startedAt": "2026-10-17T20:46:46.786Z",
+      "status": "published",
+      "summary": "Added notifications-api integration docs distilled from the 2026-10-17 outage-redelivery cohort (2 sessions, both host-oracle-verified exactly-once): an API reference (tools, pagination, 429/503 semantics, idempotency, eligibility traps) plus two end-to-end redelivery runbooks — email (accepted from child root.1, fully trace-cited) and sms (root-written after child root.2 failed). Key durable lessons: status=failed also returns failed_permanent rows; get_deliveries guard before any send (ack_timeout false negatives); idempotency_key = notification id; 503 = unknown outcome, retry with the same key (observed 503s that had actually succeeded server-side, resolved by idempotent-replay 200); resume the same cursor after a 429.",
+      "workspaceBackend": "modal"
+    },
+    "publishedRevision": "rev-e1e20dae88722882cc231ee0",
+    "durationMs": 939778
+  },
+  "phaseB": [
+    {
+      "label": "live-model",
+      "episodeId": "heldout-heldout-x-glm-5p3-memory-r1-mvcvuh2m",
+      "model": "accounts/fireworks/models/glm-5p3",
+      "scenario": "heldout-x",
+      "condition": "memory",
+      "success": true,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedApiCalls": 4,
+      "totalApiCalls": 21,
+      "memoryToolCalls": 2,
+      "memoryToolNames": [
+        "mcp__memory__open_memory",
+        "mcp__memory__read"
+      ],
+      "turns": 11,
+      "toolCalls": 23,
+      "inputTokens": 94805,
+      "outputTokens": 1429,
+      "cacheReadTokens": 89537,
+      "costUsd": 0.036942,
+      "latencyMs": 17734,
+      "stoppedBy": "completed",
+      "activeTools": [
+        "deliver",
+        "get_deliveries",
+        "list_notifications",
+        "mcp__memory__cancel_command",
+        "mcp__memory__edit",
+        "mcp__memory__find",
+        "mcp__memory__grep",
+        "mcp__memory__ls",
+        "mcp__memory__open_memory",
+        "mcp__memory__poll_command",
+        "mcp__memory__read",
+        "mcp__memory__shell",
+        "mcp__memory__view_file",
+        "mcp__memory__write",
+        "mcp__memory__write_command"
+      ],
+      "oracle": {
+        "success": true,
+        "eligible": 5,
+        "delivered": 5,
+        "duplicates": 0,
+        "missed": 0,
+        "wrong": 0,
+        "failedCalls": 4,
+        "totalCalls": 21,
+        "missedIds": [],
+        "duplicateIds": [],
+        "wrongIds": []
+      },
+      "finalText": "Done — exactly-once redelivery of failed push notifications complete.\n\n**Delivered (5):**\n- ntf_outx_105 → dlv_0003 (202, new)\n- ntf_outx_106 → dlv_0004 (202, new)\n- ntf_outx_107 → dlv_0005 (first attempt 503 but had actually succeeded; same-key retry returned idempotent replay, verified)\n- ntf_outx_109 → dlv_0006 (202, new after one 503 retry, verified)\n- ntf_outx_112 → dlv_0007 (202, new)\n\n**Intentionally skipped (4):**\n- ntf_outx_100 — no recipient, last_error `missing_recipient` (nothing to deliver to)\n- ntf_outx_110 — `failed_permanent` / `recipient_unsubscribed` (must not re-send)\n- ntf_outx_103 — already delivered (dlv_0001); `ack_timeout` false negative in the failed list\n- ntf_outx_104 — already delivered (dlv_0002); `ack_timeout` false negative\n\nProcedure followed the stored runbook: paginated the failed push list (resumed the same cursor after one 429), checked `get_deliveries` before every send, used idempotency_key = notification id on all deliveries, and treated 503s as unknown outcome with same-key retries plus a final verification pass.",
+      "traced": false,
+      "phase": "heldout",
+      "repeat": 1
+    },
+    {
+      "label": "live-model",
+      "episodeId": "heldout-heldout-x-glm-5p3-no-memory-r1-mvcvuh2n",
+      "model": "accounts/fireworks/models/glm-5p3",
+      "scenario": "heldout-x",
+      "condition": "no-memory",
+      "success": true,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedApiCalls": 4,
+      "totalApiCalls": 21,
+      "memoryToolCalls": 0,
+      "memoryToolNames": [],
+      "turns": 10,
+      "toolCalls": 21,
+      "inputTokens": 17924,
+      "outputTokens": 990,
+      "cacheReadTokens": 11974,
+      "costUsd": 0.015799,
+      "latencyMs": 11176,
+      "stoppedBy": "completed",
+      "activeTools": [
+        "deliver",
+        "get_deliveries",
+        "list_notifications"
+      ],
+      "oracle": {
+        "success": true,
+        "eligible": 5,
+        "delivered": 5,
+        "duplicates": 0,
+        "missed": 0,
+        "wrong": 0,
+        "failedCalls": 4,
+        "totalCalls": 21,
+        "missedIds": [],
+        "duplicateIds": [],
+        "wrongIds": []
+      },
+      "finalText": "All done. Summary:\n\n**Delivered (exactly once each):**\n- ntf_outx_105 (dlv_0003)\n- ntf_outx_106 (dlv_0004)\n- ntf_outx_107 (dlv_0005 — retried after a 503, confirmed via idempotency deduplication so no duplicate was sent)\n- ntf_outx_109 (dlv_0007 — retried after a 503)\n- ntf_outx_112 (dlv_0006)\n\n**Intentionally skipped:**\n- ntf_outx_100 — no recipient (`missing_recipient`); nothing to deliver\n- ntf_outx_103 and ntf_outx_104 — already successfully delivered (delivery records dlv_0001/dlv_0002); re-sending would duplicate\n- ntf_outx_110 — permanent failure (`recipient_unsubscribed`); customer opted out, so should not be re-delivered",
+      "traced": false,
+      "phase": "heldout",
+      "repeat": 1
+    },
+    {
+      "label": "live-model",
+      "episodeId": "heldout-heldout-y-glm-5p3-memory-r1-mvcvupp3",
+      "model": "accounts/fireworks/models/glm-5p3",
+      "scenario": "heldout-y",
+      "condition": "memory",
+      "success": true,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedApiCalls": 3,
+      "totalApiCalls": 25,
+      "memoryToolCalls": 5,
+      "memoryToolNames": [
+        "mcp__memory__open_memory",
+        "mcp__memory__read"
+      ],
+      "turns": 15,
+      "toolCalls": 30,
+      "inputTokens": 148676,
+      "outputTokens": 1587,
+      "cacheReadTokens": 129226,
+      "costUsd": 0.067812,
+      "latencyMs": 21261,
+      "stoppedBy": "completed",
+      "activeTools": [
+        "deliver",
+        "get_deliveries",
+        "list_notifications",
+        "mcp__memory__cancel_command",
+        "mcp__memory__edit",
+        "mcp__memory__find",
+        "mcp__memory__grep",
+        "mcp__memory__ls",
+        "mcp__memory__open_memory",
+        "mcp__memory__poll_command",
+        "mcp__memory__read",
+        "mcp__memory__shell",
+        "mcp__memory__view_file",
+        "mcp__memory__write",
+        "mcp__memory__write_command"
+      ],
+      "oracle": {
+        "success": true,
+        "eligible": 7,
+        "delivered": 7,
+        "duplicates": 0,
+        "missed": 0,
+        "wrong": 0,
+        "failedCalls": 3,
+        "totalCalls": 25,
+        "missedIds": [],
+        "duplicateIds": [],
+        "wrongIds": []
+      },
+      "finalText": "Done. Followed the email redelivery runbook from procedural memory (paginated all failed-email rows, guarded with `get_deliveries` before each send, used the notification id as the idempotency key, retried 429/503s with the same cursor/key, and verified the ids that hit a 503).\n\n**Delivered (7):**\n- ntf_outy_102 → dlv_0003\n- ntf_outy_103 → dlv_0004 (hit a 503, succeeded on retry; verified exactly once)\n- ntf_outy_104 → dlv_0005\n- ntf_outy_106 → dlv_0006\n- ntf_outy_109 → dlv_0007\n- ntf_outy_113 → dlv_0009 (hit a 503, succeeded on retry; verified exactly once)\n- ntf_outy_115 → dlv_0008\n\n**Intentionally skipped (5):**\n- ntf_outy_105 — `missing_recipient` (no recipient; undeliverable)\n- ntf_outy_110 — `failed_permanent` / `recipient_unsubscribed` (must not re-send)\n- ntf_outy_116 — `failed_permanent` / `recipient_unsubscribed` (must not re-send)\n- ntf_outy_107 — already delivered (dlv_0001) despite `failed` status; skipping avoided a duplicate\n- ntf_outy_108 — already delivered (dlv_0002) despite `failed` status; skipping avoided a duplicate\n\nResult: each eligible email was delivered exactly once, with zero duplicates.",
+      "traced": false,
+      "phase": "heldout",
+      "repeat": 1
+    },
+    {
+      "label": "live-model",
+      "episodeId": "heldout-heldout-y-glm-5p3-no-memory-r1-mvcvuur9",
+      "model": "accounts/fireworks/models/glm-5p3",
+      "scenario": "heldout-y",
+      "condition": "no-memory",
+      "success": true,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedApiCalls": 3,
+      "totalApiCalls": 23,
+      "memoryToolCalls": 0,
+      "memoryToolNames": [],
+      "turns": 9,
+      "toolCalls": 23,
+      "inputTokens": 16011,
+      "outputTokens": 1164,
+      "cacheReadTokens": 12268,
+      "costUsd": 0.013551,
+      "latencyMs": 12034,
+      "stoppedBy": "completed",
+      "activeTools": [
+        "deliver",
+        "get_deliveries",
+        "list_notifications"
+      ],
+      "oracle": {
+        "success": true,
+        "eligible": 7,
+        "delivered": 7,
+        "duplicates": 0,
+        "missed": 0,
+        "wrong": 0,
+        "failedCalls": 3,
+        "totalCalls": 23,
+        "missedIds": [],
+        "duplicateIds": [],
+        "wrongIds": []
+      },
+      "finalText": "All done. Summary of the failed email notifications found (13 total) and actions taken:\n\n**Delivered (7):** ntf_outy_102, ntf_outy_103, ntf_outy_104, ntf_outy_106, ntf_outy_109, ntf_outy_113, ntf_outy_115 — each delivered exactly once (idempotency keys used; two 503 retries were deduplicated server-side, so no duplicates).\n\n**Intentionally skipped (6):**\n- ntf_outy_105 — `missing_recipient`: no recipient address, cannot be delivered.\n- ntf_outy_110, ntf_outy_116 — `failed_permanent` / `recipient_unsubscribed`: customer has unsubscribed; should not be redelivered.\n- ntf_outy_107, ntf_outy_108 — failed with `ack_timeout` but a successful delivery already exists on record (verified via get_deliveries), so they were already delivered despite the failed status.",
+      "traced": false,
+      "phase": "heldout",
+      "repeat": 1
+    },
+    {
+      "label": "live-model",
+      "episodeId": "heldout-heldout-x-minimax-m3-memory-r1-mvcvv41k",
+      "model": "accounts/fireworks/models/minimax-m3",
+      "scenario": "heldout-x",
+      "condition": "memory",
+      "success": true,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedApiCalls": 4,
+      "totalApiCalls": 21,
+      "memoryToolCalls": 11,
+      "memoryToolNames": [
+        "mcp__memory__open_memory",
+        "mcp__memory__read",
+        "mcp__memory__shell"
+      ],
+      "turns": 23,
+      "toolCalls": 32,
+      "inputTokens": 311071,
+      "outputTokens": 4144,
+      "cacheReadTokens": 278095,
+      "costUsd": 0.031551,
+      "latencyMs": 43976,
+      "stoppedBy": "completed",
+      "activeTools": [
+        "deliver",
+        "get_deliveries",
+        "list_notifications",
+        "mcp__memory__cancel_command",
+        "mcp__memory__edit",
+        "mcp__memory__find",
+        "mcp__memory__grep",
+        "mcp__memory__ls",
+        "mcp__memory__open_memory",
+        "mcp__memory__poll_command",
+        "mcp__memory__read",
+        "mcp__memory__shell",
+        "mcp__memory__view_file",
+        "mcp__memory__write",
+        "mcp__memory__write_command"
+      ],
+      "oracle": {
+        "success": true,
+        "eligible": 5,
+        "delivered": 5,
+        "duplicates": 0,
+        "missed": 0,
+        "wrong": 0,
+        "failedCalls": 4,
+        "totalCalls": 21,
+        "missedIds": [],
+        "duplicateIds": [],
+        "wrongIds": []
+      },
+      "finalText": "Done. Exactly-once verified for both 503 cases (each has exactly one delivery record).\n\n## Push redelivery summary\n\n**Delivered (5):**\n- `ntf_outx_105` → `dlv_0003` (202)\n- `ntf_outx_106` → `dlv_0004` (202)\n- `ntf_outx_107` → `dlv_0005` (200 idempotent replay; first attempt returned 503 but had succeeded server-side)\n- `ntf_outx_109` → `dlv_0006` (202, after two consecutive 503 retries)\n- `ntf_outx_112` → `dlv_0007` (202)\n\n**Skipped (4):**\n- `ntf_outx_100` — `last_error=missing_recipient`; row had no recipient, delivery impossible.\n- `ntf_outx_103` — already delivered (`dlv_0001`, key `ntf_outx_103`, 2026-10-16T23:59Z); `status=failed` was a false negative (ack_timeout after a successful delivery). Skipped to avoid duplicate.\n- `ntf_outx_104` — already delivered (`dlv_0002`, key `ntf_outx_104`, 2026-10-16T23:59Z); same false-negative case as 103. Skipped to avoid duplicate.\n- `ntf_outx_110` — per-item status `failed_permanent`, `last_error=recipient_unsubscribed`; recipient opted out, must not re-send.\n\nTransients observed: 1× `list_notifications` 429 (resumed same cursor), 3× `deliver` 503 (handled with same-key retries after `retry-after:1`). All deliveries used `idempotency_key = notification id`, matching the scheme of the two pre-existing delivery records so no duplicates were possible. Verification `get_deliveries` for the two 503 cases each returned exactly one record.",
+      "traced": false,
+      "phase": "heldout",
+      "repeat": 1
+    },
+    {
+      "label": "live-model",
+      "episodeId": "heldout-heldout-x-minimax-m3-no-memory-r1-mvcvv63p",
+      "model": "accounts/fireworks/models/minimax-m3",
+      "scenario": "heldout-x",
+      "condition": "no-memory",
+      "success": true,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedApiCalls": 4,
+      "totalApiCalls": 21,
+      "memoryToolCalls": 0,
+      "memoryToolNames": [],
+      "turns": 9,
+      "toolCalls": 21,
+      "inputTokens": 26706,
+      "outputTokens": 3917,
+      "cacheReadTokens": 19408,
+      "costUsd": 0.008054,
+      "latencyMs": 21466,
+      "stoppedBy": "completed",
+      "activeTools": [
+        "deliver",
+        "get_deliveries",
+        "list_notifications"
+      ],
+      "oracle": {
+        "success": true,
+        "eligible": 5,
+        "delivered": 5,
+        "duplicates": 0,
+        "missed": 0,
+        "wrong": 0,
+        "failedCalls": 4,
+        "totalCalls": 21,
+        "missedIds": [],
+        "duplicateIds": [],
+        "wrongIds": []
+      },
+      "finalText": "All targeted re-deliveries confirmed successful. Here is the summary.\n\n## Summary\n\n**Re-delivered (5):**\n| Notification | Recipient | Delivery ID | Delivered at |\n|---|---|---|---|\n| `ntf_outx_105` | user430@example.test | dlv_0003 | 2026-10-17T09:00:14Z |\n| `ntf_outx_106` | user228@example.test | dlv_0004 | 2026-10-17T09:00:15Z |\n| `ntf_outx_107` | user190@example.test | dlv_0005 | 2026-10-17T09:00:16Z |\n| `ntf_outx_109` | user763@example.test | dlv_0007 | 2026-10-17T09:00:21Z |\n| `ntf_outx_112` | user729@example.test | dlv_0006 | 2026-10-17T09:00:18Z |\n\nEach was sent with the notification id as the `Idempotency-Key` to guarantee exactly-once delivery on retry.\n\n**Intentionally skipped (4):**\n| Notification | Reason |\n|---|---|\n| `ntf_outx_100` | Permanent failure — `missing_recipient` (no recipient defined; nothing to deliver to) |\n| `ntf_outx_103` | Already delivered once — prior delivery `dlv_0001` exists; re-delivering would duplicate |\n| `ntf_outx_104` | Already delivered once — prior delivery `dlv_0002` exists; re-delivering would duplicate |\n| `ntf_outx_110` | Permanent failure — `failed_permanent`, `recipient_unsubscribed` (customer opted out; cannot deliver) |\n\nEvery failed push notification that the customer should have received is now delivered exactly once.",
+      "traced": false,
+      "phase": "heldout",
+      "repeat": 1
+    },
+    {
+      "label": "live-model",
+      "episodeId": "heldout-heldout-y-minimax-m3-memory-r1-mvcvvmo1",
+      "model": "accounts/fireworks/models/minimax-m3",
+      "scenario": "heldout-y",
+      "condition": "memory",
+      "success": true,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedApiCalls": 3,
+      "totalApiCalls": 30,
+      "memoryToolCalls": 9,
+      "memoryToolNames": [
+        "mcp__memory__open_memory",
+        "mcp__memory__read",
+        "mcp__memory__shell"
+      ],
+      "turns": 19,
+      "toolCalls": 39,
+      "inputTokens": 222050,
+      "outputTokens": 5403,
+      "cacheReadTokens": 190056,
+      "costUsd": 0.027485,
+      "latencyMs": 41272,
+      "stoppedBy": "completed",
+      "activeTools": [
+        "deliver",
+        "get_deliveries",
+        "list_notifications",
+        "mcp__memory__cancel_command",
+        "mcp__memory__edit",
+        "mcp__memory__find",
+        "mcp__memory__grep",
+        "mcp__memory__ls",
+        "mcp__memory__open_memory",
+        "mcp__memory__poll_command",
+        "mcp__memory__read",
+        "mcp__memory__shell",
+        "mcp__memory__view_file",
+        "mcp__memory__write",
+        "mcp__memory__write_command"
+      ],
+      "oracle": {
+        "success": true,
+        "eligible": 7,
+        "delivered": 7,
+        "duplicates": 0,
+        "missed": 0,
+        "wrong": 0,
+        "failedCalls": 3,
+        "totalCalls": 30,
+        "missedIds": [],
+        "duplicateIds": [],
+        "wrongIds": []
+      },
+      "finalText": "All 7 delivered ids confirmed exactly-once via `get_deliveries`. Task complete.\n\n## Summary\n\nFollowed the email redelivery runbook from procedural memory (`integrations/notifications-api/redelivery-runbook-email.md`): paged all `status=failed` `channel=email` listings, classified each row, ran the `get_deliveries` exactly-once guard, delivered with `idempotency_key = notification id`, and same-key-retried on 503. Encountered transient errors: 1× 429 on listing (retried same cursor) and 2× 503 on `deliver` (retried same key after `retry-after`).\n\n**Delivered (7):**\n| Notification id | Delivery id | Notes |\n|---|---|---|\n| ntf_outy_102 | dlv_0003 | new |\n| ntf_outy_103 | dlv_0004 | 503 on first attempt → idempotent-replay 200 confirmed original attempt actually succeeded server-side |\n| ntf_outy_104 | dlv_0005 | new |\n| ntf_outy_106 | dlv_0006 | new |\n| ntf_outy_109 | dlv_0007 | new |\n| ntf_outy_113 | dlv_0009 | 503 on first attempt → 202 on same-key retry |\n| ntf_outy_115 | dlv_0008 | new |\n\n**Intentionally skipped (5):**\n| Notification id | Reason |\n|---|---|\n| ntf_outy_105 | `last_error=missing_recipient`; no recipient field — cannot deliver |\n| ntf_outy_107 | already delivered exactly once prior (`dlv_0001`, key=`ntf_outy_107`, 2026-10-16T23:59Z) — exactly-once guard |\n| ntf_outy_108 | already delivered exactly once prior (`dlv_0002`, key=`ntf_outy_108`, 2026-10-16T23:59Z) — exactly-once guard |\n| ntf_outy_110 | `status=failed_permanent`, `last_error=recipient_unsubscribed` — must not re-send |\n| ntf_outy_116 | `status=failed_permanent`, `last_error=recipient_unsubscribed` — must not re-send |\n\nFinal `get_deliveries` verification across all 7 delivered ids confirms each has exactly one delivery row. No duplicates, no incorrect sends.",
+      "traced": false,
+      "phase": "heldout",
+      "repeat": 1
+    },
+    {
+      "label": "live-model",
+      "episodeId": "heldout-heldout-y-minimax-m3-no-memory-r1-mvcvw1z4",
+      "model": "accounts/fireworks/models/minimax-m3",
+      "scenario": "heldout-y",
+      "condition": "no-memory",
+      "success": true,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedApiCalls": 4,
+      "totalApiCalls": 19,
+      "memoryToolCalls": 0,
+      "memoryToolNames": [],
+      "turns": 11,
+      "toolCalls": 19,
+      "inputTokens": 31000,
+      "outputTokens": 4112,
+      "cacheReadTokens": 21926,
+      "costUsd": 0.008972,
+      "latencyMs": 25415,
+      "stoppedBy": "completed",
+      "activeTools": [
+        "deliver",
+        "get_deliveries",
+        "list_notifications"
+      ],
+      "oracle": {
+        "success": true,
+        "eligible": 7,
+        "delivered": 7,
+        "duplicates": 0,
+        "missed": 0,
+        "wrong": 0,
+        "failedCalls": 4,
+        "totalCalls": 19,
+        "missedIds": [],
+        "duplicateIds": [],
+        "wrongIds": []
+      },
+      "finalText": "All 9 email candidates have been delivered exactly once (idempotency keys ensured no duplicates; two came back as idempotent-replays, meaning they had quietly succeeded earlier despite the failed status, and two needed one retry due to transient 503s).\n\n**Delivered (9):**\n- ntf_outy_102\n- ntf_outy_103\n- ntf_outy_104\n- ntf_outy_106\n- ntf_outy_107\n- ntf_outy_108\n- ntf_outy_109\n- ntf_outy_113\n- ntf_outy_115\n\n**Intentionally skipped (7):**\n- ntf_outy_100 — push channel, not email\n- ntf_outy_101 — sms channel, not email\n- ntf_outy_105 — email but `missing_recipient` permanent error; no one to deliver to\n- ntf_outy_110 — email but `recipient_unsubscribed` / status `failed_permanent`; should not be delivered\n- ntf_outy_111 — fax channel, not email\n- ntf_outy_114 — sms channel, not email\n- ntf_outy_116 — email but `recipient_unsubscribed` / status `failed_permanent`; should not be delivered",
+      "traced": false,
+      "phase": "heldout",
+      "repeat": 1
+    }
+  ],
+  "checks": {
+    "trainRunsTraced": true,
+    "traceCapturesPromptAndTools": true,
+    "evalModelsDifferFromTrain": true
+  },
+  "aggregates": [
+    {
+      "model": "accounts/fireworks/models/glm-5p3",
+      "condition": "memory",
+      "runs": 2,
+      "successRate": 1,
+      "avgDuplicates": 0,
+      "avgMissed": 0,
+      "avgWrong": 0,
+      "avgFailedApiCalls": 3.5,
+      "avgTotalApiCalls": 23,
+      "avgMemoryToolCalls": 3.5,
+      "avgTurns": 13,
+      "avgToolCalls": 26.5,
+      "avgInputTokens": 121740.5,
+      "avgOutputTokens": 1508,
+      "avgLatencyMs": 19497.5,
+      "totalCostUsd": 0.1048,
+      "errors": 0
+    },
+    {
+      "model": "accounts/fireworks/models/glm-5p3",
+      "condition": "no-memory",
+      "runs": 2,
+      "successRate": 1,
+      "avgDuplicates": 0,
+      "avgMissed": 0,
+      "avgWrong": 0,
+      "avgFailedApiCalls": 3.5,
+      "avgTotalApiCalls": 22,
+      "avgMemoryToolCalls": 0,
+      "avgTurns": 9.5,
+      "avgToolCalls": 22,
+      "avgInputTokens": 16967.5,
+      "avgOutputTokens": 1077,
+      "avgLatencyMs": 11605,
+      "totalCostUsd": 0.0294,
+      "errors": 0
+    },
+    {
+      "model": "accounts/fireworks/models/minimax-m3",
+      "condition": "memory",
+      "runs": 2,
+      "successRate": 1,
+      "avgDuplicates": 0,
+      "avgMissed": 0,
+      "avgWrong": 0,
+      "avgFailedApiCalls": 3.5,
+      "avgTotalApiCalls": 25.5,
+      "avgMemoryToolCalls": 10,
+      "avgTurns": 21,
+      "avgToolCalls": 35.5,
+      "avgInputTokens": 266560.5,
+      "avgOutputTokens": 4773.5,
+      "avgLatencyMs": 42624,
+      "totalCostUsd": 0.059,
+      "errors": 0
+    },
+    {
+      "model": "accounts/fireworks/models/minimax-m3",
+      "condition": "no-memory",
+      "runs": 2,
+      "successRate": 1,
+      "avgDuplicates": 0,
+      "avgMissed": 0,
+      "avgWrong": 0,
+      "avgFailedApiCalls": 4,
+      "avgTotalApiCalls": 20,
+      "avgMemoryToolCalls": 0,
+      "avgTurns": 10,
+      "avgToolCalls": 20,
+      "avgInputTokens": 28853,
+      "avgOutputTokens": 4014.5,
+      "avgLatencyMs": 23440.5,
+      "totalCostUsd": 0.017,
+      "errors": 0
+    }
+  ],
+  "files": {
+    "json": "/Users/ishanramrakhiani/Documents/ChatGPT/yc-hackathon/reports/eval-2026-10-17T21-04-05-704Z.json",
+    "markdown": "/Users/ishanramrakhiani/Documents/ChatGPT/yc-hackathon/reports/eval-2026-10-17T21-04-05-704Z.md"
+  }
+}

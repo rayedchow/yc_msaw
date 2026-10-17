@@ -1,0 +1,198 @@
+{
+  "schema": "procmem.modal-smoke/v1",
+  "ranAt": "2026-10-17T20:07:27.028Z",
+  "passed": true,
+  "provider": "modal",
+  "image": "node:22-slim",
+  "sandboxId": "sb-01M55QK7ADKEB384W7M00NAY9B",
+  "blockNetwork": true,
+  "secretsInjected": false,
+  "agentUid": 1000,
+  "setupMs": 1880,
+  "totalMs": 24249,
+  "checks": [
+    {
+      "name": "workspace shell writes scratch (lease setup: materialize + protectTree verified)",
+      "pass": true,
+      "ms": 1215,
+      "detail": {
+        "exitCode": 0,
+        "stdout": "# Procedural memory\n/work/scratch\n"
+      }
+    },
+    {
+      "name": "workspace read scratch file written by shell",
+      "pass": true,
+      "ms": 694,
+      "detail": {
+        "content": "hello from sandbox"
+      }
+    },
+    {
+      "name": "workspace grep knowledge (host) and scratch (sandbox)",
+      "pass": true,
+      "ms": 345,
+      "detail": {
+        "knowledge": [
+          {
+            "path": "$KNOWLEDGE/deploy/index.md",
+            "line": 3,
+            "text": "Run `make release` then verify the canary."
+          }
+        ],
+        "scratch": [
+          {
+            "path": "$WORK/scratch/out.txt",
+            "line": 1,
+            "text": "hello from sandbox"
+          }
+        ]
+      }
+    },
+    {
+      "name": "workspace write/edit/ls/find scratch via agent uid",
+      "pass": true,
+      "ms": 2547,
+      "detail": {
+        "stdout": "one\nTWO\n1000 644\n",
+        "ls": [
+          "notes/",
+          "out.txt"
+        ],
+        "find": [
+          "$WORK/scratch/notes/a.md"
+        ]
+      }
+    },
+    {
+      "name": "agent uid is unprivileged",
+      "pass": true,
+      "ms": 792,
+      "detail": {
+        "id": "uid=1000(node) gid=1000(node) groups=1000(node)",
+        "caps": "CapPrm:\t0000000000000000\nCapEff:\t0000000000000000\nCapBnd:\t0000000000000000"
+      }
+    },
+    {
+      "name": "knowledge is read-only for agent (OS-enforced)",
+      "pass": true,
+      "ms": 527,
+      "detail": {
+        "results": [
+          "append rc=1 /bin/bash: line 3: /memory/knowledge/index.md: Permission denied",
+          "create rc=1 /bin/bash: line 4: /memory/knowledge/new.md: Permission denied",
+          "mkdir rc=1 mkdir: cannot create directory ‘/memory/knowledge/newdir’: Permission denied",
+          "unlink rc=1 rm: cannot remove '/memory/knowledge/index.md': Permission denied",
+          "rename rc=1 mv: cannot move '/memory/knowledge' to '/work/scratch/k': Permission denied",
+          "chmod rc=1 chmod: changing permissions of '/memory/knowledge/index.md': Operation not permitted",
+          "root 555 /memory/knowledge",
+          "root 444 /memory/knowledge/index.md"
+        ]
+      }
+    },
+    {
+      "name": "scratch symlink cannot redirect writes into knowledge",
+      "pass": true,
+      "ms": 1109,
+      "detail": {
+        "rejectedWith": "not_a_file"
+      }
+    },
+    {
+      "name": "agent env has only allowlisted vars; no secrets; /proc/1/environ unreadable",
+      "pass": true,
+      "ms": 156,
+      "detail": {
+        "keys": [
+          "HOME",
+          "KNOWLEDGE",
+          "LANG",
+          "LC_ALL",
+          "PATH",
+          "PWD",
+          "SCRATCH",
+          "SHLVL",
+          "TMPDIR",
+          "WORK",
+          "_"
+        ],
+        "extra": []
+      }
+    },
+    {
+      "name": "outbound network blocked",
+      "pass": true,
+      "ms": 766,
+      "detail": {
+        "dnsExit": 2,
+        "fetchExit": 3,
+        "fetch": "NET_BLOCKED ENETUNREACH"
+      }
+    },
+    {
+      "name": "output capture is bounded and marked truncated",
+      "pass": true,
+      "ms": 1052,
+      "detail": {
+        "stdoutLen": 1000,
+        "stdoutTruncated": true
+      }
+    },
+    {
+      "name": "deadline kills the command",
+      "pass": true,
+      "ms": 2460,
+      "detail": {
+        "timedOut": true,
+        "exitCode": 124,
+        "durationMs": 2009,
+        "agentProcsLeft": "0"
+      }
+    },
+    {
+      "name": "long-running command: poll, stdin, cancel kills process group",
+      "pass": true,
+      "ms": 7357,
+      "detail": {
+        "firstOutput": "child=259\nready\n",
+        "afterStdin": "got:hello\n",
+        "agentProcsBefore": "2",
+        "agentProcsAfterCancel": "0",
+        "cancelReceipt": {
+          "running": false,
+          "cancelled": true,
+          "exitCode": 143,
+          "elapsedMs": 7135
+        }
+      }
+    },
+    {
+      "name": "stdin close delivers EOF and command completes",
+      "pass": true,
+      "ms": 1245,
+      "detail": {
+        "stdout": "abc\ndone-eof\n",
+        "exitCode": 0
+      }
+    },
+    {
+      "name": "shell timeout_ms reports timedOut",
+      "pass": true,
+      "ms": 1600,
+      "detail": {
+        "exitCode": 124,
+        "timedOut": true,
+        "elapsedMs": 1600
+      }
+    },
+    {
+      "name": "terminate is idempotent and cleans up the sandbox",
+      "pass": true,
+      "ms": 502,
+      "detail": {
+        "execRejected": true,
+        "sandboxExitCode": 137
+      }
+    }
+  ]
+}

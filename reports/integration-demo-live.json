@@ -1,0 +1,2500 @@
+{
+ "title": "Integration subsystem live demo evidence (Modal + Manufact)",
+ "provenance": {
+  "runId": "20261017-aea758",
+  "sourceReport": ".data/integration-demo/20261017-aea758/report.json (local, gitignored)",
+  "codeRevisions": "SCRIPTED FIXTURES from templates/integration/demo/notify-hub (initial, repair-bad, repair-good). Not LLM-authored. LLM build agents use the same tool API.",
+  "liveOperations": "REAL: Modal sandboxes (network-blocked, uid-separated) for every repo/validation step; Manufact Cloud API (org Askshepherd org-84350150-jpcs9) for create/update/rollback/republish; MCP over HTTPS to the deployed child with parent-minted EdDSA tokens.",
+  "childSigningKey": "Ephemeral Ed25519 key generated for the demo process and never persisted. The demo child (server a12cbbe4-f43f-4fcf-9e48-7dda8238047e, https://fast-spark-ycqax.run.mcp-use.com/mcp) now rejects every token: it fails closed. Production uses the persistent host key from the main env.",
+  "simulatedUpstream": "The deployed child uses its in-process simulated Notify Hub API (NOTIFY_HUB_SIMULATED=1). No real third-party side effects.",
+  "sanitization": "Removed host credentials and any JWT/private-key/API-token patterns (0 redaction(s)). Receipts list env var NAMES only."
+ },
+ "hardenedGateRegate": {
+  "at": "2026-10-17T21:05:03.274Z",
+  "sandbox": {
+   "provider": "modal",
+   "blockNetwork": true,
+   "image": "node:22-bookworm-slim+integration-prebaked (im-L9EJWzhklW6heDC8kJvMqh)",
+   "imageSpecSha256": "ef69c2b1ed482a57c49cf24f715e391fba61c24a976a4e8374405a9dd3a7ec60",
+   "agentUid": 1000,
+   "harnessUid": 1001,
+   "secretsInjected": false,
+   "id": "sb-01M55TWF5YZ4H3RDFF2XZEGFE7"
+  },
+  "sourceSealed": true,
+  "passed": true,
+  "tree": "60ac60b81bd52b68a2e1977d7ff1da50b13374b2",
+  "sourceSha256": "fa4d1c39196fd527dcc1ac0c3d80d94696a746c4580aaee788492ba447e41fb7",
+  "promotedSourceSha256": "fa4d1c39196fd527dcc1ac0c3d80d94696a746c4580aaee788492ba447e41fb7",
+  "sourceChecks": [
+   {
+    "phase": "npm test",
+    "sha256": "fa4d1c39196fd527dcc1ac0c3d80d94696a746c4580aaee788492ba447e41fb7",
+    "files": 15,
+    "matches": true
+   },
+   {
+    "phase": "npm run build",
+    "sha256": "fa4d1c39196fd527dcc1ac0c3d80d94696a746c4580aaee788492ba447e41fb7",
+    "files": 15,
+    "matches": true
+   },
+   {
+    "phase": "mcp suites",
+    "sha256": "fa4d1c39196fd527dcc1ac0c3d80d94696a746c4580aaee788492ba447e41fb7",
+    "files": 15,
+    "matches": true
+   }
+  ],
+  "buildOutputSha256": "bfd8bf217627d3defa3b63e0b15dee1bc03a46a3c9dd93a729a8c562193e8adb",
+  "cases": [
+   [
+    "smoke",
+    "integration_info responds",
+    true
+   ],
+   [
+    "smoke",
+    "simulated list returns notifications",
+    true
+   ],
+   [
+    "smoke",
+    "fixture send then get",
+    true
+   ],
+   [
+    "regression",
+    "lists a single page",
+    true
+   ],
+   [
+    "regression",
+    "sends once",
+    true
+   ],
+   [
+    "regression",
+    "paginates past the server page cap",
+    true
+   ],
+   [
+    "regression",
+    "lost ack (503 after commit) does not duplicate",
+    true
+   ],
+   [
+    "regression",
+    "429 honors Retry-After then succeeds",
+    true
+   ],
+   [
+    "regression",
+    "same idempotency_key replays instead of resending",
+    true
+   ],
+   [
+    "heldout",
+    "heldout: 23 items, page cap 7",
+    true
+   ],
+   [
+    "heldout",
+    "heldout: recipient filter across pages",
+    true
+   ],
+   [
+    "heldout",
+    "heldout: two lost acks",
+    true
+   ],
+   [
+    "heldout",
+    "heldout: 429, 503 before commit, 503 after commit",
+    true
+   ]
+  ],
+  "commands": [
+   [
+    "npm test",
+    0,
+    507
+   ],
+   [
+    "npm run build",
+    0,
+    721
+   ],
+   [
+    "mcp suites",
+    0,
+    11229
+   ]
+  ]
+ },
+ "report": {
+  "runId": "20261017-aea758",
+  "startedAt": "2026-10-17T20:45:15.156Z",
+  "scripted": "Code revisions are scripted demo fixtures (templates/integration/demo/notify-hub), not LLM output.",
+  "org": "org-84350150-jpcs9",
+  "childAuth": "ephemeral Ed25519 key generated for this demo process (not persisted)",
+  "steps": [
+   {
+    "build": "A",
+    "tool": "integration_open",
+    "label": "create from mcp-use child template",
+    "status": "succeeded",
+    "ms": 17380,
+    "data": {
+     "created": true,
+     "resumedBranch": false,
+     "head": "fb796204ff357a318628c5a582bac6db7103ddb5",
+     "slug": "notify-hub",
+     "branch": "codex/build-demo-20261017-aea758-a",
+     "clean": true,
+     "changes": 0,
+     "promoted": null,
+     "lastValidation": null,
+     "deployment": null
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_write",
+    "label": "scripted fixture initial/integration.json",
+    "status": "succeeded",
+    "ms": 279,
+    "data": {
+     "path": "integration.json",
+     "bytes": 1850,
+     "sha256": "3f3a3e76d002fc4022ed05eb6775fe7ce13abce37aab997a87116162451c8148"
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_write",
+    "label": "scripted fixture initial/src/client.ts",
+    "status": "succeeded",
+    "ms": 288,
+    "data": {
+     "path": "src/client.ts",
+     "bytes": 1919,
+     "sha256": "8c1a904c1185698eaa4616a4eda82f3c45daf07db3ebe2400fed67bbbc820d66"
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_write",
+    "label": "scripted fixture initial/src/simulated-upstream.ts",
+    "status": "succeeded",
+    "ms": 276,
+    "data": {
+     "path": "src/simulated-upstream.ts",
+     "bytes": 3740,
+     "sha256": "19c747f3490da07839e6a4586f9ec6270a40d4ed778057311311cf5886af6b78"
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_write",
+    "label": "scripted fixture initial/src/tools.ts",
+    "status": "succeeded",
+    "ms": 281,
+    "data": {
+     "path": "src/tools.ts",
+     "bytes": 4003,
+     "sha256": "07b6522d28619935c87882813af3a31c6f9a3873c542f3ff12612f159c7d15cf"
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_write",
+    "label": "scripted fixture initial/tests/client.test.ts",
+    "status": "succeeded",
+    "ms": 279,
+    "data": {
+     "path": "tests/client.test.ts",
+     "bytes": 690,
+     "sha256": "0b213e1c424810b472590dbc120f2ecad5c7d657bf1bda565c755ace2fddedeb"
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_exec",
+    "label": "agent-side npm test",
+    "status": "succeeded",
+    "ms": 453,
+    "data": {
+     "exitCode": 0,
+     "timedOut": false,
+     "durationMs": 452,
+     "startedAt": "2026-10-17T20:45:34.807Z",
+     "cwd": "/srv/integ/mcps/notify-hub",
+     "stdout": "# Subtest: manifest declares at least one tool and a smoke case\nok 4 - manifest declares at least one tool and a smoke case\n  ---\n  duration_ms: 0.431573\n  type: 'test'\n  ...\n1..4\n# tests 4\n# suites 0\n# pass 4\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 165.014473\n",
+     "stderr": "",
+     "stdoutTruncated": false,
+     "stderrTruncated": false,
+     "stdoutSha256": "a0f7424b6acc7318e22a09c02a68cfe1af194ae0b7afa717153352a45ea9596d",
+     "sandbox": {
+      "provider": "modal",
+      "id": "sb-01M55SS8DQ7ER12W8NNP4CNYQJ",
+      "blockNetwork": true
+     }
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_git_status",
+    "label": "dirty state before validation",
+    "status": "succeeded",
+    "ms": 211,
+    "data": {
+     "branch": "codex/build-demo-20261017-aea758-a",
+     "head": "fb796204ff357a318628c5a582bac6db7103ddb5",
+     "clean": false,
+     "entries": [
+      {
+       "kind": "changed",
+       "xy": ".M",
+       "path": "integration.json"
+      },
+      {
+       "kind": "changed",
+       "xy": ".M",
+       "path": "src/tools.ts"
+      },
+      {
+       "kind": "untracked",
+       "xy": "??",
+       "path": "src/client.ts"
+      },
+      {
+       "kind": "untracked",
+       "xy": "??",
+       "path": "src/simulated-upstream.ts"
+      },
+      {
+       "kind": "untracked",
+       "xy": "??",
+       "path": "tests/client.test.ts"
+      }
+     ]
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_validate",
+    "label": "sealed gate vs host suite v1",
+    "status": "succeeded",
+    "ms": 8569,
+    "data": {
+     "receiptId": "val-899b8bd98db11d6552995e05",
+     "passed": true,
+     "tree": "f5b11db696364471cb428b1153a249b1397dde87",
+     "sourceSha256": "f2d784b4998daded5e2a8378d90390ffea6aa174040cd36fc9ac10d2cfba06e6",
+     "head": "fb796204ff357a318628c5a582bac6db7103ddb5",
+     "failures": [],
+     "suites": [
+      {
+       "id": "smoke",
+       "version": "repo",
+       "kind": "smoke",
+       "passed": 3,
+       "failed": 0
+      },
+      {
+       "id": "notify-hub-regression",
+       "version": "v1",
+       "kind": "regression",
+       "passed": 2,
+       "failed": 0
+      }
+     ],
+     "cases": [
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "integration_info responds",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "simulated list returns notifications",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "fixture send then get",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v1",
+       "kind": "regression",
+       "name": "lists a single page",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v1",
+       "kind": "regression",
+       "name": "sends once",
+       "passed": true,
+       "failures": []
+      }
+     ],
+     "commands": [
+      {
+       "name": "npm test",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 433
+      },
+      {
+       "name": "npm run build",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 658
+      },
+      {
+       "name": "mcp suites",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 3294
+      }
+     ]
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_git_commit",
+    "label": "commit validated tree",
+    "status": "succeeded",
+    "ms": 4715,
+    "data": {
+     "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+     "tree": "f5b11db696364471cb428b1153a249b1397dde87",
+     "parent": "fb796204ff357a318628c5a582bac6db7103ddb5",
+     "branch": "codex/build-demo-20261017-aea758-a",
+     "validationReceiptId": "val-899b8bd98db11d6552995e05",
+     "snapshotReceiptId": "snap-0a47dc9128cbaf6019d4c444"
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_promote",
+    "label": "promote + store exact deploy archive",
+    "status": "succeeded",
+    "ms": 6534,
+    "data": {
+     "promoted": {
+      "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+      "tree": "f5b11db696364471cb428b1153a249b1397dde87",
+      "sourceSha256": "f2d784b4998daded5e2a8378d90390ffea6aa174040cd36fc9ac10d2cfba06e6",
+      "validationReceiptId": "val-899b8bd98db11d6552995e05",
+      "archiveKey": "blobs/27c7f9c3cd7d8ec084937f6f5c3160d29c5478bb568b88f2b266522a6d23e16c",
+      "archiveSha256": "27c7f9c3cd7d8ec084937f6f5c3160d29c5478bb568b88f2b266522a6d23e16c",
+      "archiveBytes": 7898,
+      "promotedAt": "2026-10-17T20:45:53.147Z",
+      "buildId": "demo-20261017-aea758-a",
+      "previousCommit": null
+     },
+     "mainWas": "fb796204ff357a318628c5a582bac6db7103ddb5",
+     "snapshotReceiptId": "snap-cc52484dcc2ed293bf9f072e"
+    }
+   },
+   {
+    "build": "A",
+    "tool": "integration_publish",
+    "label": "first publish (create Manufact server)",
+    "status": "succeeded",
+    "ms": 144751,
+    "data": {
+     "receiptId": "pub-e56ffb4094dd68fbfcf60047",
+     "action": "publish",
+     "deploymentId": "82083b54-db84-4191-9a80-a5fd7044eb9f",
+     "status": "running",
+     "probe": {
+      "passed": true,
+      "failures": [],
+      "unauthenticatedStatus": 401,
+      "invalidTokenStatus": {
+       "foreign_key": 401,
+       "wrong_audience": 401
+      },
+      "serverVersion": {
+       "name": "notify-hub",
+       "title": "Notify Hub",
+       "version": "0.1.0",
+       "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service)."
+      },
+      "tools": [
+       "get_notification",
+       "integration_info",
+       "list_notifications",
+       "send_notification"
+      ],
+      "steps": [
+       {
+        "case": "integration_info responds",
+        "tool": "integration_info",
+        "isError": false,
+        "text": "{\"slug\":\"notify-hub\",\"title\":\"Notify Hub\",\"upstream\":{\"name\":\"Notify Hub (simulated)\",\"docs\":[\"templates/integration/demo/notify-hub/API.md\"]},\"tools\":[\"integration_info\",\"list_notifications\",\"send_notification\",\"get_notification\"],\"env\":[{\"name\":\"NOTIFY_HUB_BASE_URL\",\"required\":false,\"secret\":false},{\"name\":\"NOTIFY_HUB_TOKEN\",\"required\":false,\"secret\":true},{\"name\":\"NOTIFY_HUB_SIMULATED\",\"required\":false,\"secret\":false}]}"
+       },
+       {
+        "case": "simulated list returns notifications",
+        "tool": "list_notifications",
+        "isError": false,
+        "text": "10 notifications"
+       }
+      ],
+      "attempts": 1,
+      "durationMs": 4641
+     },
+     "active": {
+      "deploymentId": "82083b54-db84-4191-9a80-a5fd7044eb9f",
+      "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+      "archiveSha256": "27c7f9c3cd7d8ec084937f6f5c3160d29c5478bb568b88f2b266522a6d23e16c",
+      "validationReceiptId": "val-899b8bd98db11d6552995e05",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-e56ffb4094dd68fbfcf60047",
+      "at": "2026-10-17T20:48:20.027Z",
+      "action": "publish"
+     },
+     "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp",
+     "dashboardUrl": "https://manufact.com/cloud/org-84350150-jpcs9/servers/a12cbbe4-f43f-4fcf-9e48-7dda8238047e/overview",
+     "autoRollback": null,
+     "buildLogTail": "Resolving build configuration...\nFetching repository contents...\nDetected runtime: Node.js\nDownloading repository source...\nBuild configuration ready\nPreparing deployment target...\nStarting build...\nPreparing build context from repository root...\nPrepared build context: 15 entries, 21292 bytes\nUploading build context...\nresolve mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 done\nDONE 0.0s\n[1/5] FROM mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402\n[3/5] COPY . ./\n[2/5] WORK…"
+    }
+   },
+   {
+    "build": "A",
+    "tool": "(close)",
+    "label": "persist bundle + terminate sandbox",
+    "status": "succeeded",
+    "ms": 0,
+    "data": {
+     "persisted": [],
+     "errors": []
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_open",
+    "label": "cold restore from durable bundle in a new sandbox",
+    "status": "succeeded",
+    "ms": 9511,
+    "data": {
+     "created": false,
+     "resumedBranch": false,
+     "head": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+     "slug": "notify-hub",
+     "branch": "codex/build-demo-20261017-aea758-b",
+     "clean": true,
+     "changes": 0,
+     "promoted": {
+      "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+      "promotedAt": "2026-10-17T20:45:53.147Z"
+     },
+     "lastValidation": {
+      "receiptId": "val-899b8bd98db11d6552995e05",
+      "tree": "f5b11db696364471cb428b1153a249b1397dde87",
+      "passed": true,
+      "at": "2026-10-17T20:45:44.027Z",
+      "buildId": "demo-20261017-aea758-a"
+     },
+     "deployment": {
+      "deploymentId": "82083b54-db84-4191-9a80-a5fd7044eb9f",
+      "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+      "archiveSha256": "27c7f9c3cd7d8ec084937f6f5c3160d29c5478bb568b88f2b266522a6d23e16c",
+      "validationReceiptId": "val-899b8bd98db11d6552995e05",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-e56ffb4094dd68fbfcf60047",
+      "at": "2026-10-17T20:48:20.027Z",
+      "action": "publish"
+     }
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_git_log",
+    "label": "history restored",
+    "status": "succeeded",
+    "ms": 715,
+    "data": {
+     "commits": [
+      {
+       "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+       "parents": [
+        "fb796204ff357a318628c5a582bac6db7103ddb5"
+       ],
+       "author": "procmem-integration-builder",
+       "date": "2026-10-17T20:45:46+00:00",
+       "subject": "Add Notify Hub list/send/get tools"
+      },
+      {
+       "commit": "fb796204ff357a318628c5a582bac6db7103ddb5",
+       "parents": [],
+       "author": "procmem-integration-builder",
+       "date": "2026-10-17T20:45:30+00:00",
+       "subject": "Scaffold notify-hub from the procmem integration template"
+      }
+     ]
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_validate",
+    "label": "current revision vs trace regressions + held-out",
+    "status": "failed",
+    "ms": 16153,
+    "data": {
+     "receiptId": "val-5d0bac7ee5aecf64adb33c6a",
+     "passed": false,
+     "tree": "f5b11db696364471cb428b1153a249b1397dde87",
+     "sourceSha256": "f2d784b4998daded5e2a8378d90390ffea6aa174040cd36fc9ac10d2cfba06e6",
+     "head": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+     "failures": [
+      "notify-hub-regression@v2 (regression): 4 case(s) failed",
+      "notify-hub-heldout@v2 (heldout): 4 case(s) failed"
+     ],
+     "suites": [
+      {
+       "id": "smoke",
+       "version": "repo",
+       "kind": "smoke",
+       "passed": 3,
+       "failed": 0
+      },
+      {
+       "id": "notify-hub-regression",
+       "version": "v2",
+       "kind": "regression",
+       "passed": 2,
+       "failed": 4
+      },
+      {
+       "id": "notify-hub-heldout",
+       "version": "v2",
+       "kind": "heldout",
+       "passed": 0,
+       "failed": 4
+      }
+     ],
+     "cases": [
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "integration_info responds",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "simulated list returns notifications",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "fixture send then get",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "lists a single page",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "sends once",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "paginates past the server page cap",
+       "passed": false,
+       "failures": [
+        {
+         "where": "step 0 list_notifications",
+         "message": "expected structuredContent.count equals 25; got 10"
+        }
+       ],
+       "steps": [
+        {
+         "index": 0,
+         "tool": "list_notifications",
+         "durationMs": 20,
+         "isError": false,
+         "transportError": null,
+         "structuredContent": "{…}",
+         "text": "10 notifications"
+        }
+       ],
+       "childLogTail": "mcp-use server running at http://localhost:4309/mcp\ninitialize procmem-harness-unauth/1 /mcp 401 client=procmem-harness-unauth/1 4ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-integration-harness/0.1.0 /mcp 200 client=procmem-integration-harness/0.1.0 25ms\nPOST /mcp 202 4ms\nGET /mcp 204 0ms\ntools/lis…"
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "lost ack (503 after commit) does not duplicate",
+       "passed": false,
+       "failures": [
+        {
+         "where": "step 0 send_notification",
+         "message": "tool returned isError: {\"code\":\"unavailable\",\"status\":503,\"message\":\"HTTP 503\"}"
+        },
+        {
+         "where": "step 0 send_notification",
+         "message": "expected structuredContent.id exists; got undefined"
+        }
+       ],
+       "steps": [
+        {
+         "index": 0,
+         "tool": "send_notification",
+         "durationMs": 21,
+         "isError": true,
+         "transportError": null,
+         "structuredContent": "{…}",
+         "text": "{\"code\":\"unavailable\",\"status\":503,\"message\":\"HTTP 503\"}"
+        }
+       ],
+       "childLogTail": "mcp-use server running at http://localhost:4311/mcp\ninitialize procmem-harness-unauth/1 /mcp 401 client=procmem-harness-unauth/1 4ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 2ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 0ms ERROR (HTTP 401)\ninitialize procmem-integration-harness/0.1.0 /mcp 200 client=procmem-integration-harness/0.1.0 25ms\nPOST /mcp 202 3ms\nGET /mcp 204 0ms\ntools/lis…"
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "429 honors Retry-After then succeeds",
+       "passed": false,
+       "failures": [
+        {
+         "where": "step 0 send_notification",
+         "message": "tool returned isError: {\"code\":\"rate_limited\",\"status\":429,\"message\":\"HTTP 429\"}"
+        },
+        {
+         "where": "step 0 send_notification",
+         "message": "expected structuredContent.id exists; got undefined"
+        },
+        {
+         "where": "fixture state",
+         "message": "expected notifications lengthEquals 1; got []"
+        }
+       ],
+       "steps": [
+        {
+         "index": 0,
+         "tool": "send_notification",
+         "durationMs": 21,
+         "isError": true,
+         "transportError": null,
+         "structuredContent": "{…}",
+         "text": "{\"code\":\"rate_limited\",\"status\":429,\"message\":\"HTTP 429\"}"
+        }
+       ],
+       "childLogTail": "mcp-use server running at http://localhost:4313/mcp\ninitialize procmem-harness-unauth/1 /mcp 401 client=procmem-harness-unauth/1 4ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-integration-harness/0.1.0 /mcp 200 client=procmem-integration-harness/0.1.0 24ms\nPOST /mcp 202 3ms\nGET /mcp 204 1ms\ntools/lis…"
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "same idempotency_key replays instead of resending",
+       "passed": false,
+       "failures": [
+        {
+         "where": "step 1 send_notification",
+         "message": "expected structuredContent.id equals \"ntf_0001\"; got \"ntf_0002\""
+        },
+        {
+         "where": "fixture state",
+         "message": "expected notifications lengthEquals 1; got [{\"id\":\"ntf_0001\",\"recipient\":\"ops@example.test\",\"message\":\"deploy finished\",\"created_at\":\"2026-10-17T20:48:46.274Z\"},{\"id\":\"ntf_0002\",\"recipient\":\"ops@example.test\",\"message\":\"deploy finished\",\"created_at\":\"2026-10-17T20:48:46.287Z\"}]"
+        }
+       ],
+       "steps": [
+        {
+         "index": 0,
+         "tool": "send_notification",
+         "durationMs": 20,
+         "isError": false,
+         "transportError": null,
+         "structuredContent": "{…}",
+         "text": "sent ntf_0001"
+        },
+        {
+         "index": 1,
+         "tool": "send_notification",
+         "durationMs": 7,
+         "isError": false,
+         "transportError": null,
+         "structuredContent": "{…}",
+         "text": "sent ntf_0002"
+        }
+       ],
+       "childLogTail": "mcp-use server running at http://localhost:4315/mcp\ninitialize procmem-harness-unauth/1 /mcp 401 client=procmem-harness-unauth/1 4ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-integration-harness/0.1.0 /mcp 200 client=procmem-integration-harness/0.1.0 25ms\nPOST /mcp 202 3ms\nGET /mcp 204 1ms\ntools/lis…"
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: 23 items, page cap 7",
+       "passed": false,
+       "failures": [
+        {
+         "where": "step 0 list_notifications",
+         "message": "held-out assertion failed"
+        }
+       ]
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: recipient filter across pages",
+       "passed": false,
+       "failures": [
+        {
+         "where": "step 0 list_notifications",
+         "message": "held-out assertion failed"
+        }
+       ]
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: two lost acks",
+       "passed": false,
+       "failures": [
+        {
+         "where": "step 0 send_notification",
+         "message": "held-out assertion failed"
+        },
+        {
+         "where": "step 0 send_notification",
+         "message": "held-out assertion failed"
+        }
+       ]
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: 429, 503 before commit, 503 after commit",
+       "passed": false,
+       "failures": [
+        {
+         "where": "step 0 send_notification",
+         "message": "held-out assertion failed"
+        },
+        {
+         "where": "step 0 send_notification",
+         "message": "held-out assertion failed"
+        },
+        {
+         "where": "fixture state",
+         "message": "held-out assertion failed"
+        }
+       ]
+      }
+     ],
+     "commands": [
+      {
+       "name": "npm test",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 582
+      },
+      {
+       "name": "npm run build",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 854
+      },
+      {
+       "name": "mcp suites",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 9997
+      }
+     ]
+    },
+    "error": {
+     "code": "validation_failed",
+     "message": "notify-hub-regression@v2 (regression): 4 case(s) failed; notify-hub-heldout@v2 (heldout): 4 case(s) failed"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_write",
+    "label": "scripted fixture repair-bad/src/client.ts",
+    "status": "succeeded",
+    "ms": 322,
+    "data": {
+     "path": "src/client.ts",
+     "bytes": 2464,
+     "sha256": "14e345ae08c5c447055325d8261fc91879b9a399cd49b1e712bc3a71c8bfbb12"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_validate",
+    "label": "wrong repair (retries without idempotency key)",
+    "status": "failed",
+    "ms": 18149,
+    "data": {
+     "receiptId": "val-d5d690a341a8b2311a5a64ec",
+     "passed": false,
+     "tree": "ff9c647201f03732308c6857e628d4133d528f9e",
+     "sourceSha256": "34140234e8750c4a1bd0f4c4f1375152097f940342c70f9d3f31b6e55eeb39ed",
+     "head": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+     "failures": [
+      "notify-hub-regression@v2 (regression): 2 case(s) failed",
+      "notify-hub-heldout@v2 (heldout): 2 case(s) failed"
+     ],
+     "suites": [
+      {
+       "id": "smoke",
+       "version": "repo",
+       "kind": "smoke",
+       "passed": 3,
+       "failed": 0
+      },
+      {
+       "id": "notify-hub-regression",
+       "version": "v2",
+       "kind": "regression",
+       "passed": 4,
+       "failed": 2
+      },
+      {
+       "id": "notify-hub-heldout",
+       "version": "v2",
+       "kind": "heldout",
+       "passed": 2,
+       "failed": 2
+      }
+     ],
+     "cases": [
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "integration_info responds",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "simulated list returns notifications",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "fixture send then get",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "lists a single page",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "sends once",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "paginates past the server page cap",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "lost ack (503 after commit) does not duplicate",
+       "passed": false,
+       "failures": [
+        {
+         "where": "fixture state",
+         "message": "expected notifications lengthEquals 1; got [{\"id\":\"ntf_0001\",\"recipient\":\"ops@example.test\",\"message\":\"deploy finished\",\"created_at\":\"2026-10-17T20:49:01.007Z\"},{\"id\":\"ntf_0002\",\"recipient\":\"ops@example.test\",\"message\":\"deploy finished\",\"created_at\":\"2026-10-17T20:49:01.214Z\"}]"
+        }
+       ],
+       "steps": [
+        {
+         "index": 0,
+         "tool": "send_notification",
+         "durationMs": 224,
+         "isError": false,
+         "transportError": null,
+         "structuredContent": "{…}",
+         "text": "sent ntf_0002"
+        }
+       ],
+       "childLogTail": "mcp-use server running at http://localhost:4311/mcp\ninitialize procmem-harness-unauth/1 /mcp 401 client=procmem-harness-unauth/1 4ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 2ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-integration-harness/0.1.0 /mcp 200 client=procmem-integration-harness/0.1.0 24ms\nPOST /mcp 202 3ms\nGET /mcp 204 0ms\ntools/lis…"
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "429 honors Retry-After then succeeds",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "same idempotency_key replays instead of resending",
+       "passed": false,
+       "failures": [
+        {
+         "where": "step 1 send_notification",
+         "message": "expected structuredContent.id equals \"ntf_0001\"; got \"ntf_0002\""
+        },
+        {
+         "where": "fixture state",
+         "message": "expected notifications lengthEquals 1; got [{\"id\":\"ntf_0001\",\"recipient\":\"ops@example.test\",\"message\":\"deploy finished\",\"created_at\":\"2026-10-17T20:49:02.965Z\"},{\"id\":\"ntf_0002\",\"recipient\":\"ops@example.test\",\"message\":\"deploy finished\",\"created_at\":\"2026-10-17T20:49:02.979Z\"}]"
+        }
+       ],
+       "steps": [
+        {
+         "index": 0,
+         "tool": "send_notification",
+         "durationMs": 22,
+         "isError": false,
+         "transportError": null,
+         "structuredContent": "{…}",
+         "text": "sent ntf_0001"
+        },
+        {
+         "index": 1,
+         "tool": "send_notification",
+         "durationMs": 7,
+         "isError": false,
+         "transportError": null,
+         "structuredContent": "{…}",
+         "text": "sent ntf_0002"
+        }
+       ],
+       "childLogTail": "mcp-use server running at http://localhost:4315/mcp\ninitialize procmem-harness-unauth/1 /mcp 401 client=procmem-harness-unauth/1 4ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 1ms ERROR (HTTP 401)\ninitialize procmem-harness-badtoken/1 /mcp 401 client=procmem-harness-badtoken/1 0ms ERROR (HTTP 401)\ninitialize procmem-integration-harness/0.1.0 /mcp 200 client=procmem-integration-harness/0.1.0 29ms\nPOST /mcp 202 3ms\nGET /mcp 204 1ms\ntools/lis…"
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: 23 items, page cap 7",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: recipient filter across pages",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: two lost acks",
+       "passed": false,
+       "failures": [
+        {
+         "where": "fixture state",
+         "message": "held-out assertion failed"
+        }
+       ]
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: 429, 503 before commit, 503 after commit",
+       "passed": false,
+       "failures": [
+        {
+         "where": "fixture state",
+         "message": "held-out assertion failed"
+        }
+       ]
+      }
+     ],
+     "commands": [
+      {
+       "name": "npm test",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 574
+      },
+      {
+       "name": "npm run build",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 817
+      },
+      {
+       "name": "mcp suites",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 12169
+      }
+     ]
+    },
+    "error": {
+     "code": "validation_failed",
+     "message": "notify-hub-regression@v2 (regression): 2 case(s) failed; notify-hub-heldout@v2 (heldout): 2 case(s) failed"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_git_commit",
+    "label": "commit refused for failing receipt",
+    "status": "failed",
+    "ms": 1,
+    "error": {
+     "code": "not_validated",
+     "message": "Validation val-d5d690a341a8b2311a5a64ec did not pass: notify-hub-regression@v2 (regression): 2 case(s) failed; notify-hub-heldout@v2 (heldout): 2 case(s) failed"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_deployment_status",
+    "label": "deployment A still active after failed repair",
+    "status": "succeeded",
+    "ms": 1899,
+    "data": {
+     "server": {
+      "id": "a12cbbe4-f43f-4fcf-9e48-7dda8238047e",
+      "name": "procmem-demo-aea758-notify-hub",
+      "status": "running",
+      "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp"
+     },
+     "deployment": {
+      "id": "82083b54-db84-4191-9a80-a5fd7044eb9f",
+      "status": "running",
+      "error": null,
+      "createdAt": "2026-10-17T20:46:06.270Z"
+     },
+     "active": {
+      "deploymentId": "82083b54-db84-4191-9a80-a5fd7044eb9f",
+      "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+      "archiveSha256": "27c7f9c3cd7d8ec084937f6f5c3160d29c5478bb568b88f2b266522a6d23e16c",
+      "validationReceiptId": "val-899b8bd98db11d6552995e05",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-e56ffb4094dd68fbfcf60047",
+      "at": "2026-10-17T20:48:20.027Z",
+      "action": "publish"
+     },
+     "history": [
+      {
+       "deploymentId": "82083b54-db84-4191-9a80-a5fd7044eb9f",
+       "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+       "archiveSha256": "27c7f9c3cd7d8ec084937f6f5c3160d29c5478bb568b88f2b266522a6d23e16c",
+       "validationReceiptId": "val-899b8bd98db11d6552995e05",
+       "status": "running",
+       "probe": "passed",
+       "receiptId": "pub-e56ffb4094dd68fbfcf60047",
+       "at": "2026-10-17T20:48:20.027Z",
+       "action": "publish"
+      }
+     ],
+     "dashboardUrl": "https://manufact.com/cloud/org-84350150-jpcs9/servers/a12cbbe4-f43f-4fcf-9e48-7dda8238047e/overview"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_write",
+    "label": "scripted fixture repair-good/src/client.ts",
+    "status": "succeeded",
+    "ms": 307,
+    "data": {
+     "path": "src/client.ts",
+     "bytes": 4385,
+     "sha256": "ece5b58e81ab9c137fe056325717cd024749e5b83019d67965127e5687fd9512"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_write",
+    "label": "scripted fixture repair-good/src/tools.ts",
+    "status": "succeeded",
+    "ms": 367,
+    "data": {
+     "path": "src/tools.ts",
+     "bytes": 4422,
+     "sha256": "900fce09d981d253536a215ecd4473cb9930fb901b79770529f101d5a07676f2"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_write",
+    "label": "scripted fixture repair-good/tests/client.test.ts",
+    "status": "succeeded",
+    "ms": 325,
+    "data": {
+     "path": "tests/client.test.ts",
+     "bytes": 2600,
+     "sha256": "1950a7e634ebd3b8e4d6f5be757f9dbef1b52db268eab4d1b76a9b1952dc67b9"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_git_diff",
+    "label": "diff of the repair",
+    "status": "succeeded",
+    "ms": 235,
+    "data": {
+     "diff": " src/client.ts        | 81 +++++++++++++++++++++++++++++++++++++++++++---------\n src/tools.ts         | 13 +++++----\n tests/client.test.ts | 53 ++++++++++++++++++++++++++++------\n 3 files changed, 119 insertions(+), 28 deletions(-)\n",
+     "truncated": false
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_exec",
+    "label": "agent-side npm test",
+    "status": "succeeded",
+    "ms": 606,
+    "data": {
+     "exitCode": 0,
+     "timedOut": false,
+     "durationMs": 606,
+     "startedAt": "2026-10-17T20:49:11.347Z",
+     "cwd": "/srv/integ/mcps/notify-hub",
+     "stdout": "ok 6 - caller-supplied idempotency key replays a repeated logical send\n  ---\n  duration_ms: 0.843712\n  type: 'test'\n  ...\n# Subtest: manifest declares at least one tool and a smoke case\nok 7 - manifest declares at least one tool and a smoke case\n  ---\n  duration_ms: 0.588052\n  type: 'test'\n  ...\n1..7\n# tests 7\n# suites 0\n# pass 7\n# fail 0\n# cancelled 0\n# skipped 0\n# todo 0\n# duration_ms 229.453729\n",
+     "stderr": "",
+     "stdoutTruncated": false,
+     "stderrTruncated": false,
+     "stdoutSha256": "f71971081b06c897d87d83bcec51f78e5ee666f30bb646aeca1747279a0d6fe5",
+     "sandbox": {
+      "provider": "modal",
+      "id": "sb-01M55SYXHYKP95ZD326DPT986D",
+      "blockNetwork": true
+     }
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_validate",
+    "label": "correct repair vs regressions + held-out",
+    "status": "succeeded",
+    "ms": 18193,
+    "data": {
+     "receiptId": "val-785d52f85db95905099eaaf8",
+     "passed": true,
+     "tree": "60ac60b81bd52b68a2e1977d7ff1da50b13374b2",
+     "sourceSha256": "fa4d1c39196fd527dcc1ac0c3d80d94696a746c4580aaee788492ba447e41fb7",
+     "head": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+     "failures": [],
+     "suites": [
+      {
+       "id": "smoke",
+       "version": "repo",
+       "kind": "smoke",
+       "passed": 3,
+       "failed": 0
+      },
+      {
+       "id": "notify-hub-regression",
+       "version": "v2",
+       "kind": "regression",
+       "passed": 6,
+       "failed": 0
+      },
+      {
+       "id": "notify-hub-heldout",
+       "version": "v2",
+       "kind": "heldout",
+       "passed": 4,
+       "failed": 0
+      }
+     ],
+     "cases": [
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "integration_info responds",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "simulated list returns notifications",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "smoke",
+       "kind": "smoke",
+       "name": "fixture send then get",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "lists a single page",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "sends once",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "paginates past the server page cap",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "lost ack (503 after commit) does not duplicate",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "429 honors Retry-After then succeeds",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-regression@v2",
+       "kind": "regression",
+       "name": "same idempotency_key replays instead of resending",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: 23 items, page cap 7",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: recipient filter across pages",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: two lost acks",
+       "passed": true,
+       "failures": []
+      },
+      {
+       "suite": "notify-hub-heldout@v2",
+       "kind": "heldout",
+       "name": "heldout: 429, 503 before commit, 503 after commit",
+       "passed": true,
+       "failures": []
+      }
+     ],
+     "commands": [
+      {
+       "name": "npm test",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 582
+      },
+      {
+       "name": "npm run build",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 809
+      },
+      {
+       "name": "mcp suites",
+       "exitCode": 0,
+       "timedOut": false,
+       "durationMs": 11972
+      }
+     ]
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_git_commit",
+    "label": "commit repair",
+    "status": "succeeded",
+    "ms": 5046,
+    "data": {
+     "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+     "tree": "60ac60b81bd52b68a2e1977d7ff1da50b13374b2",
+     "parent": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+     "branch": "codex/build-demo-20261017-aea758-b",
+     "validationReceiptId": "val-785d52f85db95905099eaaf8",
+     "snapshotReceiptId": "snap-75e4e1ad2eaa179f797bbdc8"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_promote",
+    "label": "promote repair",
+    "status": "succeeded",
+    "ms": 7761,
+    "data": {
+     "promoted": {
+      "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+      "tree": "60ac60b81bd52b68a2e1977d7ff1da50b13374b2",
+      "sourceSha256": "fa4d1c39196fd527dcc1ac0c3d80d94696a746c4580aaee788492ba447e41fb7",
+      "validationReceiptId": "val-785d52f85db95905099eaaf8",
+      "archiveKey": "blobs/a3ada621b750aa15c0a13a7383be581b15dfcebc60c36429f4e697faeb8a0c9b",
+      "archiveSha256": "a3ada621b750aa15c0a13a7383be581b15dfcebc60c36429f4e697faeb8a0c9b",
+      "archiveBytes": 9300,
+      "promotedAt": "2026-10-17T20:49:40.441Z",
+      "buildId": "demo-20261017-aea758-b",
+      "previousCommit": "b26eed768f99120bec6715b1ae78a2b0543474b7"
+     },
+     "mainWas": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+     "snapshotReceiptId": "snap-d91c9f1a6539f5153b9dee65"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_publish",
+    "label": "update deployed child to the repaired revision",
+    "status": "succeeded",
+    "ms": 140152,
+    "data": {
+     "receiptId": "pub-80212945e700c8611eac79af",
+     "action": "update",
+     "deploymentId": "b0bf3bb7-05d4-4042-9f65-b3de168d1126",
+     "status": "running",
+     "probe": {
+      "passed": true,
+      "failures": [],
+      "unauthenticatedStatus": 401,
+      "invalidTokenStatus": {
+       "foreign_key": 401,
+       "wrong_audience": 401
+      },
+      "serverVersion": {
+       "name": "notify-hub",
+       "title": "Notify Hub",
+       "version": "0.1.0",
+       "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service)."
+      },
+      "tools": [
+       "get_notification",
+       "integration_info",
+       "list_notifications",
+       "send_notification"
+      ],
+      "steps": [
+       {
+        "case": "integration_info responds",
+        "tool": "integration_info",
+        "isError": false,
+        "text": "{\"slug\":\"notify-hub\",\"title\":\"Notify Hub\",\"upstream\":{\"name\":\"Notify Hub (simulated)\",\"docs\":[\"templates/integration/demo/notify-hub/API.md\"]},\"tools\":[\"integration_info\",\"list_notifications\",\"send_notification\",\"get_notification\"],\"env\":[{\"name\":\"NOTIFY_HUB_BASE_URL\",\"required\":false,\"secret\":false},{\"name\":\"NOTIFY_HUB_TOKEN\",\"required\":false,\"secret\":true},{\"name\":\"NOTIFY_HUB_SIMULATED\",\"required\":false,\"secret\":false}]}"
+       },
+       {
+        "case": "simulated list returns notifications",
+        "tool": "list_notifications",
+        "isError": false,
+        "text": "23 notifications"
+       }
+      ],
+      "attempts": 1,
+      "durationMs": 3741
+     },
+     "active": {
+      "deploymentId": "b0bf3bb7-05d4-4042-9f65-b3de168d1126",
+      "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+      "archiveSha256": "a3ada621b750aa15c0a13a7383be581b15dfcebc60c36429f4e697faeb8a0c9b",
+      "validationReceiptId": "val-785d52f85db95905099eaaf8",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-80212945e700c8611eac79af",
+      "at": "2026-10-17T20:52:03.091Z",
+      "action": "update"
+     },
+     "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp",
+     "dashboardUrl": "https://manufact.com/cloud/org-84350150-jpcs9/servers/a12cbbe4-f43f-4fcf-9e48-7dda8238047e/overview",
+     "autoRollback": null,
+     "buildLogTail": "Resolving build configuration...\nFetching repository contents...\nDetected runtime: Node.js\nDownloading repository source...\nBuild configuration ready\nPreparing deployment target...\nStarting build...\nPreparing build context from repository root...\nPrepared build context: 15 entries, 26087 bytes\nUploading build context...\n[1/5] FROM mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402\nresolve mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 done\nDONE 0.0s\nCACHED\nDONE 0.0s\n[3/5] COP…"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_deployment_logs",
+    "label": "build logs of the update",
+    "status": "succeeded",
+    "ms": 955,
+    "data": {
+     "deploymentId": "b0bf3bb7-05d4-4042-9f65-b3de168d1126",
+     "kind": "build",
+     "logs": "Resolving build configuration...\nFetching repository contents...\nDetected runtime: Node.js\nDownloading repository source...\nBuild configuration ready\nPreparing deployment target...\nStarting build...\nPreparing build context from repository root...\nPrepared build context: 15 entries, 26087 bytes\nUploading build context...\n[1/5] FROM mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402\nresolve mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 done\nDONE 0.0s\nCACHED\nDONE 0.0s\n[3/5] COP…",
+     "offset": 1452,
+     "totalLength": 1452,
+     "status": "running"
+    }
+   },
+   {
+    "build": "B",
+    "tool": "integration_git_branches",
+    "label": "branches (main = promoted)",
+    "status": "succeeded",
+    "ms": 629,
+    "data": {
+     "branches": [
+      {
+       "name": "codex/build-demo-20261017-aea758-a",
+       "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+       "current": false
+      },
+      {
+       "name": "codex/build-demo-20261017-aea758-b",
+       "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+       "current": true
+      },
+      {
+       "name": "main",
+       "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+       "current": false
+      }
+     ]
+    }
+   },
+   {
+    "build": "B",
+    "tool": "(close)",
+    "label": "persist bundle + terminate sandbox",
+    "status": "succeeded",
+    "ms": 0,
+    "data": {
+     "persisted": [],
+     "errors": []
+    }
+   },
+   {
+    "build": "C",
+    "tool": "integration_open",
+    "label": "cold restore again",
+    "status": "succeeded",
+    "ms": 10850,
+    "data": {
+     "created": false,
+     "resumedBranch": false,
+     "head": "02e8b921f1207b691fbf8bf05839fa3483227189",
+     "slug": "notify-hub",
+     "branch": "codex/build-demo-20261017-aea758-c",
+     "clean": true,
+     "changes": 0,
+     "promoted": {
+      "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+      "promotedAt": "2026-10-17T20:49:40.441Z"
+     },
+     "lastValidation": {
+      "receiptId": "val-785d52f85db95905099eaaf8",
+      "tree": "60ac60b81bd52b68a2e1977d7ff1da50b13374b2",
+      "passed": true,
+      "at": "2026-10-17T20:49:30.136Z",
+      "buildId": "demo-20261017-aea758-b"
+     },
+     "deployment": {
+      "deploymentId": "b0bf3bb7-05d4-4042-9f65-b3de168d1126",
+      "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+      "archiveSha256": "a3ada621b750aa15c0a13a7383be581b15dfcebc60c36429f4e697faeb8a0c9b",
+      "validationReceiptId": "val-785d52f85db95905099eaaf8",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-80212945e700c8611eac79af",
+      "at": "2026-10-17T20:52:03.091Z",
+      "action": "update"
+     }
+    }
+   },
+   {
+    "build": "C",
+    "tool": "integration_git_log",
+    "label": "promoted history intact",
+    "status": "succeeded",
+    "ms": 819,
+    "data": {
+     "commits": [
+      {
+       "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+       "parents": [
+        "b26eed768f99120bec6715b1ae78a2b0543474b7"
+       ],
+       "author": "procmem-integration-builder",
+       "date": "2026-10-17T20:49:32+00:00",
+       "subject": "Paginate with cursors; retry safely with a stable Idempotency-Key; honor Retry-After"
+      },
+      {
+       "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+       "parents": [
+        "fb796204ff357a318628c5a582bac6db7103ddb5"
+       ],
+       "author": "procmem-integration-builder",
+       "date": "2026-10-17T20:45:46+00:00",
+       "subject": "Add Notify Hub list/send/get tools"
+      },
+      {
+       "commit": "fb796204ff357a318628c5a582bac6db7103ddb5",
+       "parents": [],
+       "author": "procmem-integration-builder",
+       "date": "2026-10-17T20:45:30+00:00",
+       "subject": "Scaffold notify-hub from the procmem integration template"
+      }
+     ]
+    }
+   },
+   {
+    "build": "C",
+    "tool": "integration_list",
+    "label": "catalog",
+    "status": "succeeded",
+    "ms": 3,
+    "data": {
+     "integrations": [
+      {
+       "slug": "notify-hub",
+       "title": "Notify Hub",
+       "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service).",
+       "open": true,
+       "promoted": {
+        "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+        "sourceSha256": "fa4d1c39196fd527dcc1ac0c3d80d94696a746c4580aaee788492ba447e41fb7",
+        "validationReceiptId": "val-785d52f85db95905099eaaf8",
+        "promotedAt": "2026-10-17T20:49:40.441Z"
+       },
+       "lastValidation": {
+        "receiptId": "val-785d52f85db95905099eaaf8",
+        "tree": "60ac60b81bd52b68a2e1977d7ff1da50b13374b2",
+        "passed": true,
+        "at": "2026-10-17T20:49:30.136Z",
+        "buildId": "demo-20261017-aea758-b"
+       },
+       "snapshot": {
+        "sha256": "6e875c8e5243d73218174fa6e6d5c7a3abfe1bc1106d6dbb54e53b62cc4e45a3",
+        "refs": {
+         "codex/build-demo-20261017-aea758-a": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+         "codex/build-demo-20261017-aea758-b": "02e8b921f1207b691fbf8bf05839fa3483227189",
+         "main": "02e8b921f1207b691fbf8bf05839fa3483227189"
+        },
+        "savedAt": "2026-10-17T20:49:42.945Z"
+       },
+       "deployment": {
+        "serverId": "a12cbbe4-f43f-4fcf-9e48-7dda8238047e",
+        "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp",
+        "dashboardUrl": "https://manufact.com/cloud/org-84350150-jpcs9/servers/a12cbbe4-f43f-4fcf-9e48-7dda8238047e/overview",
+        "active": {
+         "deploymentId": "b0bf3bb7-05d4-4042-9f65-b3de168d1126",
+         "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+         "archiveSha256": "a3ada621b750aa15c0a13a7383be581b15dfcebc60c36429f4e697faeb8a0c9b",
+         "validationReceiptId": "val-785d52f85db95905099eaaf8",
+         "status": "running",
+         "probe": "passed",
+         "receiptId": "pub-80212945e700c8611eac79af",
+         "at": "2026-10-17T20:52:03.091Z",
+         "action": "update"
+        }
+       }
+      }
+     ]
+    }
+   },
+   {
+    "build": "C",
+    "tool": "integration_rollback",
+    "label": "redeploy previous passing archive (A)",
+    "status": "succeeded",
+    "ms": 129546,
+    "data": {
+     "receiptId": "pub-c4281981c52aa011c1c5dbc1",
+     "action": "rollback",
+     "deploymentId": "c9bf4412-ff7c-4c2a-a895-67a401a9c1e4",
+     "status": "running",
+     "probe": {
+      "passed": true,
+      "failures": [],
+      "unauthenticatedStatus": 401,
+      "invalidTokenStatus": {
+       "foreign_key": 401,
+       "wrong_audience": 401
+      },
+      "serverVersion": {
+       "name": "notify-hub",
+       "title": "Notify Hub",
+       "version": "0.1.0",
+       "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service)."
+      },
+      "tools": [
+       "get_notification",
+       "integration_info",
+       "list_notifications",
+       "send_notification"
+      ],
+      "steps": [
+       {
+        "case": "integration_info responds",
+        "tool": "integration_info",
+        "isError": false,
+        "text": "{\"slug\":\"notify-hub\",\"title\":\"Notify Hub\",\"upstream\":{\"name\":\"Notify Hub (simulated)\",\"docs\":[\"templates/integration/demo/notify-hub/API.md\"]},\"tools\":[\"integration_info\",\"list_notifications\",\"send_notification\",\"get_notification\"],\"env\":[{\"name\":\"NOTIFY_HUB_BASE_URL\",\"required\":false,\"secret\":false},{\"name\":\"NOTIFY_HUB_TOKEN\",\"required\":false,\"secret\":true},{\"name\":\"NOTIFY_HUB_SIMULATED\",\"required\":false,\"secret\":false}]}"
+       },
+       {
+        "case": "simulated list returns notifications",
+        "tool": "list_notifications",
+        "isError": false,
+        "text": "10 notifications"
+       }
+      ],
+      "attempts": 1,
+      "durationMs": 4079
+     },
+     "active": {
+      "deploymentId": "c9bf4412-ff7c-4c2a-a895-67a401a9c1e4",
+      "commit": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+      "archiveSha256": "27c7f9c3cd7d8ec084937f6f5c3160d29c5478bb568b88f2b266522a6d23e16c",
+      "validationReceiptId": "val-899b8bd98db11d6552995e05",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-c4281981c52aa011c1c5dbc1",
+      "at": "2026-10-17T20:54:29.702Z",
+      "action": "rollback"
+     },
+     "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp",
+     "dashboardUrl": "https://manufact.com/cloud/org-84350150-jpcs9/servers/a12cbbe4-f43f-4fcf-9e48-7dda8238047e/overview",
+     "autoRollback": null,
+     "buildLogTail": "Resolving build configuration...\nFetching repository contents...\nDetected runtime: Node.js\nDownloading repository source...\nBuild configuration ready\nPreparing deployment target...\nStarting build...\nPreparing build context from repository root...\nUploading build context...\nPrepared build context: 15 entries, 21292 bytes\nDONE 0.0s\n[1/5] FROM mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402\nresolve mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 done\n[2/5] WORKDIR /app\n[3/5] C…"
+    }
+   },
+   {
+    "build": "C",
+    "tool": "integration_publish",
+    "label": "republish promoted revision (B)",
+    "status": "succeeded",
+    "ms": 127501,
+    "data": {
+     "receiptId": "pub-2d83d89d8137c106d9fe741a",
+     "action": "update",
+     "deploymentId": "1283347c-48a5-4319-8ed6-5a7091944177",
+     "status": "running",
+     "probe": {
+      "passed": true,
+      "failures": [],
+      "unauthenticatedStatus": 401,
+      "invalidTokenStatus": {
+       "foreign_key": 401,
+       "wrong_audience": 401
+      },
+      "serverVersion": {
+       "name": "notify-hub",
+       "title": "Notify Hub",
+       "version": "0.1.0",
+       "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service)."
+      },
+      "tools": [
+       "get_notification",
+       "integration_info",
+       "list_notifications",
+       "send_notification"
+      ],
+      "steps": [
+       {
+        "case": "integration_info responds",
+        "tool": "integration_info",
+        "isError": false,
+        "text": "{\"slug\":\"notify-hub\",\"title\":\"Notify Hub\",\"upstream\":{\"name\":\"Notify Hub (simulated)\",\"docs\":[\"templates/integration/demo/notify-hub/API.md\"]},\"tools\":[\"integration_info\",\"list_notifications\",\"send_notification\",\"get_notification\"],\"env\":[{\"name\":\"NOTIFY_HUB_BASE_URL\",\"required\":false,\"secret\":false},{\"name\":\"NOTIFY_HUB_TOKEN\",\"required\":false,\"secret\":true},{\"name\":\"NOTIFY_HUB_SIMULATED\",\"required\":false,\"secret\":false}]}"
+       },
+       {
+        "case": "simulated list returns notifications",
+        "tool": "list_notifications",
+        "isError": false,
+        "text": "23 notifications"
+       }
+      ],
+      "attempts": 1,
+      "durationMs": 4210
+     },
+     "active": {
+      "deploymentId": "1283347c-48a5-4319-8ed6-5a7091944177",
+      "commit": "02e8b921f1207b691fbf8bf05839fa3483227189",
+      "archiveSha256": "a3ada621b750aa15c0a13a7383be581b15dfcebc60c36429f4e697faeb8a0c9b",
+      "validationReceiptId": "val-785d52f85db95905099eaaf8",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-2d83d89d8137c106d9fe741a",
+      "at": "2026-10-17T20:56:38.469Z",
+      "action": "update"
+     },
+     "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp",
+     "dashboardUrl": "https://manufact.com/cloud/org-84350150-jpcs9/servers/a12cbbe4-f43f-4fcf-9e48-7dda8238047e/overview",
+     "autoRollback": null,
+     "buildLogTail": "Resolving build configuration...\nFetching repository contents...\nDetected runtime: Node.js\nDownloading repository source...\nBuild configuration ready\nPreparing deployment target...\nStarting build...\nPreparing build context from repository root...\nPrepared build context: 15 entries, 26087 bytes\nUploading build context...\nDONE 0.0s\nresolve mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 done\n[1/5] FROM mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402\n[3/5] COPY . ./\n[4/5] RUN …"
+    }
+   },
+   {
+    "build": "C",
+    "tool": "integration_probe",
+    "label": "live probe of active deployment",
+    "status": "succeeded",
+    "ms": 2464,
+    "data": {
+     "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp",
+     "probe": {
+      "passed": true,
+      "failures": [],
+      "unauthenticatedStatus": 401,
+      "invalidTokenStatus": {
+       "foreign_key": 401,
+       "wrong_audience": 401
+      },
+      "serverVersion": {
+       "name": "notify-hub",
+       "title": "Notify Hub",
+       "version": "0.1.0",
+       "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service)."
+      },
+      "tools": [
+       "get_notification",
+       "integration_info",
+       "list_notifications",
+       "send_notification"
+      ],
+      "steps": [
+       {
+        "case": "integration_info responds",
+        "tool": "integration_info",
+        "isError": false,
+        "text": "{\"slug\":\"notify-hub\",\"title\":\"Notify Hub\",\"upstream\":{\"name\":\"Notify Hub (simulated)\",\"docs\":[\"templates/integration/demo/notify-hub/API.md\"]},\"tools\":[\"integration_info\",\"list_notifications\",\"send_notification\",\"get_notification\"],\"env\":[{\"name\":\"NOTIFY_HUB_BASE_URL\",\"required\":false,\"secret\":false},{\"name\":\"NOTIFY_HUB_TOKEN\",\"required\":false,\"secret\":true},{\"name\":\"NOTIFY_HUB_SIMULATED\",\"required\":false,\"secret\":false}]}"
+       },
+       {
+        "case": "simulated list returns notifications",
+        "tool": "list_notifications",
+        "isError": false,
+        "text": "23 notifications"
+       }
+      ],
+      "attempts": 1,
+      "durationMs": 2462
+     }
+    }
+   }
+  ],
+  "live": {
+   "manufactIdentity": {
+    "email": "ishan@askshepherd.ai",
+    "orgSlug": "org-84350150-jpcs9",
+    "orgName": "Askshepherd",
+    "credentialSource": "cli-profile"
+   },
+   "commitA": "b26eed768f99120bec6715b1ae78a2b0543474b7",
+   "deployedA": {
+    "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp",
+    "audience": "urn:procmem:integration:demo-tenant:notify-hub",
+    "serverVersion": {
+     "name": "notify-hub",
+     "title": "Notify Hub",
+     "version": "0.1.0",
+     "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service)."
+    },
+    "tools": [
+     "get_notification",
+     "integration_info",
+     "list_notifications",
+     "send_notification"
+    ],
+    "results": [
+     {
+      "tool": "list_notifications",
+      "isError": false,
+      "structuredContent": {
+       "count": 10,
+       "pages": 1,
+       "items": [
+        {
+         "id": "ntf_0001",
+         "recipient": "user1@example.test",
+         "message": "seed 1",
+         "created_at": "2026-10-01T00:00:00.000Z"
+        },
+        {
+         "id": "ntf_0002",
+         "recipient": "user2@example.test",
+         "message": "seed 2",
+         "created_at": "2026-10-01T00:01:00.000Z"
+        },
+        {
+         "id": "ntf_0003",
+         "recipient": "user3@example.test",
+         "message": "seed 3",
+         "created_at": "2026-10-01T00:02:00.000Z"
+        },
+        {
+         "id": "ntf_0004",
+         "recipient": "user1@example.test",
+         "message": "seed 4",
+         "created_at": "2026-10-01T00:03:00.000Z"
+        },
+        {
+         "id": "ntf_0005",
+         "recipient": "user2@example.test",
+         "message": "seed 5",
+         "created_at": "2026-10-01T00:04:00.000Z"
+        },
+        {
+         "id": "ntf_0006",
+         "recipient": "user3@example.test",
+         "message": "seed 6",
+         "created_at": "2026-10-01T00:05:00.000Z"
+        },
+        {
+         "id": "ntf_0007",
+         "recipient": "user1@example.test",
+         "message": "seed 7",
+         "created_at": "2026-10-01T00:06:00.000Z"
+        },
+        {
+         "id": "ntf_0008",
+         "recipient": "user2@example.test",
+         "message": "seed 8",
+         "created_at": "2026-10-01T00:07:00.000Z"
+        },
+        {
+         "id": "ntf_0009",
+         "recipient": "user3@example.test",
+         "message": "seed 9",
+         "created_at": "2026-10-01T00:08:00.000Z"
+        },
+        {
+         "id": "ntf_0010",
+         "recipient": "user1@example.test",
+         "message": "seed 10",
+         "created_at": "2026-10-01T00:09:00.000Z"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "send_notification",
+      "isError": true,
+      "structuredContent": {
+       "code": "unavailable",
+       "status": 503,
+       "message": "HTTP 503"
+      }
+     }
+    ]
+   },
+   "commitB": "02e8b921f1207b691fbf8bf05839fa3483227189",
+   "deployedB": {
+    "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp",
+    "audience": "urn:procmem:integration:demo-tenant:notify-hub",
+    "serverVersion": {
+     "name": "notify-hub",
+     "title": "Notify Hub",
+     "version": "0.1.0",
+     "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service)."
+    },
+    "tools": [
+     "get_notification",
+     "integration_info",
+     "list_notifications",
+     "send_notification"
+    ],
+    "results": [
+     {
+      "tool": "list_notifications",
+      "isError": false,
+      "structuredContent": {
+       "count": 23,
+       "pages": 3,
+       "items": [
+        {
+         "id": "ntf_0001",
+         "recipient": "user1@example.test",
+         "message": "seed 1",
+         "created_at": "2026-10-01T00:00:00.000Z"
+        },
+        {
+         "id": "ntf_0002",
+         "recipient": "user2@example.test",
+         "message": "seed 2",
+         "created_at": "2026-10-01T00:01:00.000Z"
+        },
+        {
+         "id": "ntf_0003",
+         "recipient": "user3@example.test",
+         "message": "seed 3",
+         "created_at": "2026-10-01T00:02:00.000Z"
+        },
+        {
+         "id": "ntf_0004",
+         "recipient": "user1@example.test",
+         "message": "seed 4",
+         "created_at": "2026-10-01T00:03:00.000Z"
+        },
+        {
+         "id": "ntf_0005",
+         "recipient": "user2@example.test",
+         "message": "seed 5",
+         "created_at": "2026-10-01T00:04:00.000Z"
+        },
+        {
+         "id": "ntf_0006",
+         "recipient": "user3@example.test",
+         "message": "seed 6",
+         "created_at": "2026-10-01T00:05:00.000Z"
+        },
+        {
+         "id": "ntf_0007",
+         "recipient": "user1@example.test",
+         "message": "seed 7",
+         "created_at": "2026-10-01T00:06:00.000Z"
+        },
+        {
+         "id": "ntf_0008",
+         "recipient": "user2@example.test",
+         "message": "seed 8",
+         "created_at": "2026-10-01T00:07:00.000Z"
+        },
+        {
+         "id": "ntf_0009",
+         "recipient": "user3@example.test",
+         "message": "seed 9",
+         "created_at": "2026-10-01T00:08:00.000Z"
+        },
+        {
+         "id": "ntf_0010",
+         "recipient": "user1@example.test",
+         "message": "seed 10",
+         "created_at": "2026-10-01T00:09:00.000Z"
+        },
+        {
+         "id": "ntf_0011",
+         "recipient": "user2@example.test",
+         "message": "seed 11",
+         "created_at": "2026-10-01T00:10:00.000Z"
+        },
+        {
+         "id": "ntf_0012",
+         "recipient": "user3@example.test",
+         "message": "seed 12",
+         "created_at": "2026-10-01T00:11:00.000Z"
+        },
+        {
+         "id": "ntf_0013",
+         "recipient": "user1@example.test",
+         "message": "seed 13",
+         "created_at": "2026-10-01T00:12:00.000Z"
+        },
+        {
+         "id": "ntf_0014",
+         "recipient": "user2@example.test",
+         "message": "seed 14",
+         "created_at": "2026-10-01T00:13:00.000Z"
+        },
+        {
+         "id": "ntf_0015",
+         "recipient": "user3@example.test",
+         "message": "seed 15",
+         "created_at": "2026-10-01T00:14:00.000Z"
+        },
+        {
+         "id": "ntf_0016",
+         "recipient": "user1@example.test",
+         "message": "seed 16",
+         "created_at": "2026-10-01T00:15:00.000Z"
+        },
+        {
+         "id": "ntf_0017",
+         "recipient": "user2@example.test",
+         "message": "seed 17",
+         "created_at": "2026-10-01T00:16:00.000Z"
+        },
+        {
+         "id": "ntf_0018",
+         "recipient": "user3@example.test",
+         "message": "seed 18",
+         "created_at": "2026-10-01T00:17:00.000Z"
+        },
+        {
+         "id": "ntf_0019",
+         "recipient": "user1@example.test",
+         "message": "seed 19",
+         "created_at": "2026-10-01T00:18:00.000Z"
+        },
+        {
+         "id": "ntf_0020",
+         "recipient": "user2@example.test",
+         "message": "seed 20",
+         "created_at": "2026-10-01T00:19:00.000Z"
+        },
+        {
+         "id": "ntf_0021",
+         "recipient": "user3@example.test",
+         "message": "seed 21",
+         "created_at": "2026-10-01T00:20:00.000Z"
+        },
+        {
+         "id": "ntf_0022",
+         "recipient": "user1@example.test",
+         "message": "seed 22",
+         "created_at": "2026-10-01T00:21:00.000Z"
+        },
+        {
+         "id": "ntf_0023",
+         "recipient": "user2@example.test",
+         "message": "seed 23",
+         "created_at": "2026-10-01T00:22:00.000Z"
+        }
+       ]
+      }
+     },
+     {
+      "tool": "send_notification",
+      "isError": false,
+      "structuredContent": {
+       "id": "ntf_0024",
+       "recipient": "ops@example.test",
+       "message": "demo B",
+       "created_at": "2026-10-17T20:52:04.800Z",
+       "attempts": 2,
+       "replayed": true,
+       "idempotency_key": "e7777c37-f42d-4a7e-a05b-a7341d19f164"
+      }
+     },
+     {
+      "tool": "list_notifications",
+      "isError": false,
+      "structuredContent": {
+       "count": 24,
+       "pages": 3,
+       "items": [
+        {
+         "id": "ntf_0001",
+         "recipient": "user1@example.test",
+         "message": "seed 1",
+         "created_at": "2026-10-01T00:00:00.000Z"
+        },
+        {
+         "id": "ntf_0002",
+         "recipient": "user2@example.test",
+         "message": "seed 2",
+         "created_at": "2026-10-01T00:01:00.000Z"
+        },
+        {
+         "id": "ntf_0003",
+         "recipient": "user3@example.test",
+         "message": "seed 3",
+         "created_at": "2026-10-01T00:02:00.000Z"
+        },
+        {
+         "id": "ntf_0004",
+         "recipient": "user1@example.test",
+         "message": "seed 4",
+         "created_at": "2026-10-01T00:03:00.000Z"
+        },
+        {
+         "id": "ntf_0005",
+         "recipient": "user2@example.test",
+         "message": "seed 5",
+         "created_at": "2026-10-01T00:04:00.000Z"
+        },
+        {
+         "id": "ntf_0006",
+         "recipient": "user3@example.test",
+         "message": "seed 6",
+         "created_at": "2026-10-01T00:05:00.000Z"
+        },
+        {
+         "id": "ntf_0007",
+         "recipient": "user1@example.test",
+         "message": "seed 7",
+         "created_at": "2026-10-01T00:06:00.000Z"
+        },
+        {
+         "id": "ntf_0008",
+         "recipient": "user2@example.test",
+         "message": "seed 8",
+         "created_at": "2026-10-01T00:07:00.000Z"
+        },
+        {
+         "id": "ntf_0009",
+         "recipient": "user3@example.test",
+         "message": "seed 9",
+         "created_at": "2026-10-01T00:08:00.000Z"
+        },
+        {
+         "id": "ntf_0010",
+         "recipient": "user1@example.test",
+         "message": "seed 10",
+         "created_at": "2026-10-01T00:09:00.000Z"
+        },
+        {
+         "id": "ntf_0011",
+         "recipient": "user2@example.test",
+         "message": "seed 11",
+         "created_at": "2026-10-01T00:10:00.000Z"
+        },
+        {
+         "id": "ntf_0012",
+         "recipient": "user3@example.test",
+         "message": "seed 12",
+         "created_at": "2026-10-01T00:11:00.000Z"
+        },
+        {
+         "id": "ntf_0013",
+         "recipient": "user1@example.test",
+         "message": "seed 13",
+         "created_at": "2026-10-01T00:12:00.000Z"
+        },
+        {
+         "id": "ntf_0014",
+         "recipient": "user2@example.test",
+         "message": "seed 14",
+         "created_at": "2026-10-01T00:13:00.000Z"
+        },
+        {
+         "id": "ntf_0015",
+         "recipient": "user3@example.test",
+         "message": "seed 15",
+         "created_at": "2026-10-01T00:14:00.000Z"
+        },
+        {
+         "id": "ntf_0016",
+         "recipient": "user1@example.test",
+         "message": "seed 16",
+         "created_at": "2026-10-01T00:15:00.000Z"
+        },
+        {
+         "id": "ntf_0017",
+         "recipient": "user2@example.test",
+         "message": "seed 17",
+         "created_at": "2026-10-01T00:16:00.000Z"
+        },
+        {
+         "id": "ntf_0018",
+         "recipient": "user3@example.test",
+         "message": "seed 18",
+         "created_at": "2026-10-01T00:17:00.000Z"
+        },
+        {
+         "id": "ntf_0019",
+         "recipient": "user1@example.test",
+         "message": "seed 19",
+         "created_at": "2026-10-01T00:18:00.000Z"
+        },
+        {
+         "id": "ntf_0020",
+         "recipient": "user2@example.test",
+         "message": "seed 20",
+         "created_at": "2026-10-01T00:19:00.000Z"
+        },
+        {
+         "id": "ntf_0021",
+         "recipient": "user3@example.test",
+         "message": "seed 21",
+         "created_at": "2026-10-01T00:20:00.000Z"
+        },
+        {
+         "id": "ntf_0022",
+         "recipient": "user1@example.test",
+         "message": "seed 22",
+         "created_at": "2026-10-01T00:21:00.000Z"
+        },
+        {
+         "id": "ntf_0023",
+         "recipient": "user2@example.test",
+         "message": "seed 23",
+         "created_at": "2026-10-01T00:22:00.000Z"
+        },
+        {
+         "id": "ntf_0024",
+         "recipient": "ops@example.test",
+         "message": "demo B",
+         "created_at": "2026-10-17T20:52:04.800Z"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "afterRollback": {
+    "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp",
+    "audience": "urn:procmem:integration:demo-tenant:notify-hub",
+    "serverVersion": {
+     "name": "notify-hub",
+     "title": "Notify Hub",
+     "version": "0.1.0",
+     "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service)."
+    },
+    "tools": [
+     "get_notification",
+     "integration_info",
+     "list_notifications",
+     "send_notification"
+    ],
+    "results": [
+     {
+      "tool": "list_notifications",
+      "isError": false,
+      "structuredContent": {
+       "count": 10,
+       "pages": 1,
+       "items": [
+        {
+         "id": "ntf_0001",
+         "recipient": "user1@example.test",
+         "message": "seed 1",
+         "created_at": "2026-10-01T00:00:00.000Z"
+        },
+        {
+         "id": "ntf_0002",
+         "recipient": "user2@example.test",
+         "message": "seed 2",
+         "created_at": "2026-10-01T00:01:00.000Z"
+        },
+        {
+         "id": "ntf_0003",
+         "recipient": "user3@example.test",
+         "message": "seed 3",
+         "created_at": "2026-10-01T00:02:00.000Z"
+        },
+        {
+         "id": "ntf_0004",
+         "recipient": "user1@example.test",
+         "message": "seed 4",
+         "created_at": "2026-10-01T00:03:00.000Z"
+        },
+        {
+         "id": "ntf_0005",
+         "recipient": "user2@example.test",
+         "message": "seed 5",
+         "created_at": "2026-10-01T00:04:00.000Z"
+        },
+        {
+         "id": "ntf_0006",
+         "recipient": "user3@example.test",
+         "message": "seed 6",
+         "created_at": "2026-10-01T00:05:00.000Z"
+        },
+        {
+         "id": "ntf_0007",
+         "recipient": "user1@example.test",
+         "message": "seed 7",
+         "created_at": "2026-10-01T00:06:00.000Z"
+        },
+        {
+         "id": "ntf_0008",
+         "recipient": "user2@example.test",
+         "message": "seed 8",
+         "created_at": "2026-10-01T00:07:00.000Z"
+        },
+        {
+         "id": "ntf_0009",
+         "recipient": "user3@example.test",
+         "message": "seed 9",
+         "created_at": "2026-10-01T00:08:00.000Z"
+        },
+        {
+         "id": "ntf_0010",
+         "recipient": "user1@example.test",
+         "message": "seed 10",
+         "created_at": "2026-10-01T00:09:00.000Z"
+        }
+       ]
+      }
+     }
+    ]
+   },
+   "afterRepublish": {
+    "mcpUrl": "https://fast-spark-ycqax.run.mcp-use.com/mcp",
+    "audience": "urn:procmem:integration:demo-tenant:notify-hub",
+    "serverVersion": {
+     "name": "notify-hub",
+     "title": "Notify Hub",
+     "version": "0.1.0",
+     "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service)."
+    },
+    "tools": [
+     "get_notification",
+     "integration_info",
+     "list_notifications",
+     "send_notification"
+    ],
+    "results": [
+     {
+      "tool": "list_notifications",
+      "isError": false,
+      "structuredContent": {
+       "count": 23,
+       "pages": 3,
+       "items": [
+        {
+         "id": "ntf_0001",
+         "recipient": "user1@example.test",
+         "message": "seed 1",
+         "created_at": "2026-10-01T00:00:00.000Z"
+        },
+        {
+         "id": "ntf_0002",
+         "recipient": "user2@example.test",
+         "message": "seed 2",
+         "created_at": "2026-10-01T00:01:00.000Z"
+        },
+        {
+         "id": "ntf_0003",
+         "recipient": "user3@example.test",
+         "message": "seed 3",
+         "created_at": "2026-10-01T00:02:00.000Z"
+        },
+        {
+         "id": "ntf_0004",
+         "recipient": "user1@example.test",
+         "message": "seed 4",
+         "created_at": "2026-10-01T00:03:00.000Z"
+        },
+        {
+         "id": "ntf_0005",
+         "recipient": "user2@example.test",
+         "message": "seed 5",
+         "created_at": "2026-10-01T00:04:00.000Z"
+        },
+        {
+         "id": "ntf_0006",
+         "recipient": "user3@example.test",
+         "message": "seed 6",
+         "created_at": "2026-10-01T00:05:00.000Z"
+        },
+        {
+         "id": "ntf_0007",
+         "recipient": "user1@example.test",
+         "message": "seed 7",
+         "created_at": "2026-10-01T00:06:00.000Z"
+        },
+        {
+         "id": "ntf_0008",
+         "recipient": "user2@example.test",
+         "message": "seed 8",
+         "created_at": "2026-10-01T00:07:00.000Z"
+        },
+        {
+         "id": "ntf_0009",
+         "recipient": "user3@example.test",
+         "message": "seed 9",
+         "created_at": "2026-10-01T00:08:00.000Z"
+        },
+        {
+         "id": "ntf_0010",
+         "recipient": "user1@example.test",
+         "message": "seed 10",
+         "created_at": "2026-10-01T00:09:00.000Z"
+        },
+        {
+         "id": "ntf_0011",
+         "recipient": "user2@example.test",
+         "message": "seed 11",
+         "created_at": "2026-10-01T00:10:00.000Z"
+        },
+        {
+         "id": "ntf_0012",
+         "recipient": "user3@example.test",
+         "message": "seed 12",
+         "created_at": "2026-10-01T00:11:00.000Z"
+        },
+        {
+         "id": "ntf_0013",
+         "recipient": "user1@example.test",
+         "message": "seed 13",
+         "created_at": "2026-10-01T00:12:00.000Z"
+        },
+        {
+         "id": "ntf_0014",
+         "recipient": "user2@example.test",
+         "message": "seed 14",
+         "created_at": "2026-10-01T00:13:00.000Z"
+        },
+        {
+         "id": "ntf_0015",
+         "recipient": "user3@example.test",
+         "message": "seed 15",
+         "created_at": "2026-10-01T00:14:00.000Z"
+        },
+        {
+         "id": "ntf_0016",
+         "recipient": "user1@example.test",
+         "message": "seed 16",
+         "created_at": "2026-10-01T00:15:00.000Z"
+        },
+        {
+         "id": "ntf_0017",
+         "recipient": "user2@example.test",
+         "message": "seed 17",
+         "created_at": "2026-10-01T00:16:00.000Z"
+        },
+        {
+         "id": "ntf_0018",
+         "recipient": "user3@example.test",
+         "message": "seed 18",
+         "created_at": "2026-10-01T00:17:00.000Z"
+        },
+        {
+         "id": "ntf_0019",
+         "recipient": "user1@example.test",
+         "message": "seed 19",
+         "created_at": "2026-10-01T00:18:00.000Z"
+        },
+        {
+         "id": "ntf_0020",
+         "recipient": "user2@example.test",
+         "message": "seed 20",
+         "created_at": "2026-10-01T00:19:00.000Z"
+        },
+        {
+         "id": "ntf_0021",
+         "recipient": "user3@example.test",
+         "message": "seed 21",
+         "created_at": "2026-10-01T00:20:00.000Z"
+        },
+        {
+         "id": "ntf_0022",
+         "recipient": "user1@example.test",
+         "message": "seed 22",
+         "created_at": "2026-10-01T00:21:00.000Z"
+        },
+        {
+         "id": "ntf_0023",
+         "recipient": "user2@example.test",
+         "message": "seed 23",
+         "created_at": "2026-10-01T00:22:00.000Z"
+        }
+       ]
+      }
+     }
+    ]
+   }
+  },
+  "problems": [],
+  "finishedAt": "2026-10-17T20:56:45.129Z",
+  "ok": true
+ }
+}

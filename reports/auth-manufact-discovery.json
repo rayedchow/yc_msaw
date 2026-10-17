@@ -1,0 +1,98 @@
+{
+  "target": "https://wild-zero-kq08i.run.mcp-use.com/mcp",
+  "at": "2026-10-17T20:37:59.524Z",
+  "tokenProvided": false,
+  "ok": true,
+  "fullyAuthenticated": false,
+  "metadataOnly": true,
+  "skipped": [
+    "authorized_initialize_tools_list"
+  ],
+  "checks": [
+    {
+      "name": "protected_resource_metadata",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "url": "https://wild-zero-kq08i.run.mcp-use.com/.well-known/oauth-protected-resource/mcp",
+        "status": 200,
+        "resource": "https://wild-zero-kq08i.run.mcp-use.com/mcp",
+        "authorization_servers": [
+          "https://sincere-umbrella-45-staging.authkit.app"
+        ]
+      }
+    },
+    {
+      "name": "authorization_server_expected",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "advertised": "https://sincere-umbrella-45-staging.authkit.app",
+        "expected": "https://sincere-umbrella-45-staging.authkit.app"
+      }
+    },
+    {
+      "name": "authorization_server_metadata",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "issuer": "https://sincere-umbrella-45-staging.authkit.app",
+        "authorization_endpoint": "https://sincere-umbrella-45-staging.authkit.app/oauth2/authorize",
+        "token_endpoint": "https://sincere-umbrella-45-staging.authkit.app/oauth2/token",
+        "jwks_uri": "https://sincere-umbrella-45-staging.authkit.app/oauth2/jwks",
+        "registration_endpoint": "https://sincere-umbrella-45-staging.authkit.app/oauth2/register",
+        "client_id_metadata_document_supported": true,
+        "code_challenge_methods_supported": [
+          "S256"
+        ]
+      }
+    },
+    {
+      "name": "client_registration_available",
+      "status": "pass",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "jwks_reachable",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "keys": [
+          {
+            "kid": "sso_oidc_key_pair_01M55NQVS6NT15XWTSQWBYC9N7",
+            "alg": "RS256",
+            "kty": "RSA"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unauthenticated_initialize_challenged",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "status": 401,
+        "www_authenticate": "Bearer error=\"invalid_token\", error_description=\"Authentication is required for this request.\", resource_metadata=\"https://wild-zero-kq08i.run.mcp-use.com/.well-known/oauth-protected-resource/mcp\""
+      }
+    },
+    {
+      "name": "forged_token_rejected",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "status": 401,
+        "www_authenticate": "Bearer error=\"invalid_token\", error_description=\"JWT verification failed\", resource_metadata=\"https://wild-zero-kq08i.run.mcp-use.com/.well-known/oauth-protected-resource/mcp\""
+      }
+    },
+    {
+      "name": "authorized_initialize_tools_list",
+      "status": "skipped",
+      "ok": false,
+      "detail": {
+        "reason": "PROCMEM_TEST_ACCESS_TOKEN not set"
+      }
+    }
+  ]
+}

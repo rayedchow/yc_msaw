@@ -1,0 +1,153 @@
+[eval-e2e] app up: http://localhost:54340/mcp ns=eval-20261017202151 store=directory sandbox=modal
+[eval-e2e] start train-train-day1-a-kimi-k3-no-memory-r1-mvcuea6z
+[eval-e2e] start train-train-day1-b-kimi-k3-no-memory-r1-mvcuea70
+[eval-e2e] done train-train-day1-a-kimi-k3-no-memory-r1-mvcuea6z: success=true dup=0 missed=0 wrong=0 failedApi=4/18 mem=0 turns=10
+[eval-e2e] done train-train-day1-b-kimi-k3-no-memory-r1-mvcuea70: success=true dup=0 missed=0 wrong=0 failedApi=4/22 mem=0 turns=10
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:00.395Z","agentId":"root","event":"agent_started","detail":{"profile":"kimi-k3","depth":0,"scope":"all"}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:06.044Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:06.266Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:06.497Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:41.270Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:41.496Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:41.721Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:42.268Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:53.474Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":3,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:53.703Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":3,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:23:58.460Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":4,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:04.269Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":5,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:04.496Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":5,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:10.751Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":6,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:20.837Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":7,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:27.221Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":8,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:30.686Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":9,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:33.577Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":10,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:36.955Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":11,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:40.830Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":12,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:44.160Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":13,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:47.820Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":14,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:52.639Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":15,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:55.998Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":16,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:24:59.944Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":17,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:25:03.627Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":18,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:25:07.881Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":19,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:25:13.730Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":20,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:25:19.310Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":21,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:25:37.672Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:25:38.068Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:25:43.761Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":23,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:12.318Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:12.855Z","agentId":"root","event":"session_boundary","detail":{"session":2,"reason":"turns"}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:16.906Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":25,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:17.135Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":25,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:29.644Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":26,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:29.877Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":26,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:37.449Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":27,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:42.789Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":28,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:43.271Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":28,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:56.223Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":29,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:57.140Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":29,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:26:57.818Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":29,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:27:06.140Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":30,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:27:06.909Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":30,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:27:07.566Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":30,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:27:15.051Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":31,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:27:15.834Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":31,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:27:53.453Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":32,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:27:53.984Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":32,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:00.070Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":33,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:09.642Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":34,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:10.232Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":34,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:10.816Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":34,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:17.713Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":35,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:18.172Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":35,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:26.483Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":36,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:27.187Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":36,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:28.498Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":36,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:40.611Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":37,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:42.745Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":37,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:44.002Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":37,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:45.899Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":37,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:46.745Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":37,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:57.610Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":38,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:58.319Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":38,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:58.944Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":38,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:28:59.716Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":38,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:29:01.351Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":38,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:29:02.749Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":38,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:29:13.406Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":39,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:29:15.242Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":39,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:29:16.687Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":39,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:29:17.628Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":39,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:29:22.618Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":40,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:29:53.992Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":41,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:29:54.820Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":41,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:30:29.352Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":42,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:30:32.303Z","agentId":"root","event":"tool_call","detail":{"tool":"validate","ok":true,"turn":43,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:30:41.925Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":44,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:30:42.469Z","agentId":"root","event":"tool_call","detail":{"tool":"edit","ok":true,"turn":44,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:30:43.022Z","agentId":"root","event":"tool_call","detail":{"tool":"edit","ok":true,"turn":44,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:30:44.907Z","agentId":"root","event":"tool_call","detail":{"tool":"validate","ok":true,"turn":45,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:30:48.568Z","agentId":"root","event":"tool_call","detail":{"tool":"edit","ok":true,"turn":46,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:30:50.745Z","agentId":"root","event":"tool_call","detail":{"tool":"validate","ok":true,"turn":47,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:30:57.859Z","agentId":"root","event":"tool_call","detail":{"tool":"publish","ok":true,"turn":48,"session":2}}
+[eval-e2e] [build bld-mvcufo01-bf28d70f93] {"at":"2026-10-17T20:30:58.204Z","agentId":"root","event":"agent_finished","detail":{"status":"completed"}}
+[eval-e2e] build bld-mvcufo01-bf28d70f93 (eval-20261017202151 2026-10-17) -> published rev-f6f4d50021a9c138822c8c76
+[eval-e2e] daily build bld-mvcufo01-bf28d70f93 -> published rev-f6f4d50021a9c138822c8c76 
+[eval-e2e] build: revision=rev-f6f4d50021a9c138822c8c76
+[eval-e2e] start heldout-heldout-x-glm-5p3-memory-r1-mvcuq01h
+[eval-e2e] start heldout-heldout-x-glm-5p3-no-memory-r1-mvcuq01h
+initialize pi/1.3.0 /mcp 200 client=pi/1.3.0 16ms
+(node:1288) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+POST /mcp 202 2ms
+GET /mcp 204 0ms
+tools/list /mcp 200 client=unknown 4ms
+tools/call open_memory /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 5ms
+tools/call read /mcp 200 client=unknown 2ms
+[eval-e2e] done heldout-heldout-x-glm-5p3-no-memory-r1-mvcuq01h: success=true dup=0 missed=0 wrong=0 failedApi=4/19 mem=0 turns=10
+[eval-e2e] start heldout-heldout-y-glm-5p3-memory-r1-mvcuq7xh
+initialize pi/1.3.0 /mcp 200 client=pi/1.3.0 9ms
+POST /mcp 202 2ms
+GET /mcp 204 1ms
+tools/list /mcp 200 client=unknown 3ms
+tools/call open_memory /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 3ms
+tools/call read /mcp 200 client=unknown 1ms
+[eval-e2e] done heldout-heldout-x-glm-5p3-memory-r1-mvcuq01h: success=true dup=0 missed=0 wrong=0 failedApi=4/24 mem=3 turns=12
+[eval-e2e] start heldout-heldout-y-glm-5p3-no-memory-r1-mvcuqahw
+[eval-e2e] done heldout-heldout-y-glm-5p3-memory-r1-mvcuq7xh: success=true dup=0 missed=0 wrong=0 failedApi=3/23 mem=5 turns=12
+[eval-e2e] start heldout-heldout-x-minimax-m3-memory-r1-mvcuqki0
+initialize pi/1.3.0 /mcp 200 client=pi/1.3.0 1ms
+POST /mcp 202 1ms
+GET /mcp 204 0ms
+tools/list /mcp 200 client=unknown 2ms
+[eval-e2e] done heldout-heldout-y-glm-5p3-no-memory-r1-mvcuqahw: success=true dup=0 missed=0 wrong=0 failedApi=3/24 mem=0 turns=11
+[eval-e2e] start heldout-heldout-x-minimax-m3-no-memory-r1-mvcuqkub
+tools/call open_memory /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 0ms
+tools/call read /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 0ms
+tools/call read /mcp 200 client=unknown 0ms
+tools/call shell /mcp 200 client=unknown 1ms
+[eval-e2e] done heldout-heldout-x-minimax-m3-no-memory-r1-mvcuqkub: success=true dup=0 missed=0 wrong=0 failedApi=4/26 mem=0 turns=10
+[eval-e2e] start heldout-heldout-y-minimax-m3-memory-r1-mvcur0k6
+initialize pi/1.3.0 /mcp 200 client=pi/1.3.0 1ms
+POST /mcp 202 0ms
+GET /mcp 204 0ms
+tools/list /mcp 200 client=unknown 4ms
+tools/call open_memory /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 0ms
+[eval-e2e] done heldout-heldout-x-minimax-m3-memory-r1-mvcuqki0: success=true dup=0 missed=0 wrong=0 failedApi=4/26 mem=8 turns=14
+[eval-e2e] start heldout-heldout-y-minimax-m3-no-memory-r1-mvcur3el
+tools/call shell /mcp 200 client=unknown 2ms
+tools/call shell /mcp 200 client=unknown 8ms

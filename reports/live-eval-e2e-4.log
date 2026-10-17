@@ -1,0 +1,432 @@
+[eval-e2e] app up: http://localhost:56291/mcp ns=eval-20261017204530 store=directory sandbox=modal
+[eval-e2e] start train-train-day1-a-kimi-k3-no-memory-r1-mvcv8p7t
+[eval-e2e] start train-train-day1-b-kimi-k3-no-memory-r1-mvcv8p7t
+[eval-e2e] done train-train-day1-a-kimi-k3-no-memory-r1-mvcv8p7t: success=true dup=0 missed=0 wrong=0 failedApi=4/19 mem=0 turns=11
+[eval-e2e] done train-train-day1-b-kimi-k3-no-memory-r1-mvcv8p7t: success=true dup=0 missed=0 wrong=0 failedApi=4/22 mem=0 turns=15
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:46:51.296Z","agentId":"root","event":"agent_started","detail":{"profile":"kimi-k3","depth":0,"scope":"all"}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:46:59.920Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:47:00.154Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:47:00.382Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:47:42.662Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:47:43.145Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:47:43.387Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:47:57.605Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":3,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:47:57.835Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":3,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:48:07.225Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":4,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:48:14.118Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":5,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:48:20.369Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":6,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:49:26.143Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":7,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:49:57.112Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":8,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:37.098Z","agentId":"root.1","event":"agent_started","detail":{"profile":"glm-5p3","depth":1,"scope":["integrations/notifications-api/redelivery-runbook-email.md"]}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:37.102Z","agentId":"root.2","event":"agent_started","detail":{"profile":"glm-5p3","depth":1,"scope":["integrations/notifications-api/redelivery-runbook-sms.md"]}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:37.104Z","agentId":"root","event":"spawned","detail":{"children":["root.1","root.2"]}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:37.104Z","agentId":"root","event":"tool_call","detail":{"tool":"spawn_agents","ok":true,"turn":9,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:39.554Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:39.715Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:42.057Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:42.067Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":10,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:42.542Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:43.053Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":1,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:43.208Z","agentId":"root.1","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:43.289Z","agentId":"root.1","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:47.053Z","agentId":"root.1","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":3,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:47.129Z","agentId":"root.1","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":3,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:47.884Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":11,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:50.346Z","agentId":"root.2","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:50.564Z","agentId":"root.2","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":2,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:51.830Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":12,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:53.731Z","agentId":"root.2","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":3,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:56.531Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":4,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:56.614Z","agentId":"root.1","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":4,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:56.723Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":4,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:58.990Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":13,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:50:59.169Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":5,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:00.557Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":6,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:04.616Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":14,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:05.218Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":7,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:06.567Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":8,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:08.455Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":15,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:09.124Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":9,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:10.636Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":10,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:13.335Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":11,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:14.217Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":16,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:15.254Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":5,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:15.404Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":12,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:16.905Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":13,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:18.103Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":17,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:18.733Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":14,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:20.519Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":15,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:22.902Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":18,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:23.322Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":16,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:24.419Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":6,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:25.679Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":7,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:26.665Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":8,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:27.111Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":19,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:27.629Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":9,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:27.728Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":17,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:29.725Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":18,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:29.733Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":10,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:30.896Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":11,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:31.544Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":19,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:32.306Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":12,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:33.182Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":20,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:34.096Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":20,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:34.280Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":13,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:35.310Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":21,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:35.566Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":14,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:36.692Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":15,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:38.003Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":16,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:38.790Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":21,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:39.355Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":17,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:40.903Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":18,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:42.300Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":19,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:43.707Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":20,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:46.108Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":21,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:51:56.903Z","agentId":"root.2","event":"tool_call","detail":{"tool":"write","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:00.226Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":23,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:09.900Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:12.257Z","agentId":"root.1","event":"tool_call","detail":{"tool":"write","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:12.432Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:12.643Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:12.851Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:13.036Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:13.301Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:13.510Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:13.715Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:13.930Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:14.127Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:14.326Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":22,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:16.505Z","agentId":"root.2","event":"tool_call","detail":{"tool":"write","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:16.943Z","agentId":"root.2","event":"session_boundary","detail":{"session":2,"reason":"turns"}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:18.082Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":25,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:18.297Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":false,"code":"not_found","turn":25,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:21.785Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":26,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:26.512Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":27,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:28.530Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":28,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:29.994Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":29,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:31.938Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":30,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:33.801Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":31,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:35.235Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":32,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:37.354Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":33,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:39.832Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":34,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:41.925Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":35,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:44.064Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":36,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:46.341Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":37,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:48.175Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":38,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:50.216Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":39,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:52.622Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":40,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:54.603Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":23,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:55.140Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":23,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:55.179Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":41,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:52:57.451Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":42,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:00.242Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":43,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:02.209Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:02.993Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:03.027Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":44,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:03.470Z","agentId":"root","event":"session_boundary","detail":{"session":2,"reason":"turns"}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:05.632Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":23,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:06.180Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":45,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:08.198Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":25,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:08.472Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":25,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:12.757Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":46,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:14.393Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":26,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:14.640Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":26,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:14.876Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":26,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:15.110Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":26,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:16.117Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":47,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:40.639Z","agentId":"root.1","event":"tool_call","detail":{"tool":"write","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:40.820Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:40.975Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:41.144Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:41.322Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:41.492Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:41.662Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:41.836Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:42.020Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:42.185Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:42.350Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:42.519Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:42.673Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:42.850Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:42.997Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:43.139Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":24,"session":1}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:43.314Z","agentId":"root.1","event":"session_boundary","detail":{"session":2,"reason":"turns"}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:44.253Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":25,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:44.339Z","agentId":"root.1","event":"tool_call","detail":{"tool":"ls","ok":false,"code":"not_found","turn":25,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:47.574Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":26,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:47.716Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":26,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:50.313Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":27,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:50.466Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":27,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:54.329Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":28,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:54.814Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":28,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:57.258Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":29,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:57.418Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":29,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:58.897Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":30,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:53:59.082Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":30,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:01.086Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":31,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:01.251Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":31,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:04.672Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":32,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:04.836Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":32,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:07.732Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":33,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:07.941Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":33,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:09.485Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":34,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:09.668Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":34,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:11.910Z","agentId":"root.1","event":"tool_call","detail":{"tool":"read","ok":true,"turn":35,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:42.347Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":48,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:42.348Z","agentId":"root.2","event":"tool_call","detail":{"tool":"write","ok":false,"code":"invalid_arguments","turn":48,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:42.900Z","agentId":"root.2","event":"session_boundary","detail":{"session":3,"reason":"turns"}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:44.035Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":49,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:44.293Z","agentId":"root.2","event":"tool_call","detail":{"tool":"ls","ok":false,"code":"not_found","turn":49,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:47.761Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":50,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:49.792Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":51,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:53.027Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":52,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:55.042Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":53,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:56.424Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":54,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:54:58.691Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":55,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:00.411Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":56,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:01.955Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":57,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:04.003Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":58,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:05.815Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":59,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:08.184Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":60,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:10.119Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":61,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:12.444Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":62,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:14.062Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":63,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:16.168Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":64,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:18.066Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":65,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:19.746Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":66,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:21.967Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":67,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:25.856Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":68,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:27.798Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":69,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:32.360Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":70,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:36.195Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":71,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:38.340Z","agentId":"root.2","event":"tool_call","detail":{"tool":"read","ok":true,"turn":72,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:39.249Z","agentId":"root.2","event":"agent_finished","detail":{"status":"failed","failure":"no_progress"}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:39.249Z","agentId":"root","event":"tool_call","detail":{"tool":"wait_agents","ok":true,"turn":27,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:44.517Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":28,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:45.054Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":28,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:50.232Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":29,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:55:56.676Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":30,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:04.290Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":31,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:09.253Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":32,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:15.816Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":33,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:19.855Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":34,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:23.438Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":35,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:28.061Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":36,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:31.971Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":37,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:35.654Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":38,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:39.840Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":39,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:43.334Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":40,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:50.239Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":41,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:51.832Z","agentId":"root.1","event":"tool_call","detail":{"tool":"write","ok":true,"turn":37,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:53.145Z","agentId":"root.1","event":"tool_call","detail":{"tool":"validate","ok":true,"turn":38,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:56:56.997Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":42,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:01.214Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":43,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:05.295Z","agentId":"root.1","event":"tool_call","detail":{"tool":"write","ok":true,"turn":39,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:05.943Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":44,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:10.255Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":45,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:10.679Z","agentId":"root.1","event":"tool_call","detail":{"tool":"complete_task","ok":true,"turn":40,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:11.141Z","agentId":"root.1","event":"agent_finished","detail":{"status":"completed"}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:14.720Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":46,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:18.861Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":47,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:54.430Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":48,"session":2}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:54.882Z","agentId":"root","event":"session_boundary","detail":{"session":3,"reason":"turns"}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:57:59.871Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":49,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:00.104Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":49,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:06.907Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":50,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:06.908Z","agentId":"root","event":"tool_call","detail":{"tool":"wait_agents","ok":true,"turn":50,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:12.970Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":51,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:17.532Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":52,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:21.300Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":53,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:25.529Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":54,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:29.421Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":55,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:34.214Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":56,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:38.763Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":57,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:43.807Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":58,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:50.312Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":59,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:58:58.438Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":60,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:59:04.036Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":61,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:59:11.677Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":62,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:59:17.064Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":63,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:59:21.618Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":64,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:59:25.050Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":65,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:59:31.290Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":66,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:59:36.401Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":67,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:59:47.441Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":68,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:59:52.291Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":69,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T20:59:57.940Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":70,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:00:02.181Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":71,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:00:35.139Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":72,"session":3}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:00:35.594Z","agentId":"root","event":"session_boundary","detail":{"session":4,"reason":"turns"}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:00:39.675Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":73,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:00:39.895Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":73,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:00:44.771Z","agentId":"root","event":"tool_call","detail":{"tool":"read_agent_result","ok":true,"turn":74,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:00:44.994Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":74,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:02:01.782Z","agentId":"root","event":"decided","detail":{"results":1,"allOk":true}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:02:01.784Z","agentId":"root","event":"tool_call","detail":{"tool":"decide_agent_results","ok":true,"turn":75,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:02:02.303Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":75,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:02:04.405Z","agentId":"root","event":"tool_call","detail":{"tool":"validate","ok":true,"turn":76,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:02:07.393Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":77,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:02:16.066Z","agentId":"root","event":"tool_call","detail":{"tool":"edit","ok":true,"turn":78,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:02:16.602Z","agentId":"root","event":"tool_call","detail":{"tool":"edit","ok":true,"turn":78,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:02:18.577Z","agentId":"root","event":"tool_call","detail":{"tool":"validate","ok":true,"turn":79,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:02:26.171Z","agentId":"root","event":"tool_call","detail":{"tool":"publish","ok":true,"turn":80,"session":4}}
+[eval-e2e] [build bld-mvcvaby4-d0c55a1f3e] {"at":"2026-10-17T21:02:26.526Z","agentId":"root","event":"agent_finished","detail":{"status":"completed"}}
+[eval-e2e] build bld-mvcvaby4-d0c55a1f3e (eval-20261017204530 2026-10-17) -> published rev-e1e20dae88722882cc231ee0
+[eval-e2e] daily build bld-mvcvaby4-d0c55a1f3e -> published rev-e1e20dae88722882cc231ee0 
+[eval-e2e] build: revision=rev-e1e20dae88722882cc231ee0
+[eval-e2e] start heldout-heldout-x-glm-5p3-memory-r1-mvcvuh2m
+[eval-e2e] start heldout-heldout-x-glm-5p3-no-memory-r1-mvcvuh2n
+initialize pi/1.3.0 /mcp 200 client=pi/1.3.0 16ms
+(node:29973) ExperimentalWarning: localStorage is not available because --localstorage-file was not provided.
+(Use `node --trace-warnings ...` to show where the warning was created)
+POST /mcp 202 2ms
+GET /mcp 204 0ms
+tools/list /mcp 200 client=unknown 4ms
+tools/call open_memory /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 4ms
+[eval-e2e] done heldout-heldout-x-glm-5p3-no-memory-r1-mvcvuh2n: success=true dup=0 missed=0 wrong=0 failedApi=4/21 mem=0 turns=10
+[eval-e2e] start heldout-heldout-y-glm-5p3-memory-r1-mvcvupp3
+initialize pi/1.3.0 /mcp 200 client=pi/1.3.0 1ms
+POST /mcp 202 0ms
+GET /mcp 204 0ms
+tools/list /mcp 200 client=unknown 2ms
+tools/call open_memory /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 2ms
+[eval-e2e] done heldout-heldout-x-glm-5p3-memory-r1-mvcvuh2m: success=true dup=0 missed=0 wrong=0 failedApi=4/21 mem=2 turns=11
+[eval-e2e] start heldout-heldout-y-glm-5p3-no-memory-r1-mvcvuur9
+[eval-e2e] done heldout-heldout-y-glm-5p3-no-memory-r1-mvcvuur9: success=true dup=0 missed=0 wrong=0 failedApi=3/23 mem=0 turns=9
+[eval-e2e] start heldout-heldout-x-minimax-m3-memory-r1-mvcvv41k
+initialize pi/1.3.0 /mcp 200 client=pi/1.3.0 1ms
+POST /mcp 202 1ms
+GET /mcp 204 0ms
+tools/list /mcp 200 client=unknown 2ms
+tools/call open_memory /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 1ms
+[eval-e2e] done heldout-heldout-y-glm-5p3-memory-r1-mvcvupp3: success=true dup=0 missed=0 wrong=0 failedApi=3/25 mem=5 turns=15
+[eval-e2e] start heldout-heldout-x-minimax-m3-no-memory-r1-mvcvv63p
+tools/call read /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 0ms
+tools/call read /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 1ms
+tools/call shell /mcp 200 client=unknown 3ms
+[eval-e2e] done heldout-heldout-x-minimax-m3-no-memory-r1-mvcvv63p: success=true dup=0 missed=0 wrong=0 failedApi=4/21 mem=0 turns=9
+[eval-e2e] start heldout-heldout-y-minimax-m3-memory-r1-mvcvvmo1
+initialize pi/1.3.0 /mcp 200 client=pi/1.3.0 1ms
+POST /mcp 202 1ms
+GET /mcp 204 0ms
+tools/list /mcp 200 client=unknown 2ms
+tools/call open_memory /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 2ms
+tools/call read /mcp 200 client=unknown 1ms
+tools/call read /mcp 200 client=unknown 1ms
+tools/call shell /mcp 200 client=unknown 1ms
+tools/call shell /mcp 200 client=unknown 3ms
+tools/call shell /mcp 200 client=unknown 4ms
+tools/call shell /mcp 200 client=unknown 4ms
+tools/call shell /mcp 200 client=unknown 1ms
+[eval-e2e] done heldout-heldout-x-minimax-m3-memory-r1-mvcvv41k: success=true dup=0 missed=0 wrong=0 failedApi=4/21 mem=11 turns=23
+[eval-e2e] start heldout-heldout-y-minimax-m3-no-memory-r1-mvcvw1z4
+tools/call shell /mcp 200 client=unknown 1ms
+tools/call shell /mcp 200 client=unknown 4ms
+[eval-e2e] done heldout-heldout-y-minimax-m3-memory-r1-mvcvvmo1: success=true dup=0 missed=0 wrong=0 failedApi=3/30 mem=9 turns=19
+[eval-e2e] done heldout-heldout-y-minimax-m3-no-memory-r1-mvcvw1z4: success=true dup=0 missed=0 wrong=0 failedApi=4/19 mem=0 turns=11
+[eval-e2e] published wiki (6 pages) copied to reports/memory-eval-20261017204530
+{
+  "ns": "eval-20261017204530",
+  "files": {
+    "json": "/Users/ishanramrakhiani/Documents/ChatGPT/yc-hackathon/reports/eval-2026-10-17T21-04-05-704Z.json",
+    "markdown": "/Users/ishanramrakhiani/Documents/ChatGPT/yc-hackathon/reports/eval-2026-10-17T21-04-05-704Z.md"
+  },
+  "build": {
+    "revision": "rev-e1e20dae88722882cc231ee0"
+  },
+  "checks": {
+    "trainRunsTraced": true,
+    "traceCapturesPromptAndTools": true,
+    "evalModelsDifferFromTrain": true
+  },
+  "aggregates": [
+    {
+      "model": "accounts/fireworks/models/glm-5p3",
+      "condition": "memory",
+      "runs": 2,
+      "successRate": 1,
+      "avgDuplicates": 0,
+      "avgMissed": 0,
+      "avgWrong": 0,
+      "avgFailedApiCalls": 3.5,
+      "avgTotalApiCalls": 23,
+      "avgMemoryToolCalls": 3.5,
+      "avgTurns": 13,
+      "avgToolCalls": 26.5,
+      "avgInputTokens": 121740.5,
+      "avgOutputTokens": 1508,
+      "avgLatencyMs": 19497.5,
+      "totalCostUsd": 0.1048,
+      "errors": 0
+    },
+    {
+      "model": "accounts/fireworks/models/glm-5p3",
+      "condition": "no-memory",
+      "runs": 2,
+      "successRate": 1,
+      "avgDuplicates": 0,
+      "avgMissed": 0,
+      "avgWrong": 0,
+      "avgFailedApiCalls": 3.5,
+      "avgTotalApiCalls": 22,
+      "avgMemoryToolCalls": 0,
+      "avgTurns": 9.5,
+      "avgToolCalls": 22,
+      "avgInputTokens": 16967.5,
+      "avgOutputTokens": 1077,
+      "avgLatencyMs": 11605,
+      "totalCostUsd": 0.0294,
+      "errors": 0
+    },
+    {
+      "model": "accounts/fireworks/models/minimax-m3",
+      "condition": "memory",
+      "runs": 2,
+      "successRate": 1,
+      "avgDuplicates": 0,
+      "avgMissed": 0,
+      "avgWrong": 0,
+      "avgFailedApiCalls": 3.5,
+      "avgTotalApiCalls": 25.5,
+      "avgMemoryToolCalls": 10,
+      "avgTurns": 21,
+      "avgToolCalls": 35.5,
+      "avgInputTokens": 266560.5,
+      "avgOutputTokens": 4773.5,
+      "avgLatencyMs": 42624,
+      "totalCostUsd": 0.059,
+      "errors": 0
+    },
+    {
+      "model": "accounts/fireworks/models/minimax-m3",
+      "condition": "no-memory",
+      "runs": 2,
+      "successRate": 1,
+      "avgDuplicates": 0,
+      "avgMissed": 0,
+      "avgWrong": 0,
+      "avgFailedApiCalls": 4,
+      "avgTotalApiCalls": 20,
+      "avgMemoryToolCalls": 0,
+      "avgTurns": 10,
+      "avgToolCalls": 20,
+      "avgInputTokens": 28853,
+      "avgOutputTokens": 4014.5,
+      "avgLatencyMs": 23440.5,
+      "totalCostUsd": 0.017,
+      "errors": 0
+    }
+  ]
+}
+EXIT 0

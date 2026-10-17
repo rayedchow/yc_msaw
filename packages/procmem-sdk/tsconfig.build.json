@@ -1,0 +1,27 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "declaration": true,
+    "declarationMap": false,
+    "sourceMap": false,
+    "skipLibCheck": true,
+    "esModuleInterop": true,
+    "types": [
+      "node"
+    ],
+    "rootDir": "../../src",
+    "outDir": "./dist"
+  },
+  "files": [
+    "../../src/sdk/client.ts",
+    "../../src/sdk/pi-adapter.ts",
+    "../../src/sdk/live/index.ts",
+    "../../src/sdk/live/pi.ts",
+    "../../src/sdk/live/bridge-cli.ts",
+    "../../src/sdk/oauth-refresh.ts"
+  ]
+}

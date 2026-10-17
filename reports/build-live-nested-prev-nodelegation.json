@@ -1,0 +1,708 @@
+{
+  "kind": "build-live-smoke",
+  "note": "Real Fireworks models over a SYNTHETIC fixture cohort with Modal sandbox workspaces (one per agent). Numbers are host-measured; agent behavior is the models' own (no scripts).",
+  "cohort": "large (18 sessions with payloads, 3 systems x 3 workflows)",
+  "workspaceBackend": "modal",
+  "wallMs": 294697,
+  "initialHead": "rev-83c27a3a184ca4619729d499",
+  "published": {
+    "revisionId": "rev-ae9c110480eecca0db4cbbc0",
+    "pages": [
+      "billing/index.md",
+      "billing/pagination.md",
+      "billing/refunds.md",
+      "billing/webhooks.md",
+      "deploy/index.md",
+      "deploy/migrations.md",
+      "deploy/rollback.md",
+      "deploy/secrets.md",
+      "index.md",
+      "search/index.md",
+      "search/mappings.md",
+      "search/reindex.md",
+      "search/timeouts.md"
+    ],
+    "validation": true,
+    "pagesContent": {
+      "billing/index.md": "# Billing API\n\nParent: [Procedural memory](../index.md)\n\nCovers the `billing.http` tool (REST endpoints under `/v2/`) and the\n`billing.webhooks` tool (delivery verification). Learned from the 2026-10-16\ncohort; every rule below was hit as a real error in a trace before the working\ncall succeeded.\n\n## Procedures\n\n- [Exporting charges (pagination)](pagination.md) — `/v2/charges` is\n  cursor-only; `page=N` is rejected with a 400.\n- [Refunding a charge](refunds.md) — `POST /v2/refunds` requires an\n  `Idempotency-Key` header and returns `202 pending`; poll to terminal state.\n  Includes an observed double-refund failure from re-keying a retry.\n- [Verifying webhooks](webhooks.md) — verify against the raw request body with\n  a timestamp tolerance; dedupe deliveries by event id.\n\n## Cross-cutting behavior\n\n- Error responses from `billing.http` arrive as a tool error whose payload is a\n  record list; the actionable error is the one record with `\"status\": \"error\"`\n  among many routine records — scan the payload for it rather than stopping at\n  the error status (both `ses-billing-pagination-1#3` and `ses-billing-refunds-1#3`\n  needed this inspection step).\n- Agent-reported lesson: 429 responses carry a `Retry-After` seconds value and\n  the correct backoff is to sleep exactly that long (`ses-billing-pagination-1#7`).\n  No 429 was captured in this cohort, so treat the exact wording as reported,\n  not observed.\n",
+      "billing/pagination.md": "# Exporting charges: cursor pagination\n\nParent: [Billing API](index.md)\n\n## Rule\n\n`GET /v2/charges` does **not** support offset/page parameters. Passing `page=N`\nfails; you must paginate with `limit` + `cursor`, stopping when\n`next_cursor` is null.\n\n## Failure mode (observed)\n\n`GET /v2/charges?page=2` returns a tool error. The payload's error record says:\n\n```\n400 invalid_param: page is not supported; pass cursor=<next_cursor>\n```\n\n(`ses-billing-pagination-1#2-3`, repeated in `ses-billing-pagination-2#2-3`.)\n\n## Working procedure\n\n1. Request `GET /v2/charges?limit=100&cursor=<next_cursor>` — use `limit=100`\n   and the cursor from the previous response; omit `cursor` for the first page.\n2. Continue until the response has `\"next_cursor\": null`, which ends the export\n   (`ses-billing-pagination-1#5-6` returned `200` with `next_cursor: null`;\n   reported success at `#8`).\n3. If you receive a 429, sleep exactly the `Retry-After` seconds before\n   retrying — agent-reported lesson (`ses-billing-pagination-1#7`); no 429 was\n   captured in the cohort, so this is reported guidance, not observed behavior.\n\n## Notes\n\n- The same `page=2` mistake was made twice in one day\n  (`ses-billing-pagination-1`, `ses-billing-pagination-2`), so check for\n  leftover `page=` parameters before the first call.\n",
+      "billing/refunds.md": "# Refunding a charge\n\nParent: [Billing API](index.md)\n\n## Rules\n\n1. `POST /v2/refunds` **requires** an `Idempotency-Key` header.\n2. A successful call returns `202` with `state: \"pending\"` — the refund is not\n   done yet; poll `GET /v2/refunds/<id>` until `state=succeeded`.\n3. On a timeout retry, reuse the **same** idempotency key. Minting a new key\n   for the retry double-refunds the charge.\n\n## Failure modes (observed)\n\n- **Missing header.** `POST /v2/refunds` with only a body\n  (`{\"charge\": \"ch_X\"}`) errors with:\n  `400 missing_header: Idempotency-Key header is required for POST /v2/refunds`\n  (`ses-billing-refunds-1#2-3`, `ses-billing-refunds-2#2-3`).\n- **Double refund (client-reported failure).** In `ses-billing-refunds-2` the\n  session ended `reported: \"failure\"` with the note \"double refund: retry used\n  a NEW idempotency key after a timeout\" (`ses-billing-refunds-2#8`). The\n  captured tool calls in that trace show only the keyed request returning\n  `202 pending` (`#5-6`); the re-keyed retry itself was not captured, so the\n  double refund is the agent's reported outcome, not a directly observed tool\n  result. Treat it as a confirmed-by-report hazard: the key must be stable\n  across all retries of the same logical refund.\n\n## Working procedure\n\n1. Choose a deterministic key, e.g. `refund-<chargeId>-<attemptId>`, and keep\n   it for the whole operation (`refund-ch_X-1` in `ses-billing-refunds-1#5`).\n2. `POST /v2/refunds` with header `Idempotency-Key: <key>` and body\n   `{\"charge\": \"<chargeId>\"}`.\n3. Expect `202` / `state: \"pending\"` (`ses-billing-refunds-1#6`).\n4. Poll `GET /v2/refunds/<id>` until `state=succeeded` (procedure reported at\n   `ses-billing-refunds-1#7`; the polling calls themselves are not in the\n   trace).\n5. If any step times out, retry with the **same** key — never a fresh one.\n",
+      "billing/webhooks.md": "# Verifying billing webhooks\n\nParent: [Billing API](index.md)\n\n## Rules\n\n1. Verify the signature against the **raw request body bytes**, not a parsed /\n   re-serialized JSON body.\n2. Allow a timestamp tolerance — `300` seconds worked; `0` failed.\n3. Dedupe deliveries by event id: duplicates arrive within ~60 seconds\n   (agent-reported, `ses-billing-webhooks-1#7`).\n\n## Failure mode (observed)\n\nCalling `billing.webhooks` with `{\"rawBody\": false, \"tolerance\": 0}` errors;\nthe payload's error record says:\n\n```\nsignature mismatch: verify against raw request bytes, not re-serialized JSON\n```\n\n(`ses-billing-webhooks-1#2-3`, repeated in `ses-billing-webhooks-2#2-3`.)\nRe-serializing the parsed body changes bytes (key order, whitespace), which\nbreaks the HMAC comparison; `tolerance: 0` additionally rejects any delivery\nwhose timestamp is not the current second.\n\n## Working procedure\n\n1. Configure / call the verifier with `rawBody: true` and `tolerance: 300`.\n2. This returned `{\"valid\": true}` (`ses-billing-webhooks-1#5-6`,\n   `ses-billing-webhooks-2#5-6`; both sessions reported success).\n3. Keep a short-lived store of seen event ids (~60s window minimum) and drop\n   repeats before processing — reported lesson (`ses-billing-webhooks-1#7`);\n   duplicate deliveries were not themselves captured in the cohort.\n",
+      "deploy/index.md": "# Deploy tooling (deployctl)\n\nParent: [Procedural memory](../index.md)\n\nCovers the `deployctl` tool: deploying services, running migrations, rolling\nback, and rotating secrets. Learned from the 2026-10-16 cohort; each procedure\nbelow replaced a first attempt that failed with a real error.\n\n## Procedures\n\n- [Deploy with a pending migration](migrations.md) — `deploy` is rejected while\n  a migration is pending; dry-run the migration, then `migrate; deploy`.\n- [Rollback to a version](rollback.md) — `rollback` requires `--to <version>`;\n  use `history` first. Migrations are NOT rolled back automatically.\n- [Rotating secrets](secrets.md) — `secrets set` only stages the value; a\n  rolling restart is required before the new secret is live.\n\n## Cross-cutting behavior\n\n- As with other tools in this cohort, `deployctl` errors return a payload of\n  records where exactly one has `\"status\": \"error\"` with the actionable detail\n  (e.g. `ses-deploy-rollback-1#3`); inspect the payload before retrying.\n- Successful mutating sequences report `{\"status\": \"healthy\"}` when the service\n  settles (e.g. `ses-deploy-migrations-1#6`, `ses-deploy-secrets-1#6`).\n",
+      "deploy/migrations.md": "# Deploy with a pending migration\n\nParent: [Deploy tooling](index.md)\n\n## Rule\n\n`deployctl deploy` is rejected while a migration is pending. Run the migration\nfirst — dry-run it to surface locks — then deploy.\n\n## Failure mode (observed)\n\n`deployctl {\"cmd\": \"deploy\", \"version\": \"vN\"}` errors; the payload's error\nrecord says:\n\n```\npending migration must run before deploy\n```\n\n(`ses-deploy-migrations-1#2-3`, repeated in `ses-deploy-migrations-2#2-3`.)\n\n## Working procedure\n\n1. Dry-run the migration first: `deployctl {\"cmd\": \"migrate\", \"dryRun\": true}`\n   to see what will run and what locks it will take.\n2. Then run the real sequence: `migrate; deploy`\n   (`ses-deploy-migrations-1#5`). The combined call returned\n   `{\"status\": \"healthy\"}` (`ses-deploy-migrations-1#6`,\n   `ses-deploy-migrations-2#6`; both sessions reported success).\n3. For index-creating migrations, prefer `CREATE INDEX CONCURRENTLY` to avoid\n   table locks — agent-reported lesson (`ses-deploy-migrations-1#7`); the\n   cohort contains no lock error, so treat this as reported guidance.\n\n## Related\n\n- After a bad deploy, see [Rollback to a version](rollback.md) — note that\n  rollback does not undo migrations.\n",
+      "deploy/rollback.md": "# Rollback to a version\n\nParent: [Deploy tooling](index.md)\n\n## Rules\n\n1. `deployctl rollback` requires an explicit target: `--to <version>`.\n2. List healthy versions with `deployctl history` to pick the target.\n3. **Migrations are NOT rolled back automatically** — a rollback only moves the\n   service version; any migration already applied stays applied.\n\n## Failure mode (observed)\n\nBare `deployctl {\"cmd\": \"rollback\"}` errors; the payload's error record says:\n\n```\nrollback requires --to <version>; list healthy versions with deployctl history\n```\n\n(`ses-deploy-rollback-1#2-3`, repeated in `ses-deploy-rollback-2#2-3`.)\n\n## Working procedure\n\n1. `deployctl {\"cmd\": \"history\"}` and choose the last known-good version\n   (`vPrev` in the traces).\n2. `deployctl rollback --to <version>`\n   (`ses-deploy-rollback-1#5`). The sequence returned `{\"status\": \"healthy\"}`\n   (`ses-deploy-rollback-1#6`, `ses-deploy-rollback-2#6`; both sessions\n   reported success).\n3. Check separately whether the bad version applied migrations. If it did,\n   handle the schema explicitly (e.g. a compensating migration) — do not\n   assume the rollback reverted it (agent-reported lesson,\n   `ses-deploy-rollback-1#7`; consistent with the tool's error text, which\n   scopes rollback to versions only).\n\n## Related\n\n- [Deploy with a pending migration](migrations.md) for the forward path.\n",
+      "deploy/secrets.md": "# Rotating secrets\n\nParent: [Deploy tooling](index.md)\n\n## Rule\n\n`deployctl secrets set` only **stages** the new value. Running instances keep\nusing the old secret until they restart. Use a rolling restart so rotation\ncauses no downtime.\n\n## Failure mode (observed)\n\n`deployctl {\"cmd\": \"secrets set\", \"expectImmediate\": true}` errors; the\npayload's error record says:\n\n```\nsecret staged; old value still in use until restart\n```\n\n(`ses-deploy-secrets-1#2-3`, repeated in `ses-deploy-secrets-2#2-3`.) Expecting\nthe new value to be live immediately after `set` is wrong.\n\n## Working procedure\n\n1. `deployctl secrets set <name> <new-value>` — stages the secret.\n2. `deployctl restart --rolling` — restarts instances in batches so the new\n   value is picked up without downtime\n   (`ses-deploy-secrets-1#5` ran `secrets set; restart --rolling` and got\n   `{\"status\": \"healthy\"}`, `ses-deploy-secrets-1#6`; same in\n   `ses-deploy-secrets-2#5-6`; both reported success).\n3. Verify health after the restart before considering the rotation done; the\n   `healthy` status is the observed confirmation signal.\n\n## Notes\n\n- \"Rolling restart avoids downtime\" is the agent-reported lesson\n  (`ses-deploy-secrets-1#7`); no full-restart attempt was captured for\n  comparison, but the rolling variant is the observed working path.\n",
+      "index.md": "# Procedural memory\n\nThis wiki is maintained by the daily procedural-memory build from captured agent traces.\nIt records how the systems our agents call actually behave: working workflows, observed\nfailure modes, and recovery steps, each cited to the trace that showed it.\n\n## Subject areas\n\n- [Billing API](billing/index.md) — the `billing.http` / `billing.webhooks` tools:\n  cursor pagination, idempotent refunds, webhook signature verification.\n- [Deploy tooling (deployctl)](deploy/index.md) — deploys with pending migrations,\n  version-targeted rollback, secret rotation with rolling restarts.\n- [Search cluster](search/index.md) — the `search.admin` / `search.query` tools:\n  mapping changes, reindex + alias swap, large-query timeouts and pagination limits.\n\n## How to read citations\n\n`<sessionId>#<seq>` points at one event in a captured trace (e.g.\n`ses-billing-refunds-1#5` is seq 5 of that session's events.jsonl). \"Reported\"\noutcomes are what the customer agent claimed; tool results are what the system\nreturned. Where the two disagree, the page says so.\n",
+      "search/index.md": "# Search cluster\n\nParent: [Procedural memory](../index.md)\n\nCovers the `search.admin` tool (mappings, reindexing, aliases) and the\n`search.query` tool (reads). Learned from the 2026-10-16 cohort; each\nprocedure below replaced a first attempt that failed with a real error.\n\n## Procedures\n\n- [Changing a field mapping](mappings.md) — existing field types are immutable;\n  a type change needs a new index + reindex + alias swap.\n- [Reindexing a live index](reindex.md) — never reindex onto the live alias\n  target (409); reindex into a new versioned index, swap the alias, delete the\n  old index only after verifying the swap.\n- [Large queries and timeouts](timeouts.md) — `size: 10000` with many facets\n  times out at 10s; use `search_after`, small pages, few facets. Deep from/size\n  past 10k is rejected.\n\n## Cross-cutting behavior\n\n- `search.admin` / `search.query` errors return a payload of records where\n  exactly one has `\"status\": \"error\"` with the actionable detail (e.g.\n  `ses-search-reindex-1#3`); scan for it before retrying.\n- The alias-swap pattern recurs across mapping changes and reindexing: build\n  the new index beside the old one, move the alias, then clean up. Treat the\n  alias as the only thing clients address.\n",
+      "search/mappings.md": "# Changing a field mapping\n\nParent: [Search cluster](index.md)\n\n## Rules\n\n1. **Adding** a new field to an existing mapping can be done in place.\n2. **Changing the type** of an existing field is rejected; it requires a new\n   index, a reindex, and an alias swap.\n\n## Failure mode (observed)\n\n`search.admin {\"op\": \"put_mapping\", \"field\": \"price\", \"type\": \"keyword\",\n\"existing\": \"float\"}` errors; the payload's error record says:\n\n```\n400 mapper_parsing_exception: cannot change type of existing field [price]\n```\n\n(`ses-search-mappings-1#2-3`, repeated in `ses-search-mappings-2#2-3`.)\n\n## Working procedure (type change)\n\n1. Create a new index with the corrected mapping.\n2. Reindex the data into it.\n3. Swap the alias to the new index\n   (`ses-search-mappings-1#5` ran `create new index with mapping` then\n   `reindex + alias swap` and got `{\"ok\": true}`, `#6`; same in\n   `ses-search-mappings-2#5-6`; both reported success).\n4. The in-place-vs-new-index distinction is the agent-reported lesson\n   (`ses-search-mappings-1#7`); the observed error confirms the type-change\n   half, and the add-in-place half is consistent reported guidance.\n\n## Related\n\n- [Reindexing a live index](reindex.md) — the same new-index + alias-swap\n  mechanics, with the delete-old-index safety rule.\n",
+      "search/reindex.md": "# Reindexing a live index\n\nParent: [Search cluster](index.md)\n\n## Rules\n\n1. You cannot reindex onto an index that is the live alias target — the call is\n   rejected with a 409.\n2. Reindex into a new versioned index, then swap the alias.\n3. Delete the old index **only after** the alias swap is verified.\n\n## Failure mode (observed)\n\n`search.admin {\"op\": \"reindex\", \"target\": \"products\"}` errors; the payload's\nerror record says:\n\n```\n409 index products is the live alias target; reindex into a new index then swap the alias\n```\n\n(`ses-search-reindex-1#2-3`, repeated in `ses-search-reindex-2#2-3`.)\n\n## Working procedure\n\n1. Pick a new versioned name, e.g. `products_v8`.\n2. `search.admin {\"op\": \"reindex\", \"target\": \"products_v8\"}`.\n3. Swap the alias: `products -> products_v8`\n   (`ses-search-reindex-1#5` ran exactly this sequence and got `{\"ok\": true}`,\n   `#6`; same in `ses-search-reindex-2#5-6`; both reported success).\n4. Verify the alias now resolves to the new index (and queries work against\n   it) before deleting the old index — agent-reported lesson\n   (`ses-search-reindex-1#7`); no premature-delete failure was captured, so\n   treat the ordering as a safety rule, not an observed error.\n\n## Related\n\n- [Changing a field mapping](mappings.md) — type changes are the common reason\n  to reindex.\n",
+      "search/timeouts.md": "# Large queries and timeouts\n\nParent: [Search cluster](index.md)\n\n## Rules\n\n1. Very large page sizes combined with many facets time out: `size: 10000`\n   with `facets: 12` hit a 10s server timeout (504).\n2. Use `search_after` cursor pagination with small pages instead of deep\n   from/size — deep from/size pagination beyond 10k is rejected.\n3. Keep facet counts low on heavy queries.\n\n## Failure mode (observed)\n\n`search.query {\"size\": 10000, \"facets\": 12}` errors; the payload's error\nrecord says:\n\n```\n504 query timed out after 10s; use search_after pagination and fewer facets\n```\n\n(`ses-search-timeouts-1#2-3`, repeated in `ses-search-timeouts-2#2-3`.)\n\n## Working procedure\n\n1. Page with `search_after`: send a small `size` (500 worked) plus the\n   `search_after` cursor from the previous page's last sort values.\n2. Reduce facets (3 worked where 12 timed out).\n3. The working call `{\"size\": 500, \"search_after\": [\"cursor\"], \"facets\": 3}`\n   returned `{\"took_ms\": 840}` (`ses-search-timeouts-1#5-6`,\n   `ses-search-timeouts-2#5-6`; both sessions reported success).\n4. Do not try to page past 10k results with from/size — the agent-reported\n   lesson is that such requests are rejected outright\n   (`ses-search-timeouts-1#7`); the rejection itself was not captured in this\n   cohort, so treat the exact 10k boundary as reported.\n\n## Notes\n\n- The same oversized query was attempted twice in one day\n  (`ses-search-timeouts-1`, `ses-search-timeouts-2`); check `size` and facet\n  count before the first call on any \"large export / faceted query\" task.\n"
+    }
+  },
+  "receipt": {
+    "schema": "procmem.build-receipt/v1",
+    "buildId": "build-mvcumxh6-622080e4dc",
+    "status": "published",
+    "sources": [
+      "fixture-2026-10-16"
+    ],
+    "inputs": {
+      "files": 55,
+      "manifestSha256": "ad58ab1abedf1f5f1a8818db6ffc2b18605dd9d3ecfbaf91aefe916075bb785e"
+    },
+    "workspaceBackend": "modal",
+    "profiles": {
+      "root": "kimi-k3",
+      "selectable": [
+        "glm-5p3",
+        "kimi-k3"
+      ],
+      "defaultChild": "glm-5p3"
+    },
+    "budget": {
+      "maxDepth": 2,
+      "maxChildren": 32,
+      "maxDescendants": 4,
+      "maxTurns": 24,
+      "maxToolCalls": 64,
+      "maxInputBytes": 134217728,
+      "maxOutputBytes": 16777216,
+      "maxConcurrentAgents": 4,
+      "maxSessions": 2,
+      "waitMinMs": 1000,
+      "waitMaxMs": 600000,
+      "waitDefaultMs": 180000,
+      "maxWallClockMs": 1800000
+    },
+    "initialHead": "rev-83c27a3a184ca4619729d499",
+    "revisionId": "rev-ae9c110480eecca0db4cbbc0",
+    "summary": "First learned revision from the 2026-10-16 cohort (18 sessions, 3 tool families). Replaced the empty root index with a navigable wiki: billing/ (cursor-only pagination for /v2/charges with the observed 400 invalid_param; idempotent refunds requiring Idempotency-Key + polling, including the client-reported double-refund from re-keying a retry; webhook verification against raw body with 300s tolerance and id-based dedupe), deploy/ (deploy blocked by pending migrations -> dry-run then migrate+deploy; rollback requires --to from history and does not revert migrations; secrets set only stages until a rolling restart), search/ (field types immutable -> new index + reindex + alias swap; 409 on reindexing the live alias target, delete old index only after verified swap; 504 on size=10000/12-facet queries -> search_after with small pages and few facets). Each page cites the trace events that observed the error and the working call, and distinguishes observed tool results from agent-reported lessons.",
+    "startedAt": "2026-10-17T20:28:34.938Z",
+    "finishedAt": "2026-10-17T20:33:29.633Z",
+    "attempts": [
+      {
+        "attempt": 1,
+        "baseRevision": "rev-83c27a3a184ca4619729d499",
+        "status": "published",
+        "revisionId": "rev-ae9c110480eecca0db4cbbc0",
+        "summary": "First learned revision from the 2026-10-16 cohort (18 sessions, 3 tool families). Replaced the empty root index with a navigable wiki: billing/ (cursor-only pagination for /v2/charges with the observed 400 invalid_param; idempotent refunds requiring Idempotency-Key + polling, including the client-reported double-refund from re-keying a retry; webhook verification against raw body with 300s tolerance and id-based dedupe), deploy/ (deploy blocked by pending migrations -> dry-run then migrate+deploy; rollback requires --to from history and does not revert migrations; secrets set only stages until a rolling restart), search/ (field types immutable -> new index + reindex + alias swap; 409 on reindexing the live alias target, delete old index only after verified swap; 504 on size=10000/12-facet queries -> search_after with small pages and few facets). Each page cites the trace events that observed the error and the working call, and distinguishes observed tool results from agent-reported lessons.",
+        "agents": 1,
+        "startedAt": "2026-10-17T20:28:34.939Z",
+        "finishedAt": "2026-10-17T20:33:29.633Z",
+        "tree": {
+          "agentId": "root",
+          "parentId": null,
+          "depth": 0,
+          "profileId": "kimi-k3",
+          "model": "accounts/fireworks/models/kimi-k3",
+          "objective": "Daily procedural-memory build",
+          "paths": [],
+          "scope": "all",
+          "includeParentDraft": false,
+          "status": "completed",
+          "usage": {
+            "sessions": 1,
+            "turns": 19,
+            "toolCalls": 56,
+            "toolErrors": 0,
+            "inputBytes": 1643275,
+            "outputBytes": 35466,
+            "promptTokens": 407389,
+            "completionTokens": 8807,
+            "modelLatencyMs": 269931
+          },
+          "descendants": {
+            "sessions": 0,
+            "turns": 0,
+            "toolCalls": 0,
+            "toolErrors": 0,
+            "inputBytes": 0,
+            "outputBytes": 0,
+            "promptTokens": 0,
+            "completionTokens": 0,
+            "modelLatencyMs": 0,
+            "agents": 0
+          },
+          "startedAt": "2026-10-17T20:28:34.939Z",
+          "finishedAt": "2026-10-17T20:33:29.308Z",
+          "latencyMs": 294369,
+          "workspace": {
+            "kind": "modal",
+            "id": "ws-mvcumxh7-240c9d5876"
+          },
+          "baseManifestSha256": "a692245845c2d62c5926ba5f80210d890b766b407ec6ee1116b37efea8510357",
+          "publish": {
+            "status": "published",
+            "revisionId": "rev-ae9c110480eecca0db4cbbc0",
+            "summary": "First learned revision from the 2026-10-16 cohort (18 sessions, 3 tool families). Replaced the empty root index with a navigable wiki: billing/ (cursor-only pagination for /v2/charges with the observed 400 invalid_param; idempotent refunds requiring Idempotency-Key + polling, including the client-reported double-refund from re-keying a retry; webhook verification against raw body with 300s tolerance and id-based dedupe), deploy/ (deploy blocked by pending migrations -> dry-run then migrate+deploy; rollback requires --to from history and does not revert migrations; secrets set only stages until a rolling restart), search/ (field types immutable -> new index + reindex + alias swap; 409 on reindexing the live alias target, delete old index only after verified swap; 504 on size=10000/12-facet queries -> search_after with small pages and few facets). Each page cites the trace events that observed the error and the working call, and distinguishes observed tool results from agent-reported lessons.",
+            "treeSha256": "36018cd262151ae437c33a6f9f043b383b7a4e9653927e093491cdb48f8bc89e"
+          },
+          "toolCalls": [
+            {
+              "turn": 1,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 227,
+              "argsSha256": "4218267a1d6b36bddd145029204552256d08d7f59e77bad11cbf82ac3ad4a07d",
+              "resultBytes": 972,
+              "truncated": false
+            },
+            {
+              "turn": 1,
+              "session": 1,
+              "name": "ls",
+              "ok": true,
+              "durationMs": 219,
+              "argsSha256": "f8153ce0a369c8edfafde4f20ae344af703d239b75ebfdc487906d6c16caaf00",
+              "resultBytes": 118,
+              "truncated": false
+            },
+            {
+              "turn": 1,
+              "session": 1,
+              "name": "ls",
+              "ok": true,
+              "durationMs": 225,
+              "argsSha256": "79425acdd6f3a58c627eab21c2473999389e9b6141c7e59ae4a969d22d2373ac",
+              "resultBytes": 118,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 257,
+              "argsSha256": "2709a5cf6e700afd0a4d982a324635488bfee68b34a22b56d39e2d389e2d8550",
+              "resultBytes": 387,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 317,
+              "argsSha256": "0b4a9a2d124ccbc5a38c8b58c5fb6bd71aaf1eeeb793153e412de72092268dce",
+              "resultBytes": 1518,
+              "truncated": false
+            },
+            {
+              "turn": 3,
+              "session": 1,
+              "name": "ls",
+              "ok": true,
+              "durationMs": 287,
+              "argsSha256": "0993e92dd1f6e445c18963b12637cd6d21dfe94ebf3041e2b9a5c66252345af9",
+              "resultBytes": 387,
+              "truncated": false
+            },
+            {
+              "turn": 3,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 237,
+              "argsSha256": "29efa2e49278a6ceddf9af514db05f58b0dc1eaff47b5cef605b5770761ce1ae",
+              "resultBytes": 453,
+              "truncated": false
+            },
+            {
+              "turn": 3,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 239,
+              "argsSha256": "bbf5b57a734052b631fa83c3a62c423ce5c67b9a03198daac39d38d596169cfa",
+              "resultBytes": 1525,
+              "truncated": false
+            },
+            {
+              "turn": 4,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 227,
+              "argsSha256": "c521f674a47703f26aa5ca736e30e76ff28a9fddbb2bb5d8adefba4a4cfd31ad",
+              "resultBytes": 7756,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 233,
+              "argsSha256": "77eae5702abe63cf9e156b90f107b4696262ab9847bead5d01aba7fe06fac33e",
+              "resultBytes": 1624,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 232,
+              "argsSha256": "e9ca6d84bb16db11d4acaeef7a4a2004d8278a588d927f3512212f00532e2ee9",
+              "resultBytes": 1457,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 257,
+              "argsSha256": "19249125ab2a5969fe96f7d3ccb379a8edb6d5727faa5760173bd4a8693b0ea2",
+              "resultBytes": 1502,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 278,
+              "argsSha256": "f241e3c2f1f5f8a53c198304666de247337fad07aea36983e5ee5dee67e27114",
+              "resultBytes": 1432,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 226,
+              "argsSha256": "66759beb83f8ed2c61e1af31a441d80d6963028b81f4fdd043f11b97bdf2a6ae",
+              "resultBytes": 1432,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 231,
+              "argsSha256": "2abea21be4c5b1367d9901190a47100058a60bc4190aa1b18fecdaf1fa3f6b49",
+              "resultBytes": 1553,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 314,
+              "argsSha256": "2b41d626bbe166c3e366af5a50f022fa9a66672db1fef2cf0cf9e1dfb28e28b8",
+              "resultBytes": 1505,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 222,
+              "argsSha256": "e76439a7073c36d5b5fd270f22102e519a340f426b6100d83ad47b8fbc450b2f",
+              "resultBytes": 1447,
+              "truncated": false
+            },
+            {
+              "turn": 6,
+              "session": 1,
+              "name": "grep",
+              "ok": true,
+              "durationMs": 229,
+              "argsSha256": "51e04fa1e6dbefac963244ba30664968140cf75424320507498b72958d4043b1",
+              "resultBytes": 2858,
+              "truncated": false
+            },
+            {
+              "turn": 6,
+              "session": 1,
+              "name": "grep",
+              "ok": true,
+              "durationMs": 242,
+              "argsSha256": "116e6e7d1668f95513d6ec8dd44e5012449ed395516d3814fecf7c6f8d04eb29",
+              "resultBytes": 7586,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "grep",
+              "ok": true,
+              "durationMs": 236,
+              "argsSha256": "714e373d608bf878c696aae3c40722b1fd9c5db23c441f67046bf66d730a5939",
+              "resultBytes": 111,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "grep",
+              "ok": true,
+              "durationMs": 236,
+              "argsSha256": "0eafc67ae85e0ebef768f5afb846b70767f873ae26529ffa5cffb52c01c000fe",
+              "resultBytes": 3130,
+              "truncated": false
+            },
+            {
+              "turn": 8,
+              "session": 1,
+              "name": "grep",
+              "ok": true,
+              "durationMs": 230,
+              "argsSha256": "12b99f994d0f9eddd836b651df055f9fcce47a0bdcd8ee74b45eeef6ea9762a8",
+              "resultBytes": 4483,
+              "truncated": false
+            },
+            {
+              "turn": 9,
+              "session": 1,
+              "name": "grep",
+              "ok": true,
+              "durationMs": 232,
+              "argsSha256": "6a1ef04cb7878fd4a92fc069a245148cc1cd778c92a7a814d2c2643526875493",
+              "resultBytes": 113,
+              "truncated": false
+            },
+            {
+              "turn": 9,
+              "session": 1,
+              "name": "grep",
+              "ok": true,
+              "durationMs": 224,
+              "argsSha256": "6121d22cbf56d82f4917b77013dada95991b240b98ac20e874a8f27068d51d9c",
+              "resultBytes": 113,
+              "truncated": false
+            },
+            {
+              "turn": 10,
+              "session": 1,
+              "name": "grep",
+              "ok": true,
+              "durationMs": 232,
+              "argsSha256": "5c9b6f3ee6a905bebd809473f77d3d9879b90c87af331df0a24bd7d739213099",
+              "resultBytes": 4315,
+              "truncated": false
+            },
+            {
+              "turn": 11,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 230,
+              "argsSha256": "5b6cb268233539c2585bda8590d532a5d23b1122a5279601bceb4f451ca74aed",
+              "resultBytes": 1203,
+              "truncated": false
+            },
+            {
+              "turn": 11,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 227,
+              "argsSha256": "f351d084b8871d3345c3251fd708d4c6039c46985f53d8e51a897a185c3b734f",
+              "resultBytes": 1201,
+              "truncated": false
+            },
+            {
+              "turn": 11,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 231,
+              "argsSha256": "a5137160103e5671e3a78857e1c92443eb44132e3ad3250053bafa6df4c0fff9",
+              "resultBytes": 1167,
+              "truncated": false
+            },
+            {
+              "turn": 11,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 224,
+              "argsSha256": "4de3570af61813b38ce7314fe2ed9067022c772a699b37819585f6d2bd4b87f0",
+              "resultBytes": 1197,
+              "truncated": false
+            },
+            {
+              "turn": 12,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 227,
+              "argsSha256": "73117f1abed350cfdcfae2f0b6c3e3539b5f2a3b1fec46c2a37fc9ac9c9c17cf",
+              "resultBytes": 1708,
+              "truncated": false
+            },
+            {
+              "turn": 12,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 226,
+              "argsSha256": "5b96f705ea09d56b7560695efe29be6a9a7d8053a82121c95cbcbeb153dcbd01",
+              "resultBytes": 1464,
+              "truncated": false
+            },
+            {
+              "turn": 12,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 229,
+              "argsSha256": "b79a9f301b3163d0d070f034e5ebd4f612ddf43d43541905f0999220d21b1256",
+              "resultBytes": 1509,
+              "truncated": false
+            },
+            {
+              "turn": 12,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 226,
+              "argsSha256": "b949f6945919d7a7bfc48826d9a2c10545571593c5f98a21641d081cc39bcace",
+              "resultBytes": 1439,
+              "truncated": false
+            },
+            {
+              "turn": 12,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 231,
+              "argsSha256": "75c70bf670e0704c664c379a6c5aa3b2453b673380dd7235badc81ba98f9e824",
+              "resultBytes": 1439,
+              "truncated": false
+            },
+            {
+              "turn": 12,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 238,
+              "argsSha256": "7d0b431683bdbf758548f652ccc82ae7e664c30d6908aa437229e5d3a36632ca",
+              "resultBytes": 1560,
+              "truncated": false
+            },
+            {
+              "turn": 12,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 240,
+              "argsSha256": "008cfde6aacad2899a18075163b438f5d85497fd9928e755bbc2237f4134a7a6",
+              "resultBytes": 1512,
+              "truncated": false
+            },
+            {
+              "turn": 12,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 229,
+              "argsSha256": "ce6d09e734dac099cbf5257437346b68d7e78d149d8545f309777aa9b26cbadb",
+              "resultBytes": 1454,
+              "truncated": false
+            },
+            {
+              "turn": 13,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 1123,
+              "argsSha256": "5cbce9d3fb8661bef5716efdb5c939b2132a4e44e5950f2d3030261fb2ce7ea0",
+              "resultBytes": 228,
+              "truncated": false
+            },
+            {
+              "turn": 13,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 624,
+              "argsSha256": "675c2a3e9e0d59f81fcef10383dfad3142aac45170f622932ffbe4a1090b55b3",
+              "resultBytes": 173,
+              "truncated": false
+            },
+            {
+              "turn": 13,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 527,
+              "argsSha256": "0e0e82bda33b9becbb43ac47ffd20bf568dd4fa00285b507928b1d4c4c4cf249",
+              "resultBytes": 178,
+              "truncated": false
+            },
+            {
+              "turn": 13,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 526,
+              "argsSha256": "e0894356eb29a29f360860f46db64ae1c4d143f8b01d08edd5a3731fae561d8f",
+              "resultBytes": 175,
+              "truncated": false
+            },
+            {
+              "turn": 13,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 599,
+              "argsSha256": "508cb7da9ac556bf5928a543cd1373ccf67ec8aa17301059bf2bc4b2a30cd294",
+              "resultBytes": 176,
+              "truncated": false
+            },
+            {
+              "turn": 14,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 944,
+              "argsSha256": "656b9931500cedd46c5eb846042efab47ff785384e9beab71d3b298548935763",
+              "resultBytes": 172,
+              "truncated": false
+            },
+            {
+              "turn": 14,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 512,
+              "argsSha256": "1117bc5ee4b54db6eaaac2bb83a2106d07a849f4c21bd427bc93b89f41c20383",
+              "resultBytes": 177,
+              "truncated": false
+            },
+            {
+              "turn": 14,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 573,
+              "argsSha256": "386e3846c0218e702b3f7c6cd32d3ca96a3b2d37e123120575af84191c2933d3",
+              "resultBytes": 175,
+              "truncated": false
+            },
+            {
+              "turn": 14,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 482,
+              "argsSha256": "a7af6648d037406bdf9cf36037bd4903e3e63b4260a6fa7c4a00455fe8d390e2",
+              "resultBytes": 174,
+              "truncated": false
+            },
+            {
+              "turn": 15,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 847,
+              "argsSha256": "fdaf344b6b3b18de4e1876c8359a9e90d2749ac18b7aedb0c79f821987a78685",
+              "resultBytes": 172,
+              "truncated": false
+            },
+            {
+              "turn": 15,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 499,
+              "argsSha256": "b47ad6dc5ffef7e0805a6bddc290146260503000ac7df810d312d0281bc42ca1",
+              "resultBytes": 175,
+              "truncated": false
+            },
+            {
+              "turn": 15,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 494,
+              "argsSha256": "d846cd5d4079071fb774fabc8a4ada447c909589a03d7fc280e0247024bfdfd1",
+              "resultBytes": 174,
+              "truncated": false
+            },
+            {
+              "turn": 15,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 500,
+              "argsSha256": "7f492421ed0aa1a8a166684b7558daaa5536da89b73fbe6fa664c7f8c6d4e848",
+              "resultBytes": 175,
+              "truncated": false
+            },
+            {
+              "turn": 16,
+              "session": 1,
+              "name": "validate",
+              "ok": true,
+              "durationMs": 308,
+              "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "resultBytes": 448,
+              "truncated": false
+            },
+            {
+              "turn": 17,
+              "session": 1,
+              "name": "edit",
+              "ok": true,
+              "durationMs": 510,
+              "argsSha256": "266053bc32269c9764e826127da40b633ec1f204eee6424ab4dbac66d1fada31",
+              "resultBytes": 220,
+              "truncated": false
+            },
+            {
+              "turn": 17,
+              "session": 1,
+              "name": "edit",
+              "ok": true,
+              "durationMs": 560,
+              "argsSha256": "a23f5c8fe6dad0051ec97640fa8c2fb3bf1c36dc60b8a35e0b1666d8a091d1ff",
+              "resultBytes": 219,
+              "truncated": false
+            },
+            {
+              "turn": 17,
+              "session": 1,
+              "name": "edit",
+              "ok": true,
+              "durationMs": 496,
+              "argsSha256": "732fc1af32746c9fd53d2559af8f8d2b8612db9ac4eb56e137cb918160d6ca24",
+              "resultBytes": 219,
+              "truncated": false
+            },
+            {
+              "turn": 18,
+              "session": 1,
+              "name": "validate",
+              "ok": true,
+              "durationMs": 215,
+              "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "resultBytes": 151,
+              "truncated": false
+            },
+            {
+              "turn": 19,
+              "session": 1,
+              "name": "publish",
+              "ok": true,
+              "durationMs": 228,
+              "argsSha256": "bb95a9b342c9f665fbfbbc9030c2c232fed0d85be2d4620caa042c71cab37d48",
+              "resultBytes": 180,
+              "truncated": false
+            }
+          ],
+          "children": []
+        }
+      }
+    ],
+    "providerClose": []
+  }
+}

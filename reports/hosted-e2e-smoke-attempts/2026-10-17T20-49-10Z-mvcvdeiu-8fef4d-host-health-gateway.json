@@ -1,0 +1,31 @@
+{
+  "schema": "procmem.hosted-e2e-smoke/v1",
+  "executed": true,
+  "ok": false,
+  "startedAt": "2026-10-17T20:49:10.086Z",
+  "target": {
+    "baseUrl": "https://wild-zero-kq08i.run.mcp-use.com",
+    "mcpUrl": "https://wild-zero-kq08i.run.mcp-use.com/mcp"
+  },
+  "labels": {
+    "traceSource": "SYNTHETIC fixture recorded by this script (fictional Ledgerly API; no customer data, no model call)",
+    "builder": "hosted DailyBuildService with the deployment's configured builder (real; no mock, no override); identity read from the receipt",
+    "tenant": "derived server-side from the static keys; the configured tenant value is redacted in this report"
+  },
+  "checks": [
+    {
+      "name": "health.ok",
+      "ok": false,
+      "detail": {
+        "status": 200,
+        "body": {
+          "status": "healthy",
+          "timestamp": "2026-10-17T20:49:10.188Z"
+        }
+      }
+    }
+  ],
+  "error": "SmokeFailure: health.ok failed",
+  "finishedAt": "2026-10-17T20:49:10.198Z",
+  "durationMs": 112
+}

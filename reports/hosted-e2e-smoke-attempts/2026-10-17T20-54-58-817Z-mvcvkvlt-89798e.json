@@ -1,0 +1,781 @@
+{
+  "schema": "procmem.hosted-e2e-smoke/v1",
+  "executed": true,
+  "ok": true,
+  "startedAt": "2026-10-17T20:54:58.817Z",
+  "target": {
+    "baseUrl": "https://wild-zero-kq08i.run.mcp-use.com",
+    "mcpUrl": "https://wild-zero-kq08i.run.mcp-use.com/mcp"
+  },
+  "labels": {
+    "traceSource": "SYNTHETIC fixture recorded by this script (fictional Ledgerly API; no customer data, no model call)",
+    "builder": "hosted DailyBuildService with the deployment's configured builder (real; no mock, no override); identity read from the receipt",
+    "tenant": "derived server-side from the static keys; the configured tenant value is redacted in this report"
+  },
+  "checks": [
+    {
+      "name": "health.app_healthz",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "version": "0.2.0",
+          "auth": "workos"
+        }
+      }
+    },
+    {
+      "name": "auth.ingest_without_key_401",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/traces/chunks",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.ingest_invalid_static_key_401",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/traces/chunks",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.ingest_garbage_bearer_401",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/traces/chunks",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.blob_without_key_401",
+      "ok": true,
+      "detail": {
+        "method": "PUT",
+        "route": "/v1/traces/blobs/0000000000000000000000000000000000000000000000000000000000000000",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.build_without_key_401",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/builds/daily",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.build_invalid_static_key_401",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/builds/daily",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.build_status_without_key_401",
+      "ok": true,
+      "detail": {
+        "method": "GET",
+        "route": "/v1/builds/bld-smoke-probe",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.read_key_cannot_ingest_403",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/traces/chunks",
+        "expected": [
+          403
+        ],
+        "status": 403,
+        "code": "insufficient_scope"
+      }
+    },
+    {
+      "name": "auth.read_key_cannot_build_403",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/builds/daily",
+        "expected": [
+          403
+        ],
+        "status": 403,
+        "code": "insufficient_scope"
+      }
+    },
+    {
+      "name": "auth.trace_key_cannot_build_403",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/builds/daily",
+        "expected": [
+          403
+        ],
+        "status": 403,
+        "code": "insufficient_scope"
+      }
+    },
+    {
+      "name": "auth.trace_key_cannot_read_build_status_403",
+      "ok": true,
+      "detail": {
+        "method": "GET",
+        "route": "/v1/builds/bld-smoke-probe",
+        "expected": [
+          403
+        ],
+        "status": 403,
+        "code": "insufficient_scope"
+      }
+    },
+    {
+      "name": "auth.trace_key_cannot_read_catalog_403",
+      "ok": true,
+      "detail": {
+        "method": "GET",
+        "route": "/v1/integrations",
+        "expected": [
+          403
+        ],
+        "status": 403,
+        "code": "insufficient_scope"
+      }
+    },
+    {
+      "name": "auth.catalog_without_key_401",
+      "ok": true,
+      "detail": {
+        "method": "GET",
+        "route": "/v1/integrations",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.build_rejects_malformed_day_400",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/builds/daily",
+        "expected": [
+          400
+        ],
+        "status": 400,
+        "code": "invalid_day"
+      }
+    },
+    {
+      "name": "auth.customer_supplied_tenant_rejected_400",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/traces/chunks",
+        "expected": [
+          400
+        ],
+        "status": 400,
+        "code": "invalid_chunk"
+      }
+    },
+    {
+      "name": "auth.mcp_invalid_static_key_refused",
+      "ok": true,
+      "detail": {
+        "connected": false,
+        "error": "SdkHttpError: Error POSTing to endpoint: {\"error\":\"invalid_token\",\"error_description\":\"Unknown static key\"}"
+      }
+    },
+    {
+      "name": "auth.build_key_cannot_read_mcp",
+      "ok": true,
+      "detail": {
+        "via": "transport",
+        "error": "InsufficientScopeError: Insufficient scope: required \"memory:read\""
+      }
+    },
+    {
+      "name": "ingest.sdk_delivered_all_chunks",
+      "ok": true,
+      "detail": {
+        "sessionId": "smoke-e2e-mvcvkvlt-89798e",
+        "events": 30,
+        "chunks": 1,
+        "acks": [
+          "created"
+        ],
+        "errors": []
+      }
+    },
+    {
+      "name": "ingest.chunks_created",
+      "ok": true,
+      "detail": {
+        "acks": [
+          {
+            "status": "created",
+            "chunkSeq": 1
+          }
+        ]
+      }
+    },
+    {
+      "name": "ingest.single_receipt_day",
+      "ok": true,
+      "detail": {
+        "days": [
+          "2026-10-17"
+        ]
+      }
+    },
+    {
+      "name": "ingest.resend_is_duplicate",
+      "ok": true,
+      "detail": {
+        "status": "duplicate",
+        "sameDay": true,
+        "sameKey": true
+      }
+    },
+    {
+      "name": "build.receipt_schema",
+      "ok": true,
+      "detail": {
+        "schema": "procmem.build-receipt/v1",
+        "manifestKey": true
+      }
+    },
+    {
+      "name": "build.daily_receipt_fields",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "build.status_published_or_no_change",
+      "ok": true,
+      "detail": {
+        "status": "published"
+      }
+    },
+    {
+      "name": "build.revision_id",
+      "ok": true,
+      "detail": {
+        "revisionId": "rev-22c43b7d0a07227e38aba824"
+      }
+    },
+    {
+      "name": "build.day_matches_receipt_day",
+      "ok": true,
+      "detail": {
+        "day": "2026-10-17",
+        "expected": "2026-10-17"
+      }
+    },
+    {
+      "name": "build.tenant_is_key_tenant",
+      "ok": true,
+      "detail": {
+        "tenantMatches": true
+      }
+    },
+    {
+      "name": "build.cohort_includes_smoke_session",
+      "ok": true,
+      "detail": {
+        "sessionsInCohort": 1
+      }
+    },
+    {
+      "name": "build.real_root_profile",
+      "ok": true,
+      "detail": {
+        "root": "kimi-k3",
+        "expected": "kimi-k3"
+      }
+    },
+    {
+      "name": "build.real_workspace_backend",
+      "ok": true,
+      "detail": {
+        "workspaceBackend": "modal",
+        "expected": "modal"
+      }
+    },
+    {
+      "name": "build.agents_ran",
+      "ok": true,
+      "detail": {
+        "attempts": 1
+      }
+    },
+    {
+      "name": "mcp.tools_exact_filesystem_surface",
+      "ok": true,
+      "detail": {
+        "tools": [
+          "cancel_command",
+          "edit",
+          "find",
+          "grep",
+          "ls",
+          "open_memory",
+          "poll_command",
+          "read",
+          "shell",
+          "view_file",
+          "write",
+          "write_command"
+        ],
+        "expected": [
+          "cancel_command",
+          "edit",
+          "find",
+          "grep",
+          "ls",
+          "open_memory",
+          "poll_command",
+          "read",
+          "shell",
+          "view_file",
+          "write",
+          "write_command"
+        ]
+      }
+    },
+    {
+      "name": "mcp.no_builder_or_trace_tools",
+      "ok": true,
+      "detail": {
+        "offending": []
+      }
+    },
+    {
+      "name": "mcp.open_memory",
+      "ok": true,
+      "detail": {
+        "isError": false,
+        "hasWorkspaceId": true
+      }
+    },
+    {
+      "name": "mcp.open_memory_pins_built_revision",
+      "ok": true,
+      "detail": {
+        "revision": "rev-22c43b7d0a07227e38aba824",
+        "built": "rev-22c43b7d0a07227e38aba824"
+      }
+    },
+    {
+      "name": "mcp.open_memory_root_index",
+      "ok": true,
+      "detail": {
+        "rootIndexChars": 432
+      }
+    },
+    {
+      "name": "mcp.read_index",
+      "ok": true,
+      "detail": {
+        "isError": false,
+        "totalBytes": 436
+      }
+    },
+    {
+      "name": "mcp.ls_knowledge",
+      "ok": true,
+      "detail": {
+        "entries": [
+          "index.md",
+          "integrations/"
+        ]
+      }
+    },
+    {
+      "name": "mcp.ls_knowledge_no_storage_dirs",
+      "ok": true,
+      "detail": {
+        "entries": [
+          "index.md",
+          "integrations/"
+        ]
+      }
+    },
+    {
+      "name": "mcp.find_knowledge",
+      "ok": true,
+      "detail": {
+        "files": 4,
+        "truncated": false
+      }
+    },
+    {
+      "name": "mcp.knowledge_has_no_trace_or_source_paths",
+      "ok": true,
+      "detail": {
+        "badSegments": [],
+        "nonMarkdown": []
+      }
+    },
+    {
+      "name": "mcp.grep_knowledge_reflects_fixture",
+      "ok": true,
+      "detail": {
+        "buildStatus": "published",
+        "required": true,
+        "matches": 17,
+        "sample": [
+          {
+            "path": "$KNOWLEDGE/index.md",
+            "line": 7,
+            "text": "- [Integrations](integrations/index.md) — how specific APIs and tools actually behave (endpoints, pagination, idempotency, errors)."
+          },
+          {
+            "path": "$KNOWLEDGE/index.md",
+            "line": 8,
+            "text": "  - [Ledgerly (fictional invoices API)](integrations/ledgerly/index.md) — cursor pagination with a 50-item limit cap, idempotent payments, and safe retry after "
+          },
+          {
+            "path": "$KNOWLEDGE/integrations/index.md",
+            "line": 5,
+            "text": "Behavior of third-party APIs and tools as observed in traces: endpoints, parameters, pagination, idempotency, error shapes, and recovery."
+          },
+          {
+            "path": "$KNOWLEDGE/integrations/index.md",
+            "line": 7,
+            "text": "- [Ledgerly (fictional invoices API)](ledgerly/index.md) — list/pay invoices; limit capped at 50, `next_cursor` pagination, `Idempotency-Key` payments, 503 `ups"
+          },
+          {
+            "path": "$KNOWLEDGE/integrations/ledgerly/index.md",
+            "line": 6,
+            "text": "(`procmem.hosted-e2e-smoke/ledgerly-pagination-idempotent-retry/v1`); no real API was"
+          }
+        ]
+      }
+    },
+    {
+      "name": "mcp.read_matched_page",
+      "ok": true,
+      "detail": {
+        "path": "$KNOWLEDGE/index.md",
+        "totalLines": 8
+      }
+    },
+    {
+      "name": "mcp.read_traversal_refused",
+      "ok": true,
+      "detail": {
+        "code": "invalid_path"
+      }
+    },
+    {
+      "name": "mcp.ls_outside_roots_refused",
+      "ok": true,
+      "detail": {
+        "code": "invalid_path"
+      }
+    },
+    {
+      "name": "mcp.write_knowledge_refused",
+      "ok": true,
+      "detail": {
+        "code": "read_only"
+      }
+    },
+    {
+      "name": "mcp.edit_knowledge_refused",
+      "ok": true,
+      "detail": {
+        "code": "read_only"
+      }
+    },
+    {
+      "name": "mcp.scratch_write",
+      "ok": true,
+      "detail": {
+        "path": "$WORK/scratch/hosted-smoke/notes.md",
+        "bytes": 58,
+        "created": true
+      }
+    },
+    {
+      "name": "mcp.scratch_read",
+      "ok": true,
+      "detail": {
+        "totalBytes": 58
+      }
+    },
+    {
+      "name": "mcp.scratch_edit",
+      "ok": true,
+      "detail": {
+        "replacements": 1
+      }
+    },
+    {
+      "name": "mcp.scratch_read_after_edit",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "mcp.scratch_ls",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "mcp.shell_ran_in_sandbox",
+      "ok": true,
+      "detail": {
+        "isError": false,
+        "exitCode": 0,
+        "timedOut": false
+      }
+    },
+    {
+      "name": "mcp.shell_sees_same_scratch",
+      "ok": true,
+      "detail": {
+        "scratchMarker": "1"
+      }
+    },
+    {
+      "name": "mcp.shell_unprivileged",
+      "ok": true,
+      "detail": {
+        "uid": "1000"
+      }
+    },
+    {
+      "name": "mcp.shell_knowledge_write_denied",
+      "ok": true,
+      "detail": {
+        "create": "denied",
+        "append": "denied"
+      }
+    },
+    {
+      "name": "mcp.shell_no_network",
+      "ok": true,
+      "detail": {
+        "tcpIp": "blocked",
+        "tcpDns": "blocked",
+        "curl": "absent"
+      }
+    },
+    {
+      "name": "mcp.shell_no_storage_dirs",
+      "ok": true,
+      "detail": {
+        "memoryEntries": "knowledge,",
+        "storageDirs": ""
+      }
+    },
+    {
+      "name": "mcp.shell_no_secret_env",
+      "ok": true,
+      "detail": {
+        "envNames": 11,
+        "sensitiveEnv": []
+      }
+    },
+    {
+      "name": "mcp.shell_stdin_roundtrip",
+      "ok": true,
+      "detail": {
+        "firstRunning": true
+      }
+    },
+    {
+      "name": "mcp.shell_cancel",
+      "ok": true,
+      "detail": {
+        "cancelled": true,
+        "running": false
+      }
+    },
+    {
+      "name": "integrations.catalog_read_key_200",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "count": 0
+      }
+    },
+    {
+      "name": "integrations.catalog_configured",
+      "ok": true,
+      "detail": {}
+    }
+  ],
+  "ingest": {
+    "traceSource": "synthetic fixture (scripts/hosted-e2e-smoke.ts); not customer data; no LLM or external API was called to produce it",
+    "fixture": "procmem.hosted-e2e-smoke/ledgerly-pagination-idempotent-retry/v1",
+    "sessionId": "smoke-e2e-mvcvkvlt-89798e",
+    "events": 30,
+    "chunks": 1,
+    "receiptDay": "2026-10-17",
+    "utcToday": "2026-10-17",
+    "acks": [
+      {
+        "status": "created",
+        "chunkSeq": 1,
+        "day": "2026-10-17",
+        "key": "traces/2026-10-17/smoke-e2e-mvcvkvlt-89798e/chunk-000001.jsonl.gz"
+      }
+    ]
+  },
+  "build": {
+    "triggers": [
+      {
+        "attempt": 1,
+        "httpStatus": 202,
+        "status": "running",
+        "buildId": "bld-mvcvl6bl-ff5de5a0f1",
+        "day": "2026-10-17",
+        "manifest": {
+          "key": "daily/2026-10-17/manifest-0002.json",
+          "chunks": 1,
+          "sessions": 1
+        }
+      }
+    ],
+    "waitedMs": 128700,
+    "receipt": {
+      "schema": "procmem.build-receipt/v1",
+      "buildId": "bld-mvcvl6bl-ff5de5a0f1",
+      "status": "published",
+      "revisionId": "rev-22c43b7d0a07227e38aba824",
+      "initialHead": "rev-ca92e426ac9f3d88339f9216",
+      "day": "2026-10-17",
+      "tenantMatches": true,
+      "manifestKey": "daily/2026-10-17/manifest-0002.json",
+      "chunks": 1,
+      "sessionsInCohort": 1,
+      "includesSmokeSession": true,
+      "inputs": {
+        "files": 3,
+        "manifestSha256": "d286611d0e343f933f3d8d832a61aaac248f5567006435ce1fc403978e780762"
+      },
+      "workspaceBackend": "modal",
+      "profiles": {
+        "defaultChild": "kimi-k3",
+        "root": "kimi-k3",
+        "selectable": [
+          "kimi-k3",
+          "glm-5p3",
+          "minimax-m3"
+        ]
+      },
+      "attempts": [
+        {
+          "attempt": 1,
+          "status": "published",
+          "agents": 1,
+          "revisionId": "rev-22c43b7d0a07227e38aba824"
+        }
+      ],
+      "providerClose": [
+        {
+          "id": "integrations",
+          "ok": true
+        }
+      ],
+      "summary": "Cohort contained one synthetic smoke-fixture session (smoke-e2e-mvcvkvlt-89798e) re-running the Ledgerly paginate-then-pay workflow already documented from smoke-e2e-mvcvfc5o-5f79fc. Verified all 30 events: identical behavior at identical seq numbers (400 invalid_limit at #5, two pages at #9→#13, 503 upstream_timeout → same-key retry → 201 pay_9001 at #17→#23, idempotent replay 200 at #27). No new",
+      "startedAt": "2026-10-17T20:55:13.881Z",
+      "finishedAt": "2026-10-17T20:57:09.974Z",
+      "buildDurationMs": 116093
+    }
+  },
+  "mcp": {
+    "tools": [
+      "cancel_command",
+      "edit",
+      "find",
+      "grep",
+      "ls",
+      "open_memory",
+      "poll_command",
+      "read",
+      "shell",
+      "view_file",
+      "write",
+      "write_command"
+    ],
+    "revision": {
+      "id": "rev-22c43b7d0a07227e38aba824",
+      "pages": 4,
+      "publishedAt": "2026-10-17T20:57:07.985Z"
+    },
+    "workspaceIdExplicit": true,
+    "knowledge": {
+      "files": 4,
+      "sample": [
+        "$KNOWLEDGE/index.md",
+        "$KNOWLEDGE/integrations/index.md",
+        "$KNOWLEDGE/integrations/ledgerly/index.md",
+        "$KNOWLEDGE/integrations/ledgerly/reconcile-open-invoices.md"
+      ]
+    },
+    "shell": {
+      "uid": "1000",
+      "network": {
+        "tcpIp": "blocked",
+        "tcpDns": "blocked",
+        "curl": "absent"
+      },
+      "envNameCount": 11,
+      "memoryEntries": "knowledge,"
+    }
+  },
+  "integrations": {
+    "status": 200,
+    "configured": true,
+    "childAuthConfigured": true,
+    "count": 0,
+    "slugs": []
+  },
+  "finishedAt": "2026-10-17T20:57:31.061Z",
+  "durationMs": 152244
+}

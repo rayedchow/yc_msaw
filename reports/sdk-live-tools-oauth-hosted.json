@@ -1,0 +1,32 @@
+{
+  "at": "2026-10-17T21:47:05.266Z",
+  "labels": {
+    "mode": "LIVE SDK discovery and read-only calls with the actual WorkOS OAuth grant renewed by the SDK refresh smoke; no static key",
+    "refreshEvidence": "reports/oauth-sdk-refresh.json",
+    "upstream": "NotifyHub simulated; real Manufact MCP endpoints and Modal-backed catalog"
+  },
+  "checks": [
+    {
+      "name": "OAuth catalog and child-token exchange expose all tools",
+      "ok": true,
+      "memoryTools": 12,
+      "childTools": 4,
+      "catalog": "ok"
+    },
+    {
+      "name": "OAuth SDK memory__open_memory",
+      "ok": true,
+      "contentTypes": [
+        "text"
+      ]
+    },
+    {
+      "name": "OAuth SDK integration__notify-hub__integration_info",
+      "ok": true,
+      "contentTypes": [
+        "text"
+      ]
+    }
+  ],
+  "ok": true
+}

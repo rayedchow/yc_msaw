@@ -1,0 +1,18 @@
+{
+  "compilerOptions": {
+    "target": "ES2023",
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "strict": true,
+    "noUncheckedIndexedAccess": true,
+    "outDir": "./dist",
+    "rootDir": ".",
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "resolveJsonModule": true,
+    "allowJs": false,
+    "types": ["node"]
+  },
+  "include": ["index.ts", "src/**/*", "scripts/**/*", "tests/**/*", "eval/**/*"],
+  "exclude": ["node_modules", "dist", "sandbox-runtime"]
+}

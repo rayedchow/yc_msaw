@@ -1,0 +1,81 @@
+{
+  "kind": "pi-smoke",
+  "createdAt": "2026-10-17T20:01:45.524Z",
+  "liveModelRun": {
+    "label": "live-model",
+    "episodeId": "ep-train-day1-a-minimax-m3-no-memory-mvcto1ng",
+    "model": "accounts/fireworks/models/minimax-m3",
+    "scenario": "train-day1-a",
+    "condition": "no-memory",
+    "success": true,
+    "duplicates": 0,
+    "missed": 0,
+    "wrong": 0,
+    "failedApiCalls": 4,
+    "totalApiCalls": 21,
+    "memoryToolCalls": 0,
+    "memoryToolNames": [],
+    "turns": 9,
+    "toolCalls": 21,
+    "inputTokens": 23273,
+    "outputTokens": 3045,
+    "cacheReadTokens": 18353,
+    "costUsd": 0.006231,
+    "latencyMs": 17999,
+    "stoppedBy": "completed",
+    "activeTools": [
+      "deliver",
+      "get_deliveries",
+      "list_notifications"
+    ],
+    "oracle": {
+      "success": true,
+      "eligible": 5,
+      "delivered": 5,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedCalls": 4,
+      "totalCalls": 21,
+      "missedIds": [],
+      "duplicateIds": [],
+      "wrongIds": []
+    },
+    "finalText": "All 5 eligible notifications are now delivered exactly once. Here's the summary:\n\n## Re-delivery complete\n\n**Delivered (5):**\n- `ntf_ay1a_102` → user649@example.test (was upstream_timeout)\n- `ntf_ay1a_104` → user594@example.test (was upstream_timeout)\n- `ntf_ay1a_107` → user584@example.test (was upstream_timeout)\n- `ntf_ay1a_108` → user988@example.test (was upstream_timeout)\n- `ntf_ay1a_113` → user813@example.test (was upstream_timeout)\n\nEach was posted with a unique idempotency key (`recover-<id>`) and verified via `get_deliveries` to ensure exactly one delivery record exists. A transient 503 on `ntf_ay1a_108` and `ntf_ay1a_113` was retried successfully.\n\n**Intentionally skipped (3):**\n- `ntf_ay1a_101` — last_error `missing_recipient` (no recipient on the notification, cannot be delivered).\n- `ntf_ay1a_106` — status `failed_permanent`, last_error `recipient_unsubscribed` (recipient opted out; re-delivering would violate that).\n- `ntf_ay1a_112` — already had a successful delivery on 2026-10-16T23:59:00Z (delivery_id `dlv_0001`); re-delivering would have produced a duplicate.",
+    "traced": false
+  },
+  "mcpProbe": {
+    "label": "scripted-fixture",
+    "serverUrl": "http://localhost:<port>/mcp",
+    "activeTools": [
+      "mcp__memory__echo"
+    ],
+    "toolCallResultText": "ECHO:HELLO MCP",
+    "toolCallIsError": false,
+    "serverSawCalls": 1,
+    "serverSawAuthHeader": true,
+    "ok": true
+  },
+  "fireworksModelsListed": [
+    "accounts/fireworks/routers/glm-5p2-fast",
+    "accounts/fireworks/models/minimax-m3",
+    "accounts/fireworks/models/gpt-oss-120b",
+    "accounts/fireworks/models/nemotron-3-ultra-nvfp4",
+    "accounts/fireworks/models/qwen3-reranker-8b",
+    "accounts/fireworks/models/qwen3-embedding-8b",
+    "accounts/fireworks/models/kimi-k3",
+    "accounts/fireworks/routers/kimi-k3-fast",
+    "accounts/fireworks/models/qwen3p8-max",
+    "accounts/fireworks/models/glm-5p3",
+    "accounts/fireworks/routers/glm-5p3-fast",
+    "accounts/fireworks/models/glm-5p3-flash",
+    "accounts/fireworks/models/deepseek-v4p1-flash",
+    "accounts/fireworks/models/ember-1",
+    "accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b",
+    "accounts/fireworks/models/inkling",
+    "accounts/fireworks/models/muse-spark-open",
+    "auto",
+    "firerouter/auto",
+    "accounts/fireworks/models/qwen3p8-2p4t-a95b"
+  ]
+}

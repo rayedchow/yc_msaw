@@ -1,0 +1,430 @@
+{
+  "kind": "build-live-smoke",
+  "note": "Real Fireworks models over a SYNTHETIC fixture cohort with Modal sandbox workspaces (one per agent). Numbers are host-measured; agent behavior is the models' own (no scripts).",
+  "cohort": "nested (8 sessions, 2 systems)",
+  "workspaceBackend": "modal",
+  "wallMs": 258041,
+  "initialHead": "rev-718d3252b04b37f1114a7a51",
+  "published": {
+    "revisionId": "rev-ceb8afc48fa2d0149289eab6",
+    "pages": [
+      "billing-api/charges-export.md",
+      "billing-api/index.md",
+      "billing-api/refunds.md",
+      "billing-api/webhooks.md",
+      "deployctl/deploy-with-migrations.md",
+      "deployctl/index.md",
+      "deployctl/rollback.md",
+      "deployctl/secrets-rotation.md",
+      "index.md"
+    ],
+    "validation": true,
+    "pagesContent": {
+      "billing-api/charges-export.md": "# Exporting charges: cursor pagination and rate limits\n\nParent: [Billing API](index.md)\n\n## Pagination\n\n- `GET /v2/charges` paginates by **cursor**: pass `limit` (100 observed) and, for subsequent pages, `cursor=<next_cursor>` from the previous response (ses-export-03#3-6).\n- The `page` parameter is **not supported**: `?limit=100&page=2` returns 400 `invalid_param` — \"page is not supported; pass cursor=<next_cursor>\" (ses-export-03#1-2).\n- Response shape: `{\"data\": [...], \"next_cursor\": \"c_2\" | null}`. `next_cursor: null` means the listing is complete (ses-export-03#4, #8).\n\n## Rate limiting\n\n- Exceeding the rate returns 429 `rate_limited` with a `Retry-After: 2` header (seconds) (ses-export-03#6).\n- Recovery: sleep for the `Retry-After` duration, then re-issue the **same** request (same cursor). Observed to succeed on the first retry after a 2s sleep (ses-export-03#7-8).\n\n## Export loop (observed)\n\n1. `GET /v2/charges?limit=100` — no cursor on the first request.\n2. While `next_cursor` is non-null: `GET /v2/charges?limit=100&cursor=<next_cursor>` and accumulate `data`.\n3. On 429: wait `Retry-After` seconds, retry the identical URL; do not advance or regenerate the cursor.\n\nThe observed run exported two pages (100 + 37 items) and finished reported-success with \"137 charges\" (ses-export-03#9, client-reported count).\n",
+      "billing-api/index.md": "# Billing API (api.billing.example /v2)\n\nParent: [Procedural memory](../index.md)\n\nProcedures for the v2 HTTP API, observed via the `http.request` tool in the 2026-10-16 trace cohort.\n\n## Pages\n\n- [Refunds](refunds.md) — create a refund with a mandatory `Idempotency-Key`, poll it to a terminal state, and the double-refund failure mode when a retry uses a new key.\n- [Exporting charges](charges-export.md) — cursor pagination (`page` is rejected) and honoring `Retry-After` on 429.\n- [Webhooks](webhooks.md) — verify signatures against raw request bytes with a nonzero timestamp tolerance; dedupe duplicate deliveries by event id.\n\n## Cross-cutting observed behavior\n\n- Errors are JSON bodies `{\"error\": <code>, \"message\": <detail>}` with a matching 4xx status (ses-refund-01#2, ses-export-03#2).\n- Mutating POSTs can return `202` and complete asynchronously; follow up with GETs to confirm state (ses-refund-01#4-6).\n- List endpoints return `{\"data\": [...]}` and support filtering, e.g. `GET /v2/refunds?charge=<id>` (ses-refund-02#5-6).\n",
+      "billing-api/refunds.md": "# Refunds (POST /v2/refunds)\n\nParent: [Billing API](index.md)\n\n## Procedure\n\n1. `POST https://api.billing.example/v2/refunds` with body `{\"charge\": \"<ch_id>\", \"amount\": <minor units>}` and header `Idempotency-Key: <key>`.\n   - The header is mandatory. Omitting it returns 400 `missing_header`: \"Idempotency-Key header is required for POST /v2/refunds\" (ses-refund-01#1-2).\n2. Success returns `202` with `{\"refund\": \"re_…\", \"state\": \"pending\"}` — the refund completes asynchronously (ses-refund-01#3-4).\n3. Poll `GET /v2/refunds/<refund_id>` until `state` is `succeeded` (observed succeeding ~1 minute after creation) (ses-refund-01#5-6).\n4. To check what refunds exist for a charge: `GET /v2/refunds?charge=<ch_id>` returns `{\"data\": [{\"refund\": …, \"amount\": …}, …]}` (ses-refund-02#5-6).\n\n## Failure mode: double refund after a timeout (observed)\n\nIn ses-refund-02 the agent partially refunded ch_902:\n\n1. First POST with `Idempotency-Key: k-902-a` timed out after 30s — no response received (#1-2).\n2. The retry used a **new** key `k-902-b` and returned refund `re_31` (#3-4).\n3. A follow-up `GET /v2/refunds?charge=ch_902` showed **two** 500-unit refunds, `re_30` and `re_31`: the timed-out request had actually succeeded server-side as `re_30` (#5-6).\n4. Session ended reported-failure; the agent's own note: \"the retry used a NEW idempotency key after a timeout; the first request had actually succeeded as re_30\" (#7, client-reported, consistent with the observed list).\n\n## Rules\n\n- One refund intent = one idempotency key for the entire retry sequence. Reuse the **same** key after a timeout or ambiguous error; a new key authorizes a new, separate refund.\n- After any timeout or ambiguous failure, verify with `GET /v2/refunds?charge=<ch_id>` before deciding whether to retry at all.\n- Amounts are in minor units (observed values 1200, 500).\n",
+      "billing-api/webhooks.md": "# Billing webhooks: verification and duplicate deliveries\n\nParent: [Billing API](index.md)\n\n## Signature verification (`webhooks.verify`)\n\nTwo preconditions, each observed as a failure before the successful call (ses-webhook-04):\n\n1. **Verify against the raw request bytes** (`rawBody: true`). Verifying a parsed/re-serialized JSON body fails: \"signature mismatch: body was re-serialized JSON; verify against the raw request bytes\" (#1-2).\n2. **Use a nonzero timestamp tolerance.** `tolerance: 0` fails with \"timestamp outside tolerance (0s)\" even when the body is raw (#3-4). `tolerance: 300` (seconds) verified successfully: `{\"valid\": true}` (#5-6).\n\nWorking call: `webhooks.verify({\"rawBody\": true, \"tolerance\": 300})`.\n\n## Duplicate deliveries\n\n- The same event can be delivered more than once: `evt_77` (`refund.succeeded`) arrived twice, the second delivery 40s later (ses-webhook-05#1-2).\n- Dedupe by event id **before** any side effects: upsert the id into a `processed_events` table — `db.upsert {\"table\": \"processed_events\", \"key\": \"evt_77\"}` (ses-webhook-05#3).\n- Result `{\"inserted\": false, \"existed\": true}` means the event was already processed: skip all further handling (ses-webhook-05#4). `inserted: true` means first sighting: proceed.\n- The observed session finished reported-success: \"deduplicated by event id\" (ses-webhook-05#5).\n\nOrdering rule (inferred from the observed flow): make the dedupe upsert the first step of the handler, before issuing refunds, emails, or other side effects, so a redelivery is a no-op.\n",
+      "deployctl/deploy-with-migrations.md": "# Deploy gated on migrations\n\nParent: [deployctl](index.md)\n\nObserved flow for deploying `api-gw` v42 (ses-deploy-06):\n\n1. `deployctl.deploy {\"service\": \"api-gw\", \"version\": \"v42\"}` **fails** when a migration is pending: \"pending migration 0042_add_index must run before deploy\" (#1-2). The deploy tool enforces migration-first ordering.\n2. Inspect the migration before applying: `deployctl.migrate {\"service\": \"api-gw\", \"to\": \"0042\", \"dryRun\": true}` returns the plan and lock impact, e.g. `{\"plan\": [\"CREATE INDEX CONCURRENTLY ...\"], \"locks\": \"none\"}` (#3-4).\n3. Apply it: `deployctl.migrate {\"service\": \"api-gw\", \"to\": \"0042\"}` → `{\"applied\": \"0042\"}` (#5-6).\n4. Re-run the identical deploy call. Result: `{\"status\": \"healthy\", \"canary\": \"5% for 5m then 100%\"}` (#7-8) — traffic ramps through a canary stage rather than flipping instantly, so do not treat the deploy as fully rolled out at return time.\n\n## Rules\n\n- Never apply a migration you have not dry-run; the dry run is cheap and shows the exact statements and lock risk.\n- If `deploy` errors, read the error before retrying: the pending-migration error names the exact migration id to pass to `deployctl.migrate`.\n",
+      "deployctl/index.md": "# deployctl deployment tooling\n\nParent: [Procedural memory](../index.md)\n\nProcedures for the `deployctl.*` tool family, observed managing service `api-gw` in the 2026-10-16 trace cohort.\n\n## Pages\n\n- [Deploy gated on migrations](deploy-with-migrations.md) — a pending migration blocks `deployctl.deploy`; dry-run the migration, apply it, then deploy.\n- [Rollback](rollback.md) — `deployctl.rollback` requires an explicit target version from `deployctl.history`; migrations are not rolled back automatically.\n- [Secrets rotation](secrets-rotation.md) — `deployctl.secrets.set` only stages the value; a restart or deploy makes it live.\n",
+      "deployctl/rollback.md": "# Rollback\n\nParent: [deployctl](index.md)\n\nObserved flow for rolling back `api-gw` after an error spike (ses-deploy-07):\n\n1. Trigger evidence: `metrics.query` showed `errorRate5m: 0.07` against `baseline: 0.004` (#1).\n2. `deployctl.rollback {\"service\": \"api-gw\"}` with no target **fails**: \"rollback requires --to <version>; previous healthy version is listed by deployctl.history\" (#2-3). There is no implicit \"previous version\".\n3. Find the target: `deployctl.history {\"service\": \"api-gw\", \"limit\": 3}` lists recent versions with status, e.g. `v43: degraded`, `v42: healthy` (#4-5). Pick the most recent `healthy` version older than the bad one.\n4. `deployctl.rollback {\"service\": \"api-gw\", \"to\": \"v42\"}` → `{\"status\": \"healthy\"}` (#6-7).\n\n## Caveats\n\n- Migrations are **not** rolled back automatically (client-reported finish note, ses-deploy-07#8 — not independently verified in the trace). If the bad version shipped a schema migration, decide separately whether to revert it; the rollback only moves the service version.\n- Rollback needs the same health confirmation as a deploy: the observed success signal was the tool result `status: healthy` (#7).\n",
+      "deployctl/secrets-rotation.md": "# Secrets rotation\n\nParent: [deployctl](index.md)\n\nObserved flow for rotating `DB_PASSWORD` on `api-gw` (ses-deploy-08):\n\n1. `deployctl.secrets.set {\"service\": \"api-gw\", \"name\": \"DB_PASSWORD\"}` only **stages** the new value. The tool result states: \"takes effect on next deploy or restart\" (#1-2). Do not assume the secret is live after the set call returns.\n2. To activate without deploying a new version: `deployctl.restart {\"service\": \"api-gw\", \"rolling\": true}` → `{\"status\": \"healthy\"}` (#3-4).\n\n## Rules\n\n- A rotation is not complete until a restart or deploy has consumed the staged value; verify `status: healthy` afterwards.\n- Use `rolling: true` when rotating secrets on a live service to avoid taking all instances down at once (inferred from the flag name and the observed healthy result; the cohort contains no non-rolling restart for comparison).\n",
+      "index.md": "# Procedural memory\n\nThis wiki is maintained by the daily procedural-memory build from captured agent traces.\n\n## Subject areas\n\n- [Billing API (api.billing.example /v2)](billing-api/index.md) — refunds with idempotency keys, cursor-paginated charge exports, webhook signature verification and duplicate-delivery dedup.\n- [deployctl deployment tooling](deployctl/index.md) — deploys gated on pending migrations, explicit-version rollback, staged secrets rotation.\n\nTrace citations use the form `sessionId#seq`, referring to the event sequence number in that session's `events.jsonl`.\n"
+    }
+  },
+  "receipt": {
+    "schema": "procmem.build-receipt/v1",
+    "buildId": "build-mvcug25u-aed9c3360b",
+    "status": "published",
+    "sources": [
+      "fixture-2026-10-16"
+    ],
+    "inputs": {
+      "files": 17,
+      "manifestSha256": "f6e365748ec18ea603f42ee68da07d0323308e754c24fa3badec67ca8b2ec094"
+    },
+    "workspaceBackend": "modal",
+    "profiles": {
+      "root": "kimi-k3",
+      "selectable": [
+        "glm-5p3",
+        "kimi-k3"
+      ],
+      "defaultChild": "glm-5p3"
+    },
+    "budget": {
+      "maxDepth": 2,
+      "maxChildren": 32,
+      "maxDescendants": 4,
+      "maxTurns": 24,
+      "maxToolCalls": 64,
+      "maxInputBytes": 134217728,
+      "maxOutputBytes": 16777216,
+      "maxConcurrentAgents": 4,
+      "maxSessions": 2,
+      "waitMinMs": 1000,
+      "waitMaxMs": 600000,
+      "waitDefaultMs": 180000,
+      "maxWallClockMs": 1800000
+    },
+    "initialHead": "rev-718d3252b04b37f1114a7a51",
+    "revisionId": "rev-ceb8afc48fa2d0149289eab6",
+    "summary": "First content build from the 2026-10-16 cohort (8 sessions). Replaced the stub root index with a two-area wiki: billing-api/ (refunds with mandatory Idempotency-Key and the observed double-refund failure when a retry used a new key after a timeout; cursor-only charge pagination with Retry-After handling on 429; webhook verification requiring raw body + nonzero timestamp tolerance, and dedupe of duplicate deliveries by event id) and deployctl/ (deploy blocked by pending migrations with dry-run-then-apply flow; rollback requiring an explicit --to version from deployctl.history, with the caveat that migrations are not rolled back; staged secrets rotation activated by rolling restart). All claims cited to sessionId#seq; client-reported outcomes marked as such.",
+    "startedAt": "2026-10-17T20:23:14.418Z",
+    "finishedAt": "2026-10-17T20:27:32.458Z",
+    "attempts": [
+      {
+        "attempt": 1,
+        "baseRevision": "rev-718d3252b04b37f1114a7a51",
+        "status": "published",
+        "revisionId": "rev-ceb8afc48fa2d0149289eab6",
+        "summary": "First content build from the 2026-10-16 cohort (8 sessions). Replaced the stub root index with a two-area wiki: billing-api/ (refunds with mandatory Idempotency-Key and the observed double-refund failure when a retry used a new key after a timeout; cursor-only charge pagination with Retry-After handling on 429; webhook verification requiring raw body + nonzero timestamp tolerance, and dedupe of duplicate deliveries by event id) and deployctl/ (deploy blocked by pending migrations with dry-run-then-apply flow; rollback requiring an explicit --to version from deployctl.history, with the caveat that migrations are not rolled back; staged secrets rotation activated by rolling restart). All claims cited to sessionId#seq; client-reported outcomes marked as such.",
+        "agents": 1,
+        "startedAt": "2026-10-17T20:23:14.418Z",
+        "finishedAt": "2026-10-17T20:27:32.458Z",
+        "tree": {
+          "agentId": "root",
+          "parentId": null,
+          "depth": 0,
+          "profileId": "kimi-k3",
+          "model": "accounts/fireworks/models/kimi-k3",
+          "objective": "Daily procedural-memory build",
+          "paths": [],
+          "scope": "all",
+          "includeParentDraft": false,
+          "status": "completed",
+          "usage": {
+            "sessions": 1,
+            "turns": 9,
+            "toolCalls": 29,
+            "toolErrors": 0,
+            "inputBytes": 465293,
+            "outputBytes": 33502,
+            "promptTokens": 97696,
+            "completionTokens": 8377,
+            "modelLatencyMs": 241091
+          },
+          "descendants": {
+            "sessions": 0,
+            "turns": 0,
+            "toolCalls": 0,
+            "toolErrors": 0,
+            "inputBytes": 0,
+            "outputBytes": 0,
+            "promptTokens": 0,
+            "completionTokens": 0,
+            "modelLatencyMs": 0,
+            "agents": 0
+          },
+          "startedAt": "2026-10-17T20:23:14.419Z",
+          "finishedAt": "2026-10-17T20:27:32.058Z",
+          "latencyMs": 257639,
+          "workspace": {
+            "kind": "modal",
+            "id": "ws-mvcug25v-71cbb3d635"
+          },
+          "baseManifestSha256": "a692245845c2d62c5926ba5f80210d890b766b407ec6ee1116b37efea8510357",
+          "publish": {
+            "status": "published",
+            "revisionId": "rev-ceb8afc48fa2d0149289eab6",
+            "summary": "First content build from the 2026-10-16 cohort (8 sessions). Replaced the stub root index with a two-area wiki: billing-api/ (refunds with mandatory Idempotency-Key and the observed double-refund failure when a retry used a new key after a timeout; cursor-only charge pagination with Retry-After handling on 429; webhook verification requiring raw body + nonzero timestamp tolerance, and dedupe of duplicate deliveries by event id) and deployctl/ (deploy blocked by pending migrations with dry-run-then-apply flow; rollback requiring an explicit --to version from deployctl.history, with the caveat that migrations are not rolled back; staged secrets rotation activated by rolling restart). All claims cited to sessionId#seq; client-reported outcomes marked as such.",
+            "treeSha256": "1bc21a65ffe7905c70e0b074fa774c1bd185356f011ad44704e0aac7d5200773"
+          },
+          "toolCalls": [
+            {
+              "turn": 1,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 245,
+              "argsSha256": "4218267a1d6b36bddd145029204552256d08d7f59e77bad11cbf82ac3ad4a07d",
+              "resultBytes": 576,
+              "truncated": false
+            },
+            {
+              "turn": 1,
+              "session": 1,
+              "name": "ls",
+              "ok": true,
+              "durationMs": 239,
+              "argsSha256": "f8153ce0a369c8edfafde4f20ae344af703d239b75ebfdc487906d6c16caaf00",
+              "resultBytes": 118,
+              "truncated": false
+            },
+            {
+              "turn": 1,
+              "session": 1,
+              "name": "ls",
+              "ok": true,
+              "durationMs": 246,
+              "argsSha256": "e884b6175aa3f666012bbca5c7821c84203579d49951b666330727dc020f5ee6",
+              "resultBytes": 1183,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 244,
+              "argsSha256": "2709a5cf6e700afd0a4d982a324635488bfee68b34a22b56d39e2d389e2d8550",
+              "resultBytes": 387,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 243,
+              "argsSha256": "2222c38ef558e81885c39cf532d63478267ff5fe76975890b74de5df9ef442c4",
+              "resultBytes": 425,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 253,
+              "argsSha256": "97941f72d5b7979c60d8af29396375e1e4e941dcde715d76d3571dda01308df4",
+              "resultBytes": 1645,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 244,
+              "argsSha256": "8fd82a89bd0b1d667289c5fdaf0167348c0f936a5bb79a853415e968a995a6cc",
+              "resultBytes": 450,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 244,
+              "argsSha256": "a97175d9261734bf0002c4ec276166cc765982ed81a4187a6e105a0a9a5269c1",
+              "resultBytes": 1732,
+              "truncated": false
+            },
+            {
+              "turn": 3,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 254,
+              "argsSha256": "853dcc60bdf479600db08349eecc383167537d5082458aac3f4bc1df1586a7ee",
+              "resultBytes": 431,
+              "truncated": false
+            },
+            {
+              "turn": 3,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 250,
+              "argsSha256": "dbdbdd33ee579b578ca77adc498ec806e15a892f2068e0d3f2ebd73f4a0e6120",
+              "resultBytes": 1977,
+              "truncated": false
+            },
+            {
+              "turn": 3,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 260,
+              "argsSha256": "61163d334e3bb8b32c5240584e45bd8b7ada6ed2d6740720833a0767c64998ca",
+              "resultBytes": 1262,
+              "truncated": false
+            },
+            {
+              "turn": 3,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 244,
+              "argsSha256": "d741c7e0adf4d83d13acce18fb074338c5c01bcc98d8782fd172afc49c96ada4",
+              "resultBytes": 1067,
+              "truncated": false
+            },
+            {
+              "turn": 4,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 276,
+              "argsSha256": "642713a773ecaadcd51dae2cb66d80d16bb78bd66779e592618a2f7aea11ae95",
+              "resultBytes": 1639,
+              "truncated": false
+            },
+            {
+              "turn": 4,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 244,
+              "argsSha256": "5e02cb0b96c898022f6686650aefe8cf292741ce1fc0ad6ec57de72cb82fb1b2",
+              "resultBytes": 1576,
+              "truncated": false
+            },
+            {
+              "turn": 4,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 267,
+              "argsSha256": "c090f91347a97f4f1e04e3d01974592a131000dd48ed7ae4488ad9650f27d195",
+              "resultBytes": 1000,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 1121,
+              "argsSha256": "bc76ed2604855c649e96ba1f6e18db975617e71539b68d61a32bb93927105d6d",
+              "resultBytes": 227,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 580,
+              "argsSha256": "5509586d340a2c0bf58fbf3965d4325d0e72dc8c8d62190e1cabfea30cf9353c",
+              "resultBytes": 177,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 650,
+              "argsSha256": "04037d69324b896471e98ae0083518646ad84c46da2e1c926da61fce6925d437",
+              "resultBytes": 179,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 621,
+              "argsSha256": "0f60aa640384342a681814da50902106e8515aa0c84b8e70136b56692f49e40a",
+              "resultBytes": 186,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 583,
+              "argsSha256": "9ad275f2c2cae4c6ef7c496ea0217083a311b77788cdb2cbbbe8a0039187daf5",
+              "resultBytes": 180,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 564,
+              "argsSha256": "f0c4837d7b1ae16b9bfad08f6ac08046d1021a8709e44920afb129ef66256162",
+              "resultBytes": 174,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 561,
+              "argsSha256": "74d5368e4795b455423d61960c38ad8f8256f5cd8033e5695553edf77741b978",
+              "resultBytes": 192,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 568,
+              "argsSha256": "dd0e0efda3a3d22fbe0ed5e71f143c6b79e6a3e89f8473b421d827409eedaa80",
+              "resultBytes": 178,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 598,
+              "argsSha256": "376a6328192dd7d7fdb9e5ea97ccd7f5b58686dc216778db9de57f1d12a5d5b3",
+              "resultBytes": 185,
+              "truncated": false
+            },
+            {
+              "turn": 6,
+              "session": 1,
+              "name": "validate",
+              "ok": true,
+              "durationMs": 312,
+              "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "resultBytes": 355,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "edit",
+              "ok": true,
+              "durationMs": 637,
+              "argsSha256": "5a5b821bba831743e4d181e0a2aa752fec1176b03d3c4fb85dff3f6d046bf72c",
+              "resultBytes": 224,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "edit",
+              "ok": true,
+              "durationMs": 567,
+              "argsSha256": "02de3acf2316ff20860a7c9cceeacf6e5fa9117dde06dba5ca6c60728805572c",
+              "resultBytes": 221,
+              "truncated": false
+            },
+            {
+              "turn": 8,
+              "session": 1,
+              "name": "validate",
+              "ok": true,
+              "durationMs": 280,
+              "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "resultBytes": 150,
+              "truncated": false
+            },
+            {
+              "turn": 9,
+              "session": 1,
+              "name": "publish",
+              "ok": true,
+              "durationMs": 270,
+              "argsSha256": "85e2af270ee58dda44da60389a6d4ea8bccafbfa4dc8f7e86e430c93ce97f09e",
+              "resultBytes": 179,
+              "truncated": false
+            }
+          ],
+          "children": []
+        }
+      }
+    ],
+    "providerClose": []
+  }
+}

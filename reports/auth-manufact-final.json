@@ -1,0 +1,135 @@
+{
+  "target": "https://wild-zero-kq08i.run.mcp-use.com/mcp",
+  "at": "2026-10-17T22:06:52.947Z",
+  "tokenProvided": true,
+  "ok": true,
+  "fullyAuthenticated": true,
+  "metadataOnly": false,
+  "skipped": [],
+  "checks": [
+    {
+      "name": "protected_resource_metadata",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "url": "https://wild-zero-kq08i.run.mcp-use.com/.well-known/oauth-protected-resource/mcp",
+        "status": 200,
+        "resource": "https://wild-zero-kq08i.run.mcp-use.com/mcp",
+        "authorization_servers": [
+          "https://sincere-umbrella-45-staging.authkit.app"
+        ]
+      }
+    },
+    {
+      "name": "authorization_server_expected",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "advertised": "https://sincere-umbrella-45-staging.authkit.app",
+        "expected": "https://sincere-umbrella-45-staging.authkit.app"
+      }
+    },
+    {
+      "name": "authorization_server_metadata",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "issuer": "https://sincere-umbrella-45-staging.authkit.app",
+        "authorization_endpoint": "https://sincere-umbrella-45-staging.authkit.app/oauth2/authorize",
+        "token_endpoint": "https://sincere-umbrella-45-staging.authkit.app/oauth2/token",
+        "jwks_uri": "https://sincere-umbrella-45-staging.authkit.app/oauth2/jwks",
+        "registration_endpoint": "https://sincere-umbrella-45-staging.authkit.app/oauth2/register",
+        "client_id_metadata_document_supported": true,
+        "code_challenge_methods_supported": [
+          "S256"
+        ]
+      }
+    },
+    {
+      "name": "client_registration_available",
+      "status": "pass",
+      "ok": true,
+      "detail": {}
+    },
+    {
+      "name": "jwks_reachable",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "keys": [
+          {
+            "kid": "sso_oidc_key_pair_01M55NQVS6NT15XWTSQWBYC9N7",
+            "alg": "RS256",
+            "kty": "RSA"
+          }
+        ]
+      }
+    },
+    {
+      "name": "unauthenticated_initialize_challenged",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "status": 401,
+        "www_authenticate": "Bearer error=\"invalid_token\", error_description=\"Authentication is required for this request.\", resource_metadata=\"https://wild-zero-kq08i.run.mcp-use.com/.well-known/oauth-protected-resource/mcp\""
+      }
+    },
+    {
+      "name": "forged_token_rejected",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "status": 401,
+        "www_authenticate": "Bearer error=\"invalid_token\", error_description=\"JWT verification failed\", resource_metadata=\"https://wild-zero-kq08i.run.mcp-use.com/.well-known/oauth-protected-resource/mcp\""
+      }
+    },
+    {
+      "name": "token_shape",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "iss": "https://sincere-umbrella-45-staging.authkit.app",
+        "aud": "https://wild-zero-kq08i.run.mcp-use.com/mcp",
+        "exp_in_s": 294,
+        "has_org_id": false,
+        "kind": "jwt"
+      }
+    },
+    {
+      "name": "authorized_initialize_tools_list",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "server": {
+          "name": "procmem",
+          "title": "Procedural Memory",
+          "version": "0.2.0",
+          "description": "Daily-built procedural memory wiki for agents, served as a read-only filesystem with private scratch."
+        },
+        "tools": [
+          "open_memory",
+          "read",
+          "grep",
+          "find",
+          "ls",
+          "shell",
+          "poll_command",
+          "write_command",
+          "cancel_command",
+          "write",
+          "edit",
+          "view_file"
+        ]
+      }
+    },
+    {
+      "name": "authorized_tools_call:open_memory",
+      "status": "pass",
+      "ok": true,
+      "detail": {
+        "text": "{\n  \"workspaceId\": \"50f4e39b-9a6f-4009-bf84-80bb19481fda\",\n  \"revision\": {\n    \"id\": \"rev-22c43b7d0a07227e38aba824\",\n    \"publishedAt\": \"2026-10-17T20:57:07.985Z\",\n    \"pages\": 4,\n    \"summary\": \"Cohort contained one synthetic smoke-fixture session (smoke-e2e-mvcvkvlt-89798e) re-running the Ledgerly paginate-then-pay workflow already documented from smoke-e2e-mvcvfc5o-5f79fc. Verified all 30 events: identical behavior at identical seq numbers (400 invalid_limit at #5, two pages at #9→#13, 503 upstream_timeout → same-key retry → 201 pay_9001 at #17→#23, idempotent replay 200 at #27). No new procedural learning; updated the two Ledgerly pages to record the second corroborating observation and its session id. No other pages changed.\"\n  },\n  \"rootIndex\": \"# Procedural memory\\n\\nThis wiki is maintained by the daily procedural-memory build from captured agent traces.\\n\\n## Subjects\\n\\n- [Integrations](integrations/index.md) — how specific APIs and tools actually behave (endpoints, pagination, idempotency, errors).\\n  - [Ledgerly (fictional invoices API)](integrations/ledgerly/index.md) — cursor pagination with a 50-item limit cap, idempotent payments, and safe retry after ambiguous 503s.\\n\",\n  \"outline\": [\n    {\n      \"path\": \"$KNOWLEDGE/index.md\",\n      \"title\": \"Procedural memory\",\n      \"description\": \"This wiki is maintained by the daily procedural-memory build from captured agent traces.\"\n    },\n    {\n      \"path\": \"$KNOWLEDGE/integrations/index.md\",\n      \"title\": \"Integrations\",\n      \"description\": \"Parent: [Procedural memory](../index.md)\"\n    },\n    {\n      \"path\": \"$KNOWLEDGE/integrations/ledgerly/index.md\",\n      \"title\": \"Ledgerly API (fictional)\",\n      \"description\": \"Parent: [Integrations](../index.md)\"\n    },\n    {\n      \"path\": \"$KNOWLEDGE/integrations/ledgerly/reconcile-open-invoices.md\",\n      \"title\": \"Reconcile open invoices and pay one exactly once (Ledgerly)\",\n      \"description\": \"Workflow observed in `smoke-e2e-mvcvfc5o-5f79fc` and re-observed id"
+      }
+    }
+  ]
+}

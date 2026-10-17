@@ -1,0 +1,105 @@
+{
+  "kind": "pi-smoke",
+  "createdAt": "2026-10-17T20:08:26.991Z",
+  "liveModelRun": {
+    "label": "live-model",
+    "episodeId": "ep-train-day1-a-glm-5p3-no-memory-mvctwqpz",
+    "model": "accounts/fireworks/models/glm-5p3",
+    "scenario": "train-day1-a",
+    "condition": "no-memory",
+    "success": true,
+    "duplicates": 0,
+    "missed": 0,
+    "wrong": 0,
+    "failedApiCalls": 5,
+    "totalApiCalls": 19,
+    "memoryToolCalls": 0,
+    "memoryToolNames": [],
+    "turns": 10,
+    "toolCalls": 19,
+    "inputTokens": 16485,
+    "outputTokens": 1037,
+    "cacheReadTokens": 11735,
+    "costUsd": 0.014264,
+    "latencyMs": 13729,
+    "stoppedBy": "completed",
+    "activeTools": [
+      "deliver",
+      "get_deliveries",
+      "list_notifications"
+    ],
+    "oracle": {
+      "success": true,
+      "eligible": 5,
+      "delivered": 5,
+      "duplicates": 0,
+      "missed": 0,
+      "wrong": 0,
+      "failedCalls": 5,
+      "totalCalls": 19,
+      "missedIds": [],
+      "duplicateIds": [],
+      "wrongIds": []
+    },
+    "finalText": "All done. Summary:\n\n**Delivered (5):**\n- ntf_ay1a_102 — upstream timeout, not previously delivered → re-delivered\n- ntf_ay1a_104 — upstream timeout → re-delivered\n- ntf_ay1a_107 — upstream timeout → re-delivered\n- ntf_ay1a_108 — upstream timeout → re-delivered (retry after 503; idempotency key ensured exactly-once)\n- ntf_ay1a_113 — upstream timeout → re-delivered (retried after 503)\n\n**Intentionally skipped (3):**\n- ntf_ay1a_101 — no recipient on record (\"missing_recipient\"); undeliverable\n- ntf_ay1a_106 — permanent failure: recipient unsubscribed; must not be re-sent\n- ntf_ay1a_112 — ack_timeout, but delivery records show it was already delivered; re-sending would duplicate",
+    "traced": true,
+    "traceSessionId": "ep-train-day1-a-glm-5p3-no-memory-mvctwqpz"
+  },
+  "traceCapture": {
+    "sessionId": "ep-train-day1-a-glm-5p3-no-memory-mvctwqpz",
+    "chunks": 10,
+    "events": 73,
+    "eventTypes": {
+      "session_start": 1,
+      "note": 2,
+      "model_input": 21,
+      "model_output": 10,
+      "tool_call": 19,
+      "tool_result": 19,
+      "session_end": 1
+    },
+    "blobs": 0,
+    "modelInputHasSystemPrompt": true,
+    "modelInputHasToolSpecs": true,
+    "finalChunkSeen": true,
+    "outcomeStatus": "succeeded"
+  },
+  "checks": {
+    "traceCapturesPromptAndTools": true,
+    "mcpProbeOk": true
+  },
+  "mcpProbe": {
+    "label": "scripted-fixture",
+    "serverUrl": "http://localhost:<port>/mcp",
+    "activeTools": [
+      "mcp__memory__echo"
+    ],
+    "toolCallResultText": "ECHO:HELLO MCP",
+    "toolCallIsError": false,
+    "serverSawCalls": 1,
+    "serverSawAuthHeader": true,
+    "ok": true
+  },
+  "fireworksModelsListed": [
+    "accounts/fireworks/routers/glm-5p2-fast",
+    "accounts/fireworks/models/minimax-m3",
+    "accounts/fireworks/models/gpt-oss-120b",
+    "accounts/fireworks/models/nemotron-3-ultra-nvfp4",
+    "accounts/fireworks/models/qwen3-reranker-8b",
+    "accounts/fireworks/models/qwen3-embedding-8b",
+    "accounts/fireworks/models/kimi-k3",
+    "accounts/fireworks/routers/kimi-k3-fast",
+    "accounts/fireworks/models/qwen3p8-max",
+    "accounts/fireworks/models/glm-5p3",
+    "accounts/fireworks/routers/glm-5p3-fast",
+    "accounts/fireworks/models/glm-5p3-flash",
+    "accounts/fireworks/models/deepseek-v4p1-flash",
+    "accounts/fireworks/models/ember-1",
+    "accounts/fireworks/models/nemotron-lightning-3p5-30b-a3b",
+    "accounts/fireworks/models/inkling",
+    "accounts/fireworks/models/muse-spark-open",
+    "auto",
+    "firerouter/auto",
+    "accounts/fireworks/models/qwen3p8-2p4t-a95b"
+  ]
+}

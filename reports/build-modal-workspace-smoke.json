@@ -1,0 +1,167 @@
+{
+  "kind": "build-modal-workspace-smoke",
+  "leaseProvider": "modal",
+  "wallMs": 11057,
+  "passed": true,
+  "checks": [
+    {
+      "name": "ls inputs recursive",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "path": "inputs/",
+        "totalFiles": 2,
+        "truncated": false,
+        "entries": [
+          {
+            "path": "inputs/manifest.json",
+            "bytes": 20
+          },
+          {
+            "path": "inputs/sessions/S-1/events.jsonl",
+            "bytes": 64
+          }
+        ]
+      }
+    },
+    {
+      "name": "read line slice",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "path": "inputs/sessions/S-1/events.jsonl",
+        "sha256": "a765ed62af4448b0f3b243824867afc22140c3228241701b95734826d44a920e",
+        "totalBytes": 64,
+        "mode": "lines",
+        "totalLines": 3,
+        "startLine": 2,
+        "endLine": 2,
+        "nextOffset": 3,
+        "truncated": true,
+        "content": "{\"seq\":2,\"msg\":\"ok\"}"
+      }
+    },
+    {
+      "name": "grep literal ignoreCase",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "path": "inputs/",
+        "engine": "literal (grep -F)",
+        "truncated": false,
+        "matchCount": 1,
+        "matches": [
+          "inputs/sessions/S-1/events.jsonl:1: {\"seq\":1,\"msg\":\"Idempotency-Key required\"}"
+        ]
+      }
+    },
+    {
+      "name": "find glob",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "path": "inputs/",
+        "name": "*.jsonl",
+        "total": 1,
+        "truncated": false,
+        "paths": [
+          "inputs/sessions/S-1/events.jsonl"
+        ]
+      }
+    },
+    {
+      "name": "write in scope",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "path": "knowledge/guides/retries.md",
+        "created": true,
+        "previousSha256": null,
+        "sha256": "17e1f73999d58d1b56998420c689eb17f32f284f1a1ea67ab94876d79076b276",
+        "bytes": 10
+      }
+    },
+    {
+      "name": "edit in scope",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "path": "knowledge/guides/setup.md",
+        "previousSha256": "777044cc4b499b3cf9f57a63106f3952f17e7962324f8dfc432aea0abdbd833b",
+        "sha256": "78ae00a8c6fd4d2dd3c67f866c8b70080f308bda2509fe7472d4fd14400437cc",
+        "bytes": 14
+      }
+    },
+    {
+      "name": "move (promotion)",
+      "ok": true,
+      "detail": {
+        "ok": true,
+        "from": "knowledge/guides/retries.md",
+        "to": "knowledge/guides/retry/index.md",
+        "sha256": "17e1f73999d58d1b56998420c689eb17f32f284f1a1ea67ab94876d79076b276",
+        "note": "Links that pointed at the old path, and relative links inside the moved page, are not rewritten; run validate to find broken links."
+      }
+    },
+    {
+      "name": "write outside scope rejected by host",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "error": {
+          "code": "scope_violation",
+          "message": "knowledge/other.md is outside your knowledgeWriteScope (guides/**)"
+        }
+      }
+    },
+    {
+      "name": "write to inputs rejected by host",
+      "ok": true,
+      "detail": {
+        "ok": false,
+        "error": {
+          "code": "read_only",
+          "message": "inputs/ is read-only; write to knowledge/ (inside your scope) or work/"
+        }
+      }
+    },
+    {
+      "name": "snapshot",
+      "ok": true,
+      "detail": [
+        [
+          "guides/retry/index.md",
+          "# Retries\n"
+        ],
+        [
+          "guides/setup.md",
+          "# Setup guide\n"
+        ],
+        [
+          "index.md",
+          "# Memory\n"
+        ]
+      ]
+    },
+    {
+      "name": "OS denies agent write to /build/inputs",
+      "ok": true,
+      "detail": "DENIED"
+    },
+    {
+      "name": "OS denies agent write to /build/published",
+      "ok": true,
+      "detail": "DENIED"
+    },
+    {
+      "name": "OS denies agent write to /build/parent-draft",
+      "ok": true,
+      "detail": "DENIED"
+    },
+    {
+      "name": "agent can write knowledge/",
+      "ok": true,
+      "detail": "OK"
+    }
+  ]
+}

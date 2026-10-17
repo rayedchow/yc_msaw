@@ -1,0 +1,49 @@
+{
+  "at": "2026-10-17T22:02:58.305Z",
+  "builtChunks": {
+    "builder": "builder-B3NLPhrK.js",
+    "integrations": "integrations-DW3Pb6_e.js",
+    "builderImport": "./integrations-DW3Pb6_e.js"
+  },
+  "toolsByScope": {
+    "builder-research": [
+      "research_exa_search",
+      "research_exa_contents",
+      "research_exa_code_context",
+      "research_fetch_url",
+      "research_openapi_inspect"
+    ],
+    "builder-workspace": [
+      "integration_list",
+      "integration_open",
+      "integration_ls",
+      "integration_read",
+      "integration_write",
+      "integration_edit",
+      "integration_delete",
+      "integration_exec",
+      "integration_git_status",
+      "integration_git_diff",
+      "integration_git_log",
+      "integration_git_branches",
+      "integration_validate",
+      "integration_git_commit",
+      "integration_promote",
+      "integration_record_research",
+      "integration_publish",
+      "integration_deployment_status",
+      "integration_deployment_logs",
+      "integration_rollback",
+      "integration_retire",
+      "integration_restore",
+      "integration_probe"
+    ]
+  },
+  "instructionsChars": 2080,
+  "credentialsPresent": {
+    "exa": true,
+    "manufact": true,
+    "childSigning": true
+  },
+  "missing": []
+}

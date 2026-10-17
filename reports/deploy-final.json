@@ -1,0 +1,54 @@
+{
+  "kind": "manufact-final-verification",
+  "at": "2026-10-17T22:07:26.380Z",
+  "ok": true,
+  "account": "ishan@askshepherd.ai",
+  "orgSlug": "org-84350150-jpcs9",
+  "serverId": "f2352b28-1558-4c0c-9520-738517ab933d",
+  "mcpUrl": "https://wild-zero-kq08i.run.mcp-use.com/mcp",
+  "activeDeploymentId": "f5390025-53dc-40f2-ada9-86f5e943b4e2",
+  "deploymentTrigger": "webhook",
+  "managedRepoCommitSha": "d9af52dce25e7cca841bad171e28296d62e1c8a8",
+  "health": {
+    "status": 200,
+    "publicFields": [
+      "ok",
+      "version",
+      "auth"
+    ]
+  },
+  "source": {
+    "runtimeFiles": 179,
+    "runtimeSha256": "806bd575842ca6be04893eb2e06cb1d098f0798bf0b7aa86c492aa37b5e123fe",
+    "managedUploadEntries": 243,
+    "ciWorkflowExcluded": true,
+    "credentialsExcluded": true
+  },
+  "checks": [
+    {
+      "name": "Actual final webhook deployment active",
+      "ok": true
+    },
+    {
+      "name": "Application healthz",
+      "ok": true
+    },
+    {
+      "name": "Final OAuth checks",
+      "ok": true
+    },
+    {
+      "name": "Final hosted SDK and stdio bridge checks",
+      "ok": true
+    }
+  ],
+  "evidence": {
+    "auth": "reports/auth-manufact-final.json",
+    "sdkHosted": "reports/sdk-live-tools-hosted.json"
+  },
+  "labels": {
+    "service": "staging",
+    "integrationUpstream": "NotifyHub simulated; actual Manufact child endpoint",
+    "sdk": "local tarball, not published to npm"
+  }
+}

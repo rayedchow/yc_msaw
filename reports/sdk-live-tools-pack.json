@@ -1,0 +1,61 @@
+{
+  "kind": "sdk-live-tools-pack",
+  "labels": {
+    "upstream": "SIMULATED child on loopback; real parent app on loopback"
+  },
+  "at": "2026-10-17T22:02:18.879Z",
+  "ok": true,
+  "checks": [
+    {
+      "name": "tarball contains live dist + bin",
+      "ok": true,
+      "detail": {
+        "tgz": "procmem-sdk-0.1.0.tgz",
+        "fileCount": 36
+      }
+    },
+    {
+      "name": "tarball has no source maps, tests or env files",
+      "ok": true
+    },
+    {
+      "name": "fresh consumer imports @procmem/sdk, /live, /live/pi, /oauth",
+      "ok": true,
+      "detail": {
+        "oauth": "function",
+        "helper": "function",
+        "root": "function",
+        "registry": "function",
+        "boundary": "function",
+        "bridge": "function",
+        "pi": "function",
+        "name": "integration__notify-hub__deliver"
+      }
+    },
+    {
+      "name": "installed MCP deps resolve to 2.3.x",
+      "ok": true,
+      "detail": {
+        "@modelcontextprotocol/client": "2.3.1",
+        "@modelcontextprotocol/server": "2.3.1",
+        "zod": "4.6.7"
+      }
+    },
+    {
+      "name": "installed bin serves memory tools + fallback pair",
+      "ok": true,
+      "detail": 14
+    },
+    {
+      "name": "installed bin announces an added child (list_changed) on the same connection",
+      "ok": true,
+      "detail": {
+        "changed": 2
+      }
+    },
+    {
+      "name": "installed bin calls the child",
+      "ok": true
+    }
+  ]
+}

@@ -1,0 +1,102 @@
+[int-llm] setup integration_open: succeeded
+[int-llm] setup integration_write: succeeded
+[int-llm] setup integration_write: succeeded
+[int-llm] setup integration_write: succeeded
+[int-llm] setup integration_write: succeeded
+[int-llm] setup integration_write: succeeded
+[int-llm] setup integration_validate: succeeded
+[int-llm] setup integration_git_commit: succeeded
+[int-llm] setup integration_promote: succeeded
+[int-llm] setup integration_publish: succeeded
+[int-llm] build {"at":"2026-10-17T20:48:23.847Z","agentId":"root","event":"agent_started","detail":{"profile":"kimi-k3","depth":0,"scope":"all"}}
+[int-llm] build {"at":"2026-10-17T20:48:29.586Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":1,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:48:29.800Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":1,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:48:30.021Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":1,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:48:38.030Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:48:38.248Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:48:38.458Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:48:38.668Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:48:38.901Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:49:02.673Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_list","ok":true,"turn":3,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:49:15.203Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_open","ok":true,"turn":4,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:49:19.154Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_ls","ok":true,"turn":5,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:49:27.030Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":6,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:49:27.594Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":6,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:49:28.093Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":6,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:50:00.459Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":7,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:50:00.674Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":7,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:50:00.898Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":7,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:50:01.118Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":7,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:50:01.328Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":7,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:50:01.554Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":7,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:50:01.802Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":7,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:50:02.034Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":7,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:50:02.245Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_read","ok":true,"turn":7,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:50:38.228Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_write","ok":true,"turn":8,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:52:21.861Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_edit","ok":true,"turn":9,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:52:22.313Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_edit","ok":true,"turn":9,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:52:22.803Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_edit","ok":true,"turn":9,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:52:23.251Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_edit","ok":true,"turn":9,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:53:00.730Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_write","ok":true,"turn":10,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:53:06.781Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_exec","ok":true,"turn":11,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:53:27.957Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_validate","ok":true,"turn":12,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:53:41.061Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_git_commit","ok":true,"turn":13,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:53:48.211Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_promote","ok":true,"turn":14,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:56:15.990Z","agentId":"root","event":"tool_call","detail":{"tool":"integration_publish","ok":true,"turn":15,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:56:45.893Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":16,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:56:46.373Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":16,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:57:25.000Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":17,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:57:25.493Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":17,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:57:27.864Z","agentId":"root","event":"tool_call","detail":{"tool":"validate","ok":true,"turn":18,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:57:40.360Z","agentId":"root","event":"tool_call","detail":{"tool":"write","ok":true,"turn":19,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:57:40.971Z","agentId":"root","event":"tool_call","detail":{"tool":"edit","ok":true,"turn":19,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:57:41.534Z","agentId":"root","event":"tool_call","detail":{"tool":"edit","ok":true,"turn":19,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:57:43.578Z","agentId":"root","event":"tool_call","detail":{"tool":"validate","ok":true,"turn":20,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:57:49.370Z","agentId":"root","event":"tool_call","detail":{"tool":"edit","ok":true,"turn":21,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:57:52.250Z","agentId":"root","event":"tool_call","detail":{"tool":"validate","ok":true,"turn":22,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:58:07.206Z","agentId":"root","event":"tool_call","detail":{"tool":"publish","ok":true,"turn":23,"session":1}}
+[int-llm] build {"at":"2026-10-17T20:58:07.644Z","agentId":"root","event":"agent_finished","detail":{"status":"completed"}}
+{
+  "runId": "20261017-5a8be8",
+  "build": {
+    "status": "published",
+    "revisionId": "rev-78cbebee60516c964add07d1",
+    "failure": null,
+    "summary": "Cohort 2026-10-17 (2 failed ops-agent sessions against the notify-hub MCP): captured the reusable lessons and repaired the integration.\n\nWiki: new integrations/notify-hub/ subtree — index (behavior contract: cursor pagination with server page cap, lost-ack 503 commits, Idempotency-Key replay semantics, 429 + Retry-After) plus two procedure pages: auditing-notifications (single-page truncation failure mode, ses-mvcvcbvy-ec62945cf6b5, and how to verify a complete listing) and sending-exactly-once (duplicate-after-lost-ack and unretried-429 failure modes, ses-mvcvcbw2-190f2f082b46, and the idempotency-key procedure). All claims carry trace refs; fix verification cites validation val-6c082feebcfc259a9bde7553 and live probe pub-c95d675ca833231fbfb5b00d.\n\nIntegration repair (mcps/notify-hub): listAll now follows has_more/next_cursor until exhausted; send carries a content-derived Idempotency-Key (sha256 of recipient+message) on every attempt and retries 429 (honoring Retry-After) and 503 (backoff, max 3); send_notification marked idempotentHint. Deterministic regression tests for all three failure modes. Validated (all smoke/regression/held-out suites passed), committed 66986288920c2f3d1b31d8f524b5a1be025640b7, promoted, deployed and probed live (auth 401s enforced; simulated list returned all 23 seeded notifications).",
+    "wallMs": 589897,
+    "agents": [
+      1
+    ]
+  },
+  "integrationOutcome": {
+    "promotedBefore": "ef971d9333e5a0c51c1e80138048544c42ccb380",
+    "promotedAfter": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+    "activeDeploymentBefore": {
+      "deploymentId": "a65a917d-3f2d-451f-8a33-eb342169eea5",
+      "commit": "ef971d9333e5a0c51c1e80138048544c42ccb380",
+      "archiveSha256": "f1ad5d684ace96a93cda0c5389ef282415f7b0ed73c871358a5383a48ff74d0f",
+      "validationReceiptId": "val-6b49f4dcf31423e7d14e3210",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-16d116411df2b9bac3d0271d",
+      "at": "2026-10-17T20:48:18.108Z",
+      "action": "publish"
+    },
+    "activeDeploymentAfter": {
+      "deploymentId": "1eda23e6-dd26-425a-9072-a8b4a0cdcac2",
+      "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+      "archiveSha256": "d71dc4bb9c6485b41558af057fc38a2d3f5682b387bc2f100fc1093a58c969c8",
+      "validationReceiptId": "val-6c082feebcfc259a9bde7553",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-c95d675ca833231fbfb5b00d",
+      "at": "2026-10-17T20:56:15.972Z",
+      "action": "update"
+    },
+    "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp",
+    "modelPublished": true,
+    "modelCommitted": true
+  },
+  "integrationToolCalls": 26
+}
+EXIT 0

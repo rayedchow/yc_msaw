@@ -1,0 +1,789 @@
+{
+  "kind": "integration-llm-run",
+  "runId": "20261017-5a8be8",
+  "labels": {
+    "setup": "SCRIPTED: faulty initial notify-hub revision (template fixture) validated/committed/promoted/published",
+    "traces": "SYNTHETIC customer-agent sessions against the SIMULATED Notify Hub service, ingested through the real SDK/ingest/daily manifest",
+    "build": "LLM: real runMemoryBuild with Fireworks models choosing every integration tool call after setup"
+  },
+  "manufact": {
+    "email": "ishan@askshepherd.ai",
+    "orgSlug": "org-84350150-jpcs9",
+    "orgName": "Askshepherd",
+    "credentialSource": "env"
+  },
+  "setup": {
+    "promotedCommit": "ef971d9333e5a0c51c1e80138048544c42ccb380",
+    "active": {
+      "deploymentId": "a65a917d-3f2d-451f-8a33-eb342169eea5",
+      "commit": "ef971d9333e5a0c51c1e80138048544c42ccb380",
+      "archiveSha256": "f1ad5d684ace96a93cda0c5389ef282415f7b0ed73c871358a5383a48ff74d0f",
+      "validationReceiptId": "val-6b49f4dcf31423e7d14e3210",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-16d116411df2b9bac3d0271d",
+      "at": "2026-10-17T20:48:18.108Z",
+      "action": "publish"
+    },
+    "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp"
+  },
+  "cohort": {
+    "day": "2026-10-17",
+    "manifest": "daily/2026-10-17/manifest-0001.json",
+    "sessions": [
+      "ses-mvcvcbvy-ec62945cf6b5",
+      "ses-mvcvcbw2-190f2f082b46"
+    ],
+    "files": 5
+  },
+  "build": {
+    "status": "published",
+    "revisionId": "rev-78cbebee60516c964add07d1",
+    "failure": null,
+    "summary": "Cohort 2026-10-17 (2 failed ops-agent sessions against the notify-hub MCP): captured the reusable lessons and repaired the integration.\n\nWiki: new integrations/notify-hub/ subtree — index (behavior contract: cursor pagination with server page cap, lost-ack 503 commits, Idempotency-Key replay semantics, 429 + Retry-After) plus two procedure pages: auditing-notifications (single-page truncation failure mode, ses-mvcvcbvy-ec62945cf6b5, and how to verify a complete listing) and sending-exactly-once (duplicate-after-lost-ack and unretried-429 failure modes, ses-mvcvcbw2-190f2f082b46, and the idempotency-key procedure). All claims carry trace refs; fix verification cites validation val-6c082feebcfc259a9bde7553 and live probe pub-c95d675ca833231fbfb5b00d.\n\nIntegration repair (mcps/notify-hub): listAll now follows has_more/next_cursor until exhausted; send carries a content-derived Idempotency-Key (sha256 of recipient+message) on every attempt and retries 429 (honoring Retry-After) and 503 (backoff, max 3); send_notification marked idempotentHint. Deterministic regression tests for all three failure modes. Validated (all smoke/regression/held-out suites passed), committed 66986288920c2f3d1b31d8f524b5a1be025640b7, promoted, deployed and probed live (auth 401s enforced; simulated list returned all 23 seeded notifications).",
+    "wallMs": 589897,
+    "agents": [
+      1
+    ]
+  },
+  "integrationToolCalls": [
+    {
+      "agent": "root",
+      "name": "integration_list",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_open",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_ls",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_read",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_write",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_edit",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_edit",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_edit",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_edit",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_write",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_exec",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_validate",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_git_commit",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_promote",
+      "ok": true
+    },
+    {
+      "agent": "root",
+      "name": "integration_publish",
+      "ok": true
+    }
+  ],
+  "integrationOutcome": {
+    "promotedBefore": "ef971d9333e5a0c51c1e80138048544c42ccb380",
+    "promotedAfter": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+    "activeDeploymentBefore": {
+      "deploymentId": "a65a917d-3f2d-451f-8a33-eb342169eea5",
+      "commit": "ef971d9333e5a0c51c1e80138048544c42ccb380",
+      "archiveSha256": "f1ad5d684ace96a93cda0c5389ef282415f7b0ed73c871358a5383a48ff74d0f",
+      "validationReceiptId": "val-6b49f4dcf31423e7d14e3210",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-16d116411df2b9bac3d0271d",
+      "at": "2026-10-17T20:48:18.108Z",
+      "action": "publish"
+    },
+    "activeDeploymentAfter": {
+      "deploymentId": "1eda23e6-dd26-425a-9072-a8b4a0cdcac2",
+      "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+      "archiveSha256": "d71dc4bb9c6485b41558af057fc38a2d3f5682b387bc2f100fc1093a58c969c8",
+      "validationReceiptId": "val-6c082feebcfc259a9bde7553",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-c95d675ca833231fbfb5b00d",
+      "at": "2026-10-17T20:56:15.972Z",
+      "action": "update"
+    },
+    "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp",
+    "modelPublished": true,
+    "modelCommitted": true
+  },
+  "wikiPages": [
+    "index.md",
+    "integrations/index.md",
+    "integrations/notify-hub/auditing-notifications.md",
+    "integrations/notify-hub/index.md",
+    "integrations/notify-hub/sending-exactly-once.md"
+  ],
+  "receipt": {
+    "schema": "procmem.build-receipt/v1",
+    "buildId": "bld-intllm-20261017-5a8be8",
+    "status": "published",
+    "sources": [
+      "daily/2026-10-17/manifest-0001.json"
+    ],
+    "inputs": {
+      "files": 5,
+      "manifestSha256": "04dd578b950f0fce4a37438fe3648ac479b6361077e96f4277efca8fdaec9c89"
+    },
+    "workspaceBackend": "modal",
+    "profiles": {
+      "root": "kimi-k3",
+      "selectable": [
+        "kimi-k3",
+        "glm-5p3",
+        "minimax-m3"
+      ],
+      "defaultChild": "kimi-k3"
+    },
+    "budget": {
+      "maxDepth": 4,
+      "maxChildren": 32,
+      "maxDescendants": 4,
+      "maxTurns": 60,
+      "maxToolCalls": 200,
+      "maxInputBytes": 134217728,
+      "maxOutputBytes": 16777216,
+      "maxConcurrentAgents": 4,
+      "maxSessions": 4,
+      "waitMinMs": 1000,
+      "waitMaxMs": 600000,
+      "waitDefaultMs": 60000,
+      "maxWallClockMs": 7200000
+    },
+    "initialHead": "rev-3f055dc71848f7a43aea22c9",
+    "revisionId": "rev-78cbebee60516c964add07d1",
+    "summary": "Cohort 2026-10-17 (2 failed ops-agent sessions against the notify-hub MCP): captured the reusable lessons and repaired the integration.\n\nWiki: new integrations/notify-hub/ subtree — index (behavior contract: cursor pagination with server page cap, lost-ack 503 commits, Idempotency-Key replay semantics, 429 + Retry-After) plus two procedure pages: auditing-notifications (single-page truncation failure mode, ses-mvcvcbvy-ec62945cf6b5, and how to verify a complete listing) and sending-exactly-once (duplicate-after-lost-ack and unretried-429 failure modes, ses-mvcvcbw2-190f2f082b46, and the idempotency-key procedure). All claims carry trace refs; fix verification cites validation val-6c082feebcfc259a9bde7553 and live probe pub-c95d675ca833231fbfb5b00d.\n\nIntegration repair (mcps/notify-hub): listAll now follows has_more/next_cursor until exhausted; send carries a content-derived Idempotency-Key (sha256 of recipient+message) on every attempt and retries 429 (honoring Retry-After) and 503 (backoff, max 3); send_notification marked idempotentHint. Deterministic regression tests for all three failure modes. Validated (all smoke/regression/held-out suites passed), committed 66986288920c2f3d1b31d8f524b5a1be025640b7, promoted, deployed and probed live (auth 401s enforced; simulated list returned all 23 seeded notifications).",
+    "startedAt": "2026-10-17T20:48:20.035Z",
+    "finishedAt": "2026-10-17T20:58:07.644Z",
+    "attempts": [
+      {
+        "attempt": 1,
+        "baseRevision": "rev-3f055dc71848f7a43aea22c9",
+        "status": "published",
+        "revisionId": "rev-78cbebee60516c964add07d1",
+        "summary": "Cohort 2026-10-17 (2 failed ops-agent sessions against the notify-hub MCP): captured the reusable lessons and repaired the integration.\n\nWiki: new integrations/notify-hub/ subtree — index (behavior contract: cursor pagination with server page cap, lost-ack 503 commits, Idempotency-Key replay semantics, 429 + Retry-After) plus two procedure pages: auditing-notifications (single-page truncation failure mode, ses-mvcvcbvy-ec62945cf6b5, and how to verify a complete listing) and sending-exactly-once (duplicate-after-lost-ack and unretried-429 failure modes, ses-mvcvcbw2-190f2f082b46, and the idempotency-key procedure). All claims carry trace refs; fix verification cites validation val-6c082feebcfc259a9bde7553 and live probe pub-c95d675ca833231fbfb5b00d.\n\nIntegration repair (mcps/notify-hub): listAll now follows has_more/next_cursor until exhausted; send carries a content-derived Idempotency-Key (sha256 of recipient+message) on every attempt and retries 429 (honoring Retry-After) and 503 (backoff, max 3); send_notification marked idempotentHint. Deterministic regression tests for all three failure modes. Validated (all smoke/regression/held-out suites passed), committed 66986288920c2f3d1b31d8f524b5a1be025640b7, promoted, deployed and probed live (auth 401s enforced; simulated list returned all 23 seeded notifications).",
+        "agents": 1,
+        "startedAt": "2026-10-17T20:48:20.046Z",
+        "finishedAt": "2026-10-17T20:58:07.644Z",
+        "tree": {
+          "agentId": "root",
+          "parentId": null,
+          "depth": 0,
+          "profileId": "kimi-k3",
+          "model": "accounts/fireworks/models/kimi-k3",
+          "objective": "Daily procedural-memory build",
+          "paths": [],
+          "scope": "all",
+          "includeParentDraft": false,
+          "status": "completed",
+          "usage": {
+            "sessions": 1,
+            "turns": 23,
+            "toolCalls": 46,
+            "toolErrors": 0,
+            "inputBytes": 2610339,
+            "outputBytes": 51489,
+            "promptTokens": 582621,
+            "completionTokens": 12421,
+            "modelLatencyMs": 386259
+          },
+          "descendants": {
+            "sessions": 0,
+            "turns": 0,
+            "toolCalls": 0,
+            "toolErrors": 0,
+            "inputBytes": 0,
+            "outputBytes": 0,
+            "promptTokens": 0,
+            "completionTokens": 0,
+            "modelLatencyMs": 0,
+            "agents": 0
+          },
+          "startedAt": "2026-10-17T20:48:20.047Z",
+          "finishedAt": "2026-10-17T20:58:07.207Z",
+          "latencyMs": 587160,
+          "workspace": {
+            "kind": "modal",
+            "id": "ws-mvcvcbwv-0a5a696aad"
+          },
+          "baseManifestSha256": "a692245845c2d62c5926ba5f80210d890b766b407ec6ee1116b37efea8510357",
+          "publish": {
+            "status": "published",
+            "revisionId": "rev-78cbebee60516c964add07d1",
+            "summary": "Cohort 2026-10-17 (2 failed ops-agent sessions against the notify-hub MCP): captured the reusable lessons and repaired the integration.\n\nWiki: new integrations/notify-hub/ subtree — index (behavior contract: cursor pagination with server page cap, lost-ack 503 commits, Idempotency-Key replay semantics, 429 + Retry-After) plus two procedure pages: auditing-notifications (single-page truncation failure mode, ses-mvcvcbvy-ec62945cf6b5, and how to verify a complete listing) and sending-exactly-once (duplicate-after-lost-ack and unretried-429 failure modes, ses-mvcvcbw2-190f2f082b46, and the idempotency-key procedure). All claims carry trace refs; fix verification cites validation val-6c082feebcfc259a9bde7553 and live probe pub-c95d675ca833231fbfb5b00d.\n\nIntegration repair (mcps/notify-hub): listAll now follows has_more/next_cursor until exhausted; send carries a content-derived Idempotency-Key (sha256 of recipient+message) on every attempt and retries 429 (honoring Retry-After) and 503 (backoff, max 3); send_notification marked idempotentHint. Deterministic regression tests for all three failure modes. Validated (all smoke/regression/held-out suites passed), committed 66986288920c2f3d1b31d8f524b5a1be025640b7, promoted, deployed and probed live (auth 401s enforced; simulated list returned all 23 seeded notifications).",
+            "treeSha256": "0be92608d60d77e679260b6354ca5d77a27fccc6501d3fbd792dc16692d06614"
+          },
+          "toolCalls": [
+            {
+              "turn": 1,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 211,
+              "argsSha256": "4218267a1d6b36bddd145029204552256d08d7f59e77bad11cbf82ac3ad4a07d",
+              "resultBytes": 1352,
+              "truncated": false
+            },
+            {
+              "turn": 1,
+              "session": 1,
+              "name": "ls",
+              "ok": true,
+              "durationMs": 214,
+              "argsSha256": "f8153ce0a369c8edfafde4f20ae344af703d239b75ebfdc487906d6c16caaf00",
+              "resultBytes": 118,
+              "truncated": false
+            },
+            {
+              "turn": 1,
+              "session": 1,
+              "name": "ls",
+              "ok": true,
+              "durationMs": 221,
+              "argsSha256": "e884b6175aa3f666012bbca5c7821c84203579d49951b666330727dc020f5ee6",
+              "resultBytes": 431,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 215,
+              "argsSha256": "2709a5cf6e700afd0a4d982a324635488bfee68b34a22b56d39e2d389e2d8550",
+              "resultBytes": 387,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 218,
+              "argsSha256": "be7a2ea18a60e132981d4ad6c37a65430eac3de2ac59177339569b28c6c631b3",
+              "resultBytes": 1221,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 210,
+              "argsSha256": "4b1b5c2b0127ac4672547eff0701bfe4894a34b2310b17f39322433ec80fa0fc",
+              "resultBytes": 2420,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 210,
+              "argsSha256": "1d51bea6e6d6533f94972d4c492f6dfab85a6135e704005b928ae1b8f241920b",
+              "resultBytes": 1194,
+              "truncated": false
+            },
+            {
+              "turn": 2,
+              "session": 1,
+              "name": "read",
+              "ok": true,
+              "durationMs": 232,
+              "argsSha256": "0981b0b76c7d5a25ab29f2178e4715985b31ce3bdc2129d521f0d7ca76c8d109",
+              "resultBytes": 5023,
+              "truncated": false
+            },
+            {
+              "turn": 3,
+              "session": 1,
+              "name": "integration_list",
+              "ok": true,
+              "durationMs": 3,
+              "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "resultBytes": 1535,
+              "truncated": false
+            },
+            {
+              "turn": 4,
+              "session": 1,
+              "name": "integration_open",
+              "ok": true,
+              "durationMs": 8106,
+              "argsSha256": "2d04114a7ad54b8cd974a5a512f00ddd6394c3f1107a144c8fac7bf8e76a61be",
+              "resultBytes": 908,
+              "truncated": false
+            },
+            {
+              "turn": 5,
+              "session": 1,
+              "name": "integration_ls",
+              "ok": true,
+              "durationMs": 239,
+              "argsSha256": "95f8ee19482435d1b6c677605a72c062a9005ead7696b27dd37d6f76131dd383",
+              "resultBytes": 869,
+              "truncated": false
+            },
+            {
+              "turn": 6,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 714,
+              "argsSha256": "adfed0036535e3a1a149d0e2a06b465648c37eec3aab771799ffc7446fcde804",
+              "resultBytes": 4295,
+              "truncated": false
+            },
+            {
+              "turn": 6,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 564,
+              "argsSha256": "507312574dce3f6b7af8f22b4d012318de958b4ad9ac2a080cb870f57d52ecca",
+              "resultBytes": 2138,
+              "truncated": false
+            },
+            {
+              "turn": 6,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 499,
+              "argsSha256": "a248dbc655205f2d4d52937525a4f71672da5fc93513bdff07f9c7ec8c5d2838",
+              "resultBytes": 4032,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 391,
+              "argsSha256": "5f2b9a50d769b940739f9559a6683feb00e17a6e27659af3dcc28c544eaa692f",
+              "resultBytes": 1191,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 214,
+              "argsSha256": "cf5611d5ee939b1c190fa3dbd13401d85926d9b6a174995000ba356c0e1fc7f0",
+              "resultBytes": 2237,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 224,
+              "argsSha256": "ef6e6c592703dfff818397cb55b3638cb07ce65c50e8bbd63fdcfa5a81ee8d73",
+              "resultBytes": 2774,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 220,
+              "argsSha256": "55fc47704e43e819309af8df8d9b5eeb8a3a4134ed1be4ab777856b386fbb8d1",
+              "resultBytes": 881,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 210,
+              "argsSha256": "b631a028bc6d8d2498f588fa785f9b2bfd6dd9b338abb0ede01ddac63b7399e3",
+              "resultBytes": 465,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 226,
+              "argsSha256": "98d869913dfc39ea2564083ae91542efb365673d5d862635e8cf2ca828c7e915",
+              "resultBytes": 1657,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 248,
+              "argsSha256": "de8de71ec9eefbdddd4d7a3c3be33af9fe2018cfefe9d57e2329259ab8e1783e",
+              "resultBytes": 865,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 232,
+              "argsSha256": "c32a2f1f4d1883ea61a8ccc71413507adeceae4d287574555bba9b34425a72ec",
+              "resultBytes": 418,
+              "truncated": false
+            },
+            {
+              "turn": 7,
+              "session": 1,
+              "name": "integration_read",
+              "ok": true,
+              "durationMs": 211,
+              "argsSha256": "77992eb6d8e07f04d2087a7097627d45f2401073e55d278e959b89ad59debca5",
+              "resultBytes": 1951,
+              "truncated": false
+            },
+            {
+              "turn": 8,
+              "session": 1,
+              "name": "integration_write",
+              "ok": true,
+              "durationMs": 467,
+              "argsSha256": "37d0755bb8f2d73263f45fdd8d55f53f841f64373f8888163cdce54d1a34c473",
+              "resultBytes": 153,
+              "truncated": false
+            },
+            {
+              "turn": 9,
+              "session": 1,
+              "name": "integration_edit",
+              "ok": true,
+              "durationMs": 761,
+              "argsSha256": "6c5661b4597a2757af4ee77a2c6a47ed21346de28e41d4b8dd919294d056f956",
+              "resultBytes": 152,
+              "truncated": false
+            },
+            {
+              "turn": 9,
+              "session": 1,
+              "name": "integration_edit",
+              "ok": true,
+              "durationMs": 451,
+              "argsSha256": "7fa6fcc071a43797fab94a13e6938d377a3cbf56d40d19060494d10dc6812413",
+              "resultBytes": 152,
+              "truncated": false
+            },
+            {
+              "turn": 9,
+              "session": 1,
+              "name": "integration_edit",
+              "ok": true,
+              "durationMs": 490,
+              "argsSha256": "5d2fa7aeedbb0c6af3c0dd4c6f7d242b5eb80aed081d88e2810ed05bce1ce767",
+              "resultBytes": 152,
+              "truncated": false
+            },
+            {
+              "turn": 9,
+              "session": 1,
+              "name": "integration_edit",
+              "ok": true,
+              "durationMs": 448,
+              "argsSha256": "fd91f4c99d208555c510c8fef174565e87ba5fdc4ad4165c3e5efcc0447dd09c",
+              "resultBytes": 152,
+              "truncated": false
+            },
+            {
+              "turn": 10,
+              "session": 1,
+              "name": "integration_write",
+              "ok": true,
+              "durationMs": 657,
+              "argsSha256": "a2e72ba0406d880177fda220e96d199ccb526953e5f7bc681ed3db060cf8e2c2",
+              "resultBytes": 160,
+              "truncated": false
+            },
+            {
+              "turn": 11,
+              "session": 1,
+              "name": "integration_exec",
+              "ok": true,
+              "durationMs": 2135,
+              "argsSha256": "ce0e2b3205af37bcab1f7bbbdd0038151fc9fe5ff1de684602a40ba0575e293c",
+              "resultBytes": 2637,
+              "truncated": false
+            },
+            {
+              "turn": 12,
+              "session": 1,
+              "name": "integration_validate",
+              "ok": true,
+              "durationMs": 16856,
+              "argsSha256": "2d04114a7ad54b8cd974a5a512f00ddd6394c3f1107a144c8fac7bf8e76a61be",
+              "resultBytes": 2330,
+              "truncated": false
+            },
+            {
+              "turn": 13,
+              "session": 1,
+              "name": "integration_git_commit",
+              "ok": true,
+              "durationMs": 3527,
+              "argsSha256": "fa6d2a12edf4a79c53c1bcb4062dd24e57683502d510e7d8fb8ab3ae3109101e",
+              "resultBytes": 350,
+              "truncated": false
+            },
+            {
+              "turn": 14,
+              "session": 1,
+              "name": "integration_promote",
+              "ok": true,
+              "durationMs": 5338,
+              "argsSha256": "2d04114a7ad54b8cd974a5a512f00ddd6394c3f1107a144c8fac7bf8e76a61be",
+              "resultBytes": 725,
+              "truncated": false
+            },
+            {
+              "turn": 15,
+              "session": 1,
+              "name": "integration_publish",
+              "ok": true,
+              "durationMs": 145564,
+              "argsSha256": "2d04114a7ad54b8cd974a5a512f00ddd6394c3f1107a144c8fac7bf8e76a61be",
+              "resultBytes": 3393,
+              "truncated": false
+            },
+            {
+              "turn": 16,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 943,
+              "argsSha256": "a75113793ce999c481d0561e41ce0062ef9cbe20e9c4101a5c069907b4843c35",
+              "resultBytes": 227,
+              "truncated": false
+            },
+            {
+              "turn": 16,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 479,
+              "argsSha256": "836a9954cbfb1eeaed5fbdf87da7c97ebe011028d3b480cc56e6727899605600",
+              "resultBytes": 189,
+              "truncated": false
+            },
+            {
+              "turn": 17,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 731,
+              "argsSha256": "2d9d9c826619e69153901af02d4877c5a0fb3b74f33935961f92e19275bf9367",
+              "resultBytes": 206,
+              "truncated": false
+            },
+            {
+              "turn": 17,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 493,
+              "argsSha256": "cbdc12818996161fd5ba7618fa8ef7a7baccf37fbc71019993d9500c1ce11e37",
+              "resultBytes": 204,
+              "truncated": false
+            },
+            {
+              "turn": 18,
+              "session": 1,
+              "name": "validate",
+              "ok": true,
+              "durationMs": 282,
+              "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "resultBytes": 531,
+              "truncated": false
+            },
+            {
+              "turn": 19,
+              "session": 1,
+              "name": "write",
+              "ok": true,
+              "durationMs": 604,
+              "argsSha256": "f2b529ec52b23c0955976bfe4852e7fd4659b7211ed6d7752b8f20abdc9ae92b",
+              "resultBytes": 177,
+              "truncated": false
+            },
+            {
+              "turn": 19,
+              "session": 1,
+              "name": "edit",
+              "ok": true,
+              "durationMs": 610,
+              "argsSha256": "cf6432948378bb896d2fd3eb8f6e7b5769ec3b597490966d674e98fd24c04418",
+              "resultBytes": 211,
+              "truncated": false
+            },
+            {
+              "turn": 19,
+              "session": 1,
+              "name": "edit",
+              "ok": true,
+              "durationMs": 562,
+              "argsSha256": "012e94dafff1ca85200c1292aeef6efd1656162bcb4587aad576f6edaa597c61",
+              "resultBytes": 236,
+              "truncated": false
+            },
+            {
+              "turn": 20,
+              "session": 1,
+              "name": "validate",
+              "ok": true,
+              "durationMs": 228,
+              "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "resultBytes": 253,
+              "truncated": false
+            },
+            {
+              "turn": 21,
+              "session": 1,
+              "name": "edit",
+              "ok": true,
+              "durationMs": 555,
+              "argsSha256": "5f942ecfdb6c1c25ad37ef6769ee7d2d6dd54460e56122496131246cd307d11a",
+              "resultBytes": 224,
+              "truncated": false
+            },
+            {
+              "turn": 22,
+              "session": 1,
+              "name": "validate",
+              "ok": true,
+              "durationMs": 217,
+              "argsSha256": "44136fa355b3678a1146ad16f7e8649e94fb4fc21fe77e8310c060f61caaff8a",
+              "resultBytes": 149,
+              "truncated": false
+            },
+            {
+              "turn": 23,
+              "session": 1,
+              "name": "publish",
+              "ok": true,
+              "durationMs": 232,
+              "argsSha256": "2500533b220cc2673e2e88b7fe74ce86df722a72cd9cfb0769a6af674304a3ac",
+              "resultBytes": 179,
+              "truncated": false
+            }
+          ],
+          "children": []
+        }
+      }
+    ],
+    "providerClose": [
+      {
+        "id": "integrations",
+        "ok": true
+      }
+    ]
+  }
+}

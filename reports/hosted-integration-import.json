@@ -1,0 +1,551 @@
+{
+  "kind": "hosted-integration-import",
+  "ok": true,
+  "importId": "imp-20261017-c80a22",
+  "dryRun": false,
+  "resume": false,
+  "labels": {
+    "operation": "OPERATOR IMPORT: trusted operator CLI copied an existing integration into the hosted staging demo tenant; not performed by the model and not via the customer API",
+    "provenance": "LLM-AUTHORED: code, commits, validation, promotion and the original publish come from the integration-llm-run daily build (local DirectoryObjectStore); preserved unmodified",
+    "thirdParty": "SIMULATED: Notify Hub runs in-process in the child (NOTIFY_HUB_SIMULATED=1); no vendor credentials",
+    "activation": "record installed with manufact.active=null; active only via the normal ManufactPublisher.publish + live probe"
+  },
+  "startedAt": "2026-10-17T21:07:52.259Z",
+  "checks": [
+    {
+      "name": "slug is the known simulated demo fixture",
+      "ok": true,
+      "detail": {
+        "slug": "notify-hub"
+      }
+    },
+    {
+      "name": "source store directory exists",
+      "ok": true,
+      "detail": {
+        "sourceStore": ".data/integration-llm/20261017-5a8be8/store",
+        "sourceNs": "llm-int-tenant"
+      }
+    },
+    {
+      "name": "env file pins the demo Manufact org",
+      "ok": true,
+      "detail": {
+        "orgSlug": "org-84350150-jpcs9",
+        "pinned": "org-84350150-jpcs9"
+      }
+    },
+    {
+      "name": "source and target namespaces differ",
+      "ok": true
+    },
+    {
+      "name": "source integration record exists",
+      "ok": true
+    },
+    {
+      "name": "source record is promoted",
+      "ok": true
+    },
+    {
+      "name": "source record is on the pinned Manufact org",
+      "ok": true,
+      "detail": {
+        "orgSlug": "org-84350150-jpcs9"
+      }
+    },
+    {
+      "name": "source active deployment passed its live probe",
+      "ok": true,
+      "detail": {
+        "active": {
+          "deploymentId": "1eda23e6-dd26-425a-9072-a8b4a0cdcac2",
+          "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+          "archiveSha256": "d71dc4bb9c6485b41558af057fc38a2d3f5682b387bc2f100fc1093a58c969c8",
+          "validationReceiptId": "val-6c082feebcfc259a9bde7553",
+          "status": "running",
+          "probe": "passed",
+          "receiptId": "pub-c95d675ca833231fbfb5b00d",
+          "at": "2026-10-17T20:56:15.972Z",
+          "action": "update"
+        }
+      }
+    },
+    {
+      "name": "source promoted commit is the active commit",
+      "ok": true,
+      "detail": {
+        "promoted": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+        "active": "66986288920c2f3d1b31d8f524b5a1be025640b7"
+      }
+    },
+    {
+      "name": "source child env is fixture-only",
+      "ok": true,
+      "detail": {
+        "envNames": [
+          "CHILD_AUTH_AUDIENCE",
+          "CHILD_AUTH_ISSUER",
+          "CHILD_AUTH_PUBLIC_JWK",
+          "NODE_ENV",
+          "NOTIFY_HUB_SIMULATED"
+        ]
+      }
+    },
+    {
+      "name": "source validation receipt passed and matches promotion",
+      "ok": true,
+      "detail": {
+        "validationReceiptId": "val-6c082feebcfc259a9bde7553"
+      }
+    },
+    {
+      "name": "validated manifest exposes list_notifications",
+      "ok": true,
+      "detail": {
+        "tools": [
+          "get_notification",
+          "integration_info",
+          "list_notifications",
+          "send_notification"
+        ]
+      }
+    },
+    {
+      "name": "source integration objects readable",
+      "ok": true,
+      "detail": {
+        "objects": 10
+      }
+    },
+    {
+      "name": "source publish receipt pub-16d116411df2b9bac3d0271d present",
+      "ok": true
+    },
+    {
+      "name": "source publish receipt pub-c95d675ca833231fbfb5b00d present",
+      "ok": true
+    },
+    {
+      "name": "all required bundles/archives present in source",
+      "ok": true,
+      "detail": {
+        "required": 3,
+        "absentRequired": []
+      }
+    },
+    {
+      "name": "promoted archive matches its record",
+      "ok": true,
+      "detail": {
+        "archiveSha256": "d71dc4bb9c6485b41558af057fc38a2d3f5682b387bc2f100fc1093a58c969c8",
+        "bytes": 10017
+      }
+    },
+    {
+      "name": "latest git bundle matches its record",
+      "ok": true,
+      "detail": {
+        "bundle": "blobs/ab131d6092590c25a66fcdbc36add769f78036e45c158c799ba2ed9c54465456"
+      }
+    },
+    {
+      "name": "copy set is bounded",
+      "ok": true,
+      "detail": {
+        "objects": 17,
+        "totalBytes": 135113
+      }
+    },
+    {
+      "name": "env file provides MODAL_TOKEN_ID",
+      "ok": true
+    },
+    {
+      "name": "env file provides MODAL_TOKEN_SECRET",
+      "ok": true
+    },
+    {
+      "name": "env file provides MCP_USE_API_KEY",
+      "ok": true
+    },
+    {
+      "name": "env file provides INTEGRATION_CHILD_SIGNING_JWK",
+      "ok": true
+    },
+    {
+      "name": "Manufact credentials resolved from env file",
+      "ok": true
+    },
+    {
+      "name": "Manufact identity is the pinned org",
+      "ok": true,
+      "detail": {
+        "orgSlug": "org-84350150-jpcs9",
+        "orgName": "Askshepherd"
+      }
+    },
+    {
+      "name": "existing child server env is fixture-only",
+      "ok": true,
+      "detail": {
+        "keys": [
+          "CHILD_AUTH_AUDIENCE",
+          "CHILD_AUTH_ISSUER",
+          "CHILD_AUTH_PUBLIC_JWK",
+          "NODE_ENV",
+          "NOTIFY_HUB_SIMULATED"
+        ]
+      }
+    },
+    {
+      "name": "target bytes equal source bytes (digests roundtrip)",
+      "ok": true,
+      "detail": {
+        "objects": 18,
+        "mismatched": []
+      }
+    },
+    {
+      "name": "record installed create-once with manufact.active=null",
+      "ok": true,
+      "detail": {
+        "version": 1
+      }
+    },
+    {
+      "name": "publish deployed the imported commit and the live probe passed",
+      "ok": true,
+      "detail": {
+        "status": "running",
+        "failures": []
+      }
+    },
+    {
+      "name": "probe: unauthenticated and foreign/wrong-audience tokens rejected with 401",
+      "ok": true,
+      "detail": {
+        "unauthenticated": 401,
+        "invalid": {
+          "foreign_key": 401,
+          "wrong_audience": 401
+        }
+      }
+    },
+    {
+      "name": "parent catalog without key is 401",
+      "ok": true,
+      "detail": {
+        "status": 401
+      }
+    },
+    {
+      "name": "parent catalog lists the exact imported deployment",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "entry": {
+          "slug": "notify-hub",
+          "title": "Notify Hub",
+          "description": "Send and list notifications through the Notify Hub API (simulated third-party service).",
+          "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp",
+          "tools": [
+            "integration_info",
+            "list_notifications",
+            "send_notification",
+            "get_notification"
+          ],
+          "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+          "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+          "deployedAt": "2026-10-17T21:25:40.616Z",
+          "audience": "urn:procmem:integration:[redacted:tenant]:notify-hub"
+        }
+      }
+    },
+    {
+      "name": "parent token exchange returns a short-lived token for this child",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "tokenType": "Bearer",
+        "expiresInS": 900
+      }
+    },
+    {
+      "name": "parent-minted token verifies against the deployed public key",
+      "ok": true
+    },
+    {
+      "name": "child without token is 401",
+      "ok": true,
+      "detail": {
+        "status": 401
+      }
+    },
+    {
+      "name": "child tools/list equals the validated manifest",
+      "ok": true,
+      "detail": {
+        "tools": [
+          "get_notification",
+          "integration_info",
+          "list_notifications",
+          "send_notification"
+        ]
+      }
+    },
+    {
+      "name": "list_notifications returns every simulated record (read-only call)",
+      "ok": true,
+      "detail": {
+        "isError": false,
+        "count": 23,
+        "pages": 3,
+        "items": 23,
+        "uniqueIds": true,
+        "seedIdsPresent": true
+      }
+    }
+  ],
+  "source": {
+    "store": ".data/integration-llm/20261017-5a8be8/store",
+    "ns": "llm-int-tenant",
+    "slug": "notify-hub",
+    "refVersion": 13,
+    "recordSha256": "b207cfbc1f01ae9dc0fc1ffb43f28682d3c4e1e956d9ce0fff56489d7d8ebc23",
+    "createdByBuild": "setup-20261017-5a8be8",
+    "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+    "tree": "9a72cfa4c22151ff10409cbc49a5fac0b47c4be0",
+    "promotedBuildId": "bld-intllm-20261017-5a8be8",
+    "validationReceiptId": "val-6c082feebcfc259a9bde7553",
+    "archiveSha256": "d71dc4bb9c6485b41558af057fc38a2d3f5682b387bc2f100fc1093a58c969c8",
+    "activeDeployment": {
+      "deploymentId": "1eda23e6-dd26-425a-9072-a8b4a0cdcac2",
+      "receiptId": "pub-c95d675ca833231fbfb5b00d",
+      "at": "2026-10-17T20:56:15.972Z"
+    },
+    "manufactServer": {
+      "serverId": "64be161c-c75c-4976-88b4-c271dc22c365",
+      "name": "procmem-llm-5a8be8-notify-hub",
+      "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp",
+      "envNames": [
+        "CHILD_AUTH_AUDIENCE",
+        "CHILD_AUTH_ISSUER",
+        "CHILD_AUTH_PUBLIC_JWK",
+        "NODE_ENV",
+        "NOTIFY_HUB_SIMULATED"
+      ]
+    },
+    "history": {
+      "promoted": 1,
+      "validations": 2,
+      "deployments": 2
+    }
+  },
+  "objects": {
+    "integrationObjects": 10,
+    "blobs": 7,
+    "totalBytes": 135113,
+    "referencedButAbsentInSource": [],
+    "items": [
+      {
+        "key": "blobs/9243b29d7ff19b3c66a9d7605690006036d07a47b3900e183a741d93b60045d6",
+        "bytes": 11062,
+        "sha256": "9243b29d7ff19b3c66a9d7605690006036d07a47b3900e183a741d93b60045d6"
+      },
+      {
+        "key": "blobs/99d775a6dc2367c0479db2cdc42467698ce2a52912702efdd8e60d86d02fbb21",
+        "bytes": 11062,
+        "sha256": "99d775a6dc2367c0479db2cdc42467698ce2a52912702efdd8e60d86d02fbb21"
+      },
+      {
+        "key": "blobs/ab131d6092590c25a66fcdbc36add769f78036e45c158c799ba2ed9c54465456",
+        "bytes": 15130,
+        "sha256": "ab131d6092590c25a66fcdbc36add769f78036e45c158c799ba2ed9c54465456"
+      },
+      {
+        "key": "blobs/b6864c3a23ba82aafd324cbf00e3904e53cb954b3df4120e014d68f3cc9ceecb",
+        "bytes": 15130,
+        "sha256": "b6864c3a23ba82aafd324cbf00e3904e53cb954b3df4120e014d68f3cc9ceecb"
+      },
+      {
+        "key": "blobs/d71dc4bb9c6485b41558af057fc38a2d3f5682b387bc2f100fc1093a58c969c8",
+        "bytes": 10017,
+        "sha256": "d71dc4bb9c6485b41558af057fc38a2d3f5682b387bc2f100fc1093a58c969c8"
+      },
+      {
+        "key": "blobs/ebcbdbfc883c9d0bf46a76e376f4872b4fafbad7df6d369bdccb2cee244ee611",
+        "bytes": 6306,
+        "sha256": "ebcbdbfc883c9d0bf46a76e376f4872b4fafbad7df6d369bdccb2cee244ee611"
+      },
+      {
+        "key": "blobs/f1ad5d684ace96a93cda0c5389ef282415f7b0ed73c871358a5383a48ff74d0f",
+        "bytes": 7895,
+        "sha256": "f1ad5d684ace96a93cda0c5389ef282415f7b0ed73c871358a5383a48ff74d0f"
+      },
+      {
+        "key": "integrations/notify-hub/created.json",
+        "bytes": 101,
+        "sha256": "f11e72c78ccd20c6a787ee41595688f23556e05fb2d252094515255b0287b442"
+      },
+      {
+        "key": "integrations/notify-hub/receipts/pub-16d116411df2b9bac3d0271d.json",
+        "bytes": 4489,
+        "sha256": "872ebfc385a2f4c144a40cd8a4bf8ffdfcdd345b695495acb2e6c6b756106e39"
+      },
+      {
+        "key": "integrations/notify-hub/receipts/pub-c95d675ca833231fbfb5b00d.json",
+        "bytes": 4572,
+        "sha256": "924ffd4518b741da2fec360fec516d777dcc3a0937cc7eba2bfa7288f5c5ec44"
+      },
+      {
+        "key": "integrations/notify-hub/receipts/snap-278fc28a079aad96c132971d.json",
+        "bytes": 568,
+        "sha256": "64d1fb58c0dc763c16242edab8cb02098dbece4ba2ba015030104764baec0107"
+      },
+      {
+        "key": "integrations/notify-hub/receipts/snap-33acb12d10a0ceabd23e3bad.json",
+        "bytes": 479,
+        "sha256": "7a556bbab53e93d8b267fecd526392ed1dc2de05702bfb2557750505227e023e"
+      },
+      {
+        "key": "integrations/notify-hub/receipts/snap-5de7d6982994996e036028df.json",
+        "bytes": 478,
+        "sha256": "edbc43d37257d5380fc06b4bd06fea4dc636450c3f256aedc72da403b9be9880"
+      },
+      {
+        "key": "integrations/notify-hub/receipts/snap-89eb6b6ea6d823f8b03b072d.json",
+        "bytes": 568,
+        "sha256": "2e1616668e787efffb3d4b1bae66b0f2c4978af2520d9472ee46bb3f834b1bb8"
+      },
+      {
+        "key": "integrations/notify-hub/receipts/snap-afa2807fe3a8e589fcc110d6.json",
+        "bytes": 479,
+        "sha256": "0e12cf528363eb4646b95d8cb509c0250e205bdcb959ac3482206d5b371fb471"
+      },
+      {
+        "key": "integrations/notify-hub/receipts/val-6b49f4dcf31423e7d14e3210.json",
+        "bytes": 16430,
+        "sha256": "d9df00855bd87cb6993fa96bbecf21f6fdab48805b34a6e6f32e6a263fb41791"
+      },
+      {
+        "key": "integrations/notify-hub/receipts/val-6c082feebcfc259a9bde7553.json",
+        "bytes": 30347,
+        "sha256": "f63e19a90649a57e611170d5bebf8a4c7cc2b78864edf2e29ecee1fea41020c6"
+      }
+    ],
+    "notCopied": "daily manifests, traces, memory objects and every ref other than integrations/<slug>"
+  },
+  "target": {
+    "parentUrl": "https://wild-zero-kq08i.run.mcp-use.com",
+    "ns": "[redacted:tenant]",
+    "store": "modal-volume",
+    "markerKey": "integrations/notify-hub/operator-import.json",
+    "installedRefVersion": 1,
+    "resumed": false
+  },
+  "publish": {
+    "receiptId": "pub-caacb05fa470a9a6f8805a77",
+    "action": "update",
+    "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+    "status": "running",
+    "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp",
+    "dashboardUrl": "https://manufact.com/cloud/org-84350150-jpcs9/servers/64be161c-c75c-4976-88b4-c271dc22c365/overview",
+    "active": {
+      "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+      "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+      "archiveSha256": "d71dc4bb9c6485b41558af057fc38a2d3f5682b387bc2f100fc1093a58c969c8",
+      "validationReceiptId": "val-6c082feebcfc259a9bde7553",
+      "status": "running",
+      "probe": "passed",
+      "receiptId": "pub-caacb05fa470a9a6f8805a77",
+      "at": "2026-10-17T21:25:40.616Z",
+      "action": "update"
+    },
+    "probe": {
+      "passed": true,
+      "failures": [],
+      "unauthenticatedStatus": 401,
+      "invalidTokenStatus": {
+        "foreign_key": 401,
+        "wrong_audience": 401
+      },
+      "tools": [
+        "get_notification",
+        "integration_info",
+        "list_notifications",
+        "send_notification"
+      ],
+      "steps": [
+        {
+          "case": "integration_info responds",
+          "tool": "integration_info",
+          "isError": false
+        },
+        {
+          "case": "simulated list returns notifications",
+          "tool": "list_notifications",
+          "isError": false
+        }
+      ],
+      "skippedWriteSteps": [],
+      "attempts": 1
+    },
+    "buildLogTail": "Resolving build configuration...\nFetching repository contents...\nDetected runtime: Node.js\nDownloading repository source...\nBuild configuration ready\nPreparing deployment target...\nStarting build...\nPreparing build context from repository root...\nUploading build context...\nPrepared build context: 15 entries, 29106 bytes\nDONE 0.0s\nresolve mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402 done\n[1/5] FROM mirror.gcr.io/library/node:22-alpine@sha256:0a7108bf6c7bf5de370ffb1a3ed6be93d405b43ff159f681a8d18c0e2bc2e402\n[2/5] WORKDIR /app\nCACHED\n[4/5] RUN npm install\nCACHED\n[3/5] COPY . ./\n[2/5] WORKDIR /app\nCACHED\n[4/5] RUN npm install\nadded 63 packages, and audited 64 packages in 11s\n  run `npm fund` for details\nfound 0 vulnerabilities\n12 packages are looking for funding\nDONE 11.3s\n[5/5] RUN npm run build\n> notify-hub-mcp@0.1.0 build\n> mcp-use build\n[mcp-use] views directory not configured.\n[mcp-use] created mcp-env.d.ts\n[mcp-use] built index.ts → .mcp-use/build/index.js (181ms)\nDONE 0.5s\nPublishing image...\nBuild complete\nDeploying...\nDeploying to cloud...\nStarting server instance 1/1...\nWaiting for 1 server instance...\nVerifying server health...\nServer status: running\nVerifying MCP endpoint...\nServer is up (authentication required)\nConfirming server stability...\nServer stable\nSwitching [REDACTED] traffic to new deployment...\nProduction traffic switched successfully\nDeployed to https://warm-cloud-e1lye.run.mcp-use.com/mcp\n",
+    "sourceServerNote": "the source child server now verifies tokens for the target tenant audience; the local LLM-run record is left unmodified"
+  },
+  "parent": {
+    "catalogUnauthenticatedStatus": 401,
+    "catalogStatus": 200,
+    "entry": {
+      "slug": "notify-hub",
+      "title": "Notify Hub",
+      "description": "Send and list notifications through the Notify Hub API (simulated third-party service).",
+      "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp",
+      "tools": [
+        "integration_info",
+        "list_notifications",
+        "send_notification",
+        "get_notification"
+      ],
+      "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+      "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+      "deployedAt": "2026-10-17T21:25:40.616Z",
+      "audience": "urn:procmem:integration:[redacted:tenant]:notify-hub"
+    },
+    "tokenStatus": 200,
+    "token": {
+      "tokenType": "Bearer",
+      "audience": "urn:procmem:integration:[redacted:tenant]:notify-hub",
+      "expiresInS": 900,
+      "verifiedAgainstHostPublicKey": true
+    }
+  },
+  "child": {
+    "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp",
+    "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+    "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+    "unauthenticatedStatus": 401,
+    "serverVersion": {
+      "name": "notify-hub",
+      "title": "Notify Hub",
+      "version": "0.1.0",
+      "description": "Send and list notifications through the Notify Hub API (simulated third-party service)."
+    },
+    "tools": [
+      "get_notification",
+      "integration_info",
+      "list_notifications",
+      "send_notification"
+    ],
+    "listNotifications": {
+      "isError": false,
+      "count": 23,
+      "pages": 3,
+      "items": 23,
+      "uniqueIds": true,
+      "seedIdsPresent": true
+    }
+  },
+  "finishedAt": "2026-10-17T21:25:49.296Z"
+}

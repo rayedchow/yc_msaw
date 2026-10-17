@@ -1,0 +1,243 @@
+{
+  "schema": "procmem.hosted-e2e-smoke/v1",
+  "executed": true,
+  "ok": false,
+  "startedAt": "2026-10-17T20:50:08.431Z",
+  "target": {
+    "baseUrl": "https://wild-zero-kq08i.run.mcp-use.com",
+    "mcpUrl": "https://wild-zero-kq08i.run.mcp-use.com/mcp"
+  },
+  "labels": {
+    "traceSource": "SYNTHETIC fixture recorded by this script (fictional Ledgerly API; no customer data, no model call)",
+    "builder": "hosted DailyBuildService with the deployment's configured builder (real; no mock, no override); identity read from the receipt",
+    "tenant": "derived server-side from the static keys; the configured tenant value is redacted in this report"
+  },
+  "checks": [
+    {
+      "name": "health.app_healthz",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "body": {
+          "ok": true,
+          "version": "0.2.0",
+          "auth": "workos"
+        }
+      }
+    },
+    {
+      "name": "auth.ingest_without_key_401",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/traces/chunks",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.ingest_invalid_static_key_401",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/traces/chunks",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.ingest_garbage_bearer_401",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/traces/chunks",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.blob_without_key_401",
+      "ok": true,
+      "detail": {
+        "method": "PUT",
+        "route": "/v1/traces/blobs/0000000000000000000000000000000000000000000000000000000000000000",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.build_without_key_401",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/builds/daily",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.build_invalid_static_key_401",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/builds/daily",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.build_status_without_key_401",
+      "ok": true,
+      "detail": {
+        "method": "GET",
+        "route": "/v1/builds/bld-smoke-probe",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.read_key_cannot_ingest_403",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/traces/chunks",
+        "expected": [
+          403
+        ],
+        "status": 403,
+        "code": "insufficient_scope"
+      }
+    },
+    {
+      "name": "auth.read_key_cannot_build_403",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/builds/daily",
+        "expected": [
+          403
+        ],
+        "status": 403,
+        "code": "insufficient_scope"
+      }
+    },
+    {
+      "name": "auth.trace_key_cannot_build_403",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/builds/daily",
+        "expected": [
+          403
+        ],
+        "status": 403,
+        "code": "insufficient_scope"
+      }
+    },
+    {
+      "name": "auth.trace_key_cannot_read_build_status_403",
+      "ok": true,
+      "detail": {
+        "method": "GET",
+        "route": "/v1/builds/bld-smoke-probe",
+        "expected": [
+          403
+        ],
+        "status": 403,
+        "code": "insufficient_scope"
+      }
+    },
+    {
+      "name": "auth.trace_key_cannot_read_catalog_403",
+      "ok": true,
+      "detail": {
+        "method": "GET",
+        "route": "/v1/integrations",
+        "expected": [
+          403
+        ],
+        "status": 403,
+        "code": "insufficient_scope"
+      }
+    },
+    {
+      "name": "auth.catalog_without_key_401",
+      "ok": true,
+      "detail": {
+        "method": "GET",
+        "route": "/v1/integrations",
+        "expected": [
+          401
+        ],
+        "status": 401,
+        "code": "invalid_token"
+      }
+    },
+    {
+      "name": "auth.build_rejects_malformed_day_400",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/builds/daily",
+        "expected": [
+          400
+        ],
+        "status": 400,
+        "code": "invalid_day"
+      }
+    },
+    {
+      "name": "auth.customer_supplied_tenant_rejected_400",
+      "ok": true,
+      "detail": {
+        "method": "POST",
+        "route": "/v1/traces/chunks",
+        "expected": [
+          400
+        ],
+        "status": 400,
+        "code": "invalid_chunk"
+      }
+    },
+    {
+      "name": "auth.mcp_invalid_static_key_refused",
+      "ok": true,
+      "detail": {
+        "connected": false,
+        "error": "SdkHttpError: Error POSTing to endpoint: {\"error\":\"invalid_token\",\"error_description\":\"Unknown static key\"}"
+      }
+    },
+    {
+      "name": "auth.build_key_cannot_read_mcp",
+      "ok": false,
+      "detail": {
+        "via": "transport",
+        "error": "InsufficientScopeError: Insufficient scope: required \"memory:read\""
+      }
+    }
+  ],
+  "error": "SmokeFailure: 1 auth.* check(s) failed: auth.build_key_cannot_read_mcp",
+  "finishedAt": "2026-10-17T20:50:16.600Z",
+  "durationMs": 8169
+}

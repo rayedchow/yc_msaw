@@ -1,0 +1,30 @@
+{
+  "slug": "notify-hub",
+  "title": "Notify Hub",
+  "description": "Send and list notifications through the Notify Hub API (simulated third-party demo service).",
+  "version": "0.1.0",
+  "upstream": { "name": "Notify Hub (simulated)", "docs": ["templates/integration/demo/notify-hub/API.md"] },
+  "tools": ["integration_info", "list_notifications", "send_notification", "get_notification"],
+  "env": [
+    { "name": "NOTIFY_HUB_BASE_URL", "required": false, "secret": false, "description": "API base URL (unset when simulated)" },
+    { "name": "NOTIFY_HUB_TOKEN", "required": false, "secret": true, "description": "API bearer token" },
+    { "name": "NOTIFY_HUB_SIMULATED", "required": false, "secret": false, "description": "1 = in-process simulated API (hosted demo)" }
+  ],
+  "smoke": [
+    { "name": "integration_info responds", "steps": [{ "tool": "integration_info", "arguments": {}, "expect": [{ "path": "structuredContent.slug", "op": "equals", "value": "notify-hub" }] }] },
+    {
+      "name": "simulated list returns notifications",
+      "env": { "NOTIFY_HUB_SIMULATED": "1" },
+      "steps": [{ "tool": "list_notifications", "arguments": {}, "expect": [{ "path": "structuredContent.count", "op": "gte", "value": 1 }] }]
+    },
+    {
+      "name": "fixture send then get",
+      "fixture": { "name": "notify-hub", "config": { "seed": 2 } },
+      "env": { "NOTIFY_HUB_BASE_URL": "{{fixture.url}}", "NOTIFY_HUB_TOKEN": "{{fixture.token}}" },
+      "steps": [
+        { "tool": "send_notification", "arguments": { "recipient": "a@example.test", "message": "hello" }, "expect": [{ "path": "structuredContent.id", "op": "exists" }] },
+        { "tool": "get_notification", "arguments": { "id": "{{steps.0.structuredContent.id}}" }, "expect": [{ "path": "structuredContent.message", "op": "equals", "value": "hello" }] }
+      ]
+    }
+  ]
+}

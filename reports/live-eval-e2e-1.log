@@ -1,0 +1,26 @@
+[eval-e2e] app up: http://localhost:53543/mcp ns=eval-20261017201143 store=directory sandbox=modal
+[eval-e2e] start train-train-day1-a-kimi-k3-no-memory-r1-mvcu18v7
+[eval-e2e] start train-train-day1-b-kimi-k3-no-memory-r1-mvcu18v7
+[eval-e2e] done train-train-day1-a-kimi-k3-no-memory-r1-mvcu18v7: success=true dup=0 missed=0 wrong=0 failedApi=4/23 mem=0 turns=10
+[eval-e2e] done train-train-day1-b-kimi-k3-no-memory-r1-mvcu18v7: success=true dup=0 missed=0 wrong=0 failedApi=4/22 mem=0 turns=11
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:12:54.929Z","agentId":"root","event":"agent_started","detail":{"profile":"kimi-k3","depth":0,"scope":"all"}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:12:59.968Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":1}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:00.214Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":1}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:00.442Z","agentId":"root","event":"tool_call","detail":{"tool":"ls","ok":true,"turn":1}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:03.384Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:03.620Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":2}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:09.638Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":3}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:13.462Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":4}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:20.822Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":5}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:24.617Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":6}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:30.918Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":7}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:38.699Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":8}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:51.073Z","agentId":"root","event":"tool_call","detail":{"tool":"grep","ok":true,"turn":9}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:55.181Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":10}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:13:59.815Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":11}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:14:04.130Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":12}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:14:09.776Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":13}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:14:16.592Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":14}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:14:23.883Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":15}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:14:28.201Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":16}}
+[eval-e2e] [build bld-mvcu2obd-254ccb1dff] {"at":"2026-10-17T20:14:33.014Z","agentId":"root","event":"tool_call","detail":{"tool":"read","ok":true,"turn":17}}

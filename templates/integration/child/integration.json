@@ -1,0 +1,14 @@
+{
+  "slug": "{{slug}}",
+  "title": "{{title}}",
+  "description": "{{description}}",
+  "upstream": { "name": "{{upstreamName}}", "docs": [] },
+  "tools": ["integration_info"],
+  "env": [],
+  "smoke": [
+    {
+      "name": "integration_info responds",
+      "steps": [{ "tool": "integration_info", "arguments": {}, "expect": [{ "path": "structuredContent.slug", "op": "equals", "value": "{{slug}}" }] }]
+    }
+  ]
+}

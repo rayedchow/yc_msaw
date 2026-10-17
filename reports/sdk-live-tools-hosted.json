@@ -1,0 +1,460 @@
+{
+  "kind": "sdk-live-tools-hosted",
+  "labels": {
+    "mode": "LIVE READ-ONLY: real deployed parent + real child integration MCP over HTTPS; only readOnlyHint tools called",
+    "upstream": "child integration is LLM-authored (integration-llm-run); its third-party API is SIMULATED in-process (NOTIFY_HUB_SIMULATED=1)",
+    "credential": "static headless key 'read' (non-expiring); parent OAuth refresh is NOT exercised here"
+  },
+  "baseUrl": "https://wild-zero-kq08i.run.mcp-use.com",
+  "startedAt": "2026-10-17T22:06:44.161Z",
+  "checks": [
+    {
+      "name": "catalog fetched (authenticated HTTPS)",
+      "ok": true,
+      "detail": {
+        "state": "ok",
+        "childAuth": true
+      }
+    },
+    {
+      "name": "memory tools exposed",
+      "ok": true,
+      "detail": [
+        "memory__open_memory",
+        "memory__read",
+        "memory__grep",
+        "memory__find",
+        "memory__ls",
+        "memory__shell",
+        "memory__poll_command",
+        "memory__write_command",
+        "memory__cancel_command",
+        "memory__write",
+        "memory__edit",
+        "memory__view_file"
+      ]
+    },
+    {
+      "name": "at least one child integration connected",
+      "ok": true,
+      "detail": [
+        {
+          "source": "integration:notify-hub",
+          "state": "ready",
+          "toolCount": 4,
+          "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+          "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+          "lastListedAt": "2026-10-17T22:06:50.835Z"
+        }
+      ]
+    },
+    {
+      "name": "memory__open_memory (read-only) succeeds",
+      "ok": true,
+      "detail": {
+        "isError": false,
+        "contentTypes": [
+          "text"
+        ],
+        "textPreview": "{\n  \"workspaceId\": \"09478966-a1dd-4d35-b130-0d2d45a6aec5\",\n  \"revision\": {\n    \"id\": \"rev-22c43b7d0a07227e38aba824\",\n    \"publishedAt\": \"2026-10-17T20:57:07.985Z\",\n    \"pages\": 4,\n    \"summary\": \"Cohort contained one synthetic smoke-fixture session (smoke-e2e-mvcvkvlt-89798e) re-running the Ledgerly paginate-then-pay workflow already documented from smoke-e2e-mvcvfc5o-5f79fc. Verified all 30 event",
+        "hasStructuredContent": false,
+        "errorCode": null
+      }
+    },
+    {
+      "name": "read-only child tool call(s) returned MCP results",
+      "ok": true,
+      "detail": [
+        "integration__notify-hub__integration_info",
+        "integration__notify-hub__list_notifications"
+      ]
+    },
+    {
+      "name": "stdio bridge lists memory + integration tools after list_changed",
+      "ok": true,
+      "detail": {
+        "count": 18,
+        "listChanged": 1
+      }
+    },
+    {
+      "name": "bridge read-only call integration__notify-hub__integration_info",
+      "ok": true,
+      "detail": {
+        "isError": false,
+        "contentTypes": [
+          "text"
+        ],
+        "textPreview": "{\"slug\":\"notify-hub\",\"title\":\"Notify Hub\",\"upstream\":{\"name\":\"Notify Hub (simulated)\",\"docs\":[\"templates/integration/demo/notify-hub/API.md\"]},\"tools\":[\"integration_info\",\"list_notifications\",\"send_notification\",\"get_notification\"],\"env\":[{\"name\":\"NOTIFY_HUB_BASE_URL\",\"required\":false,\"secret\":false},{\"name\":\"NOTIFY_HUB_TOKEN\",\"required\":false,\"secret\":true},{\"name\":\"NOTIFY_HUB_SIMULATED\",\"require",
+        "hasStructuredContent": true,
+        "errorCode": null
+      }
+    },
+    {
+      "name": "bridge fallback procmem_list_live_tools",
+      "ok": true
+    },
+    {
+      "name": "bridge stderr has no credentials",
+      "ok": true
+    }
+  ],
+  "discoveryMs": 6676,
+  "catalog": {
+    "state": "ok",
+    "configured": true,
+    "lastSuccessAt": "2026-10-17T22:06:44.162Z",
+    "lastAttemptAt": "2026-10-17T22:06:44.162Z",
+    "consecutiveFailures": 0,
+    "rejected": []
+  },
+  "sources": [
+    {
+      "source": "memory",
+      "state": "ready",
+      "toolCount": 12,
+      "lastListedAt": "2026-10-17T22:06:49.350Z"
+    },
+    {
+      "source": "integration:notify-hub",
+      "state": "ready",
+      "toolCount": 4,
+      "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+      "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+      "lastListedAt": "2026-10-17T22:06:50.835Z"
+    }
+  ],
+  "tools": [
+    {
+      "name": "memory__open_memory",
+      "source": "memory",
+      "upstreamName": "open_memory",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [],
+      "fingerprint": "78b53e000f0d9827",
+      "integration": null
+    },
+    {
+      "name": "memory__read",
+      "source": "memory",
+      "upstreamName": "read",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "path"
+      ],
+      "fingerprint": "84ae52d1dd7d008a",
+      "integration": null
+    },
+    {
+      "name": "memory__grep",
+      "source": "memory",
+      "upstreamName": "grep",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "pattern"
+      ],
+      "fingerprint": "95e83d61159da240",
+      "integration": null
+    },
+    {
+      "name": "memory__find",
+      "source": "memory",
+      "upstreamName": "find",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [],
+      "fingerprint": "f0f1adceab270c8d",
+      "integration": null
+    },
+    {
+      "name": "memory__ls",
+      "source": "memory",
+      "upstreamName": "ls",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [],
+      "fingerprint": "daaec9b39e590727",
+      "integration": null
+    },
+    {
+      "name": "memory__shell",
+      "source": "memory",
+      "upstreamName": "shell",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "script"
+      ],
+      "fingerprint": "01e67186a98fde36",
+      "integration": null
+    },
+    {
+      "name": "memory__poll_command",
+      "source": "memory",
+      "upstreamName": "poll_command",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "commandId"
+      ],
+      "fingerprint": "0f705f54847a66cf",
+      "integration": null
+    },
+    {
+      "name": "memory__write_command",
+      "source": "memory",
+      "upstreamName": "write_command",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "commandId"
+      ],
+      "fingerprint": "a274099d7dfd7a92",
+      "integration": null
+    },
+    {
+      "name": "memory__cancel_command",
+      "source": "memory",
+      "upstreamName": "cancel_command",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "commandId"
+      ],
+      "fingerprint": "ed19c15644599887",
+      "integration": null
+    },
+    {
+      "name": "memory__write",
+      "source": "memory",
+      "upstreamName": "write",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "path",
+        "content"
+      ],
+      "fingerprint": "5bd17a5e90b1e079",
+      "integration": null
+    },
+    {
+      "name": "memory__edit",
+      "source": "memory",
+      "upstreamName": "edit",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "path",
+        "edits"
+      ],
+      "fingerprint": "3b5ef1011700924e",
+      "integration": null
+    },
+    {
+      "name": "memory__view_file",
+      "source": "memory",
+      "upstreamName": "view_file",
+      "annotations": {
+        "readOnlyHint": true,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "path"
+      ],
+      "fingerprint": "01f47b6882274377",
+      "integration": null
+    },
+    {
+      "name": "integration__notify-hub__integration_info",
+      "source": "integration:notify-hub",
+      "upstreamName": "integration_info",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": false
+      },
+      "hasOutputSchema": false,
+      "required": [],
+      "fingerprint": "6e92761b1cd20957",
+      "integration": {
+        "slug": "notify-hub",
+        "title": "Notify Hub",
+        "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+        "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+        "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp"
+      }
+    },
+    {
+      "name": "integration__notify-hub__list_notifications",
+      "source": "integration:notify-hub",
+      "upstreamName": "list_notifications",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "hasOutputSchema": false,
+      "required": [],
+      "fingerprint": "a336ce938cb3fcd5",
+      "integration": {
+        "slug": "notify-hub",
+        "title": "Notify Hub",
+        "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+        "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+        "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp"
+      }
+    },
+    {
+      "name": "integration__notify-hub__send_notification",
+      "source": "integration:notify-hub",
+      "upstreamName": "send_notification",
+      "annotations": {
+        "readOnlyHint": false,
+        "destructiveHint": false,
+        "idempotentHint": true,
+        "openWorldHint": true
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "recipient",
+        "message"
+      ],
+      "fingerprint": "ba058cc3eec336fd",
+      "integration": {
+        "slug": "notify-hub",
+        "title": "Notify Hub",
+        "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+        "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+        "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp"
+      }
+    },
+    {
+      "name": "integration__notify-hub__get_notification",
+      "source": "integration:notify-hub",
+      "upstreamName": "get_notification",
+      "annotations": {
+        "readOnlyHint": true,
+        "destructiveHint": false,
+        "openWorldHint": true
+      },
+      "hasOutputSchema": false,
+      "required": [
+        "id"
+      ],
+      "fingerprint": "af091511220c0496",
+      "integration": {
+        "slug": "notify-hub",
+        "title": "Notify Hub",
+        "commit": "66986288920c2f3d1b31d8f524b5a1be025640b7",
+        "deploymentId": "32cb7c2e-03bf-401a-b65e-71562922b17b",
+        "mcpUrl": "https://warm-cloud-e1lye.run.mcp-use.com/mcp"
+      }
+    }
+  ],
+  "tokenMints:notify-hub": 1,
+  "readOnlyCalls": {
+    "integration__notify-hub__integration_info": {
+      "args": {},
+      "result": {
+        "isError": false,
+        "contentTypes": [
+          "text"
+        ],
+        "textPreview": "{\"slug\":\"notify-hub\",\"title\":\"Notify Hub\",\"upstream\":{\"name\":\"Notify Hub (simulated)\",\"docs\":[\"templates/integration/demo/notify-hub/API.md\"]},\"tools\":[\"integration_info\",\"list_notifications\",\"send_notification\",\"get_notification\"],\"env\":[{\"name\":\"NOTIFY_HUB_BASE_URL\",\"required\":false,\"secret\":false},{\"name\":\"NOTIFY_HUB_TOKEN\",\"required\":false,\"secret\":true},{\"name\":\"NOTIFY_HUB_SIMULATED\",\"require",
+        "hasStructuredContent": true,
+        "errorCode": null
+      }
+    },
+    "integration__notify-hub__list_notifications": {
+      "args": {},
+      "result": {
+        "isError": false,
+        "contentTypes": [
+          "text"
+        ],
+        "textPreview": "23 notifications",
+        "hasStructuredContent": true,
+        "errorCode": null
+      }
+    }
+  },
+  "notCalled": [
+    "integration__notify-hub__send_notification"
+  ],
+  "bridge": {
+    "tools": [
+      "procmem_list_live_tools",
+      "procmem_call_live_tool",
+      "memory__open_memory",
+      "memory__read",
+      "memory__grep",
+      "memory__find",
+      "memory__ls",
+      "memory__shell",
+      "memory__poll_command",
+      "memory__write_command",
+      "memory__cancel_command",
+      "memory__write",
+      "memory__edit",
+      "memory__view_file",
+      "integration__notify-hub__integration_info",
+      "integration__notify-hub__list_notifications",
+      "integration__notify-hub__send_notification",
+      "integration__notify-hub__get_notification"
+    ],
+    "listChangedNotifications": 1,
+    "protocolVersion": "2025-11-25"
+  },
+  "logs": [
+    "info: integration notify-hub discovered (deployment 32cb7c2e-03bf-401a-b65e-71562922b17b)"
+  ],
+  "finishedAt": "2026-10-17T22:06:57.404Z",
+  "ok": true
+}

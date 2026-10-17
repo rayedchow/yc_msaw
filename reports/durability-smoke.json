@@ -1,0 +1,152 @@
+{
+  "kind": "procmem.durability-smoke/v1",
+  "ok": true,
+  "ns": "smoke-20261017202807",
+  "app": "procmem-store",
+  "function": "store_op",
+  "volume": "procmem-memory",
+  "lockDict": "procmem-locks",
+  "startedAt": "2026-10-17T20:28:07.957Z",
+  "totalMs": 97585,
+  "results": [
+    {
+      "name": "put: objects incl. blob, identical duplicate, idempotent re-put",
+      "ok": true,
+      "ms": 4698,
+      "details": {
+        "keysRead": 3
+      }
+    },
+    {
+      "name": "put: rejections (conflicting duplicate, immutable overwrite, bad blob digest; client and server side)",
+      "ok": true,
+      "ms": 2381,
+      "details": {
+        "clientDup": "Conflicting duplicate key notes/e.txt in one batch",
+        "overwrite": "Modal procmem-store.store_op(put): Immutable object notes/a.txt already exists with different content",
+        "badBlob": "Blob digest mismatch for blobs/0000000000000000000000000000000000000000000000000000000000000000",
+        "server": "conflicting-duplicate, blob digest, key, ns, prefix all rejected"
+      }
+    },
+    {
+      "name": "list: prefix / after / limit",
+      "ok": true,
+      "ms": 1547,
+      "details": {
+        "all": 5,
+        "notes": [
+          "notes/a.txt",
+          "notes/b.txt",
+          "notes/sub/c.txt"
+        ],
+        "after": [
+          "notes/b.txt",
+          "notes/sub/c.txt"
+        ]
+      }
+    },
+    {
+      "name": "casRef: create, stale rejection, success",
+      "ok": true,
+      "ms": 4803,
+      "details": {
+        "finalVersion": 2
+      }
+    },
+    {
+      "name": "casRef: concurrent race from 6 independent store instances",
+      "ok": true,
+      "ms": 2757,
+      "details": {
+        "outcomes": [
+          {
+            "i": 0,
+            "ok": false,
+            "version": 3,
+            "ms": 1647
+          },
+          {
+            "i": 1,
+            "ok": true,
+            "version": 3,
+            "ms": 1294
+          },
+          {
+            "i": 2,
+            "ok": false,
+            "version": 3,
+            "ms": 2135
+          },
+          {
+            "i": 3,
+            "ok": false,
+            "version": 3,
+            "ms": 1969
+          },
+          {
+            "i": 4,
+            "ok": false,
+            "version": 3,
+            "ms": 1821
+          },
+          {
+            "i": 5,
+            "ok": false,
+            "version": 3,
+            "ms": 1473
+          }
+        ],
+        "finalVersion": 3
+      }
+    },
+    {
+      "name": "multipart: >12 MiB random blob + 7 MiB keyed object roundtrip, cold read, create-once, abandoned upload invisible",
+      "ok": true,
+      "ms": 65125,
+      "details": {
+        "blobBytes": 13643833,
+        "keyedBytes": 7340039,
+        "putMs": 18766,
+        "coldGetMs": 15386,
+        "overwrite": "Modal procmem-store.store_op(upload_commit): Immutable object large/trace-chunk.bin already exists with different content",
+        "abandoned": {
+          "badCommit": "rejected",
+          "failedCommitCleanedParts": true,
+          "listedLarge": [
+            "large/trace-chunk.bin"
+          ],
+          "abortRemoved": true
+        }
+      }
+    },
+    {
+      "name": "restart survival: cold instance A publishes via CachedObjectStore",
+      "ok": true,
+      "ms": 12017,
+      "details": {
+        "bootstrap": "rev-886aa71ffbdbb20a01a6800a",
+        "published": "rev-df716811e99134f9267fa74d"
+      }
+    },
+    {
+      "name": "restart survival: fresh instance B reads head, manifest, files",
+      "ok": true,
+      "ms": 4255,
+      "details": {
+        "head": {
+          "revisionId": "rev-df716811e99134f9267fa74d",
+          "manifestSha256": "67efdbbd46d2229a74876b73658b8eb7c352ebe99593f7eda47925e05ff2c04c"
+        },
+        "headVersion": 2,
+        "files": [
+          "index.md",
+          "release-workflow.md"
+        ],
+        "history": [
+          "rev-df716811e99134f9267fa74d",
+          "rev-886aa71ffbdbb20a01a6800a"
+        ]
+      }
+    }
+  ]
+}

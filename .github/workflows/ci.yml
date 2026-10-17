@@ -1,0 +1,39 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - name: Typecheck
+        run: npm run typecheck
+      - name: Offline tests (no cloud credentials; live checks are separate scripts)
+        run: npm test
+      - name: Production build (mcp-use build --entry index.ts)
+        run: npm run build
+      - name: Manufact managed-archive check
+        run: npm run deploy:check
+      - name: Pack SDK (@procmem/sdk tarball; not published to npm)
+        run: |
+          mkdir -p sdk-artifact
+          npm pack ./packages/procmem-sdk --pack-destination sdk-artifact
+          ls -l sdk-artifact
+      - uses: actions/upload-artifact@v4
+        with:
+          name: procmem-sdk-tgz
+          path: sdk-artifact/*.tgz
+          if-no-files-found: error

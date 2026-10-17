@@ -1,0 +1,379 @@
+[
+ {
+  "id": "notify-hub-regression",
+  "version": "v2",
+  "kind": "regression",
+  "description": "Regressions distilled from failing traces: truncated lists, duplicate notifications after retries, 429 handling, repeated logical sends.",
+  "cases": [
+   {
+    "name": "lists a single page",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 5
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "list_notifications",
+      "arguments": {},
+      "expect": [
+       {
+        "path": "structuredContent.count",
+        "op": "equals",
+        "value": 5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "sends once",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 0
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "send_notification",
+      "arguments": {
+       "recipient": "ops@example.test",
+       "message": "deploy finished"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.id",
+        "op": "exists"
+       }
+      ]
+     }
+    ],
+    "fixtureExpect": [
+     {
+      "path": "notifications",
+      "op": "lengthEquals",
+      "value": 1
+     }
+    ]
+   },
+   {
+    "name": "paginates past the server page cap",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 25,
+      "maxPageSize": 10
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "list_notifications",
+      "arguments": {},
+      "expect": [
+       {
+        "path": "structuredContent.count",
+        "op": "equals",
+        "value": 25
+       },
+       {
+        "path": "structuredContent.items[*].id",
+        "op": "unique"
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "lost ack (503 after commit) does not duplicate",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 0,
+      "postFailures": [
+       "503_after_commit"
+      ]
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "send_notification",
+      "arguments": {
+       "recipient": "ops@example.test",
+       "message": "deploy finished"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.id",
+        "op": "exists"
+       }
+      ]
+     }
+    ],
+    "fixtureExpect": [
+     {
+      "path": "notifications",
+      "op": "lengthEquals",
+      "value": 1
+     }
+    ]
+   },
+   {
+    "name": "429 honors Retry-After then succeeds",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 0,
+      "postFailures": [
+       "429"
+      ],
+      "retryAfterSeconds": 1
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "send_notification",
+      "arguments": {
+       "recipient": "ops@example.test",
+       "message": "deploy finished"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.id",
+        "op": "exists"
+       }
+      ]
+     }
+    ],
+    "fixtureExpect": [
+     {
+      "path": "notifications",
+      "op": "lengthEquals",
+      "value": 1
+     },
+     {
+      "path": "rateLimited",
+      "op": "equals",
+      "value": 1
+     }
+    ]
+   },
+   {
+    "name": "same idempotency_key replays instead of resending",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 0
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "send_notification",
+      "arguments": {
+       "recipient": "ops@example.test",
+       "message": "deploy finished",
+       "idempotency_key": "incident-4711-notify"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.id",
+        "op": "exists"
+       }
+      ]
+     },
+     {
+      "tool": "send_notification",
+      "arguments": {
+       "recipient": "ops@example.test",
+       "message": "deploy finished",
+       "idempotency_key": "incident-4711-notify"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.id",
+        "op": "equals",
+        "value": "ntf_0001"
+       }
+      ]
+     }
+    ],
+    "fixtureExpect": [
+     {
+      "path": "notifications",
+      "op": "lengthEquals",
+      "value": 1
+     }
+    ]
+   }
+  ]
+ },
+ {
+  "id": "notify-hub-heldout",
+  "version": "v2",
+  "kind": "heldout",
+  "description": "Sealed variants (different page sizes, failure sequences, filters).",
+  "cases": [
+   {
+    "name": "heldout: 23 items, page cap 7",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 23,
+      "maxPageSize": 7
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "list_notifications",
+      "arguments": {},
+      "expect": [
+       {
+        "path": "structuredContent.count",
+        "op": "equals",
+        "value": 23
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "heldout: recipient filter across pages",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 30,
+      "maxPageSize": 4
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "list_notifications",
+      "arguments": {
+       "recipient": "user2@example.test"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.count",
+        "op": "equals",
+        "value": 10
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "heldout: two lost acks",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 3,
+      "postFailures": [
+       "503_after_commit",
+       "503_after_commit"
+      ]
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "send_notification",
+      "arguments": {
+       "recipient": "ops@example.test",
+       "message": "deploy finished"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.id",
+        "op": "exists"
+       }
+      ]
+     }
+    ],
+    "fixtureExpect": [
+     {
+      "path": "notifications",
+      "op": "lengthEquals",
+      "value": 4
+     }
+    ]
+   },
+   {
+    "name": "heldout: 429, 503 before commit, 503 after commit",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 0,
+      "postFailures": [
+       "429",
+       "503_before_commit",
+       "503_after_commit"
+      ],
+      "retryAfterSeconds": 1
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "send_notification",
+      "arguments": {
+       "recipient": "ops@example.test",
+       "message": "deploy finished"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.id",
+        "op": "exists"
+       }
+      ]
+     }
+    ],
+    "fixtureExpect": [
+     {
+      "path": "notifications",
+      "op": "lengthEquals",
+      "value": 1
+     }
+    ]
+   }
+  ]
+ }
+]

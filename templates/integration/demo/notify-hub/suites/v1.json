@@ -1,0 +1,71 @@
+[
+ {
+  "id": "notify-hub-regression",
+  "version": "v1",
+  "kind": "regression",
+  "description": "Day-1 behaviour: small lists and clean sends.",
+  "cases": [
+   {
+    "name": "lists a single page",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 5
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "list_notifications",
+      "arguments": {},
+      "expect": [
+       {
+        "path": "structuredContent.count",
+        "op": "equals",
+        "value": 5
+       }
+      ]
+     }
+    ]
+   },
+   {
+    "name": "sends once",
+    "fixture": {
+     "name": "notify-hub",
+     "config": {
+      "seed": 0
+     }
+    },
+    "env": {
+     "NOTIFY_HUB_BASE_URL": "{{fixture.url}}",
+     "NOTIFY_HUB_TOKEN": "{{fixture.token}}"
+    },
+    "steps": [
+     {
+      "tool": "send_notification",
+      "arguments": {
+       "recipient": "ops@example.test",
+       "message": "deploy finished"
+      },
+      "expect": [
+       {
+        "path": "structuredContent.id",
+        "op": "exists"
+       }
+      ]
+     }
+    ],
+    "fixtureExpect": [
+     {
+      "path": "notifications",
+      "op": "lengthEquals",
+      "value": 1
+     }
+    ]
+   }
+  ]
+ }
+]

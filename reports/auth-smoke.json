@@ -1,0 +1,98 @@
+{
+  "target": "http://localhost:52922/mcp",
+  "at": "2026-10-17T20:05:43.068Z",
+  "tokenProvided": false,
+  "ok": true,
+  "checks": [
+    {
+      "name": "protected_resource_metadata",
+      "ok": true,
+      "detail": {
+        "url": "http://localhost:52922/.well-known/oauth-protected-resource/mcp",
+        "status": 200,
+        "resource": "http://localhost:52922/mcp",
+        "authorization_servers": [
+          "https://sincere-umbrella-45-staging.authkit.app"
+        ]
+      },
+      "status": "pass"
+    },
+    {
+      "name": "authorization_server_expected",
+      "ok": true,
+      "detail": {
+        "advertised": "https://sincere-umbrella-45-staging.authkit.app",
+        "expected": "https://sincere-umbrella-45-staging.authkit.app"
+      },
+      "status": "pass"
+    },
+    {
+      "name": "authorization_server_metadata",
+      "ok": true,
+      "detail": {
+        "issuer": "https://sincere-umbrella-45-staging.authkit.app",
+        "authorization_endpoint": "https://sincere-umbrella-45-staging.authkit.app/oauth2/authorize",
+        "token_endpoint": "https://sincere-umbrella-45-staging.authkit.app/oauth2/token",
+        "jwks_uri": "https://sincere-umbrella-45-staging.authkit.app/oauth2/jwks",
+        "registration_endpoint": "https://sincere-umbrella-45-staging.authkit.app/oauth2/register",
+        "client_id_metadata_document_supported": true,
+        "code_challenge_methods_supported": [
+          "S256"
+        ]
+      },
+      "status": "pass"
+    },
+    {
+      "name": "client_registration_available",
+      "ok": true,
+      "detail": {},
+      "status": "pass"
+    },
+    {
+      "name": "jwks_reachable",
+      "ok": true,
+      "detail": {
+        "status": 200,
+        "keys": [
+          {
+            "kid": "sso_oidc_key_pair_01M55NQVS6NT15XWTSQWBYC9N7",
+            "alg": "RS256",
+            "kty": "RSA"
+          }
+        ]
+      },
+      "status": "pass"
+    },
+    {
+      "name": "unauthenticated_initialize_challenged",
+      "ok": true,
+      "detail": {
+        "status": 401,
+        "www_authenticate": "Bearer error=\"invalid_token\", error_description=\"Authentication is required for this request.\", resource_metadata=\"http://localhost:52922/.well-known/oauth-protected-resource/mcp\""
+      },
+      "status": "pass"
+    },
+    {
+      "name": "forged_token_rejected",
+      "ok": true,
+      "detail": {
+        "status": 401,
+        "www_authenticate": "Bearer error=\"invalid_token\", error_description=\"JWT verification failed\", resource_metadata=\"http://localhost:52922/.well-known/oauth-protected-resource/mcp\""
+      },
+      "status": "pass"
+    },
+    {
+      "name": "authorized_initialize_tools_list",
+      "ok": false,
+      "detail": {
+        "skipped": "PROCMEM_TEST_ACCESS_TOKEN not set"
+      },
+      "status": "skipped"
+    }
+  ],
+  "fullyAuthenticated": false,
+  "metadataOnly": true,
+  "skipped": [
+    "authorized_initialize_tools_list"
+  ]
+}

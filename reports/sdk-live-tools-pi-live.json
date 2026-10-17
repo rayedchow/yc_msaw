@@ -1,0 +1,452 @@
+{
+  "kind": "sdk-live-tools-pi-live",
+  "labels": {
+    "model": "LIVE: real Fireworks models via Pi 1.3 (openai-completions transport)",
+    "parent": "REAL procmem app on loopback (memory /mcp, /v1/integrations routes, static-key auth); catalog contents scripted by the host",
+    "upstream": "SIMULATED child integration MCPs (official MCP server SDK on 127.0.0.1) with real EdDSA child tokens",
+    "oracle": "host-side checks (child call counters/arguments, Pi active set); model text only as a secondary check"
+  },
+  "at": "2026-10-17T21:44:55.544Z",
+  "ok": true,
+  "results": [
+    {
+      "model": "accounts/fireworks/models/kimi-k3",
+      "ok": true,
+      "steps": [
+        {
+          "step": "1-initial-tool",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "toolActiveAtStart": true,
+            "childCalled": true,
+            "answerMentionsShipped": true
+          },
+          "activeLiveTools": [
+            "integration__orders__lookup_order"
+          ],
+          "answerPreview": "Order **o-1** has been **shipped**.",
+          "durationMs": 6242
+        },
+        {
+          "step": "2-added-tool",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "newToolActive": true,
+            "newChildCalled": true,
+            "answerMentionsInvoice": true
+          },
+          "activeLiveTools": [
+            "integration__orders__lookup_order",
+            "integration__billing__get_invoice"
+          ],
+          "answerPreview": "The invoice number for order **o-1** is **INV-7781**.",
+          "durationMs": 6056
+        },
+        {
+          "step": "3-changed-schema",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "registryHasNewSchema": true,
+            "calledWithNewArgument": true,
+            "answerMentionsDelivered": true
+          },
+          "activeLiveTools": [
+            "integration__billing__get_invoice",
+            "integration__orders__lookup_order"
+          ],
+          "answerPreview": "Order **o-1** (eu region) is now **delivered**.",
+          "durationMs": 4911
+        },
+        {
+          "step": "4-removed-tool",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "removedFromActiveSet": true,
+            "removedChildNotCalled": true,
+            "noInvoiceInvented": true
+          },
+          "activeLiveTools": [
+            "integration__orders__lookup_order"
+          ],
+          "answerPreview": "UNAVAILABLE.",
+          "durationMs": 3068
+        }
+      ],
+      "adapterApplied": [
+        {
+          "added": [
+            "memory__open_memory",
+            "memory__read",
+            "memory__grep",
+            "memory__find",
+            "memory__ls",
+            "memory__shell",
+            "memory__poll_command",
+            "memory__write_command",
+            "memory__cancel_command",
+            "memory__write",
+            "memory__edit",
+            "memory__view_file",
+            "integration__orders__lookup_order"
+          ],
+          "updated": [],
+          "removed": []
+        },
+        {
+          "added": [
+            "integration__billing__get_invoice"
+          ],
+          "updated": [],
+          "removed": []
+        },
+        {
+          "added": [],
+          "updated": [],
+          "removed": [
+            "integration__orders__lookup_order"
+          ]
+        },
+        {
+          "added": [
+            "integration__orders__lookup_order"
+          ],
+          "updated": [],
+          "removed": []
+        },
+        {
+          "added": [],
+          "updated": [],
+          "removed": [
+            "integration__billing__get_invoice"
+          ]
+        }
+      ],
+      "childArgumentsReceived": [
+        {
+          "tool": "lookup_order",
+          "args": {
+            "id": "o-1"
+          }
+        },
+        {
+          "tool": "get_invoice",
+          "args": {
+            "order_id": "o-1"
+          }
+        },
+        {
+          "tool": "lookup_order",
+          "args": {
+            "id": "o-1",
+            "region": "eu"
+          }
+        }
+      ],
+      "traceCapture": {
+        "events": 48,
+        "chunks": 1,
+        "errors": 0
+      },
+      "recorderErrors": 0
+    },
+    {
+      "model": "accounts/fireworks/models/glm-5p3",
+      "ok": true,
+      "steps": [
+        {
+          "step": "1-initial-tool",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "toolActiveAtStart": true,
+            "childCalled": true,
+            "answerMentionsShipped": true
+          },
+          "activeLiveTools": [
+            "integration__orders__lookup_order"
+          ],
+          "answerPreview": "Order o-1 has been shipped.",
+          "durationMs": 1509
+        },
+        {
+          "step": "2-added-tool",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "newToolActive": true,
+            "newChildCalled": true,
+            "answerMentionsInvoice": true
+          },
+          "activeLiveTools": [
+            "integration__orders__lookup_order",
+            "integration__billing__get_invoice"
+          ],
+          "answerPreview": "The invoice number for order o-1 is INV-7781.",
+          "durationMs": 1103
+        },
+        {
+          "step": "3-changed-schema",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "registryHasNewSchema": true,
+            "calledWithNewArgument": true,
+            "answerMentionsDelivered": true
+          },
+          "activeLiveTools": [
+            "integration__billing__get_invoice",
+            "integration__orders__lookup_order"
+          ],
+          "answerPreview": "In the eu region, order o-1 is now delivered.",
+          "durationMs": 1134
+        },
+        {
+          "step": "4-removed-tool",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "removedFromActiveSet": true,
+            "removedChildNotCalled": true,
+            "noInvoiceInvented": true
+          },
+          "activeLiveTools": [
+            "integration__orders__lookup_order"
+          ],
+          "answerPreview": "UNAVAILABLE",
+          "durationMs": 630
+        }
+      ],
+      "adapterApplied": [
+        {
+          "added": [
+            "memory__open_memory",
+            "memory__read",
+            "memory__grep",
+            "memory__find",
+            "memory__ls",
+            "memory__shell",
+            "memory__poll_command",
+            "memory__write_command",
+            "memory__cancel_command",
+            "memory__write",
+            "memory__edit",
+            "memory__view_file",
+            "integration__orders__lookup_order"
+          ],
+          "updated": [],
+          "removed": []
+        },
+        {
+          "added": [
+            "integration__billing__get_invoice"
+          ],
+          "updated": [],
+          "removed": []
+        },
+        {
+          "added": [],
+          "updated": [],
+          "removed": [
+            "integration__orders__lookup_order"
+          ]
+        },
+        {
+          "added": [
+            "integration__orders__lookup_order"
+          ],
+          "updated": [],
+          "removed": []
+        },
+        {
+          "added": [],
+          "updated": [],
+          "removed": [
+            "integration__billing__get_invoice"
+          ]
+        }
+      ],
+      "childArgumentsReceived": [
+        {
+          "tool": "lookup_order",
+          "args": {
+            "id": "o-1"
+          }
+        },
+        {
+          "tool": "get_invoice",
+          "args": {
+            "order_id": "o-1"
+          }
+        },
+        {
+          "tool": "lookup_order",
+          "args": {
+            "id": "o-1",
+            "region": "eu"
+          }
+        }
+      ],
+      "traceCapture": {
+        "events": 48,
+        "chunks": 1,
+        "errors": 0
+      },
+      "recorderErrors": 0
+    },
+    {
+      "model": "accounts/fireworks/models/minimax-m3",
+      "ok": true,
+      "steps": [
+        {
+          "step": "1-initial-tool",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "toolActiveAtStart": true,
+            "childCalled": true,
+            "answerMentionsShipped": true
+          },
+          "activeLiveTools": [
+            "integration__orders__lookup_order"
+          ],
+          "answerPreview": "Order o-1 has been **shipped**.",
+          "durationMs": 1595
+        },
+        {
+          "step": "2-added-tool",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "newToolActive": true,
+            "newChildCalled": true,
+            "answerMentionsInvoice": true
+          },
+          "activeLiveTools": [
+            "integration__orders__lookup_order",
+            "integration__billing__get_invoice"
+          ],
+          "answerPreview": "The invoice number for order o-1 is **INV-7781**.",
+          "durationMs": 1580
+        },
+        {
+          "step": "3-changed-schema",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "registryHasNewSchema": true,
+            "calledWithNewArgument": true,
+            "answerMentionsDelivered": true
+          },
+          "activeLiveTools": [
+            "integration__billing__get_invoice",
+            "integration__orders__lookup_order"
+          ],
+          "answerPreview": "Order o-1 (eu region) is now **delivered**.",
+          "durationMs": 1838
+        },
+        {
+          "step": "4-removed-tool",
+          "ok": true,
+          "checks": {
+            "promptCompleted": true,
+            "removedFromActiveSet": true,
+            "removedChildNotCalled": true,
+            "noInvoiceInvented": true
+          },
+          "activeLiveTools": [
+            "integration__orders__lookup_order"
+          ],
+          "answerPreview": "UNAVAILABLE",
+          "durationMs": 1633
+        }
+      ],
+      "adapterApplied": [
+        {
+          "added": [
+            "memory__open_memory",
+            "memory__read",
+            "memory__grep",
+            "memory__find",
+            "memory__ls",
+            "memory__shell",
+            "memory__poll_command",
+            "memory__write_command",
+            "memory__cancel_command",
+            "memory__write",
+            "memory__edit",
+            "memory__view_file",
+            "integration__orders__lookup_order"
+          ],
+          "updated": [],
+          "removed": []
+        },
+        {
+          "added": [
+            "integration__billing__get_invoice"
+          ],
+          "updated": [],
+          "removed": []
+        },
+        {
+          "added": [],
+          "updated": [],
+          "removed": [
+            "integration__orders__lookup_order"
+          ]
+        },
+        {
+          "added": [
+            "integration__orders__lookup_order"
+          ],
+          "updated": [],
+          "removed": []
+        },
+        {
+          "added": [],
+          "updated": [],
+          "removed": [
+            "integration__billing__get_invoice"
+          ]
+        }
+      ],
+      "childArgumentsReceived": [
+        {
+          "tool": "lookup_order",
+          "args": {
+            "id": "o-1"
+          }
+        },
+        {
+          "tool": "get_invoice",
+          "args": {
+            "order_id": "o-1"
+          }
+        },
+        {
+          "tool": "lookup_order",
+          "args": {
+            "id": "o-1",
+            "region": "eu"
+          }
+        },
+        {
+          "tool": "lookup_order",
+          "args": {
+            "id": "o-1",
+            "region": "eu"
+          }
+        }
+      ],
+      "traceCapture": {
+        "events": 54,
+        "chunks": 1,
+        "errors": 0
+      },
+      "recorderErrors": 0
+    }
+  ]
+}

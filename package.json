@@ -1,0 +1,53 @@
+{
+  "name": "procmem-mcp",
+  "type": "module",
+  "version": "0.1.0",
+  "description": "Procedural memory for agents: SDK-captured traces, a daily recursive build harness that maintains a subject wiki, and a filesystem-only MCP over the published memory.",
+  "license": "UNLICENSED",
+  "private": true,
+  "main": "dist/index.js",
+  "engines": {
+    "node": ">=22.22.2"
+  },
+  "scripts": {
+    "dev": "mcp-use dev --entry index.ts",
+    "build": "mcp-use build --entry index.ts",
+    "start": "mcp-use start",
+    "deploy": "mcp-use deploy",
+    "typecheck": "tsc --noEmit -p .",
+    "test": "vitest run",
+    "demo": "tsx scripts/demo.ts",
+    "daily:build": "tsx scripts/daily-build.ts",
+    "eval:live": "tsx eval/run.ts",
+    "modal:smoke": "tsx scripts/modal-smoke.ts",
+    "durability:smoke": "tsx scripts/durability-smoke.ts",
+    "auth:smoke": "tsx scripts/auth-smoke.ts",
+    "modal:deploy": "modal deploy modal_worker/store_app.py && modal deploy modal_worker/daily_cron.py",
+    "sdk:build": "npm run build --prefix packages/procmem-sdk",
+    "sdk:pack": "mkdir -p artifacts && npm pack ./packages/procmem-sdk --pack-destination artifacts",
+    "eval:e2e": "tsx scripts/eval-e2e.ts",
+    "deploy:check": "tsx scripts/check-deploy-tree.ts",
+    "build:check-integrations": "tsx scripts/check-built-integrations.ts",
+    "sdk:live:pack": "tsx scripts/sdk-live-tools-pack-check.ts",
+    "sdk:live:hosted": "tsx scripts/sdk-live-tools-hosted.ts",
+    "sdk:live:pi": "tsx scripts/sdk-live-tools-pi-live.ts"
+  },
+  "dependencies": {
+    "@mcp-use/client": "^2.4.4",
+    "@modelcontextprotocol/client": "^2.3.1",
+    "@modelcontextprotocol/server": "~2.3.1",
+    "jose": "^6.2.12",
+    "mcp-use": "^2.10.0",
+    "modal": "^0.11.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@earendil-works/pi-ai": "^1.3.0",
+    "@earendil-works/pi-coding-agent": "^1.3.0",
+    "@types/node": "^24.19.2",
+    "ignore": "^5.3.2",
+    "tsx": "^4.23.15",
+    "typescript": "~5.9.3",
+    "vitest": "^5.0.5"
+  }
+}
