@@ -198,12 +198,14 @@ export class McpConnection {
     this.#connected = true;
   }
 
-  /** Full tools/list across all pages (bounded). */
-  async listTools(signal?: AbortSignal): Promise<UpstreamTool[]> {
+  /** Full tools/list across all pages (bounded). `shouldStop` is checked before every page is dispatched. */
+  async listTools(signal?: AbortSignal, shouldStop?: () => boolean): Promise<UpstreamTool[]> {
     const tools: UpstreamTool[] = [];
     const seen = new Set<string>();
     let cursor: string | undefined;
     for (let page = 0; page < MAX_LIST_PAGES; page++) {
+      // Never dispatch another page once the owner is disposing/retiring or the connection is closed.
+      if (this.#closed || shouldStop?.()) throw new ConnectionError("not_sent", "tools/list stopped: connection closing");
       let result: { tools: unknown[]; nextCursor?: string };
       const store: OpContext = {};
       try {

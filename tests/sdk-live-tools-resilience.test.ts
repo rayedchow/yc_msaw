@@ -155,6 +155,60 @@ describe("polling", () => {
   });
 });
 
+describe("dispose() with in-flight owned work (deterministic, gated upstream)", () => {
+  it("waits for an in-flight paginated tools/list to settle and never dispatches its next page", async () => {
+    const r = make();
+    await r.start();
+    const lists0 = child.listCalls;
+    const cat0 = parent.catalogCalls;
+    let release!: () => void;
+    child.listGate = new Promise<void>((res) => (release = res));
+    const refreshing = r.refresh({ force: true }); // relists gamma: page 1 is now held open at the server
+    try {
+      const start = Date.now();
+      while (child.listCalls < lists0 + 1) {
+        if (Date.now() - start > 5000) throw new Error("page 1 never reached the child");
+        await sleep(5);
+      }
+      let disposed = false;
+      const d = r.dispose().then(() => (disposed = true));
+      await sleep(60);
+      expect(disposed).toBe(false); // dispose waits for the owned in-flight list instead of racing it
+      release();
+      await d;
+      await refreshing; // the refresh that started before dispose() settles (its catalog step had already succeeded)
+      const afterDispose = child.listCalls;
+      expect(afterDispose).toBe(lists0 + 1); // page 2 (child has 2 pages) was never dispatched after dispose began
+      await sleep(150);
+      expect(child.listCalls).toBe(afterDispose);
+      expect(parent.catalogCalls).toBe(cat0 + 1);
+    } finally {
+      child.listGate = null;
+      release?.();
+    }
+  });
+
+  it("a list_changed debounce pending at dispose() never fires a relist", async () => {
+    const r = make({ listChangedDebounceMs: 40 });
+    await r.start();
+    const lists0 = child.listCalls;
+    await child.notifyListChanged();
+    await sleep(10); // notification delivered, debounce timer armed
+    await r.dispose();
+    await sleep(120);
+    expect(child.listCalls).toBe(lists0);
+  });
+
+  it("dispose() is idempotent and concurrent callers share one completion", async () => {
+    const r = make();
+    await r.start();
+    const [a, b] = [r.dispose(), r.dispose()];
+    await Promise.all([a, b]);
+    expect(r.disposed).toBe(true);
+    await r.dispose();
+  });
+});
+
 describe("child credentials", () => {
   it("refreshes a short-lived child bearer before expiry; concurrent calls share one mint", async () => {
     parent.tokenTtlSeconds = 30; // the product minimum

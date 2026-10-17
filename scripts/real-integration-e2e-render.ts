@@ -18,6 +18,11 @@ export function renderMarkdown(r: Json): string {
   for (const [k, v] of Object.entries((r.labels ?? {}) as Json)) lines.push(`- **${k}**: ${String(v)}`);
   lines.push("", "## Checks", "", "| check | result |", "| --- | --- |");
   for (const [k, v] of Object.entries(checks)) lines.push(`| ${k} | ${v ? "PASS" : "FAIL"} |`);
+  const agentRows = (r.agents ?? []) as Json[];
+  if (agentRows.length) {
+    lines.push("", "## Agents (final lifecycle)", "", "| agent | role | parent | status | last task |", "| --- | --- | --- | --- | --- |");
+    for (const a of agentRows) lines.push(`| ${String(a.name ?? a.id)} | ${String(a.role ?? "")} | ${String(a.parentId ?? "")} | ${String(a.status)} | ${a.task ? `attempt ${String(get(a, "task.attempt"))}: ${String(get(a, "task.status"))}` : ""} |`);
+  }
   lines.push("", "## Key identifiers", "");
   const kv: Array<[string, unknown]> = [
     ["hosted parent", get(r, "config.parent")],
@@ -78,9 +83,63 @@ button{margin:2px;border:1px solid #d0d7de;background:#fff;border-radius:4px;cur
 <header><h2 style="margin:0">Real integration E2E replay — ${r.ok ? "PASSED" : "FAILED"}</h2><div>Run ${esc(r.runId)} · captured events only (no simulation) · live child MCP: ${esc(get(p, "diffs.deployment.mcpUrl") ?? get(p, "seed.manufact.mcpUrl"))}</div></header>
 <main><aside><div class="card"><b>Labels</b><ul>${Object.entries((r.labels ?? {}) as Json).map(([k, v]) => `<li><b>${esc(k)}</b>: ${esc(v)}</li>`).join("")}</ul></div>
 <div class="card"><b>Checks</b><table>${checkRows}</table></div>
+<div class="card"><b>Agents</b><table>${((r.agents ?? []) as Json[]).map((a) => `<tr><td>${esc(a.name ?? a.id)}<br><small>${esc(a.role)}${a.parentId ? ` ← ${esc(a.parentId)}` : ""}</small></td><td style="color:${color(a.status)}">${esc(a.status)}${a.task ? `<br><small>task ${esc(get(a, "task.attempt"))}: ${esc(get(a, "task.status"))}</small>` : ""}</td></tr>`).join("")}</table></div>
 <div class="card"><b>Filter by agent</b><div><button onclick="f('')">all</button> ${agentButtons}</div></div>
 <div class="card"><b>Source diff</b><pre>${esc(get(p, "diffs.source.diff"))}</pre></div>
 <div class="card"><b>Memory diff</b><pre>${esc(get(p, "diffs.memory.diff"))}</pre></div></aside>
 <section>${rows}</section></main>
 <script>function f(a){for(const el of document.querySelectorAll('.ev'))el.style.display=!a||el.dataset.agent===a?'':'none'}</script></body></html>\n`;
+}
+
+// ------------------------------------------------------------------ pure lifecycle helpers (shared with the producer)
+
+/** Demo status union (see .context/demo-lifecycle-contract.md). */
+export type DemoStatus = "pending" | "running" | "waiting" | "succeeded" | "failed" | "partial" | "interrupted" | "unknown";
+export const TERMINAL_STATUSES: ReadonlySet<DemoStatus> = new Set(["succeeded", "failed", "partial", "interrupted", "unknown"]);
+
+/** Harness AgentStatus -> demo status. Used for BOTH state rows and emitted events. Never invents success. */
+export function harnessStatusToDemo(s: unknown): DemoStatus {
+  switch (s) {
+    case "completed":
+      return "succeeded";
+    case "running":
+      return "running";
+    case "budget_exhausted":
+      return "partial";
+    case "failed":
+      return "failed";
+    case "cancelled":
+    case "aborted":
+      return "interrupted";
+    default:
+      return "unknown";
+  }
+}
+
+export interface DemoAgentRow {
+  id: string;
+  parentId?: string | null;
+  name: string;
+  model?: string;
+  role: "operator" | "customer" | "build";
+  status: DemoStatus;
+  task?: { attempt: number; status: DemoStatus; startedAt: string; finishedAt?: string };
+}
+
+/**
+ * Terminal cleanup (mutates rows): nothing is left running/waiting/pending; terminal statuses are kept.
+ * Normal finish: the customer closes with its LAST task outcome, other active rows become "unknown".
+ * Abort: active rows become "interrupted", pending/waiting non-customer rows "unknown".
+ */
+export function finalizeAgentRows(rows: DemoAgentRow[], aborted: boolean, runOk: boolean, now = () => new Date().toISOString()): DemoAgentRow[] {
+  for (const a of rows) {
+    if (TERMINAL_STATUSES.has(a.status)) continue;
+    if (a.id === "host") a.status = !aborted && runOk ? "succeeded" : "failed";
+    else if (a.role === "customer") {
+      if (a.task && a.task.status === "running") a.task = { ...a.task, status: "interrupted", finishedAt: now() };
+      if (aborted && (a.status === "running" || a.task?.status === "interrupted")) a.status = "interrupted";
+      else a.status = a.task && TERMINAL_STATUSES.has(a.task.status) ? a.task.status : "unknown";
+    } else a.status = aborted && a.status === "running" ? "interrupted" : "unknown";
+  }
+  return rows;
 }

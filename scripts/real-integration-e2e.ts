@@ -60,6 +60,7 @@ import { createPiLiveTools } from "../src/sdk/live/pi.js";
 import { MemoryRepo } from "../src/store/memory.js";
 import { ModalObjectStore } from "../src/store/modal-objects.js";
 import { gunzipSync } from "node:zlib";
+import { finalizeAgentRows, harnessStatusToDemo, TERMINAL_STATUSES, type DemoAgentRow, type DemoStatus } from "./real-integration-e2e-render.js";
 
 const { values } = parseArgs({
   options: {
@@ -114,10 +115,15 @@ const EVENTS = ".context/real-demo-events.jsonl";
 const STATE = ".context/real-demo-state.json";
 const PROGRESS = ".context/real-demo-progress.md";
 let evSeq = 0;
-type Status = "running" | "succeeded" | "failed" | "partial" | "waiting";
+// Event / agent status union (see .context/demo-lifecycle-contract.md):
+//  running = actively working now; waiting = idle between tasks (session alive); pending = known, not started;
+//  succeeded/failed/partial = terminal outcome from real evidence; interrupted = run ended while it was active;
+//  unknown = terminal state not established by any receipt/logger.
+type Status = DemoStatus;
+type AgentRow = DemoAgentRow;
 interface DemoEvent { id: string; at: string; agentId: string; parentId?: string | null; kind: string; title: string; status?: Status; text?: string; data?: unknown }
 const allEvents: DemoEvent[] = [];
-const state: Record<string, unknown> & { agents: Array<{ id: string; parentId?: string | null; name: string; model?: string; status: string }>; checks: Record<string, boolean>; files: Array<{ path: string; before?: string | null; after?: string | null; beforeSha256?: string | null; afterSha256?: string | null; truncated?: boolean; kind: "memory" | "source" }> } = {
+const state: Record<string, unknown> & { agents: AgentRow[]; checks: Record<string, boolean>; files: Array<{ path: string; before?: string | null; after?: string | null; beforeSha256?: string | null; afterSha256?: string | null; truncated?: boolean; kind: "memory" | "source" }> } = {
   runId: RUN_ID,
   status: "running",
   phase: "preflight",
@@ -125,7 +131,7 @@ const state: Record<string, unknown> & { agents: Array<{ id: string; parentId?: 
   startedAt: new Date().toISOString(),
   updatedAt: new Date().toISOString(),
   pid: process.pid,
-  agents: [{ id: "host", parentId: null, name: "Host orchestrator (operator script)", status: "running" }],
+  agents: [{ id: "host", parentId: null, name: "Host orchestrator (operator script)", role: "operator", status: "running" }],
   checks: {},
   files: [],
 };
@@ -164,11 +170,34 @@ function emit(e: Omit<DemoEvent, "id" | "at"> & { at?: string }): DemoEvent {
   process.stderr.write(`[e2e ${ev.at.slice(11, 19)}] ${ev.agentId} ${ev.kind}${ev.status ? `/${ev.status}` : ""}: ${ev.title}\n`);
   return ev;
 }
-function setAgent(id: string, patch: Partial<{ parentId: string | null; name: string; model: string; status: string }>) {
+function setAgent(id: string, patch: Partial<Omit<AgentRow, "id">>) {
   const a = state.agents.find((x) => x.id === id);
   if (a) Object.assign(a, patch);
-  else state.agents.push({ id, parentId: patch.parentId ?? null, name: patch.name ?? id, ...(patch.model ? { model: patch.model } : {}), status: patch.status ?? "running" });
+  else state.agents.push({ id, parentId: patch.parentId ?? null, name: patch.name ?? id, role: patch.role ?? "build", status: patch.status ?? "pending", ...(patch.model ? { model: patch.model } : {}), ...(patch.task ? { task: patch.task } : {}) });
   void writeState();
+}
+const TERMINAL = TERMINAL_STATUSES;
+/** Customer task boundaries (distinct from the session lifecycle, which stays alive between tasks). */
+function taskStart(attempt: number, prompt: string) {
+  const at = new Date().toISOString();
+  setAgent("customer", { task: { attempt, status: "running", startedAt: at } });
+  emit({ at, agentId: "customer", kind: "task_start", title: `task attempt ${attempt} started`, status: "running", data: { attempt, prompt } });
+}
+function taskEnd(attempt: number, status: Status, detail: unknown) {
+  const a = state.agents.find((x) => x.id === "customer");
+  const at = new Date().toISOString();
+  if (a?.task) a.task = { ...a.task, status, finishedAt: at };
+  if (a && a.status === "running") a.status = "waiting";
+  void writeState();
+  emit({ at, agentId: "customer", kind: "task_end", title: `task attempt ${attempt} ${status}`, status, data: { attempt, ...(detail as object) } });
+}
+/**
+ * Terminal cleanup: no row is left running/waiting/pending. Known terminal statuses are kept.
+ * Normal finish: the customer session closes with its LAST task outcome; anything still active is "unknown"
+ * (nothing established its outcome). Abort: active rows become "interrupted"; pending ones "unknown".
+ */
+function finalizeAgents(aborted: boolean, runOk: boolean) {
+  finalizeAgentRows(state.agents, aborted, runOk);
 }
 const progressLines: string[] = [];
 async function progress(line: string) {
@@ -211,6 +240,7 @@ const report: Record<string, unknown> = {
     dailyCycle: "OPERATOR-TRIGGERED NOW: real DailyBuildService -> runMemoryBuild (createConfiguredBuilder inputs + observing model-I/O wrapper, requests/responses unaltered) on the same Modal store/namespace as the hosted parent; cohort = this run's fresh customer trace",
     repair: "MODEL-AUTHORED: every integration/wiki tool call in the build is chosen by the Fireworks build agents; the host gives no repaired source",
     validation: "Sealed validation runs offline with a FAKE-data GitHub fixture; all proof calls to GitHub are real",
+    lifecycle: "Agent rows/events follow .context/demo-lifecycle-contract.md: customer running only during real Pi agent runs (waiting between attempts, task_start/task_end carry per-attempt outcome); build agents from the live logger then authoritative receipts (harnessStatusToDemo for state AND events); operator rows (host, builder wrapper) separate; finalizeAgentRows leaves no running/waiting/pending row",
   },
   config: { ns: NS, parent: BASE, slug: SLUG, owner: OWNER, repo: REPO, file: FILE, ref: REF, customerModel: resolveModelId(values.customer!), builderRoot: values.builder },
   phases: {} as Record<string, unknown>,
@@ -272,6 +302,7 @@ const tmpRoot = await fs.mkdtemp(path.join(tmpdir(), "real-e2e-"));
 let registry: LiveToolRegistry | null = null;
 let disposeSession: (() => void) | null = null;
 let ok = false;
+let aborted = false;
 const transcript: Array<Record<string, unknown>> = [];
 
 try {
@@ -381,12 +412,18 @@ try {
   const messages = () => session.agent.state.messages as unknown[];
   const prefixHash = (n: number) => sha256(JSON.stringify(messages().slice(0, n)));
   state.sessionId = piSessionId;
-  setAgent("customer", { name: `Customer agent (Pi session ${piSessionId})`, model: resolveModelId(values.customer!), status: "running" });
+  setAgent("customer", { name: `Customer agent (Pi session ${piSessionId})`, model: resolveModelId(values.customer!), role: "customer", status: "waiting" });
   // Live capture of real Pi events for the UI/report (the SDK trace capture below is the stored record).
   session.subscribe((event) => {
     const at = new Date().toISOString();
     const e = event as unknown as Record<string, unknown> & { type: string };
-    if (e.type === "message_end") {
+    if (e.type === "agent_start") {
+      setAgent("customer", { status: "running" });
+      emit({ at, agentId: "customer", kind: "turn_start", title: "Pi agent run started", status: "running" });
+    } else if (e.type === "agent_end") {
+      setAgent("customer", { status: "waiting" });
+      emit({ at, agentId: "customer", kind: "turn_end", title: "Pi agent run ended (session idle)", status: "waiting" });
+    } else if (e.type === "message_end") {
       const m = e.message as { role: string; content?: Array<Record<string, unknown>> };
       if (m.role === "assistant") {
         const text = (m.content ?? []).filter((c) => c.type === "text").map((c) => String(c.text ?? "")).join("").trim();
@@ -418,6 +455,7 @@ try {
   await phase("attempt-1", "Customer attempt 1 with the seeded integration (expected real GitHub 404)");
   const task = `Task: using the GitHub integration, read ${FILE} from the GitHub repository ${OWNER}/${REPO} at the release tag ${REF}, and tell me the exact shell command that README gives for creating a new TypeScript MCP server. Check memory first for any relevant procedure.`;
   const t1Start = transcript.length;
+  taskStart(1, task);
   const trace1: TraceSession = recorder.begin({ objective: task, metadata: { piSessionId, attempt: 1, runId: RUN_ID } });
   let detach = attachPiTraceCapture(session, trace1);
   await session.prompt(task).catch((e) => emit({ agentId: "customer", kind: "message", title: "prompt error", status: "failed", text: String(e) }));
@@ -429,6 +467,7 @@ try {
   const got404 = r1.some((t) => t.isError === true && /404/.test(String(t.text)) && /No commit found for the ref master/.test(String(t.text)));
   const fin1 = await trace1.finish({ status: "failed", summary: `customer agent reply: ${answer1}`.slice(0, 2000) });
   phases.attempt1 = { readFileCalls: readFileCalls(t1Start), readFileResults: r1, answer: answer1, trace: { sessionId: fin1.sessionId, events: fin1.events, chunks: fin1.chunks, deliveryErrors: fin1.errors.length } };
+  taskEnd(1, got404 && !answer1.includes(FACT) ? "failed" : "unknown", { reason: got404 ? "seeded integration returned the real GitHub 404" : "expected 404 not observed", answer: answer1 });
   check("attempt1.realGithub404ReachedAgent", got404, { results: r1.map((t) => ({ isError: t.isError, text: String(t.text).slice(0, 400) })) });
   check("attempt1.noInventedAnswer", !answer1.includes(FACT));
   check("attempt1.traceDelivered", fin1.errors.length === 0 && fin1.chunks > 0, { sessionId: fin1.sessionId, chunks: fin1.chunks });
@@ -457,7 +496,8 @@ try {
   const intBefore = (await integrations.get(SLUG))!;
   const config = loadConfig({ ...process.env, PROCMEM_STORE: "modal", PROCMEM_SANDBOX: "modal", HOST: "127.0.0.1", PROCMEM_BUILD_MODEL: values.builder! });
   const agentParents = new Map<string, string | null>();
-  const statusOf = (s: unknown): Status => (s === "completed" ? "succeeded" : s === "running" ? "running" : s === "budget_exhausted" ? "partial" : "failed");
+  // Harness AgentStatus -> demo status. Never invents success: anything unrecognized is "unknown".
+  const statusOf = harnessStatusToDemo;
   const builderLog = (raw: unknown) => {
     if (typeof raw === "string" || !raw || typeof raw !== "object") {
       emit({ agentId: "builder", kind: "message", title: scrub(String(raw)).slice(0, 280) });
@@ -466,7 +506,7 @@ try {
     const e = raw as { at: string; agentId: string; event: string; detail?: Record<string, unknown> };
     const parentId = agentParents.get(e.agentId) ?? null;
     if (e.event === "spawned") for (const c of (e.detail?.children as string[]) ?? []) agentParents.set(c, e.agentId);
-    if (e.event === "agent_started") setAgent(e.agentId, { parentId, name: `${parentId ? "child" : "root"} build agent ${e.agentId} (depth ${String(e.detail?.depth ?? "?")})`, model: String(e.detail?.profile ?? ""), status: "running" });
+    if (e.event === "agent_started") setAgent(e.agentId, { parentId, name: `${parentId ? "child" : "root"} build agent ${e.agentId} (depth ${String(e.detail?.depth ?? "?")})`, model: String(e.detail?.profile ?? ""), role: "build", status: "running" });
     if (e.event === "agent_finished") setAgent(e.agentId, { status: statusOf(e.detail?.status) });
     emit({
       at: e.at,
@@ -549,14 +589,16 @@ try {
   };
   report.builderConfig = { buildModel: config.buildModel, rootProfileId, childProfileIds, budget, path: "DailyBuildService -> runMemoryBuild (same profiles/workspace/integration providers as createConfiguredBuilder) + observing client wrapper" };
   const service = new DailyBuildService({ store, builder, buildTimeoutMs: 40 * 60_000, log: (m) => emit({ agentId: "host", kind: "message", title: m.slice(0, 280) }) });
-  setAgent("builder", { name: `Daily build (${values.builder})`, status: "running" });
+  setAgent("builder", { name: `Daily build service (operator wrapper, ${values.builder})`, role: "operator", status: "running" });
   const buildStarted = Date.now();
   const buildReceipt = (await service.runAndWait(NS, { day: traceDay })) as Record<string, unknown> | null;
   const buildMs = Date.now() - buildStarted;
-  setAgent("builder", { status: String(buildReceipt?.status ?? "unknown") });
+  setAgent("builder", { status: buildReceipt?.status === "published" ? "succeeded" : buildReceipt?.status === "failed" ? "failed" : "unknown" });
   // Retained per-agent detail (receipts are produced after the run; marked as such).
   const walk = (a: AgentReceipt) => {
-    emit({ agentId: a.agentId, parentId: a.parentId, kind: "agent_end", title: `[retained receipt] ${a.agentId} ${a.status}`, status: a.status === "failed" ? "failed" : "succeeded", data: { source: "agent receipt (retained after run)", model: a.model, depth: a.depth, objective: a.objective, usage: a.usage, toolCalls: a.toolCalls.map((t) => ({ name: t.name, ok: t.ok, code: t.code, turn: t.turn })), summary: a.result?.summary ?? null, patch: a.result?.patch?.changes ?? null } });
+    // Receipts are authoritative for the final per-agent status.
+    setAgent(a.agentId, { parentId: a.parentId, model: a.model, role: "build", status: statusOf(a.status) });
+    emit({ agentId: a.agentId, parentId: a.parentId, kind: "agent_end", title: `[retained receipt] ${a.agentId} ${a.status}`, status: statusOf(a.status), data: { source: "agent receipt (retained after run)", harnessStatus: a.status, model: a.model, depth: a.depth, objective: a.objective, usage: a.usage, toolCalls: a.toolCalls.map((t) => ({ name: t.name, ok: t.ok, code: t.code, turn: t.turn })), summary: a.result?.summary ?? null, patch: a.result?.patch?.changes ?? null } });
     for (const c of a.children ?? []) walk(c);
   };
   for (const att of ((buildReceipt?.attempts as Array<{ tree: AgentReceipt }> | undefined) ?? [])) walk(att.tree);
@@ -635,6 +677,7 @@ try {
   await phase("attempt-2", "Same Pi session: reopen memory, use the repaired tool against real GitHub");
   const retry = "Retry the same task now. Since your last attempt the organization's memory and integrations may have been updated: call memory__open_memory again to pin the newest memory revision, read what it says about the GitHub integration, then use the integration tools as they are now.";
   const t2Start = transcript.length;
+  taskStart(2, retry);
   const trace2 = recorder.begin({ objective: retry, metadata: { piSessionId, attempt: 2, runId: RUN_ID } });
   detach = attachPiTraceCapture(session, trace2);
   await session.prompt(retry).catch((e) => emit({ agentId: "customer", kind: "message", title: "prompt error", status: "failed", text: String(e) }));
@@ -668,6 +711,7 @@ try {
   const historyAfter2 = messages().length;
   const fin2 = await trace2.finish({ status: okResult && answer2.includes(FACT) ? "succeeded" : "failed", summary: `customer agent reply: ${answer2}`.slice(0, 2000) });
   phases.attempt2 = { readFileCalls: c2, readFileResults: r2, memoryReopen: reopened, answer: answer2, trace: { sessionId: fin2.sessionId, events: fin2.events, chunks: fin2.chunks, deliveryErrors: fin2.errors.length } };
+  taskEnd(2, okResult && answer2.includes(FACT) ? "succeeded" : "failed", { answer: answer2, githubOk: !!okResult });
   phases.sameSession = { constructions, piSessionId, sessionIdNow: session.sessionId, sameObject: sessionRef === session, pid: process.pid, historyAfterAttempt1: historyAfter1, historyAfterAttempt2: historyAfter2, prefixSha256AfterAttempt1: prefixAfter1, prefixSha256OfSameRangeAfterAttempt2: prefixHash(historyAfter1), toolSequenceAttempt2: seq2 };
   check("attempt2.sameSessionAndProcess", constructions === 1 && sessionRef === session && session.sessionId === piSessionId && process.pid === state.pid);
   check("attempt2.messageHistoryGrewWithExactPrefix", historyAfter2 > historyAfter1 && prefixHash(historyAfter1) === prefixAfter1, phases.sameSession);
@@ -685,6 +729,10 @@ try {
 } catch (error) {
   if (error instanceof PreflightDone) {
     emit({ agentId: "host", kind: "run_end", title: "preflight-only run finished (no GitHub, deploy or model calls)", status: "succeeded" });
+    state.status = "succeeded";
+    state.phase = "done";
+    finalizeAgents(false, true);
+    await writeState();
     await writeChain;
     await stateChain;
     console.log(JSON.stringify({ preflightOnly: true, checks: state.checks, preflight: scrub(JSON.stringify(phases.preflight)) }, null, 1));
@@ -692,6 +740,7 @@ try {
   }
   emit({ agentId: "host", kind: "run_end", title: `ABORTED: ${scrub(String((error as Error).message ?? error)).slice(0, 250)}`, status: "failed", data: { stack: scrub(String((error as Error).stack ?? "")).slice(0, 4000) } });
   report.error = scrub(String((error as Error).stack ?? error));
+  aborted = true;
 } finally {
   disposeSession?.();
   await registry?.dispose().catch(() => undefined);
@@ -706,6 +755,8 @@ report.transcript = transcript;
 report.finishedAt = new Date().toISOString();
 state.status = ok ? "succeeded" : "failed";
 state.phase = "done";
+finalizeAgents(aborted, ok);
+report.agents = state.agents;
 const suffix = ok ? "" : `-failed-${RUN_ID}`;
 state.reportPath = `reports/real-integration-e2e${suffix}.json`;
 emit({ agentId: "host", kind: "run_end", title: ok ? "ALL CHECKS PASSED" : "CHECKS FAILED", status: ok ? "succeeded" : "failed", data: { checks: state.checks, report: `reports/real-integration-e2e${suffix}.json`, markdown: `reports/real-integration-e2e${suffix}.md`, html: `reports/real-integration-e2e${suffix}.html`, mcpUrl: (report.phases as Record<string, { deployment?: { mcpUrl?: string } }>).diffs?.deployment?.mcpUrl ?? null } });

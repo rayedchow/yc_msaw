@@ -79,6 +79,8 @@ export interface LiveToolRegistryOptions {
   listChangedDebounceMs?: number;
   callTimeoutMs?: number;
   requestTimeoutMs?: number;
+  /** Upper bound dispose() waits for in-flight refresh/list work before closing connections. Default 10s. */
+  disposeTimeoutMs?: number;
   /** unref() timers so the registry never keeps a process alive. Default true. */
   unref?: boolean;
   /** Credential-free diagnostics. */
@@ -186,7 +188,7 @@ export class LiveToolRegistry implements LiveToolSource {
   readonly #o: Required<
     Pick<
       LiveToolRegistryOptions,
-      "pollIntervalMs" | "maxBackoffMs" | "relistIntervalMs" | "maxStaleMs" | "tokenRefreshSkewMs" | "sourceRetryMs" | "minRefreshIntervalMs" | "listChangedDebounceMs" | "callTimeoutMs" | "requestTimeoutMs"
+      "pollIntervalMs" | "maxBackoffMs" | "relistIntervalMs" | "maxStaleMs" | "tokenRefreshSkewMs" | "sourceRetryMs" | "minRefreshIntervalMs" | "listChangedDebounceMs" | "callTimeoutMs" | "requestTimeoutMs" | "disposeTimeoutMs"
     >
   > &
     LiveToolRegistryOptions;
@@ -205,6 +207,7 @@ export class LiveToolRegistry implements LiveToolSource {
   #lastRefreshAt = 0;
   #started = false;
   #disposed = false;
+  #disposing: Promise<void> | null = null;
   #failures = 0;
 
   constructor(opts: LiveToolRegistryOptions) {
@@ -221,6 +224,7 @@ export class LiveToolRegistry implements LiveToolSource {
       listChangedDebounceMs: opts.listChangedDebounceMs ?? 250,
       callTimeoutMs: opts.callTimeoutMs ?? 120_000,
       requestTimeoutMs: opts.requestTimeoutMs ?? 30_000,
+      disposeTimeoutMs: opts.disposeTimeoutMs ?? 10_000,
     };
     this.#now = opts.now ?? Date.now;
     this.parent = new ParentClient(opts.parent);
@@ -339,22 +343,38 @@ export class LiveToolRegistry implements LiveToolSource {
     }
   }
 
+  /**
+   * Stop all owned work and close every connection. Order matters:
+   *  1. mark disposed and clear every timer (poll, call-triggered refresh, list_changed debounces): no NEW work starts,
+   *     and in-flight work dispatches nothing further (each tools/list page and each attempt re-checks `disposed`);
+   *  2. wait (bounded by `disposeTimeoutMs`) for in-flight owned refresh/list work, including debounced relists
+   *     queued on each source's op chain, so every request dispatched before dispose() has settled when it resolves;
+   *  3. close connections (aborting anything still running after the bound, e.g. a hung upstream).
+   * Tool calls the caller started are not awaited; they are aborted by step 3 if still running.
+   */
   async dispose(): Promise<void> {
-    if (this.#disposed) return;
+    if (this.#disposed) return this.#disposing ?? undefined;
     this.#disposed = true;
-    for (const t of [this.#timer, this.#soon]) if (t) clearTimeout(t);
-    this.#timer = this.#soon = null;
-    this.#listeners.clear();
-    const closing: Promise<unknown>[] = [];
-    for (const h of this.#handles.values()) {
-      h.retired = true;
-      if (h.debounce) clearTimeout(h.debounce);
-      if (h.connecting) closing.push(h.connecting.catch(() => undefined)); // closes itself when it sees `retired`
-      if (h.conn) closing.push(h.conn.close());
-      h.conn = null;
-    }
-    await Promise.allSettled(closing);
-    await this.#refreshing?.catch(() => undefined);
+    this.#disposing = (async () => {
+      for (const t of [this.#timer, this.#soon]) if (t) clearTimeout(t);
+      this.#timer = this.#soon = null;
+      this.#listeners.clear();
+      const handles = [...this.#handles.values()];
+      for (const h of handles) if (h.debounce) clearTimeout(h.debounce);
+      const owned = [this.#refreshing?.catch(() => undefined), ...handles.map((h) => h.op)];
+      let bound: ReturnType<typeof setTimeout> | undefined;
+      await Promise.race([Promise.allSettled(owned), new Promise<void>((r) => (bound = setTimeout(r, this.#o.disposeTimeoutMs)))]);
+      if (bound) clearTimeout(bound);
+      const closing: Promise<unknown>[] = [];
+      for (const h of handles) {
+        h.retired = true;
+        if (h.connecting) closing.push(h.connecting.catch(() => undefined)); // closes itself when it sees `retired`
+        if (h.conn) closing.push(h.conn.close());
+        h.conn = null;
+      }
+      await Promise.allSettled(closing);
+    })();
+    return this.#disposing;
   }
 
   get disposed(): boolean {
@@ -436,7 +456,7 @@ export class LiveToolRegistry implements LiveToolSource {
       if (!due) return;
       h.dirty = false;
       try {
-        const tools = await this.#attempt(h, (conn) => conn.listTools(), true);
+        const tools = await this.#attempt(h, (conn) => conn.listTools(undefined, () => this.#disposed || h.retired), true);
         if (h.retired) return;
         h.tools = tools;
         h.listedAt = h.lastOkAt = this.#now();
@@ -485,6 +505,7 @@ export class LiveToolRegistry implements LiveToolSource {
       try {
         if (h.token) await h.token.get(); // preflight: credential errors surface typed, before any MCP traffic
         const conn = await this.#ensureConnected(h);
+        if (h.retired || this.#disposed) throw new RefusedError("source_unavailable", `${h.id} was removed`); // no dispatch after dispose
         return await op(conn);
       } catch (error) {
         if (error instanceof ChildTokenError || error instanceof RefusedError || error instanceof ParentCredentialError) throw error;

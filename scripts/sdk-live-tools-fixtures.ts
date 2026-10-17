@@ -44,6 +44,8 @@ export class SimulatedChild {
   /** Every Authorization header received, accepted or not (to prove the parent credential never reaches a child). */
   authHeadersSeen: string[] = [];
   rejectAll = false;
+  /** When set, every tools/list request waits for this promise before answering. */
+  listGate: Promise<void> | null = null;
   /** Reject the next N requests with 401 (e.g. a rotated/expired token), then accept again. */
   rejectNext = 0;
   sessionsCreated = 0;
@@ -84,6 +86,7 @@ export class SimulatedChild {
     const server = new Server({ name: `sim-${this.slug}`, version: "1.0.0" }, { capabilities: { tools: { listChanged: true } } });
     server.setRequestHandler("tools/list", async (req) => {
       this.listCalls++;
+      if (this.listGate) await this.listGate; // test hook: hold tools/list open (in flight) until released
       // Two pages, to exercise client pagination.
       const all = this.#tools.map((t) => t.tool);
       const offset = req.params?.cursor ? Number(req.params.cursor) : 0;
