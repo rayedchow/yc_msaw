@@ -374,7 +374,6 @@ function treeSvg(m, T) {
       <text class="ns" x="12" y="38">${esc(SHORT[r.id] ?? "")}</text>
     </g>`;
   };
-  const mark = m.systems[0][0];
   return `
   <svg viewBox="0 0 ${W} ${H}" class="tree" role="img" aria-label="${esc(m.name)} knowledge tree">
     ${T.integ.length ? label(24, T.integ[0].y - 14, `Integrations · ${T.integ.length}`) : ""}
@@ -386,9 +385,8 @@ function treeSvg(m, T) {
     ${T.rules.map(ruleBox).join("")}
     <g class="node center" data-key="__center" transform="translate(${left} ${cy - CH / 2})">
       <rect width="${CW}" height="${CH}" rx="4"/>
-      <g transform="translate(16 18)"><rect class="logo" width="36" height="36" rx="8"/><text class="logot" x="18" y="24" text-anchor="middle">${mark}</text></g>
-      <text class="cl" x="66" y="32">${esc(m.name.replace("GurtAI ", ""))}</text>
-      <text class="cs" x="66" y="50">${STATUS[m.status][1]}${m.status === "live" ? " · " + m.version : ""}</text>
+      <text class="cl" x="${CW / 2}" y="32" text-anchor="middle">${esc(m.name.replace("GurtAI ", ""))}</text>
+      <text class="cs" x="${CW / 2}" y="50" text-anchor="middle">${STATUS[m.status][1]}${m.status === "live" ? " · " + m.version : ""}</text>
     </g>
   </svg>`;
 }
