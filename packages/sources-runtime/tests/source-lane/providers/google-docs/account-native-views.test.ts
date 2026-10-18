@@ -481,6 +481,23 @@ describe("view-only accounts read their own Sheets, Slides, Drive files and PDFs
     expect(await tree(P.sheet)).toEqual(["capture.json", "comments.json", "drive.json"]);
   });
 
+  it("does not download the shared PDF unit for a mailbox that may only view it (final-performance-check)", async () => {
+    const p = pdf();
+    sharedPdfFetches.length = 0;
+    // Only bob (view-only) sees the PDF: he gets his own copy; the shared unit nobody could read is not downloaded.
+    await poll({ [ALICE]: [], [BOB]: [live(p, false)] });
+    await runAccountTasks([p]);
+    expect(await liveFile(T, P.pdf.content("Contract.pdf"))).not.toBeNull();
+    expect(sharedPdfFetches).toEqual([]);
+    expect(await query(`SELECT 1 FROM binary_documents WHERE tenant_id = $1 AND external_id = 'pdf-1'`, [T])).toEqual([]);
+    // Once a mailbox that may read revisions sees it, its own feed intakes the shared unit as before.
+    await poll({ [ALICE]: [live(p, true)], [BOB]: [] });
+    expect(sharedPdfFetches).toEqual(["pdf-1"]);
+    // An unattributed feed (no roster mailbox) and an unknown capability keep the donor behaviour.
+    await poll({ [ALICE]: [live({ ...p, modifiedTime: "2026-10-05T10:00:00Z" })], [BOB]: [] });
+    expect(sharedPdfFetches).toEqual(["pdf-1", "pdf-1"]);
+  });
+
   it("fails closed under the account's own credential: 5xx/429/403/404 export nothing new, Retry-After is the floor", async () => {
     const base = sheet();
     await poll({ [ALICE]: [live(base, true)], [BOB]: [live(base, false)] });

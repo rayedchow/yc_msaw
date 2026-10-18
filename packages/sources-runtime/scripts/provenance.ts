@@ -182,6 +182,11 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     reason: "Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1).",
     test: "tests/source-lane/providers/google-docs/account-native-views.test.ts",
   },
+  "src/polling/_archived-gdocs/gdocs.ts": {
+    status: "patched",
+    reason: "A view-only mailbox does not download the shared drive-pdf unit nobody could read (final-performance-check).",
+    test: "tests/source-lane/providers/google-docs/account-native-views.test.ts",
+  },
   "src/mirror/backfill.ts": {
     status: "patched",
     reason: "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones). slack request 1: fold the append-only Slack ledger into window files. granola request 1: render each Granola note's latest snapshot only and skip notes whose newest observation is a tombstone; granola fidelity P1: notes with only typed notes are rendered too. granola fidelity P1: a Granola note with only typed notes is rendered by mirror.backfill",

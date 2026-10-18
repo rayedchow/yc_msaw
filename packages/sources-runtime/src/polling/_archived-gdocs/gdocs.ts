@@ -252,6 +252,13 @@ export async function processDrivePdfChanges(
 
     await setFileVisibility(userId, change.fileId, mailbox, true, undefined, file.capabilities);
     await noteAccountView(userId, change, mailbox);
+    // SOURCE-LANE PATCH (final-performance-check): the shared drive-pdf unit is served only to members whose mailbox may
+    // read revisions. A mailbox that may only view the PDF gets its own copy (noteAccountView) and does not download
+    // shared bytes nobody could read; a revisions-capable mailbox's own feed or inventory intakes them.
+    if (mailbox && file.capabilities?.canReadRevisions === false) {
+      result.skipped++;
+      continue;
+    }
     const intake = await intakeBinaryDocument({
       tenantId: userId,
       provider: "drive-pdf",
