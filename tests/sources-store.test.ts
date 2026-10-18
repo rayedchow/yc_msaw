@@ -93,6 +93,19 @@ describe("source paths", () => {
 });
 
 describe("SourceStore versions, tombstones and history", () => {
+  it("does not let a far-future provider time pin a file (final-audit L5)", async () => {
+    const s = new SourceStore(objects, "tenant-future", { now });
+    const p = "sources/jira/ENG/ENG-9.md";
+    const future = new Date(Date.parse(new Date(clock).toISOString()) + 365 * 86_400_000).toISOString();
+    const at = (min: number) => new Date(Date.parse(new Date(clock).toISOString()) - (60 - min) * 60_000).toISOString();
+    expect((await apply(s, [put(p, "bad clock", { capturedAt: at(0), sourceUpdatedAt: future })])).results[0]!.outcome).toBe("created");
+    const v1 = (await s.history("jira/ENG/ENG-9.md")).versions[0]!;
+    expect(v1.sourceUpdatedAt).toBeNull();
+    expect(v1.provenance.futureSourceUpdatedAt).toBe(future);
+    // A later legitimate update is applied (with the future time it would have been stale forever).
+    expect((await apply(s, [put(p, "fixed", { capturedAt: at(5), sourceUpdatedAt: at(4) })])).results[0]!.outcome).toBe("updated");
+  });
+
   it("creates, updates, deletes, restores and keeps the full chain", async () => {
     const s = new SourceStore(objects, "tenant-a", { now });
     const p = "sources/notion/Projects/Roadmap.md";

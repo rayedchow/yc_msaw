@@ -751,6 +751,16 @@ export class SourceStore {
       // The binding is the only authority for who wrote this; a client-supplied bindingId is overwritten.
       const fullProvenance = dict(provenance as Dict<unknown>);
       fullProvenance.bindingId = identity.bindingId;
+      // A provider time beyond the skew window (clock or data error) would make every later put to this path stale
+      // forever (final-audit L5). It is kept in provenance only and ordering falls back to capture time.
+      let sourceUpdatedAt: string | null = null;
+      if (change.op === "put" && change.sourceUpdatedAt !== undefined && change.sourceUpdatedAt !== null) {
+        sourceUpdatedAt = parseIso(change.sourceUpdatedAt, `${label}.sourceUpdatedAt`);
+        if (Date.parse(sourceUpdatedAt) > nowMs + MAX_FUTURE_SKEW_MS) {
+          fullProvenance.futureSourceUpdatedAt = sourceUpdatedAt;
+          sourceUpdatedAt = null;
+        }
+      }
       const provJson = canonicalJson(fullProvenance);
       if (Buffer.byteLength(provJson, "utf8") > MAX_PROVENANCE_BYTES) throw new SourceError("too_large", `${label}.provenance exceeds ${MAX_PROVENANCE_BYTES} bytes`);
       if (change.op === "delete") {
@@ -779,7 +789,6 @@ export class SourceStore {
       }
       if (typeof change.sha256 !== "string" || !SHA_RE.test(change.sha256)) throw new SourceError("invalid_input", `${label}.sha256 must be lowercase hex sha256`);
       if (!Number.isSafeInteger(change.size) || change.size < 0) throw new SourceError("invalid_input", `${label}.size must be a non-negative integer`);
-      const sourceUpdatedAt = change.sourceUpdatedAt === undefined || change.sourceUpdatedAt === null ? null : parseIso(change.sourceUpdatedAt, `${label}.sourceUpdatedAt`);
       const sourceVersion = normalizeSourceVersion(change.sourceVersion, label);
       const chunks = await this.#content(label, change);
       out.push({

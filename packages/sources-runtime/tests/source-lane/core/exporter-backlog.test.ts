@@ -103,3 +103,24 @@ describe("status heartbeat off the export critical path", () => {
     expect(bodies[0]).toMatchObject({ googleAccounts: [{ account: "ada@corp.example", subject: "user_ada" }] });
   });
 });
+
+describe("journal attempts under contention (final-audit L6)", () => {
+  it("does not count a no-penalty release (tenant held by another exporter, no binding) as an attempt", async () => {
+    const T2 = "tenant-contended";
+    await pg.query(`INSERT INTO source_lane_journal (tenant_id, table_name, row_key, op) VALUES ($1, 'mirror_files', 'sources/jira/A/A-1.md', 'INSERT')`, [T2]);
+    await pg.query(`INSERT INTO source_lane_tenant_locks (tenant_id, owner, fence, lease_until) VALUES ($1, 'other-exporter', 1, now() + interval '1 hour')`, [T2]);
+    const exporter = new SourceExporter({ db: db as never, registry: defaultRegistry(), log: () => {} });
+    const attempts = async () => (await pg.query<{ attempts: number }>(`SELECT attempts FROM source_lane_journal WHERE tenant_id = $1`, [T2])).rows[0]!.attempts;
+    for (let i = 0; i < 3; i++) {
+      await pg.query(`UPDATE source_lane_journal SET next_attempt_at = now() WHERE tenant_id = $1`, [T2]);
+      await exporter.runOnce();
+    }
+    expect(await attempts()).toBe(0);
+    // Lock released, but the tenant has no binding: still no penalty.
+    await pg.query(`DELETE FROM source_lane_tenant_locks WHERE tenant_id = $1`, [T2]);
+    await pg.query(`UPDATE source_lane_journal SET next_attempt_at = now() WHERE tenant_id = $1`, [T2]);
+    await exporter.runOnce();
+    expect(await attempts()).toBe(0);
+    await pg.query(`DELETE FROM source_lane_journal WHERE tenant_id = $1`, [T2]);
+  });
+});

@@ -202,12 +202,18 @@ export class SourceExporter {
     ).length;
   }
 
-  async #release(ids: string[], delaySeconds: number, error: string): Promise<void> {
+  /**
+   * Give rows back. `penalty: false` (another exporter holds the tenant, no binding yet, a lost lease) also undoes
+   * the claim's attempt, so contention never inflates backoff or exhausts the dead-letter re-arm budget (audit L6).
+   */
+  async #release(ids: string[], delaySeconds: number, error: string, opts: { penalty?: boolean } = {}): Promise<void> {
     if (!ids.length) return;
+    const penalty = opts.penalty ?? true;
     await this.db.execute(sql`
       UPDATE source_lane_journal
       SET lease_owner = NULL, lease_until = NULL, last_error = ${error},
-          next_attempt_at = now() + make_interval(secs => ${delaySeconds})
+          next_attempt_at = now() + make_interval(secs => ${delaySeconds}),
+          attempts = ${penalty ? sql`attempts` : sql`GREATEST(attempts - 1, 0)`}
       WHERE id = ANY(${idArray(ids)}::bigint[]) AND lease_owner = ${this.owner}
     `);
   }
@@ -414,7 +420,7 @@ export class SourceExporter {
     const fence = await this.#lockTenant(tenantId);
     if (fence === null) {
       // Another exporter is publishing this tenant; give the rows back without penalty.
-      await this.#release(list.map((r) => r.id), 2, "tenant export in progress on another exporter");
+      await this.#release(list.map((r) => r.id), 2, "tenant export in progress on another exporter", { penalty: false });
       return { acked: 0, deadLettered: 0, released: list.length };
     }
     try {
@@ -429,7 +435,7 @@ export class SourceExporter {
     const out = { acked: 0, deadLettered: 0, released: 0 };
     const binding = await getTenantBinding(this.db, tenantId);
     if (!binding) {
-      await this.#release(list.map((r) => r.id), 300, "no source binding for this tenant (provision it from yc_msaw POST /v1/sources/bindings)");
+      await this.#release(list.map((r) => r.id), 300, "no source binding for this tenant (provision it from yc_msaw POST /v1/sources/bindings)", { penalty: false });
       out.released += list.length;
       return out;
     }
@@ -498,7 +504,7 @@ export class SourceExporter {
     const allIds = items.flatMap((i) => i.group.ids);
     if (!(await this.#renew(f.tenantId, f.fence))) {
       // Lost the tenant lease (e.g. paused past it): another exporter owns this tenant now.
-      await this.#release(allIds, 2, "tenant export lease lost before publish");
+      await this.#release(allIds, 2, "tenant export lease lost before publish", { penalty: false });
       out.released += allIds.length;
       return out;
     }
