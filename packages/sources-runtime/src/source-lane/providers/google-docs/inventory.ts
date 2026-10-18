@@ -32,7 +32,9 @@ import { resolveDb, rowsOf, type StoreDeps } from "./store.js";
 import type { DriveChange } from "../../../polling/_archived-gdocs/gdocs-api.js";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
-const FILE_FIELDS = "id,name,mimeType,modifiedTime,md5Checksum,headRevisionId,parents,trashed,owners(displayName,emailAddress),lastModifyingUser(displayName,emailAddress),capabilities(canReadRevisions)";
+// The restriction fields let the full listing also catch a download/copy restriction toggled without a new version
+// (final-transport-qa backstop for final-combined-review N-1; no extra request).
+const FILE_FIELDS = "id,name,mimeType,modifiedTime,md5Checksum,headRevisionId,parents,trashed,owners(displayName,emailAddress),lastModifyingUser(displayName,emailAddress),copyRequiresWriterPermission,downloadRestrictions,capabilities(canReadRevisions,canCopy,canDownload)";
 
 function intEnv(name: string, fallback: number, min: number): number {
   const n = Math.floor(Number(process.env[name] ?? fallback));
