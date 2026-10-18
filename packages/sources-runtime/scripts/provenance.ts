@@ -127,9 +127,9 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/integrations/nango/webhook.ts": {
     status: "patched",
-    reason: "nango-expansion request 2: only X-Nango-Hmac-Sha256 (HMAC-SHA256 of the raw body with the webhook signing key, NANGO_WEBHOOK_SECRET) authorizes; the legacy plain-SHA256 X-Nango-Signature and the API-key fallback are refused; verified deliveries claimed by the generic records lane are delegated to it. jira patch request 4: forwarded Jira provider webhooks queue a by-id refresh in the Jira deep lane (tenant from the connections table; body never stored).",
+    reason: "nango-expansion request 2: only X-Nango-Hmac-Sha256 (HMAC-SHA256 of the raw body with the webhook signing key, NANGO_WEBHOOK_SECRET) authorizes; the legacy plain-SHA256 X-Nango-Signature and the API-key fallback are refused; verified deliveries claimed by the generic records lane are delegated to it. jira patch request 4: forwarded Jira provider webhooks queue a by-id refresh in the Jira deep lane (tenant from the connections table; body never stored). coordinator (final-audit M3): sync webhooks resolve only active connections.",
     test: "tests/integrations/nango/webhook.test.ts",
-    tests: ["tests/source-lane/providers/jira/shared-patches.test.ts"],
+    tests: ["tests/source-lane/core/shared-patches-nango-disconnect.test.ts", "tests/source-lane/providers/jira/shared-patches.test.ts"],
   },
   "src/integrations/nango/proxy-details.ts": {
     status: "patched",
@@ -141,6 +141,11 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     status: "patched",
     reason: "slack request 1: fold the append-only Slack ledger into channel-day files.",
     test: "tests/source-lane/providers/slack/fold.test.ts",
+  },
+  "src/integrations/nango/connect.ts": {
+    status: "patched",
+    reason: "coordinator (final-audit M3): disconnect deletes every Nango connection of the provider for the tenant.",
+    test: "tests/source-lane/core/shared-patches-nango-disconnect.test.ts",
   },
   "src/mirror/backfill.ts": {
     status: "patched",

@@ -62,11 +62,15 @@ export async function disconnectNangoProvider(input: {
   providerConfigKey?: string;
   client?: Pick<NangoClient, "deleteConnection">;
 }): Promise<void> {
-  const row = await nangoConnectionForTenant(input.tenantId, input.provider);
-  const providerConfigKey = input.providerConfigKey ?? stringValue(row?.provider_config_key) ?? input.provider;
-  const connectionId = stringValue(row?.external_account_id) ?? stringValue(row?.nango_connection_id);
-  if (connectionId) {
-    const client = input.client ?? new NangoClient();
+  // SOURCE-LANE PATCH (coordinator, final-audit M3): delete EVERY Nango connection this tenant holds for the provider
+  // (multi-site Jira/Confluence/GitHub/Bitbucket), not only the most recently updated one, so none keeps syncing.
+  const client = input.client ?? new NangoClient();
+  const seen = new Set<string>();
+  for (const row of await nangoConnectionsForTenant(input.tenantId, input.provider)) {
+    const providerConfigKey = input.providerConfigKey ?? stringValue(row.provider_config_key) ?? input.provider;
+    const connectionId = stringValue(row.external_account_id) ?? stringValue(row.nango_connection_id);
+    if (!connectionId || seen.has(`${providerConfigKey}\u0000${connectionId}`)) continue;
+    seen.add(`${providerConfigKey}\u0000${connectionId}`);
     await client.deleteConnection({ providerConfigKey, connectionId });
   }
   await disableNangoPollSchedule(db, input.tenantId, input.provider);
@@ -79,10 +83,10 @@ export async function disconnectNangoProvider(input: {
   `);
 }
 
-async function nangoConnectionForTenant(
+async function nangoConnectionsForTenant(
   tenantId: string,
   provider: string,
-): Promise<{ external_account_id: string | null; nango_connection_id: string | null; provider_config_key: string | null } | null> {
+): Promise<Array<{ external_account_id: string | null; nango_connection_id: string | null; provider_config_key: string | null }>> {
   const rows = rowsFromExecute<{ external_account_id: string | null; nango_connection_id: string | null; provider_config_key: string | null }>(await db.execute(sql`
     SELECT
       external_account_id,
@@ -92,9 +96,8 @@ async function nangoConnectionForTenant(
     WHERE tenant_id = ${tenantId}
       AND provider = ${provider}
     ORDER BY updated_at DESC
-    LIMIT 1
   `));
-  return rows[0] ?? null;
+  return rows;
 }
 
 function providerConfigKeyFromBody(body: unknown): string | null {

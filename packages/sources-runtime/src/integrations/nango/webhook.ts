@@ -158,9 +158,11 @@ export async function nangoSyncCompletedPayload(
     ?? providerConfigKey;
 
   if (!providerConfigKey || !connectionId || !model || !provider) return null;
-  const tenantId = await resolveTenantForNangoConnection(executor, { providerConfigKey, connectionId });
+  // SOURCE-LANE PATCH (coordinator, final-audit M3): sync deliveries only for ACTIVE connections, so a disconnected
+  // (revoked) connection that Nango still syncs never re-enters the store.
+  const tenantId = await resolveTenantForNangoConnection(executor, { providerConfigKey, connectionId }, { activeOnly: true });
   if (!tenantId) {
-    console.warn(`Nango sync webhook ignored: no tenant mapping for ${providerConfigKey}/${connectionId}`);
+    console.warn(`Nango sync webhook ignored: no active tenant mapping for ${providerConfigKey}/${connectionId}`);
     return null;
   }
 
@@ -263,6 +265,7 @@ export async function reconcileNangoConnectionWebhook(
 export async function resolveTenantForNangoConnection(
   executor: NangoExecutor,
   input: { providerConfigKey: string; connectionId: string },
+  options: { activeOnly?: boolean } = {},
 ): Promise<string | null> {
   const rows = rowsFromExecute<{ tenant_id: string }>(await executor.execute(sql`
     SELECT tenant_id
@@ -272,6 +275,7 @@ export async function resolveTenantForNangoConnection(
         external_account_id = ${input.connectionId}
         OR metadata->>'nangoConnectionId' = ${input.connectionId}
       )
+      ${options.activeOnly ? sql`AND status = 'active'` : sql``}
     ORDER BY updated_at DESC
     LIMIT 1
   `));

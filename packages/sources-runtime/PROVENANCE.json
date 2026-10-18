@@ -1845,10 +1845,15 @@
     },
     {
       "path": "src/integrations/nango/connect.ts",
-      "sha256": "fca767675757739ffb3260c19274bf619294410cc394cac5277ccbe5098672e9",
-      "status": "verbatim",
+      "sha256": "21bd61573f58615a97a8c9716d81d63f0fd6415073791df920675d87edf93c70",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/integrations/nango/connect.ts",
-      "donorSha256": "fca767675757739ffb3260c19274bf619294410cc394cac5277ccbe5098672e9"
+      "donorSha256": "fca767675757739ffb3260c19274bf619294410cc394cac5277ccbe5098672e9",
+      "reason": "coordinator (final-audit M3): disconnect deletes every Nango connection of the provider for the tenant.",
+      "tests": [
+        "tests/source-lane/core/shared-patches-nango-disconnect.test.ts"
+      ]
     },
     {
       "path": "src/integrations/nango/proxy-details.ts",
@@ -1912,14 +1917,15 @@
     },
     {
       "path": "src/integrations/nango/webhook.ts",
-      "sha256": "94e88b27efc85da9242c0c4eb04b4d14f7113d9e20731d8a62c9b8087ce17e1c",
+      "sha256": "fbc7c8cf2b0d9466d2702c87fca6a0c227d68ee174de6bd04210b8e52ad8d675",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/nango/webhook.ts",
       "donorSha256": "2efde81d06638862e4e79c01424364637d8b138b72e7f3ff7b3796dd804c5402",
-      "reason": "nango-expansion request 2 (see DECLARED_OVERRIDES). jira patch request 4: forwarded Jira provider webhooks queue a by-id refresh in the Jira deep lane (tenant from the connections table; body never stored).",
+      "reason": "nango-expansion request 2 (see DECLARED_OVERRIDES). jira patch request 4: forwarded Jira provider webhooks queue a by-id refresh in the Jira deep lane (tenant from the connections table; body never stored). coordinator (final-audit M3): sync webhooks resolve only active connections.",
       "tests": [
         "tests/integrations/nango/webhook.test.ts",
+        "tests/source-lane/core/shared-patches-nango-disconnect.test.ts",
         "tests/source-lane/providers/jira/shared-patches.test.ts",
         "tests/source-lane/providers/nango-records/shared-patches.test.ts"
       ]
