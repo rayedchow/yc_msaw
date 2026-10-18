@@ -199,7 +199,14 @@ export class SourceViewer {
 
 /** `sources/owners`: principals that connected a personal account through yc_msaw. */
 export class SourceOwners {
+  readonly #epochs = new Map<string, number>();
+
   constructor(private readonly store: ObjectStore) {}
+
+  /** Changes whenever this process changes the registry of `ns` (lets readers drop cached owner evidence). */
+  epoch(ns: string): number {
+    return this.#epochs.get(ns) ?? 0;
+  }
 
   async registry(ns: string): Promise<{ value: OwnerRegistry; version: number | null }> {
     const ref = await this.store.getRef(ns, OWNERS_REF);
@@ -248,7 +255,10 @@ export class SourceOwners {
       const next = structuredClone(value);
       mutate(next);
       const r = await this.store.casRef(ns, OWNERS_REF, version, next);
-      if (r.ok) return;
+      if (r.ok) {
+        this.#epochs.set(ns, (this.#epochs.get(ns) ?? 0) + 1);
+        return;
+      }
     }
     throw new SourceError("conflict", "Owner registry is busy; retry");
   }

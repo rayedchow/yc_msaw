@@ -11,6 +11,8 @@ import { DEFAULT_NODE_CACHE_BYTES, SourceNodeCache, SourceStore, type DirEntry }
  */
 
 const MAX_CACHED_TENANTS = 64;
+/** How long another replica's ownership change can take to apply here. */
+const VIEWER_TTL_MS = 5_000;
 
 export type CoverageState = "complete" | "partial" | "blocked" | "pending";
 export const COVERAGE_STATES: readonly CoverageState[] = ["complete", "partial", "blocked", "pending"];
@@ -80,6 +82,7 @@ export class SourceService {
   readonly owners: SourceOwners;
   readonly #stores = new Map<string, SourceStore>();
   readonly #reportEpoch = new Map<string, number>();
+  readonly #evidence = new Map<string, { at: number; epoch: string; value: { providerOwners: Map<string, Identity[]>; googleAccounts: GoogleAccountOwner[] } }>();
 
   /** One byte-bounded metadata cache for every tenant store of this process. */
   readonly nodeCache: SourceNodeCache;
@@ -131,26 +134,33 @@ export class SourceService {
     throw new SourceError("conflict", "Status ref is busy; retry");
   }
 
-  /** Latest status report of every active binding. */
+  /** Latest status report of every active binding (read in parallel). */
   async #reports(ns: string, bindings: readonly PublicBinding[]): Promise<StoredStatus[]> {
-    const reports: StoredStatus[] = [];
-    for (const b of bindings) {
-      if (b.revokedAt) continue;
-      const ref = await this.objects.getRef(ns, statusRef(b.bindingId));
-      if (ref) reports.push(ref.value as StoredStatus);
-    }
-    return reports;
+    const refs = await Promise.all(bindings.filter((b) => !b.revokedAt).map((b) => this.objects.getRef(ns, statusRef(b.bindingId))));
+    return refs.filter((r): r is NonNullable<typeof r> => r !== null && r !== undefined).map((r) => r.value as StoredStatus);
+  }
+
+  /**
+   * Owner evidence of a tenant, cached for VIEWER_TTL_MS. This process drops it at once when it changes a binding,
+   * an owner or a status report; another replica's change is picked up within the TTL.
+   */
+  async #ownerEvidence(ns: string): Promise<{ providerOwners: Map<string, Identity[]>; googleAccounts: GoogleAccountOwner[] }> {
+    const epoch = `${this.reportEpoch(ns)}/${this.bindings.epoch(ns)}/${this.owners.epoch(ns)}`;
+    const hit = this.#evidence.get(ns);
+    if (hit && hit.epoch === epoch && this.now().getTime() - hit.at < VIEWER_TTL_MS) return hit.value;
+    const [bindings, owners] = await Promise.all([this.bindings.list(ns), this.owners.registry(ns)]);
+    const runtimeIds = new Set(bindings.filter((b) => !b.revokedAt && b.kind === "runtime" && b.providers.includes("*")).map((b) => b.bindingId));
+    const reports = (await this.#reports(ns, bindings)).filter((r) => runtimeIds.has(r.bindingId));
+    const value = { providerOwners: providerOwners(bindings, owners.value), googleAccounts: reports.flatMap((r) => r.report.googleAccounts ?? []) };
+    this.#evidence.delete(ns);
+    this.#evidence.set(ns, { at: this.now().getTime(), epoch, value });
+    while (this.#evidence.size > MAX_CACHED_TENANTS) this.#evidence.delete(this.#evidence.keys().next().value!);
+    return value;
   }
 
   /** What `who` (a verified principal of `ns`) may read; see access.ts. */
   async viewer(ns: string, who: Identity): Promise<SourceViewer> {
-    const [bindings, owners] = await Promise.all([this.bindings.list(ns), this.owners.registry(ns)]);
-    const runtimeIds = new Set(bindings.filter((b) => !b.revokedAt && b.kind === "runtime" && b.providers.includes("*")).map((b) => b.bindingId));
-    const reports = (await this.#reports(ns, bindings)).filter((r) => runtimeIds.has(r.bindingId));
-    return new SourceViewer(who, {
-      providerOwners: providerOwners(bindings, owners.value),
-      googleAccounts: reports.flatMap((r) => r.report.googleAccounts ?? []),
-    });
+    return new SourceViewer(who, await this.#ownerEvidence(ns));
   }
 
   /**

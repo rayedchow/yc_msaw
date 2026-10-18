@@ -66,6 +66,8 @@ How it is enforced:
   - a provider directory has exactly one owner. A second member's device setup or connect is refused with
     `409 owner_conflict`, and so is an enrolment over pre-existing unowned data (`reason: unowned_legacy_data`).
     That data stays sealed and is not handed to whoever enrols first.
+- Owner evidence (bindings, owners, runtime reports) is cached per tenant for 5 s. A change made by the same process
+  applies at once; one made on another replica applies within 5 s.
 - Google owners come from the runtime's status heartbeat (`googleAccounts`). They are accepted only from the
   tenant's active `*` runtime binding, so a new grant becomes readable at the next heartbeat (≤ 5 min by default).
 - Shared workspace providers stay readable by every member of the tenant: Slack channels, Notion, Confluence, Jira,

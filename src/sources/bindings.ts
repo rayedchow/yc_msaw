@@ -104,7 +104,14 @@ export function bindingTokenForDeviceKey(provider: string, key: string): string 
 }
 
 export class SourceBindings {
+  readonly #epochs = new Map<string, number>();
+
   constructor(private readonly store: ObjectStore) {}
+
+  /** Changes whenever this process changes the registry of `ns` (lets readers drop cached owner evidence). */
+  epoch(ns: string): number {
+    return this.#epochs.get(ns) ?? 0;
+  }
 
   async registry(ns: string): Promise<{ value: BindingRegistry; version: number | null }> {
     const ref = await this.store.getRef(ns, BINDINGS_REF);
@@ -220,7 +227,10 @@ export class SourceBindings {
       const next = structuredClone(value);
       mutate(next);
       const r = await this.store.casRef(ns, BINDINGS_REF, version, next);
-      if (r.ok) return;
+      if (r.ok) {
+        this.#epochs.set(ns, (this.#epochs.get(ns) ?? 0) + 1);
+        return;
+      }
     }
     throw new SourceError("conflict", "Binding registry is busy; retry");
   }
