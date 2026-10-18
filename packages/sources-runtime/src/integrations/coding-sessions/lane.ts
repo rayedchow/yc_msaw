@@ -70,13 +70,18 @@ export interface DeviceAuthority {
 
 /** yc_msaw is the authority: asked per request at the tenant's own binding publish URL, with the key only. */
 export function createCodingSessionsAuthority(db: Executor, fetchImpl: typeof fetch = fetch): DeviceAuthority {
+  return createYcDeviceAuthority(db, CODING_SESSIONS_PROVIDER, fetchImpl);
+}
+
+/** Provider-parameterized yc_msaw device authority (`GET /v1/sources/devices/<provider>/verify`, key only). */
+export function createYcDeviceAuthority(db: Executor, provider: string, fetchImpl: typeof fetch = fetch): DeviceAuthority {
   return {
     async verify(key, device) {
       const binding = await getTenantBinding(db as never, device.tenantNs).catch(() => null);
       if (!binding) return { state: "unavailable", reason: "tenant has no source binding" };
       let res: Response;
       try {
-        res = await fetchImpl(new URL(`/v1/sources/devices/${CODING_SESSIONS_PROVIDER}/verify`, binding.publishUrl), {
+        res = await fetchImpl(new URL(`/v1/sources/devices/${provider}/verify`, binding.publishUrl), {
           method: "GET", headers: { "x-api-key": key }, redirect: "error", signal: AbortSignal.timeout(10_000),
         });
       } catch (e) {
@@ -91,7 +96,7 @@ export function createCodingSessionsAuthority(db: Executor, fetchImpl: typeof fe
         return { state: "unavailable", reason: `yc_msaw answered ${res.status}` };
       }
       const body = (await res.json().catch(() => null)) as { tenantNs?: unknown; bindingId?: unknown; provider?: unknown } | null;
-      if (!body || body.tenantNs !== device.tenantNs || body.bindingId !== device.bindingId || body.provider !== CODING_SESSIONS_PROVIDER) {
+      if (!body || body.tenantNs !== device.tenantNs || body.bindingId !== device.bindingId || body.provider !== provider) {
         return { state: "revoked", reason: "yc_msaw confirmed a different identity" };
       }
       return { state: "active" };

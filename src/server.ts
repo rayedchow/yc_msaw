@@ -30,6 +30,8 @@ import {
   githubRepositoriesRoute,
   imessageDeviceSetupRoute,
   jiraSelectionRoute,
+  officeAudioConsentRoute,
+  officeAudioDeviceSetupRoute,
   listBindingsRoute,
   nangoRecordsRoute,
   provisionRuntimeRoute,
@@ -546,6 +548,27 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         const principal = await authenticateHttp(c.req.raw, auth, undefined);
         if (principal instanceof Response) return principal;
         return imessageDeviceSetupRoute(c.req.raw, principal, sources, runtime);
+      });
+      // Mac office-audio collector + admin-granted participant consent.
+      server.post("/v1/sources/devices/office-audio/setup", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, undefined);
+        if (principal instanceof Response) return principal;
+        return officeAudioDeviceSetupRoute(c.req.raw, principal, sources, runtime);
+      });
+      server.get("/v1/sources/office-audio/consents", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+        if (principal instanceof Response) return principal;
+        return officeAudioConsentRoute(c.req.raw, principal, runtime, "list");
+      });
+      server.post("/v1/sources/office-audio/consents", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return officeAudioConsentRoute(c.req.raw, principal, runtime, "grant");
+      });
+      server.delete("/v1/sources/office-audio/consents/:participantKey", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return officeAudioConsentRoute(c.req.raw, principal, runtime, "revoke", c.req.param("participantKey"));
       });
       // Mac coding-sessions agent: same server-minted device binding model.
       server.post("/v1/sources/devices/coding-sessions/setup", async (c) => {

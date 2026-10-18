@@ -409,6 +409,25 @@ export async function codingSessionsDeviceSetupRoute(request: Request, principal
   });
 }
 
+export const OfficeAudioDeviceSetupSchema = z.object({ label: z.string().min(1).max(200).optional() }).strict();
+
+/**
+ * Enrol a Mac office-audio collector (room transcripts). Same server-minted device binding model; recording
+ * consent for each participant is granted separately by an admin (runtime /office-audio/consents), never by
+ * the device.
+ */
+export async function officeAudioDeviceSetupRoute(request: Request, principal: Principal, service: SourceService, runtime: SourceRuntimeClient): Promise<Response> {
+  return runtimeDeviceSetup(request, principal, service, runtime, {
+    provider: "office-audio",
+    schema: OfficeAudioDeviceSetupSchema,
+    defaultLabel: "Mac office-audio collector",
+    enrolExtra: () => ({}),
+    config: () => ({}),
+    configKey: "officeAudioConfig",
+    note: "agentToken is shown once. Pipe officeAudioConfig to `shepherd-onboard write-office-audio-config` on stdin. Sessions are stored only for participants an admin granted consent to (POST /v1/sources/office-audio/consents).",
+  });
+}
+
 /** Shared device setup: mint the binding, enrol sha256(device key) at the runtime, roll back on any runtime failure. */
 async function runtimeDeviceSetup<S extends z.ZodTypeAny>(
   request: Request,
@@ -567,6 +586,21 @@ export async function githubRepositoriesRoute(request: Request, principal: Princ
   try {
     const body = action === "put" ? GithubSelectionSchema.parse(await readOptionalJson(request)) : undefined;
     return relay(await runtime.githubRepositories(principal, action, body));
+  } catch (e) {
+    return e instanceof SourceError || e instanceof TraceIngestError || e instanceof z.ZodError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
+  }
+}
+
+const OfficeAudioConsentSchema = z
+  .object({ participantKey: z.string().min(3).max(320), displayName: z.string().max(200).optional(), evidence: z.record(z.string(), z.unknown()).optional() })
+  .strict();
+
+/** Office-audio recording consent: an admin of the verified tenant grants or revokes it for one participant. */
+export async function officeAudioConsentRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: "list" | "grant" | "revoke", participantKey?: string): Promise<Response> {
+  try {
+    if (action === "grant") return relay(await runtime.officeAudioConsent(principal, "grant", { body: OfficeAudioConsentSchema.parse(await readOptionalJson(request)) }));
+    if (action === "revoke") return relay(await runtime.officeAudioConsent(principal, "revoke", { participantKey: participantKey ?? "", deleteCaptured: new URL(request.url).searchParams.get("deleteCaptured") === "true" }));
+    return relay(await runtime.officeAudioConsent(principal, "list"));
   } catch (e) {
     return e instanceof SourceError || e instanceof TraceIngestError || e instanceof z.ZodError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
   }

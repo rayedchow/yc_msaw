@@ -30,6 +30,8 @@ Terms used in the tables:
 
 | Coding sessions (Codex / Claude Code, Mac agent) | The bundled agent's ingest and command protocol on the runtime host. A server-minted `gcs_` device key, with yc_msaw confirming every request; revocation is immediate and the lane fails closed. Normalized sessions are stored with immutable versions and **no text truncation**, at `sources/coding-sessions/<provider>/<yyyy-mm>/<session>.{json,md}`. `complete` only after a full-inventory source_sync receipt. These are redacted normalized transcripts, not raw JSONL. |
 
+| Office audio (Mac room collector) | **Transcript-only, consent-gated.** No audio, STT or voice profiling. A server-minted `goa_` key is confirmed by yc_msaw on every request. A session is stored only when **an admin granted consent** to every named participant (`POST /v1/sources/office-audio/consents`). Body-claimed consent is never authority, so forged, missing or revoked consent rejects the session (counted in coverage). Revoking with `deleteCaptured` tombstones captured sessions. Files are at `sources/office-audio/<yyyy-mm>/<session>/{session.json,transcript.md}`. |
+
 ## Other providers
 
 Each provider's per-integration agent results are recorded here as they are merged. Baseline export (raw ledger
@@ -48,7 +50,6 @@ plus the donor mirror projection) exists for Confluence, Jira, GitHub, Bitbucket
 | Cursor background agents | **Implemented, read-only** (agents are never launched, followed up or deleted). The full `/v0/agents` listing is paged with a persisted cursor, and each agent's conversation is fetched. Changes become immutable raw versions. Agents gone from a completed listing are tombstoned. Signed webhooks are bound to a connection URL. Files are at `sources/cursor-agents/<conn>/<agent>/{agent,conversation}.json`. |
 | Zoom | **Implemented** (port of the unmerged Aqueduct Zoom branch). User OAuth with single-use, tenant-bound state and rotating refresh tokens (no concurrent refresh). Cloud-recording transcripts in resumable 30-day windows: the poll covers the last 7 days every 5 minutes, the backfill up to 10 years. Per meeting UUID: `summary.md`, `transcript.md` and `meeting.json` under `sources/zoom/<title>-meeting-<hash>/`. **Transcripts only**: no audio, meeting chat or Zoom AI summaries. Retry-After is persisted. The bearer is never sent to the download CDN. |
 | Linear | **Implemented, read-only** (personal API key; no mutations or webhook installation). Full paginated polling of issues, comments, projects and cycles, including archived ones. Delta watermarks advance after complete passes, with a 12-hour full reconcile. Donor snapshot ids are kept. An optional signed webhook is bound to its connection and organization. Remove, archive and missing objects are tombstoned. Rate and complexity limits are persisted. Files are at `sources/linear/<org>/{issues,comments,projects,cycles}/…`. |
-| Office audio | Queued |
 
 ## Account setup that needs a human
 

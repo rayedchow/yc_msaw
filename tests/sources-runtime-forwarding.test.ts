@@ -157,12 +157,14 @@ describe("runtime forwarding uses only the verified principal", () => {
     await req("DELETE", "/v1/sources/connections/jira", admin.key);
     expect(seen[1]).toMatchObject({ method: "DELETE", url: "/internal/v1/tenants/acme/connections/jira" });
     expect((await req("POST", "/v1/sources/connect/Bad_Provider", admin.key, {})).status).toBe(400);
-    expect((await req("POST", "/v1/sources/devices/office-audio", reader.key, {})).status).toBe(403);
-    expect((await req("POST", "/v1/sources/devices/office-audio", collector.key, { deviceName: "Mac" })).status).toBe(200);
-    expect(seen[2]).toMatchObject({ url: "/internal/v1/tenants/acme/devices/office-audio", body: { deviceName: "Mac" } });
+    // Generic forwarding for a device provider without a dedicated setup route.
+    expect((await req("POST", "/v1/sources/devices/future-device", reader.key, {})).status).toBe(403);
+    expect((await req("POST", "/v1/sources/devices/future-device", collector.key, { deviceName: "Mac" })).status).toBe(200);
+    expect(seen[2]).toMatchObject({ url: "/internal/v1/tenants/acme/devices/future-device", body: { deviceName: "Mac" } });
     // iMessage and coding-sessions devices are enrolled only through their setup routes (server-minted credential).
     expect((await req("POST", "/v1/sources/devices/imessage", collector.key, { deviceName: "Mac" })).status).toBe(400);
     expect((await req("POST", "/v1/sources/devices/coding-sessions", collector.key, { deviceName: "Mac" })).status).toBe(400);
+    expect((await req("POST", "/v1/sources/devices/office-audio", collector.key, { deviceName: "Mac" })).status).toBe(400);
     expect(seen[2]!.principal).toMatchObject({ tenantNs: "acme", scopes: ["traces:write"] });
     expect(seen).toHaveLength(3);
   });

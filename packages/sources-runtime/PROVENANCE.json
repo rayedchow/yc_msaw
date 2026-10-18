@@ -940,6 +940,16 @@
       ]
     },
     {
+      "path": "drizzle/9850_office_audio_lane.sql",
+      "sha256": "076cad4c228ce07d71523eb8ba177c66efea3f0961535bcdc85e9eef3086b2bd",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "office_audio_devices, participant consents, sessions (+ journal), rejections.",
+      "tests": [
+        "tests/source-lane/providers/office-audio/office-audio.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9900_stripe_source_lane.sql",
       "sha256": "78d2ed2bff44725ab97f20688ad9dab789eb8e4b8963fca44d91cc6609b798b5",
       "status": "new",
@@ -1147,33 +1157,13 @@
     },
     {
       "path": "src/integrations/coding-sessions/lane.ts",
-      "sha256": "4319b1b30d715fb616583d01b54da9f44b6be2cc82fde4baaf5f14c56feaba0a",
+      "sha256": "1ba82bce4be15502e7afa5675cadb77eccd958c95eefc2a8ed024f8f4756fba3",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Coding sessions device lane: donor session normalization/identity, content-hash skip + force, command queue claim/ack and source_sync receipt sanitization; gcs_ keys minted by yc_msaw device bindings with per-request yc_msaw authority (fail closed), no admin body userId override, no text truncation (donor 20k cut), immutable raw versions, artifact-sync LLM excluded.",
+      "reason": "Coding sessions device lane; createYcDeviceAuthority generalized for office-audio.",
       "tests": [
         "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",
-        "(yc_msaw) tests/sources-coding-sessions-device.test.ts"
-      ],
-      "derivedFrom": [
-        {
-          "repo": "askshepherd/gigabrain",
-          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
-          "path": "brain/src/integrations/coding-sessions/ingest.ts",
-          "use": "ingest normalization, identity, command routes, receipt sanitizer"
-        },
-        {
-          "repo": "askshepherd/gigabrain",
-          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
-          "path": "brain/src/integrations/coding-sessions/commands.ts",
-          "use": "command types, claim/ack semantics"
-        },
-        {
-          "repo": "askshepherd/gigabrain",
-          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
-          "path": "brain/src/integrations/coding-sessions/auth.ts",
-          "use": "gcs_ key family"
-        }
+        "tests/source-lane/providers/office-audio/office-audio.test.ts"
       ]
     },
     {
@@ -1955,6 +1945,30 @@
       "status": "verbatim",
       "donorPath": "src/integrations/notion/webhook.ts",
       "donorSha256": "3c0a843e023234589d924445245a2178ef45e2544e05f445cc4689b98aa8cd06"
+    },
+    {
+      "path": "src/integrations/office-audio/lane.ts",
+      "sha256": "9bcb5c2620c3824e7bccaa1465b23c671951e73be6365a21dbf92b2b5441cfe4",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Consent-gated, transcript-only office audio intake: donor normalization/speaker-identity guard/identity kept; server-issued participant consent by a memory:build principal (body consents are claims only; forged/missing/revoked rejected and recorded); goa_ device keys with per-request yc_msaw authority; immutable versions; revoke-with-delete tombstones; no audio/STT/voice profiling/graph.",
+      "tests": [
+        "tests/source-lane/providers/office-audio/office-audio.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/office-audio/ingest.ts",
+          "use": "session/turn normalization, speakerIdentityAllowsPersonName, consent states, identity"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/office-audio/auth.ts",
+          "use": "goa_ key family"
+        }
+      ]
     },
     {
       "path": "src/integrations/registry.ts",
@@ -3659,16 +3673,17 @@
     },
     {
       "path": "src/source-lane/providers/index.ts",
-      "sha256": "65ca20d6a55f3d0493b2b63e664c793a54afe8edac575ff8a47c91ae6a5d0adb",
+      "sha256": "e39896ead6c5a37b32efe1fb5dd9597e0180db855c23e704c895ba29eda17d54",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Provider registry (+ stripe, discord, cursor-agents, coding-sessions, zoom, linear, whatsapp-personal, instagram-personal).",
+      "reason": "Provider registry (+ stripe, discord, cursor-agents, coding-sessions, office-audio, zoom, linear, whatsapp-personal, instagram-personal).",
       "tests": [
         "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",
         "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
         "tests/source-lane/providers/discord/discord.test.ts",
         "tests/source-lane/providers/linear/linear.test.ts",
         "tests/source-lane/providers/nango-records/shared-patches.test.ts",
+        "tests/source-lane/providers/office-audio/office-audio.test.ts",
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts",
         "tests/source-lane/providers/zoom/zoom.test.ts"
       ]
@@ -4070,6 +4085,16 @@
         "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
         "tests/source-lane/providers/nango-records/export.test.ts",
         "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/office-audio/index.ts",
+      "sha256": "b914e1f309787b8ba7aa7efb6f3505de9be34b6a567dd6d13788c0601b0c3340",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Office audio provider module.",
+      "tests": [
+        "tests/source-lane/providers/office-audio/office-audio.test.ts"
       ]
     },
     {
@@ -5664,6 +5689,16 @@
         "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
         "tests/source-lane/providers/nango-records/export.test.ts",
         "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/office-audio/office-audio.test.ts",
+      "sha256": "d698aff92a0ddf2ec339966d7b618f377dd78ea03e821a9a6ef8b46c86f93974",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Office audio regression suite.",
+      "tests": [
+        "tests/source-lane/providers/office-audio/office-audio.test.ts"
       ]
     },
     {

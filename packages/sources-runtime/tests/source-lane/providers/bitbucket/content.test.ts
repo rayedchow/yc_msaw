@@ -233,6 +233,31 @@ describe("Bitbucket repository content capture", () => {
     expect(await yc.text(codePath(REPO, "main", "docs/c.md"))).toBe("# C\n");
   });
 
+  it("refuses a late commit of generation N while generation N+1 is ready but not yet committed", async () => {
+    const cA = fake.commit(TREE_A);
+    const cB = fake.commit(TREE_B as never);
+    const cC = fake.commit({ ...TREE_A, "docs/c.md": "# C, newest\n" });
+    fake.setBranch(repo, "main", cA);
+    await sweepUntilQuiet(fake, T);
+    const scope = { tenantId: T, repoUuid: repo.uuid, ref: "main" };
+    const { beginScan, abandonScan, setScanCursor, setScanPhase } = await import("../../../../src/source-lane/providers/bitbucket/store.js");
+    // Worker 1 begins generation 2 for B; it is later replaced by generation 3 for C, which reaches "ready".
+    const g2 = await beginScan(db as never, scope, { commitSha: cB, commitRaw: {}, mode: "diff", baseCommitSha: cA, reason: "head_moved" });
+    await abandonScan(db as never, scope, g2, "replaced");
+    const g3 = await beginScan(db as never, scope, { commitSha: cC, commitRaw: {}, mode: "diff", baseCommitSha: cA, reason: "head_moved" });
+    await setScanCursor(db as never, scope, g3, null);
+    await setScanPhase(db as never, scope, g3, "ready");
+    expect([g2, g3]).toEqual([2, 3]);
+
+    // Worker 1 wakes up and commits its generation 2: refused; nothing moves.
+    expect((await commitScan(db as unknown as BitbucketDb, scope, g2)).outcome).toBe("superseded");
+    expect((await getRef(db as never, scope))!).toMatchObject({ committed_generation: 1, committed_commit_sha: cA, scan_generation: 3 });
+    // Generation 3 commits normally, and generation 2 can never come after it.
+    expect((await commitScan(db as unknown as BitbucketDb, scope, g3)).outcome).toBe("committed");
+    expect((await commitScan(db as unknown as BitbucketDb, scope, g2)).outcome).toBe("superseded");
+    expect((await getRef(db as never, scope))!).toMatchObject({ committed_generation: 3, committed_commit_sha: cC });
+  });
+
   it("stops on 429 with Retry-After, persists the cooldown and the page checkpoint, then resumes exactly where it stopped", async () => {
     const c1 = fake.commit(TREE_A);
     fake.setBranch(repo, "main", c1);
@@ -352,6 +377,21 @@ describe("Bitbucket repository content capture", () => {
     expect(await yc.tombstone(codePath(REPO, "main", "src/index.ts"))).toMatchObject({ reason: "bitbucket_deleted" });
     expect(await yc.text(codePath(REPO, "main", "docs/new.md"))).toBe("# New\n");
     expect(await yc.text(codePath(REPO, "main", "README.md"))).toBe(TREE_B["README.md"]);
+  });
+
+  it("a reversed diffstat that only names a removal is caught (the removed file still exists at HEAD) and nothing is wrongly deleted", async () => {
+    const cA = fake.commit(TREE_A);
+    const cPlus = fake.commit({ ...TREE_A, "docs/extra.md": "# Extra\n" });
+    fake.setBranch(repo, "main", cA);
+    const { exporter, yc } = await makeExporter(T);
+    await sweepUntilQuiet(fake, T);
+    fake.setBranch(repo, "main", cPlus);
+    fake.reverseDiffstat = true; // served as "docs/extra.md removed"
+    await sweepUntilQuiet(fake, T);
+    await drain(exporter);
+    expect(await yc.text(codePath(REPO, "main", "docs/extra.md"))).toBe("# Extra\n");
+    expect(await yc.text(codePath(REPO, "main", "docs/a.md"))).toBe("# A\n");
+    expect(await yc.json(`${ROOT}/${REPO}/code/main/_snapshots/g00000002.json`)).toMatchObject({ mode: "full", commitSha: cPlus, counts: expect.objectContaining({ added: 1, deleted: 0 }) });
   });
 
   it("omits files over the capture limit without fetching bodies and says so", async () => {

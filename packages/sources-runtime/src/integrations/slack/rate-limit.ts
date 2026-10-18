@@ -38,6 +38,11 @@ const METHOD_TIERS: Record<string, { maxPerMin: number }> = {
   "files.download": { maxPerMin: 30 },
 };
 
+/** Per-minute budget of a Web API method (same tiers as the in-process throttle). */
+export function slackMethodRpm(method: string): number {
+  return (METHOD_TIERS[method] ?? { maxPerMin: 40 }).maxPerMin;
+}
+
 export function slackRateBucketKey(token: string, method: string): string {
   const tokenFingerprint = createHash("sha256").update(token).digest("hex").slice(0, 16);
   return `${tokenFingerprint}:${method}`;

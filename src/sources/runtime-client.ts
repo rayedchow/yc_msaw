@@ -156,6 +156,15 @@ export class SourceRuntimeClient {
     return action === "get" ? this.#call(p, "GET", "/jira/selection") : this.#call(p, "PUT", "/jira/selection", body ?? {});
   }
 
+  /** Office-audio participant consent (runtime integrations/office-audio; granted/revoked by an admin of the tenant). */
+  officeAudioConsent(p: Principal, action: "list" | "grant" | "revoke", input: { body?: unknown; participantKey?: string; deleteCaptured?: boolean } = {}): Promise<RuntimeResponse> {
+    if (action === "list") return this.#call(p, "GET", "/office-audio/consents");
+    if (action === "grant") return this.#call(p, "POST", "/office-audio/consents", input.body ?? {});
+    const key = (input.participantKey ?? "").trim().toLowerCase();
+    if (!key || key.length > 320 || /[\s/]/.test(key)) throw new SourceError("invalid_input", "Invalid participant key");
+    return this.#call(p, "DELETE", `/office-audio/consents/${encodeURIComponent(key)}${input.deleteCaptured ? "?deleteCaptured=true" : ""}`);
+  }
+
   /** GitHub repository selection (runtime providers/github/routes.ts; github patch request 3). */
   githubRepositories(p: Principal, action: "get" | "put", body?: unknown): Promise<RuntimeResponse> {
     return action === "get" ? this.#call(p, "GET", "/github/repositories") : this.#call(p, "PUT", "/github/repositories/selection", body ?? {});

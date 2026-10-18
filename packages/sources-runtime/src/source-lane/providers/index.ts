@@ -17,6 +17,7 @@ import { jiraProvider } from "./jira/index.js";
 import { linearProvider } from "./linear/index.js";
 import { withNangoRecordsProviders } from "./nango-records/index.js";
 import { notionProvider } from "./notion/index.js";
+import { officeAudioProvider } from "./office-audio/index.js";
 import { slackProvider } from "./slack/index.js";
 import { stripeProvider } from "./stripe/index.js";
 import { whatsappPersonalProvider } from "./whatsapp-personal/index.js";
@@ -44,6 +45,7 @@ const SPECIALIZED_PROVIDERS: readonly SourceProviderModule[] = [
   jiraProvider,
   linearProvider,
   notionProvider,
+  officeAudioProvider,
   slackProvider,
   stripeProvider,
   whatsappPersonalProvider,
