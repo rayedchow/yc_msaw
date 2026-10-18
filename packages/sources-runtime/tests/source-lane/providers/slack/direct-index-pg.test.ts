@@ -47,4 +47,18 @@ describe.skipIf(!PG)("Slack DM check uses the partial DM index (real PostgreSQL)
     expect((await sql.unsafe(q))[0].direct).toBe(false);
     expect((await sql.unsafe(q.replace("'C00007'", "'D00003'")))[0].direct).toBe(true);
   });
+
+  it("answers Slack's own event channel_type with its partial index too (collector type still unknown)", async () => {
+    await sql.unsafe(`INSERT INTO activity_events (user_id, source, record_kind, event_type, timestamp, raw_payload, source_event_id)
+      VALUES ('t-dm', 'slack', 'activity', 'message', now(), '{"channel":"G0LATE","_channel":"G0LATE","channel_type":"mpim","_channel_type":"unknown"}'::jsonb, 'e:late')`);
+    await sql.unsafe(`ANALYZE activity_events`);
+    const q = `SELECT EXISTS (SELECT 1 FROM activity_events WHERE user_id = 't-dm' AND source = 'slack'
+      AND COALESCE(raw_payload->>'_channel', raw_payload->>'channel') = 'C00007'
+      AND raw_payload->>'channel_type' IN ('im','mpim')) AS direct`;
+    const plan = (await sql.unsafe(`EXPLAIN ${q}`)).map((r: Any) => r["QUERY PLAN"]).join("\n");
+    expect(plan).toContain("idx_activity_events_slack_direct_event_type");
+    expect(plan).not.toMatch(/Seq Scan on activity_events/);
+    expect((await sql.unsafe(q))[0].direct).toBe(false);
+    expect((await sql.unsafe(q.replace("'C00007'", "'G0LATE'")))[0].direct).toBe(true);
+  });
 });

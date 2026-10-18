@@ -48,6 +48,13 @@ export async function isDirectChannel(ctx: ExportContext, channelId: string): Pr
        WHERE user_id = ${ctx.tenantId} AND source = 'slack'
          AND COALESCE(raw_payload->>'_channel', raw_payload->>'channel') = ${channelId}
          AND COALESCE(raw_payload->>'_channel_type', raw_payload->>'channel_type') IN ('im', 'mpim')
+    ) OR EXISTS (
+      -- Slack's own event channel_type: the collector's _channel_type is "unknown" before the conversation has a
+      -- watermark, which would otherwise shadow it (index 9402).
+      SELECT 1 FROM activity_events
+       WHERE user_id = ${ctx.tenantId} AND source = 'slack'
+         AND COALESCE(raw_payload->>'_channel', raw_payload->>'channel') = ${channelId}
+         AND raw_payload->>'channel_type' IN ('im', 'mpim')
     )) AS direct,
     EXISTS (
       SELECT 1 FROM slack_source_conversations
@@ -133,7 +140,9 @@ export async function withheldProjectionsOf(ctx: ExportContext, channelId: strin
 export const mapSlackEvent: NonNullable<SourceProviderModule["mapEvent"]> = async (row: ActivityEventRow, ctx: ExportContext, journal: JournalInfo) => {
   const payload = (typeof row.raw_payload === "string" ? JSON.parse(row.raw_payload) : row.raw_payload) as Record<string, unknown> | null;
   const channelId = typeof payload?._channel === "string" ? payload._channel : typeof payload?.channel === "string" ? payload.channel : null;
-  const direct = isDirectConversationType(payload?._channel_type) || (channelId !== null && (await isDirectChannel(ctx, channelId)));
+  // Either the collector's conversation type or Slack's own event channel_type ("unknown" must not shadow "mpim").
+  const direct = isDirectConversationType(payload?._channel_type) || isDirectConversationType(payload?.channel_type)
+    || (channelId !== null && (await isDirectChannel(ctx, channelId)));
   if (!direct) return null;
   return defaultEventChanges(RAW_DIR, row, journal).map((c) => withheld(c.path, journal.enqueuedAt));
 };
