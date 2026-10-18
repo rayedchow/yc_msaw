@@ -177,7 +177,8 @@ export class SourceViewer {
   }
 
   #account(seg: string): Access {
-    const account = decodeSegment(seg);
+    // Raw ledger namespaces carry a kind prefix (`gmail/_raw/mailbox:<address>/`, runtime activity-event-source.ts).
+    const account = decodeSegment(seg).replace(/^mailbox:/, "");
     if (!account.includes("@")) return this.#ownsAllGoogle ? "allow" : "deny";
     return this.#ownedAccounts.has(account) ? "allow" : "deny";
   }

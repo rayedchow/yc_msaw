@@ -174,7 +174,9 @@ export class SourceService {
     const store = this.storeFor(ns);
     const found = new Set<string>();
     let truncated = false;
-    for (const dir of ["gmail", "gmail/_raw", "calendar/accounts", "calendar/_raw", "google-contacts/accounts", "google-contacts/_raw"]) {
+    // Only directories that are mailboxes by construction: a raw Calendar namespace is a calendar id (a group or
+    // shared calendar's address is not a member's mailbox), so it is not scanned.
+    for (const dir of ["gmail", "gmail/_raw", "calendar/accounts", "google-contacts/accounts"]) {
       let page;
       try {
         page = await store.list(dir, { limit: MAX_MAILBOX_SCAN, includeDeleted: true });
@@ -190,7 +192,7 @@ export class SourceService {
         } catch {
           // keep the stored spelling
         }
-        name = name.toLowerCase();
+        name = name.toLowerCase().replace(/^mailbox:/, "");
         if (name.includes("@") && !known.has(name)) found.add(name);
       }
     }

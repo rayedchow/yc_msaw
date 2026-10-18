@@ -186,6 +186,8 @@ beforeAll(async () => {
     put("sources/slack/C1/2026-10-01.md", "team channel: needle-slack\n"),
     put("sources/slack/D0123ABCD/2026-10-01.md", "direct message: needle-dm\n"),
     put("sources/jira/ACME/ACME-1.md", "shared issue: needle-jira\n"),
+    // The runtime's raw ledger for Gmail uses a `mailbox:` namespace (activity-event-source.ts).
+    put("sources/gmail/_raw/mailbox:alice@acme.test/message:m1/2026-10/gmail:m1.json", "{\"raw\":\"needle-alice-raw\"}\n"),
   ]);
 });
 
@@ -242,9 +244,11 @@ describe("owner-only personal sources for members of one organization", () => {
     expect(names(await tool("carol", "ls", { path: "$SOURCES" }))).toEqual(["jira/", "slack/"]);
 
     const gmail = await tool("alice", "ls", { path: "$SOURCES/gmail" });
-    expect(names(gmail)).toEqual(["alice@acme.test/"]);
+    expect(names(gmail)).toEqual(["_raw/", "alice@acme.test/"]);
     expect(gmail.liveFiles).toBeNull(); // the directory total would count bob's mail
     expect((await tool("alice", "read", { path: `$SOURCES/${ALICE_MAIL.slice(8)}` })).content).toContain("needle-alice");
+    expect((await tool("alice", "read", { path: "$SOURCES/gmail/_raw/mailbox:alice@acme.test/message:m1/2026-10/gmail:m1.json" })).content).toContain("needle-alice-raw");
+    expect((await tool("bob", "read", { path: "$SOURCES/gmail/_raw/mailbox:alice@acme.test/message:m1/2026-10/gmail:m1.json" })).code).toBe("not_found");
     for (const p of [BOB_MAIL, "sources/granola/Board-meeting-1/summary.md", "sources/google-docs/Plan-doc-1/document.md", "sources/calendar/2026/10/standup.md", "sources/slack/D0123ABCD/2026-10-01.md"]) {
       const r = await tool("alice", "read", { path: `$SOURCES/${p.slice(8)}` });
       expect(r.code, p).toBe("not_found");
@@ -259,6 +263,7 @@ describe("owner-only personal sources for members of one organization", () => {
     const hits = grep.matches.map((m: any) => m.path).sort();
     expect(hits).toEqual([
       "$SOURCES/calendar/accounts/alice@acme.test/calendars/primary/events/e1.md",
+      "$SOURCES/gmail/_raw/mailbox:alice@acme.test/message:m1/2026-10/gmail:m1.json",
       `$SOURCES/${ALICE_MAIL.slice(8)}`,
       "$SOURCES/imessage/Mom-chat-1/2026-10.md",
       "$SOURCES/jira/ACME/ACME-1.md",
@@ -266,7 +271,7 @@ describe("owner-only personal sources for members of one organization", () => {
     ]);
     const found = (await tool("carol", "find", { path: "$SOURCES", pattern: "**/*.md" })).matches;
     expect(found.sort()).toEqual(["$SOURCES/jira/ACME/ACME-1.md", "$SOURCES/slack/C1/2026-10-01.md"]);
-    expect((await tool("bob", "find", { path: "$SOURCES/gmail", pattern: "**" })).matches.every((m: string) => m.includes("bob@acme.test"))).toBe(true);
+    expect((await tool("bob", "find", { path: "$SOURCES/gmail", pattern: "**" })).matches.some((m: string) => m.includes("alice@acme.test"))).toBe(false);
   });
 
   it("keeps immutable history, status and the admin status route to the owner", async () => {
@@ -326,7 +331,7 @@ describe("owner-only personal sources for members of one organization", () => {
     expect((await tool("alice", "read", { path: "$SOURCES/google-docs/Plan-doc-1/document.md" })).code).toBe("not_found");
     // bob@ is no longer reported: even the owner of every reported account does not see the unowned mailbox.
     const gmailLs = await tool("alice", "ls", { path: "$SOURCES/gmail" });
-    expect(names(gmailLs)).toEqual(["alice@acme.test/"]);
+    expect(names(gmailLs)).toEqual(["_raw/", "alice@acme.test/"]);
     expect(gmailLs.liveFiles).toBeNull();
     // bob's mailbox is no longer reported with an owner: unowned data is sealed, not handed to someone else.
     expect((await tool("bob", "read", { path: `$SOURCES/${BOB_MAIL.slice(8)}` })).code).toBe("not_found");
