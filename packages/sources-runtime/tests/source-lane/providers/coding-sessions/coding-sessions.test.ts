@@ -77,6 +77,15 @@ describe("coding sessions ingest", () => {
     expect((await internal("POST", `/tenants/${T2}/devices/coding-sessions/${d.bindingId}/commands`, T2, { type: "force_rescan" })).status).toBe(404);
   });
 
+  it("keeps coverage partial for the bundled Mac agent's capped source_sync receipt (gigabrain@5448774e caps at maxFiles)", async () => {
+    const d = await enroll(T);
+    const sync = await (await internal("POST", `/tenants/${T}/devices/coding-sessions/${d.bindingId}/commands`, T, { type: "source_sync", coverageFrom: null })).json() as { id: string };
+    // Shape the agent actually sends when its source_sync scan hits maxFilesPerProvider (fullInventory = !capped).
+    await wire(app, "POST", "/command/ack", d.key, { id: sync.id, status: "completed", result: { receiptVersion: 1, provider: "coding_sessions", fullInventory: false, exhausted: true, capHit: true, maxFilesPerProvider: 1, filesDiscovered: 1, sessionsSeen: 1, pendingUploads: 0, failedUploads: 0 } });
+    const [cov] = await codingSessionsCoverage({ tenantId: T, executor: db as never });
+    expect(cov!.state).toBe("partial");
+  });
+
   it("exports JSON and a readable transcript per session, registered in the default registry", async () => {
     expect(defaultRegistry().extraTable("coding_sessions")?.provider.id).toBe("coding-sessions");
     const d = await enroll(T);
