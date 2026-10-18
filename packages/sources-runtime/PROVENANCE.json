@@ -2550,21 +2550,22 @@
     },
     {
       "path": "src/integrations/google/index.ts",
-      "sha256": "f77a79c1d8679681785bbbfd5628c4007e32761dad829d8d10b4065696f65dbd",
+      "sha256": "4855682775c9919b53d2314063ada3f6d16085fafb7b385bd10ffdf1dc803d72",
       "status": "patched",
       "owner": "coordinator, google-viewer-content, google-native-views, quota-final-check",
       "donorPath": "src/integrations/google/index.ts",
       "donorSha256": "4a23d843a0fec53b25d634fb78fb3b9f4e1cd78a74710dc0733c606d4334bca4",
-      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds. quota-final-check: the gmail.backfill rate-limit reschedule keeps a Retry-After longer than its 1 h backoff cap as the floor.",
+      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds. quota-final-check: the gmail.backfill rate-limit reschedule keeps a Retry-After longer than its 1 h backoff cap as the floor. Legacy Docs durable floor: one-shot gdocs.content-snapshot/discovery/backfill tasks that meet Google's Retry-After floor are re-enqueued at the floor (bounded 40 reschedules, run still recorded failed) instead of burning their attempts.",
       "tests": [
         "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
         "tests/source-lane/core/account-view-e2e-pg.test.ts",
+        "tests/source-lane/core/google-backfill-reschedule.test.ts",
+        "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts",
         "tests/source-lane/core/shared-patches-gmail.test.ts",
         "tests/source-lane/core/shared-patches.test.ts",
         "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
         "tests/source-lane/providers/google-docs/account-native-views.test.ts",
-        "tests/source-lane/providers/google-docs/account-view.test.ts",
-        "tests/source-lane/core/google-backfill-reschedule.test.ts"
+        "tests/source-lane/providers/google-docs/account-view.test.ts"
       ]
     },
     {
@@ -3685,12 +3686,12 @@
     },
     {
       "path": "src/polling/_archived-gdocs/gdocs-api.ts",
-      "sha256": "98cee3fdf1ae800d3ba45dbed9472a30dedaeea28f26f897c7d2dac0e370f6f7",
+      "sha256": "8605f946d01028b2c21476b54b18f5d880a5b53b86549228aec2021a2a20fda5",
       "status": "patched",
       "owner": "coordinator, owner-runtime-fidelity",
       "donorPath": "src/polling/_archived-gdocs/gdocs-api.ts",
       "donorSha256": "f8ae3f0cd5ecef3f4062abd4344b897442640064fdc8c3eabc15dac2cfd2b5ba",
-      "reason": "Coordinator patch: gFetch cools down per credential (sha256-prefix key) for userRateLimitExceeded and keeps the process-wide google-workspace cooldown for project-wide limits, so one mailbox no longer stalls every tenant poll in the process. owner-runtime-fidelity: changes.list fields add file capabilities(canReadRevisions); DriveChange.file.capabilities type. Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1). Legacy Docs durable floor: gFetch also checks and records Google Retry-After floors in google_rate_limit_cooldowns (migration 10550), so a restarted process or second worker never calls Google before a floor another process received.",
+      "reason": "Coordinator patch: gFetch cools down per credential (sha256-prefix key) for userRateLimitExceeded and keeps the process-wide google-workspace cooldown for project-wide limits, so one mailbox no longer stalls every tenant poll in the process. owner-runtime-fidelity: changes.list fields add file capabilities(canReadRevisions); DriveChange.file.capabilities type. Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1). Legacy Docs durable floor: gFetch also checks and records Google Retry-After floors in google_rate_limit_cooldowns (migration 10550), so a restarted process or second worker never calls Google before a floor another process received. The per-user cooldown key is google-workspace:quota:<quotaUser> for a bearer from getGoogleApiCredential (per-token key only for an unknown bearer).",
       "tests": [
         "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts",
         "tests/source-lane/core/owner-attribution-pg.test.ts",
@@ -5968,16 +5969,17 @@
     },
     {
       "path": "src/vault/google-auth.ts",
-      "sha256": "034712a9651a68af5457eec51b439c82890c46df48c591785a4a264487405e45",
+      "sha256": "6203b4775df801b355fee3b015ec0c722f5d4ea4dfc5d52b9b443e1572b7af96",
       "status": "patched",
-      "owner": "google-auth",
+      "owner": "google-auth, coordinator",
       "donorPath": "src/vault/google-auth.ts",
       "donorSha256": "84487958f7f205a3415d397ff4f17c6a6bfbed683e81b6f4ee0e27962af1097c",
-      "reason": "Restore OAuth/DWD coexistence: explicit per-(tenant,account) mode resolution (OAuth grant row wins, else DWD), getGoogleApiCredential/fetchGoogleApi seam (gigabrain e3348e568), GoogleBearerUnavailableError for Composio, DWD server-owned allowlist checked before the global token cache, removal of the process-global GOOGLE_WORKSPACE_USER_EMAIL fallback, DWD connect refuses OAuth-connected accounts, real buildGoogleOAuthUrl/exchangeGoogleCode (re-exported from google-oauth.ts) replacing throwing stubs, quota attribution by upstream identity. Consumer signatures getGoogleAccessToken(userId, email?, scopes?, options?) and all *_SCOPES constants unchanged.",
+      "reason": "Restore OAuth/DWD coexistence: explicit per-(tenant,account) mode resolution (OAuth grant row wins, else DWD), getGoogleApiCredential/fetchGoogleApi seam (gigabrain e3348e568), GoogleBearerUnavailableError for Composio, DWD server-owned allowlist checked before the global token cache, removal of the process-global GOOGLE_WORKSPACE_USER_EMAIL fallback, DWD connect refuses OAuth-connected accounts, real buildGoogleOAuthUrl/exchangeGoogleCode (re-exported from google-oauth.ts) replacing throwing stubs, quota attribution by upstream identity. Consumer signatures getGoogleAccessToken(userId, email?, scopes?, options?) and all *_SCOPES constants unchanged. Legacy Docs durable floor: getGoogleApiCredential registers each bearer it returns with its quotaUser (google-quota-identity.ts, sha256 prefix only), so a per-user cooldown keyed by the stable account+credential unit survives token refresh and restarts.",
       "tests": [
+        "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts",
+        "tests/source-lane/providers/google-auth/composio.test.ts",
         "tests/source-lane/providers/google-auth/dwd.test.ts",
-        "tests/source-lane/providers/google-auth/oauth-direct.test.ts",
-        "tests/source-lane/providers/google-auth/composio.test.ts"
+        "tests/source-lane/providers/google-auth/oauth-direct.test.ts"
       ]
     },
     {
@@ -6066,6 +6068,16 @@
           "use": "GOOGLE_DWD_ONLY_SCOPES / mirrorable scope classification",
           "note": "read from AUDIT/history/recovered/gigabrain/21feb713"
         }
+      ]
+    },
+    {
+      "path": "src/vault/google-quota-identity.ts",
+      "sha256": "bd397a126d61509753eeab6e7772fc55a4e78273d8efcfdc48b57f91877d48ad",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Legacy Docs durable floor: in-process map from a bearer (sha256 prefix only, bounded 10,000) to the googleQuotaUser unit getGoogleApiCredential returned it for, so the legacy gFetch can key a per-user Google cooldown by the stable account+credential unit instead of a rotating token.",
+      "tests": [
+        "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts"
       ]
     },
     {

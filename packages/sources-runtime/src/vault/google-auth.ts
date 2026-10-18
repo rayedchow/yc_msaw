@@ -10,6 +10,7 @@ import {
   type GoogleComposioCredential,
 } from "./google-composio.js";
 import { assertGoogleDwdMailboxApproved } from "./google-dwd-policy.js";
+import { noteGoogleTokenQuotaUser } from "./google-quota-identity.js";
 import {
   deleteRevokedGoogleOAuthGrant,
   findGoogleOAuthGrant,
@@ -529,7 +530,11 @@ export async function getGoogleApiCredential(
       };
     }
     const accessToken = await getGoogleOAuthAccessToken(userId, account, scopes, { forceRefresh: options.forceRefresh });
-    return { kind: "access_token", accessToken, mode: "oauth_direct", account, quotaUser: googleQuotaUser(account, `oauth:${googleOAuthClientConfig()?.clientId ?? "unconfigured"}`) };
+    // SOURCE-LANE PATCH (legacy Docs durable floor): remember which quota unit this bearer draws on, so a per-user
+    // cooldown keyed by the stable unit survives token refresh and restarts (google-quota-identity.ts).
+    const quotaUser = googleQuotaUser(account, `oauth:${googleOAuthClientConfig()?.clientId ?? "unconfigured"}`);
+    noteGoogleTokenQuotaUser(accessToken, quotaUser);
+    return { kind: "access_token", accessToken, mode: "oauth_direct", account, quotaUser };
   }
 
   if (!dwdEmail) {
@@ -550,7 +555,9 @@ export async function getGoogleApiCredential(
   // tenant can never receive a token minted for another tenant's mailbox.
   assertGoogleDwdMailboxApproved(userId, dwdEmail);
   const accessToken = await getDelegationAccessToken(dwdEmail, [...scopes], options);
-  return { kind: "access_token", accessToken, mode: "domain_wide_delegation", account: dwdEmail, quotaUser: googleQuotaUser(dwdEmail, `dwd:${getServiceAccountClientEmail() ?? "unknown"}`) };
+  const quotaUser = googleQuotaUser(dwdEmail, `dwd:${getServiceAccountClientEmail() ?? "unknown"}`);
+  noteGoogleTokenQuotaUser(accessToken, quotaUser);
+  return { kind: "access_token", accessToken, mode: "domain_wide_delegation", account: dwdEmail, quotaUser };
 }
 
 export async function getGoogleAccessToken(

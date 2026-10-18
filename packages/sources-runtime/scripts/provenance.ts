@@ -89,8 +89,9 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/integrations/google/index.ts": {
     status: "patched",
-    reason: "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds. quota-final-check: the gmail.backfill rate-limit reschedule keeps a Retry-After longer than its 1 h backoff cap as the floor.",
+    reason: "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds. quota-final-check: the gmail.backfill rate-limit reschedule keeps a Retry-After longer than its 1 h backoff cap as the floor. Legacy Docs durable floor: one-shot gdocs.content-snapshot/discovery/backfill tasks that meet Google's Retry-After floor are re-enqueued at the floor (bounded 40 reschedules, run still recorded failed) instead of burning their attempts.",
     test: "tests/source-lane/core/shared-patches.test.ts",
+    tests: ["tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts"],
   },
   "src/queue/dispatch.ts": {
     status: "patched",
@@ -179,7 +180,7 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/polling/_archived-gdocs/gdocs-api.ts": {
     status: "patched",
-    reason: "Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1). Legacy Docs durable floor: gFetch also checks and records Google Retry-After floors in google_rate_limit_cooldowns (migration 10550), so a restarted process or second worker never calls Google before a floor another process received.",
+    reason: "Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1). Legacy Docs durable floor: gFetch also checks and records Google Retry-After floors in google_rate_limit_cooldowns (migration 10550), so a restarted process or second worker never calls Google before a floor another process received. The per-user cooldown key is google-workspace:quota:<quotaUser> for a bearer from getGoogleApiCredential (per-token key only for an unknown bearer).",
     test: "tests/source-lane/providers/google-docs/account-native-views.test.ts",
     tests: ["tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts"],
   },
@@ -197,6 +198,11 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     status: "patched",
     reason: "Legacy Docs durable floor: the renderer test mocks the new durable-cooldown module (and isGoogleRateLimit) alongside the donor's google-rate-limit mock; assertions unchanged.",
     test: "tests/mirror/gdocs-content-render.test.ts",
+  },
+  "src/vault/google-auth.ts": {
+    status: "patched",
+    reason: "Legacy Docs durable floor: getGoogleApiCredential registers each bearer it returns with its quotaUser (google-quota-identity.ts, sha256 prefix only), so a per-user cooldown keyed by the stable account+credential unit survives token refresh and restarts.",
+    test: "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts",
   },
   "src/mirror/backfill.ts": {
     status: "patched",

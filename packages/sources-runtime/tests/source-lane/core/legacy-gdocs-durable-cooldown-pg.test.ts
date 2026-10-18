@@ -1,5 +1,5 @@
 import { execFile } from "node:child_process";
-import { randomBytes } from "node:crypto";
+import { generateKeyPairSync, randomBytes, randomUUID } from "node:crypto";
 import { createServer, type Server } from "node:http";
 import type { AddressInfo } from "node:net";
 import { fileURLToPath } from "node:url";
@@ -12,7 +12,8 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
  * content-snapshot) call Google through gFetch / fetchDocContent. A Retry-After floor one process receives must hold
  * a restarted process and a second worker too (migration 10550). Each "worker" here is a separate Node process with
  * fresh memory running the real gFetch / fetchDocContent against a throwaway database on the fixture PostgreSQL
- * (SOURCES_TEST_PG_URL); Google is a local fake that counts every request it receives. Synthetic tokens only.
+ * (SOURCES_TEST_PG_URL); Google is a local fake that counts every request it receives and mints a new DWD access token
+ * on every JWT-bearer exchange (so each fresh process holds a different bearer). Synthetic tokens and keys only.
  */
 const PG = process.env.SOURCES_TEST_PG_URL;
 const run = promisify(execFile);
@@ -29,19 +30,23 @@ let dbUrl: string;
 let server: Server;
 let origin: string;
 let requests: Array<{ path: string; token: string }>;
+let mints: Array<{ sub: string; token: string }>;
+let dwdEnv: Record<string, string>;
+const TENANT = "tenant-legacy-docs";
 let respond: (path: string, token: string) => { status: number; headers?: Record<string, string>; body: unknown };
 
-type Result = { ok: boolean; status?: number; title?: string; name?: string; service?: string; reason?: string; retryAfterSeconds?: number; message?: string };
+type Result = { ok: boolean; status?: number; title?: string; result?: Any; name?: string; service?: string; reason?: string; retryAfterSeconds?: number; message?: string };
 
 async function worker(calls: unknown[]): Promise<Result[]> {
   const { stdout } = await run(TSX, [WORKER, JSON.stringify(calls)], {
-    env: { ...process.env, DATABASE_URL: dbUrl, GOOGLE_FAKE_ORIGIN: origin },
+    env: { ...process.env, ...dwdEnv, DATABASE_URL: dbUrl, GOOGLE_FAKE_ORIGIN: origin },
     timeout: 60_000,
   });
   return JSON.parse(stdout.trim().split("\n").pop()!) as Result[];
 }
 
 const sent = (token: string) => requests.filter((r) => r.token === token).length;
+const sentFor = (sub: string) => requests.filter((r) => mints.some((m) => m.sub === sub && m.token === r.token)).length;
 const limit = (status: number, reason: string, retryAfter: string) => ({
   status,
   headers: { "retry-after": retryAfter },
@@ -61,9 +66,27 @@ describe.skipIf(!PG)("legacy Google Docs tasks keep Google's Retry-After floor a
     sql = postgres(dbUrl, { max: 2, onnotice: () => {} });
     const { applySourceLaneMigrations } = await import("../../../src/source-lane/core/migrations.js");
     await applySourceLaneMigrations(sql);
-    server = createServer((req, res) => {
+    dwdEnv = {
+      GOOGLE_DWD_TENANT_APPROVALS: JSON.stringify({ [TENANT]: ["corp.example"] }),
+      GOOGLE_WORKSPACE_SERVICE_ACCOUNT_KEY_JSON: JSON.stringify({
+        client_email: "legacy-docs@example-project.iam.gserviceaccount.com",
+        private_key: generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }),
+      }),
+    };
+    server = createServer(async (req, res) => {
       const token = String(req.headers.authorization ?? "").replace(/^Bearer /, "");
       const path = new URL(req.url!, "http://x").pathname;
+      if (path === "/token") {
+        let body = "";
+        for await (const chunk of req) body += chunk;
+        const assertion = new URLSearchParams(body).get("assertion")!;
+        const sub = JSON.parse(Buffer.from(assertion.split(".")[1]!, "base64url").toString("utf8")).sub as string;
+        const minted = `ya29.synthetic-${mints.length + 1}`;
+        mints.push({ sub, token: minted });
+        res.writeHead(200, { "content-type": "application/json" });
+        res.end(JSON.stringify({ access_token: minted, expires_in: 3600 }));
+        return;
+      }
       requests.push({ path, token });
       const r = respond(path, token);
       res.writeHead(r.status, { "content-type": "application/json", ...r.headers });
@@ -84,6 +107,7 @@ describe.skipIf(!PG)("legacy Google Docs tasks keep Google's Retry-After floor a
 
   beforeEach(async () => {
     requests = [];
+    mints = [];
     respond = () => ok;
     await sql`DELETE FROM google_rate_limit_cooldowns`;
   });
@@ -137,6 +161,41 @@ describe.skipIf(!PG)("legacy Google Docs tasks keep Google's Retry-After floor a
     const [held] = await worker([{ kind: "content", docId: "doc-1", token: "tok-f" }]);
     expect(held).toMatchObject({ ok: false, reason: "cooldown", service: "google-docs-api" });
     expect(sent("tok-f")).toBe(0);
+  });
+
+  it("a per-user floor survives a token refresh: a fresh worker minting a new DWD bearer for the mailbox is held, another mailbox is not", async () => {
+    const ADA = "ada@corp.example";
+    const BOB = "bob@corp.example";
+    respond = () => limit(403, "userRateLimitExceeded", "7200");
+    const [first] = await worker([{ kind: "dwd", tenantId: TENANT, mailbox: ADA, url: DRIVE }]);
+    expect(first).toMatchObject({ ok: false, name: "GoogleRateLimitError", retryAfterSeconds: 7200 });
+    expect(first!.service).toMatch(/^google-workspace:quota:q[0-9a-f]{39}$/);
+
+    respond = () => ok;
+    const [held, other] = await worker([{ kind: "dwd", tenantId: TENANT, mailbox: ADA, url: DRIVE }, { kind: "dwd", tenantId: TENANT, mailbox: BOB, url: DRIVE }]);
+    const adaTokens = mints.filter((m) => m.sub === ADA).map((m) => m.token);
+    expect(new Set(adaTokens).size).toBe(2); // the restarted worker holds a different bearer for the same mailbox
+    expect(held).toMatchObject({ ok: false, reason: "cooldown", service: first!.service });
+    expect(other).toMatchObject({ ok: true, status: 200 });
+    expect(sentFor(ADA)).toBe(1);
+    expect(sentFor(BOB)).toBe(1);
+  });
+
+  it("a one-shot content snapshot that meets the floor is re-enqueued at the floor instead of burning its attempts", async () => {
+    const [connected] = await worker([{ kind: "connect", tenantId: TENANT, mailbox: "ada@corp.example" }]);
+    expect(connected).toMatchObject({ ok: true });
+    await sql`INSERT INTO google_rate_limit_cooldowns (service_key, blocked_until) VALUES ('google-docs-api', now() + interval '2 hours')`;
+    const payload = { userId: TENANT, docId: "doc-floor", modifiedTime: "2026-10-18T10:00:00.000Z" };
+    const task = { id: randomUUID(), queue: "sync", tenantId: TENANT, groupKey: `${TENANT}:gdocs`, kind: "gdocs.content-snapshot", payload, attempt: 1, maxAttempts: 3, priority: -5, prevRunId: null };
+    const [outcome] = await worker([{ kind: "task", taskKind: "gdocs.content-snapshot", payload, task }]);
+    expect(outcome).toMatchObject({ ok: true, result: { deferred: true, reschedules: 1 } });
+    expect(outcome!.result.retryAfterSeconds).toBeGreaterThan(7100);
+    const rows = await sql`SELECT kind, group_key, state, attempt, payload, extract(epoch FROM run_at - now()) AS wait FROM task_queue WHERE tenant_id = ${TENANT}`;
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({ kind: "gdocs.content-snapshot", group_key: `${TENANT}:gdocs`, state: "queued", attempt: 0 });
+    expect(rows[0].payload).toMatchObject({ docId: "doc-floor", rateLimitReschedules: 1 });
+    expect(Number(rows[0].wait)).toBeGreaterThan(7100);
+    expect(requests).toHaveLength(0);
   });
 
   it("a shorter later Retry-After never moves a recorded floor earlier", async () => {

@@ -89,29 +89,33 @@ export const googleIntegration: AqueductIntegration = {
       },
       "gdocs.backfill": async (payload, ctx) => {
         const tenantId = taskTenantId(payload, ctx.task.tenantId);
-        const result = await recordGoogleSourceTask(ctx, tenantId, "gdocs.backfill", () => runGdocsBackfill(
-          tenantId,
-          typeof payload.days === "number" ? payload.days : null,
-        ), coverageFromDays(payload.days));
-        return { stored: result.stored };
+        return await deferAtGoogleFloor(ctx, tenantId, payload, async () => {
+          const result = await recordGoogleSourceTask(ctx, tenantId, "gdocs.backfill", () => runGdocsBackfill(
+            tenantId,
+            typeof payload.days === "number" ? payload.days : null,
+          ), coverageFromDays(payload.days));
+          return { stored: result.stored };
+        });
       },
       "gdocs.discovery": async (payload, ctx) => {
         const tenantId = taskTenantId(payload, ctx.task.tenantId);
-        const result = await recordGoogleSourceTask(ctx, tenantId, "gdocs.discovery", () => runGdocsDiscovery(tenantId, {
-          folderIds: Array.isArray(payload.folderIds) ? payload.folderIds.map(String) : undefined,
-          query: typeof payload.query === "string" ? payload.query : undefined,
-          driveIds: payload.driveIds === "all"
-            ? "all"
-            : Array.isArray(payload.driveIds) ? payload.driveIds.map(String) : undefined,
-          days: typeof payload.days === "number" ? payload.days : null,
-        }), coverageFromDays(payload.days));
-        return {
-          tracked: result.tracked,
-          filesSeen: result.filesSeen,
-          snapshotsEnqueued: result.snapshotsEnqueued,
-          foldersTruncated: result.foldersTruncated,
-          lineageFailures: result.lineageFailures,
-        };
+        return await deferAtGoogleFloor(ctx, tenantId, payload, async () => {
+          const result = await recordGoogleSourceTask(ctx, tenantId, "gdocs.discovery", () => runGdocsDiscovery(tenantId, {
+            folderIds: Array.isArray(payload.folderIds) ? payload.folderIds.map(String) : undefined,
+            query: typeof payload.query === "string" ? payload.query : undefined,
+            driveIds: payload.driveIds === "all"
+              ? "all"
+              : Array.isArray(payload.driveIds) ? payload.driveIds.map(String) : undefined,
+            days: typeof payload.days === "number" ? payload.days : null,
+          }), coverageFromDays(payload.days));
+          return {
+            tracked: result.tracked,
+            filesSeen: result.filesSeen,
+            snapshotsEnqueued: result.snapshotsEnqueued,
+            foldersTruncated: result.foldersTruncated,
+            lineageFailures: result.lineageFailures,
+          };
+        });
       },
       "gdocs.comment-sweep": async (payload, ctx) => {
         const tenantId = taskTenantId(payload, ctx.task.tenantId);
@@ -134,13 +138,13 @@ export const googleIntegration: AqueductIntegration = {
         const tenantId = taskTenantId(payload, ctx.task.tenantId);
         const docId = typeof payload.docId === "string" ? payload.docId : "";
         if (!docId) return { status: "skipped_invalid" };
-        return await recordGoogleSourceTask(ctx, tenantId, "gdocs.content-snapshot", () => runGdocsContentSnapshot(tenantId, docId, {
+        return await deferAtGoogleFloor(ctx, tenantId, payload, () => recordGoogleSourceTask(ctx, tenantId, "gdocs.content-snapshot", () => runGdocsContentSnapshot(tenantId, docId, {
           modifiedTime: payloadString(payload.modifiedTime),
           authorEmail: payloadString(payload.authorEmail),
           authorName: payloadString(payload.authorName),
           updatedByEmail: payloadString(payload.updatedByEmail),
           updatedByName: payloadString(payload.updatedByName),
-        }));
+        })));
       },
       // SOURCE-LANE PATCH (google-viewer-content, google-native-views): current view of a Doc, Sheet, Slides deck, Drive
       // file or PDF a mailbox may only read or comment on (and the comments Google returns to it), under its own credential.
@@ -185,6 +189,36 @@ function taskTenantId(payload: Record<string, unknown>, taskTenantId: string): s
 
 function payloadString(value: unknown): string | null {
   return typeof value === "string" && value ? value : null;
+}
+
+// SOURCE-LANE PATCH (legacy Docs durable floor): a one-shot Docs task (content snapshot, discovery, backfill) that meets
+// Google's Retry-After floor is re-enqueued at the floor instead of failing through its attempts inside it (as
+// gmail.backfill does); the run itself is still recorded as failed. Scheduled tasks just fail and refire.
+async function deferAtGoogleFloor<T>(
+  ctx: TaskHandlerContext,
+  tenantId: string,
+  payload: Record<string, unknown>,
+  run: () => Promise<T>,
+): Promise<T | { deferred: true; retryAfterSeconds: number; reschedules: number }> {
+  try {
+    return await run();
+  } catch (error) {
+    if (!(error instanceof GoogleRateLimitError)) throw error;
+    const reschedules = typeof payload.rateLimitReschedules === "number" ? payload.rateLimitReschedules : 0;
+    if (reschedules >= 40) throw error;
+    const target = typeof payload.docId === "string" && payload.docId ? payload.docId : "all";
+    await enqueueTask({
+      queue: ctx.task.queue,
+      tenantId: ctx.task.tenantId,
+      kind: ctx.task.kind,
+      groupKey: ctx.task.groupKey,
+      payload: { ...payload, rateLimitReschedules: reschedules + 1 },
+      dedupeKey: `${tenantId}:google:${ctx.task.kind}:rate-limit:${target}:${ctx.task.id}`,
+      runAt: new Date(Date.now() + error.retryAfterSeconds * 1000),
+      priority: ctx.task.priority,
+    });
+    return { deferred: true, retryAfterSeconds: error.retryAfterSeconds, reschedules: reschedules + 1 };
+  }
 }
 
 function recordGoogleSourceTask<T>(

@@ -7,6 +7,7 @@
 import { createHash } from "node:crypto";
 import { googleErrorReasonFromPayload, googleRateLimitErrorFromResponse, throwIfGoogleRateLimited } from "../../vault/google-rate-limit.js";
 import { recordGoogleCooldownDurable, throwIfGoogleCooldownDurable } from "../../source-lane/providers/google-docs/durable-cooldown.js";
+import { googleQuotaUserForToken } from "../../vault/google-quota-identity.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -284,7 +285,12 @@ function actorRetryDelayMs(attemptCount: number): number {
 // that hit them (`google-workspace:cred:<sha256(token) prefix>`), so one mailbox's 429 no longer stalls every
 // tenant's poll in the process. Project-wide limits (429 / rateLimitExceeded / quotaExceeded) keep the donor's
 // process-wide `google-workspace` cooldown. The token itself is never used as a key or logged.
+// SOURCE-LANE PATCH (legacy Docs durable floor): a bearer from getGoogleApiCredential is keyed by its stable quota unit
+// (`google-workspace:quota:<quotaUser>`: account + service account/OAuth client), so the floor survives token refresh,
+// re-minted DWD tokens and restarts; an unknown bearer keeps the per-token key.
 export function credentialCooldownKey(accessToken: string): string {
+  const quotaUser = googleQuotaUserForToken(accessToken);
+  if (quotaUser) return `google-workspace:quota:${quotaUser}`;
   return `google-workspace:cred:${createHash("sha256").update(accessToken).digest("hex").slice(0, 16)}`;
 }
 
