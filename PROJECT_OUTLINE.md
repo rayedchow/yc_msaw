@@ -262,17 +262,19 @@ The UI keeps the honeyflow grid style (dark, pastel violet accent) and has two v
 - **MCPs:** every internal MCP the company has, with its systems, status (live, mining, needs an answer), agents
   connected, calls in the last 24 h and rules compiled.
 - **One MCP:** its status and two tabs, **Overview · Evals** (the Evals tab carries the MCP's success rate). The
-  Overview opens with an evals strip (raw API → + memory → this MCP, linking to the full evals), then one **grid tree** that unifies everything: the MCP in the center, its
+  Overview opens with an evals strip (rules confirmed, replays matching history, changes detected), then one **grid tree** that unifies everything: the MCP in the center, its
   integrations on the left (`.md` plus secret name), its tools on the right, and its mined tribal knowledge as rule
   nodes below (held-out score or "asked"). Hovering a node shows its details in a strip under the tree (rule text, evidence, code;
   tool description; integration context) and lights up how it connects: a tool lights the rules compiled into it, a rule
   lights the tools that use it. Below the tree: any open question for a human, how to connect any agent, and
   versions (tests → evals → live).
 
-- **Evals tab:** the same held-out tasks run by several models under three setups (raw API, + memory, this
-  MCP): headline success rates, a dot matrix of every task × model result (hover a dot for why it was right or
-  wrong), each rule's train vs held-out backtest, whether each model picks the right tool from its description alone,
-  and success across versions.
+- **Evals tab:** answers "is walter's understanding of this system right?", checked only against the system's own
+  history (learned on older months, held out on recent ones). It shows rules confirmed, past work replayed exactly,
+  custom fields understood and changes detected; **replays** of past work (recorded vs MCP result, train or held-out,
+  with the diff and the rule that explains it); **rule evidence** (decisions each rule explains, month-by-month
+  agreement that exposes when a rule changes, counterexamples); and **system context** (custom fields understood,
+  deprecated or still unknown). It deliberately does not compare models.
 
 All views are in `mock-ui/index.html` (open it directly; no build step; `#sales/evals` opens an evals page).
 

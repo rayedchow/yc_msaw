@@ -215,6 +215,40 @@
   .evlink { display: flex; flex-direction: column; justify-content: center; gap: 4px; text-decoration: none; color: var(--text); background: rgba(196,181,253,0.06); cursor: pointer; }
   .evlink:hover { background: rgba(196,181,253,0.12); }
   .evlink .go { font-size: 16px; font-weight: 600; color: var(--accent); }
+  /* evals v2 */
+  .tbadge.warn { background: var(--warn); }
+  .evstrip .v.warn, .evsum .v.warn { color: var(--warn); }
+  .evsum .cell { padding: 20px 28px 22px; }
+  .evsum .l { font-size: 13px; color: var(--muted); }
+  .evsum .v { font-family: var(--mono); font-size: 32px; font-weight: 600; letter-spacing: -0.03em; margin-top: 4px; }
+  .evsum .v span { font-size: 17px; color: var(--tertiary); }
+  .evsum .s { font-size: 12.5px; margin-top: 2px; }
+  .okc { color: var(--ok); font-size: 13px; }
+  .warnc { color: var(--warn); }
+  .rp { grid-template-columns: 1.8fr 1fr 1fr 100px 80px; font-size: 14px; }
+  .rpd { display: none; grid-template-columns: 1fr 2.4fr; gap: 16px; padding: 0 28px 16px; font-size: 13.5px; color: var(--muted); background: var(--surface); }
+  .rpd.on { display: grid; }
+  .re { grid-template-columns: 32px 1.5fr 1.2fr 220px 120px; font-size: 14px; }
+  .sbar { display: block; height: 3px; background: var(--border); margin-top: 6px; width: 140px; }
+  .sbar i { display: block; height: 100%; background: var(--accent); }
+  .mstrip { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; align-items: center; }
+  .mstrip span { font-family: var(--mono); font-size: 10px; text-align: center; }
+  .sq { width: 16px; height: 16px; display: inline-block; border-radius: 2px; justify-self: center; }
+  .sq.hi { background: var(--accent); }
+  .sq.mid { background: rgba(196,181,253,0.4); }
+  .sq.low { background: var(--warn); }
+  .sq.none { background: transparent; border: 1px dashed var(--border-strong); }
+  .sq.ho { outline: 1px solid rgba(255,255,255,0.35); outline-offset: 1px; }
+  .legend .sq { width: 10px; height: 10px; margin-left: 6px; }
+  .fields { display: flex; flex-wrap: wrap; gap: 8px; padding: 4px 28px 8px; }
+  .fchip { font-family: var(--mono); font-size: 12.5px; padding: 6px 10px; border: 1px solid var(--border-strong); cursor: pointer; }
+  .fchip.understood { border-color: rgba(196,181,253,0.5); color: var(--text); background: rgba(196,181,253,0.07); }
+  .fchip.deprecated { color: var(--tertiary); text-decoration: line-through; }
+  .fchip.unknown { border-color: var(--warn); color: var(--warn); border-style: dashed; }
+  .chip-d { width: 10px; height: 10px; display: inline-block; margin-left: 6px; }
+  .chip-d.understood { background: rgba(196,181,253,0.6); }
+  .chip-d.deprecated { background: var(--border-strong); }
+  .chip-d.unknown { border: 1px dashed var(--warn); }
 </style>
 </head>
 <body>
@@ -377,19 +411,8 @@ function renderList() {
 }
 
 // ── shared MCP header + tabs (Overview · Evals) ───────────────────────────
-function evalScore(m) {
-  const E = EVALS[m.id];
-  if (!E) return null;
-  const total = E.tasks.length * E.models.length;
-  const rows = Object.keys(E.setups).map((s) => {
-    const k = E.models.reduce((a, mo) => a + E.setups[s][mo].filter(([ok]) => ok).length, 0);
-    return { s, label: s === "This MCP" ? m.name.replace("GurtAI ", "") : s, k, pct: Math.round((k / total) * 100) };
-  });
-  return { total, rows };
-}
 function mcpHeader(m, active) {
   const sc = evalScore(m);
-  const mine = sc?.rows.find((r) => r.s === "This MCP");
   return `
     <section class="pad head" style="padding-bottom:20px">
       <div>
@@ -400,25 +423,22 @@ function mcpHeader(m, active) {
     </section>
     <nav class="ptabs">
       <a href="#${m.id}" class="${active === "overview" ? "on" : ""}">Overview</a>
-      <a href="#${m.id}/evals" class="${active === "evals" ? "on" : ""}">Evals ${mine ? `<span class="tbadge">${mine.pct}%</span>` : `<span class="tbadge dim">pending</span>`}</a>
+      <a href="#${m.id}/evals" class="${active === "evals" ? "on" : ""}">Evals ${sc ? `<span class="tbadge ${sc.drift ? "warn" : ""}">${sc.confirmed}/${sc.rules} rules${sc.drift ? " · change" : ""}</span>` : `<span class="tbadge dim">pending</span>`}</a>
     </nav>`;
 }
 function evalStrip(m) {
   const sc = evalScore(m);
   if (!sc) return `
     <section class="evstrip">
-      <div class="cell"><div class="l">Evals</div><div class="dim" style="font-size:14px;margin-top:6px">Run after the first build passes its backtests.</div></div>
+      <div class="cell"><div class="l">Evals</div><div class="dim" style="font-size:14px;margin-top:6px">Start once mining finishes and rules can be checked against history.</div></div>
     </section>`;
   return `
     <section class="evstrip">
       <div class="row" style="grid-template-columns: repeat(3, 1fr) 220px">
-        ${sc.rows.map((r) => `
-          <div class="cell ${r.s === "This MCP" ? "this" : ""}">
-            <div class="l">${r.label}</div>
-            <div class="v">${r.pct}<span>%</span></div>
-            <div class="meter"><i style="width:${r.pct}%"></i></div>
-          </div>`).join("")}
-        <a class="cell evlink" href="#${m.id}/evals"><span class="l">Held-out evals</span><span class="go">Open evals →</span><span class="dim" style="font-size:12px">${sc.total} task runs · ${EVALS[m.id].models.length} models</span></a>
+        <div class="cell"><div class="l">Rules confirmed by history</div><div class="v">${sc.confirmed}<span>/${sc.rules}</span></div></div>
+        <div class="cell"><div class="l">Past work replayed exactly</div><div class="v">${sc.replaysOk}<span>/${sc.replays}</span></div></div>
+        <div class="cell"><div class="l">Changes detected</div><div class="v ${sc.drift ? "warn" : ""}">${sc.drift}</div></div>
+        <a class="cell evlink" href="#${m.id}/evals"><span class="l">How sure is walter?</span><span class="go">Open evals →</span><span class="dim" style="font-size:12px">checked against GurtAI's history</span></a>
       </div>
     </section>`;
 }
@@ -589,62 +609,73 @@ function renderDetail(m) {
   });
 }
 
-// ── evals ─────────────────────────────────────────────────────────────────
-// Held-out tasks per MCP; each result is [pass, reason]. Same tasks for every model and setup.
-const P = (why = "Matches the answer from history") => [true, why];
-const F = (why) => [false, why];
+// ── evals: is walter's understanding of the system correct? ───────────────
+// Everything is checked against the system's own history: replays of past work compared with what was recorded,
+// each rule against the decisions people made, and coverage of the system's custom fields.
+const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct"];
 const EVALS = {
   sales: {
-    note: "Held-out tasks from Q3 and Dreamforce, scored against what GurtAI actually reported and recorded.",
-    tasks: ["Q4 commit", "Q3 commit", "Q1 commit", "Commit by region", "Import SaaStr leads", "Import Dreamforce leads", "Find account by website", "Owner for existing contact"],
-    models: ["claude-haiku-5-5", "glm-5p3", "minimax-m3"],
-    setups: {
-      "Raw API": {
-        "claude-haiku-5-5": [F("Summed amount, not arr"), F("Counted unbooked Closed Won"), F("Missed Enterprise wins (numeric stage ids)"), F("Counted Partner Sandbox"), F("2 duplicate companies"), F("No owner assigned"), P("Matched on domain"), F("Reassigned to territory owner")],
-        "glm-5p3": [F("Summed amount, not arr"), F("Counted unbooked Closed Won"), F("Stopped at page 1 of 3"), F("Counted Partner Sandbox"), F("No owner assigned"), F("lead_source missing"), F("www. domain created a duplicate"), F("Reassigned to territory owner")],
-        "minimax-m3": [F("Counted unbooked Closed Won"), F("Summed amount, not arr"), F("Missed Contract Sent deals"), F("Counted Partner Sandbox"), F("2 duplicate companies"), F("No owner assigned"), F("www. domain created a duplicate"), F("Reassigned to territory owner")],
-      },
-      "+ Memory": {
-        "claude-haiku-5-5": [P(), P(), F("Missed one Enterprise Contract Sent deal"), P(), P(), F("Reassigned an existing contact"), P(), F("Reassigned to territory owner")],
-        "glm-5p3": [P(), F("Summed amount for 2 deals"), P(), P(), F("Reassigned an existing contact"), P(), P(), F("Reassigned to territory owner")],
-        "minimax-m3": [P(), P(), P(), F("Counted Partner Sandbox"), F("Reassigned an existing contact"), F("Reassigned an existing contact"), P(), P()],
-      },
-      "This MCP": {
-        "claude-haiku-5-5": [P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("import_leads · R4 R5 R6"), P("import_leads · R4 R5 R6"), P("find_account · R6"), P("import_leads · R5")],
-        "glm-5p3": [P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("import_leads · R4 R5 R6"), P("import_leads · R4 R5 R6"), P("find_account · R6"), P("import_leads · R5")],
-        "minimax-m3": [P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("import_leads · R4 R5 R6"), P("import_leads · R4 R5 R6"), P("find_account · R6"), F("R5 unconfirmed: kept the owner and flagged an assumption")],
-      },
-    },
-    backtests: [["R1", 96, 98], ["R2", 100, 100], ["R3", 100, 100], ["R4", 99, 100], ["R5", 83, null], ["R6", 100, 100]],
-    toolChoice: [["get_commit", [true, true, true]], ["import_leads", [true, true, true]], ["find_account", [true, true, false]], ["report_outcome", [true, true, true]]],
-    versions: [["v1", 13], ["v2", 19], ["v3", 23]],
+    source: "HubSpot field history and forecast_snapshots, Jan–Oct 2026. Learned on Jan–Jun, held out Jul–Oct.",
+    replays: [
+      { task: "Q1 2026 commit, as of Mar 31", truth: "$512,000", got: "$512,000", split: "train", ok: true, via: "get_commit · R1 R2 R3", diff: "Exact match with the reported number in forecast_snapshots." },
+      { task: "Q2 2026 commit, as of Jun 30", truth: "$588,000", got: "$588,000", split: "train", ok: true, via: "get_commit · R1 R2 R3", diff: "Exact match with the reported number in forecast_snapshots." },
+      { task: "Q3 2026 commit, as of Sep 30", truth: "$631,000", got: "$631,000", split: "held-out", ok: true, via: "get_commit · R1 R2 R3", diff: "Exact match on a quarter walter never learned from." },
+      { task: "SaaStr 2026 lead import: owners", truth: "48 owners", got: "47 of 48", split: "held-out", ok: false, via: "import_leads · R4 R5", diff: "liam.oconnor@northwind.io kept owner 201; territory says 202. Explained by R5 (existing contacts keep their owner), which is waiting on an answer." },
+      { task: "Company merges, 2026", truth: "41 merges", got: "41 of 41", split: "held-out", ok: true, via: "find_account · R6", diff: "Every recorded merge joined two spellings of one root domain." },
+    ],
+    rules: [
+      { id: "R1", text: "Closed Won counts only when <code>booked</code>", support: [412, 421], months: [100, 100, 98, 100, 97, 100, 98, 100, 99, 71], drift: "Oct: 2 Contract Sent deals left out of the reported commit. Re-checking whether Contract Sent still counts.",
+        counter: ["7 deals: booked set after quarter close (counted in the quarter they closed)", "2 deals: no pattern found"] },
+      { id: "R2", text: "Value is <code>arr</code>, not <code>amount</code>", support: [3, 3], unit: "quarters", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
+      { id: "R3", text: "Partner Sandbox never counts", support: [3, 3], unit: "quarters", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
+      { id: "R4", text: "New leads owned by territory", support: [1234, 1240], months: [100, 99, 100, 100, 99, 100, 100, 100, 99, 100], counter: ["5 contacts that already existed kept their owner (see R5)", "1 lead reassigned by hand to cover a vacation"] },
+      { id: "R5", text: "Existing contacts keep their owner", support: [5, 6], unit: "exceptions", months: null, asked: true, counter: ["1 existing contact was moved to the territory owner in March"] },
+      { id: "R6", text: "Companies match on root domain", support: [41, 41], unit: "merges", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
+    ],
+    fields: [
+      ["booked", "understood", "Revenue gate set by RevOps (R1)"],
+      ["arr", "understood", "Recurring value used for commit (R2)"],
+      ["lead_source", "understood", "Required on create; EVENT for event leads"],
+      ["event_name", "understood", "Name of the event a lead came from"],
+      ["hs_lead_status", "understood", "NEW for imported leads"],
+      ["territory", "understood", "Derived from country (R4)"],
+      ["forecast_override", "deprecated", "Not set since March 2025"],
+      ["zz_region_old", "deprecated", "Empty on every record since 2025"],
+      ["partner_tier", "unknown", "Set on 30% of deals; no rule explains when"],
+      ["renewal_flag", "unknown", "Agrees with 'Renewal' deal names only 64% of the time"],
+    ],
   },
   billing: {
-    note: "Held-out tasks from September, scored against finance's reported MRR and dunning history.",
-    tasks: ["September MRR", "August MRR", "Overdue > 30 days", "Overdue > 5 days", "MRR excluding test", "Disputed invoices"],
-    models: ["claude-haiku-5-5", "glm-5p3", "minimax-m3"],
-    setups: {
-      "Raw API": {
-        "claude-haiku-5-5": [F("Included one-time items"), F("Included qa_ customers"), P(), F("No grace period"), F("Included qa_ customers"), F("Chased a disputed invoice")],
-        "glm-5p3": [F("Included one-time items"), F("Included one-time items"), P(), F("No grace period"), F("Included qa_ customers"), F("Chased a disputed invoice")],
-        "minimax-m3": [F("Included qa_ customers"), F("Included one-time items"), F("Missed page 2"), F("No grace period"), F("Included qa_ customers"), P()],
-      },
-      "+ Memory": {
-        "claude-haiku-5-5": [P(), P(), P(), F("Used a 3-day grace"), P(), P()],
-        "glm-5p3": [P(), F("Included one-time items"), P(), P(), P(), F("Chased a disputed invoice")],
-        "minimax-m3": [P(), P(), P(), F("No grace period"), F("Included qa_ customers"), P()],
-      },
-      "This MCP": {
-        "claude-haiku-5-5": [P("get_mrr · B1 B2"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4"), P("find_overdue · B3 B4"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4")],
-        "glm-5p3": [P("get_mrr · B1 B2"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4"), P("find_overdue · B3 B4"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4")],
-        "minimax-m3": [P("get_mrr · B1 B2"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4"), P("find_overdue · B3 B4"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4")],
-      },
-    },
-    backtests: [["B1", 100, 100], ["B2", 100, 100], ["B3", 97, 97], ["B4", 100, 100]],
-    toolChoice: [["get_mrr", [true, true, true]], ["find_overdue", [true, true, true]], ["report_outcome", [true, true, true]]],
-    versions: [["v1", 14], ["v2", 18]],
+    source: "Stripe invoices and finance's MRR reports, Jan–Sep 2026. Learned on Jan–Jun, held out Jul–Sep.",
+    replays: [
+      { task: "June 2026 MRR", truth: "$214,300", got: "$214,300", split: "train", ok: true, via: "get_mrr · B1 B2", diff: "Exact match with finance's report." },
+      { task: "August 2026 MRR", truth: "$228,900", got: "$228,900", split: "held-out", ok: true, via: "get_mrr · B1 B2", diff: "Exact match on a month walter never learned from." },
+      { task: "Dunning list, September", truth: "62 invoices", got: "60 of 62", split: "held-out", ok: false, via: "find_overdue · B3 B4", diff: "2 invoices were chased on day 4. Grace period may be shorter for enterprise plans; not enough cases to tell yet." },
+    ],
+    rules: [
+      { id: "B1", text: "MRR excludes one-time line items", support: [9, 9], unit: "months", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, null], counter: [] },
+      { id: "B2", text: "Customers prefixed <code>qa_</code> are test data", support: [214, 214], unit: "customers", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, null], counter: [] },
+      { id: "B3", text: "Overdue starts after a 5-day grace period", support: [588, 601], months: [98, 97, 98, 99, 98, 97, 98, 98, 96, null], counter: ["11 invoices chased on day 4 or 5, all enterprise plans", "2 invoices never chased (paid same day)"] },
+      { id: "B4", text: "Disputed invoices are never chased", support: [37, 37], unit: "disputes", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, null], counter: [] },
+    ],
+    fields: [
+      ["metadata.plan", "understood", "Plan tier; enterprise gets a shorter grace (being checked)"],
+      ["customer.id", "understood", "qa_ prefix marks test customers (B2)"],
+      ["invoice.disputed", "understood", "Never chased (B4)"],
+      ["metadata.legacy_sku", "deprecated", "Not used since 2024"],
+      ["metadata.region", "unknown", "Set on 40% of customers; no rule found"],
+    ],
   },
 };
+
+function evalScore(m) {
+  const E = EVALS[m.id];
+  if (!E) return null;
+  const confirmed = E.rules.filter((r) => !r.asked).length;
+  const replaysOk = E.replays.filter((r) => r.ok).length;
+  const understood = E.fields.filter(([, s]) => s !== "unknown").length;
+  return { confirmed, rules: E.rules.length, replaysOk, replays: E.replays.length, understood, fields: E.fields.length, open: E.rules.filter((r) => r.asked).length, drift: E.rules.filter((r) => r.drift).length };
+}
 
 function renderEvals(m) {
   $("#crumb").innerHTML = `<button id="back">MCPs</button><span>/</span><span class="cur">${m.name}</span>`;
@@ -654,79 +685,92 @@ function renderEvals(m) {
   if (!E) {
     $("#app").innerHTML = `
       ${mcpHeader(m, "evals")}
-      <section><div class="empty" style="padding:28px">Evals run after the first build passes its backtests. ${m.status === "ask" ? "This MCP is waiting on one answer." : "Mining is still in progress."}</div></section>`;
+      <section><div class="empty" style="padding:28px">Evals start once mining finishes and the first rules can be checked against history. ${m.status === "ask" ? "This MCP is waiting on one answer." : "Mining is still in progress."}</div></section>`;
     copy();
     return;
   }
-  const setups = Object.keys(E.setups);
-  const n = E.tasks.length, total = n * E.models.length;
-  const score = (s) => E.models.reduce((a, mo) => a + E.setups[s][mo].filter(([ok]) => ok).length, 0);
-  const pct = (x) => Math.round((x / total) * 100);
+  const sc = evalScore(m);
+  const shade = (v) => v == null ? "none" : v >= 97 ? "hi" : v >= 90 ? "mid" : "low";
 
   $("#app").innerHTML = `
     ${mcpHeader(m, "evals")}
-    <section class="pad" style="padding-top:22px;padding-bottom:22px"><span class="muted">${E.note}</span></section>
+    <section class="pad" style="padding-top:20px;padding-bottom:20px"><span class="muted">Is walter's understanding of GurtAI right? Every check below is against the system's own history. </span><span class="dim">${E.source}</span></section>
 
-    <section class="row c3 evhero">
-      ${setups.map((s) => `
-        <div class="cell ${s === "This MCP" ? "this" : ""}">
-          <div class="l">${s === "This MCP" ? m.name.replace("GurtAI ", "") : s}</div>
-          <div class="big">${pct(score(s))}<span>%</span></div>
-          <div class="l dim">${score(s)} of ${total} tasks right · ${E.models.length} models</div>
-          <div class="meter"><i style="width:${pct(score(s))}%"></i></div>
-        </div>`).join("")}
+    <section class="row c4 evsum">
+      <div class="cell"><div class="l">Rules confirmed by history</div><div class="v">${sc.confirmed}<span>/${sc.rules}</span></div><div class="dim s">${sc.open ? `${sc.open} waiting on an answer` : "all confirmed"}</div></div>
+      <div class="cell"><div class="l">Past work replayed exactly</div><div class="v">${sc.replaysOk}<span>/${sc.replays}</span></div><div class="dim s">compared with what was recorded</div></div>
+      <div class="cell"><div class="l">Custom fields understood</div><div class="v">${sc.understood}<span>/${sc.fields}</span></div><div class="dim s">${sc.fields - sc.understood} still unknown</div></div>
+      <div class="cell"><div class="l">Changes detected</div><div class="v ${sc.drift ? "warn" : ""}">${sc.drift}</div><div class="dim s">${sc.drift ? "a rule stopped matching recent history" : "rules still match recent history"}</div></div>
     </section>
 
     <section>
-      <div class="sechead"><h2>Task results · same held-out tasks, same models</h2><span class="legend"><i class="d ok"></i>right <i class="d no"></i>wrong</span></div>
-      <div class="matrix">
-        <div class="mrow mhead"><span></span>${setups.map((s) => `<span class="grp">${s === "This MCP" ? m.name.replace("GurtAI ", "") : s}</span>`).join("")}</div>
-        ${E.models.map((mo) => `
-          <div class="mrow"><span class="mono mname">${mo}</span>
-            ${setups.map((s) => `<span class="grp">${E.setups[s][mo].map(([ok, why], i) => `<i class="d ${ok ? "ok" : "no"}" data-s="${s}" data-m="${mo}" data-t="${i}"></i>`).join("")}</span>`).join("")}
+      <div class="sechead"><h2>Replays against history</h2><span class="dim" style="font-size:13px">past work re-run through the MCP and compared exactly with the record</span></div>
+      <div class="list" id="replays">
+        <div class="it rp dim" style="font-size:12px"><span>Task</span><span>Recorded</span><span>MCP</span><span>Period</span><span></span></div>
+        ${E.replays.map((r, i) => `
+          <div class="it rp click" data-i="${i}">
+            <span>${r.task}</span>
+            <span class="mono">${r.truth}</span>
+            <span class="mono ${r.ok ? "" : "warnc"}">${r.got}</span>
+            <span><span class="tag ${r.split === "held-out" ? "v" : ""}">${r.split}</span></span>
+            <span class="${r.ok ? "okc" : "warnc"}">${r.ok ? "match" : "differs"}</span>
+          </div>
+          <div class="rpd" id="rpd-${i}"><span class="mono dim">${r.via}</span><span>${r.diff}</span></div>`).join("")}
+      </div>
+    </section>
+
+    <section>
+      <div class="sechead"><h2>Rule evidence</h2><span class="legend"><i class="sq hi"></i>agrees <i class="sq mid"></i>mostly <i class="sq low"></i>breaks</span></div>
+      <div class="list">
+        <div class="it re dim" style="font-size:12px"><span></span><span>Rule</span><span>Decisions it explains</span><span class="mstrip">${MONTHS.map((mo) => `<span>${mo[0]}</span>`).join("")}</span><span>Counterexamples</span></div>
+        ${E.rules.map((r) => `
+          <div class="it re click" data-id="${r.id}">
+            <span class="rid">${r.id}</span>
+            <span>${r.text}</span>
+            <span><span class="mono" style="font-size:13px">${r.support[0].toLocaleString()} / ${r.support[1].toLocaleString()}</span> <span class="dim" style="font-size:12px">${r.unit ?? "decisions"}</span><span class="sbar"><i style="width:${(r.support[0] / r.support[1]) * 100}%"></i></span></span>
+            <span class="mstrip">${r.months ? r.months.map((v, i) => `<i class="sq ${shade(v)} ${i >= 6 ? "ho" : ""}" title="${MONTHS[i]}: ${v ?? "—"}%"></i>`).join("") : `<span class="tag v">asked</span>`}</span>
+            <span class="${r.support[1] - r.support[0] ? "" : "dim"}">${r.support[1] - r.support[0] ? (r.support[1] - r.support[0]) + (r.support[1] - r.support[0] === 1 ? " case" : " cases") : "none"}</span>
           </div>`).join("")}
       </div>
       <div class="inspect" id="evtip"></div>
     </section>
 
-    <section class="row c2">
-      <div>
-        <div class="sechead"><h2>Rules on held-out history</h2><span class="legend"><i class="b tr"></i>train <i class="b ho"></i>held-out</span></div>
-        <div class="list">${E.backtests.map(([id, tr, ho]) => `
-          <div class="it bt">
-            <span class="rid">${id}</span>
-            <span class="bars2"><span class="b2"><i class="tr" style="width:${tr}%"></i></span><span class="b2"><i class="ho" style="width:${ho ?? 0}%"></i></span></span>
-            <span class="mono" style="font-size:12px;text-align:right">${ho == null ? '<span class="tag v">asked</span>' : ho + "%"}</span>
-          </div>`).join("")}</div>
-      </div>
-      <div>
-        <div class="sechead"><h2>Right tool, picked from its description</h2><span class="dim" style="font-size:13px">cross-model</span></div>
-        <div class="list">
-          <div class="it tc dim" style="font-size:12px"><span></span>${E.models.map((mo) => `<span class="mono">${mo.split("-")[0]}</span>`).join("")}</div>
-          ${E.toolChoice.map(([t, oks]) => `<div class="it tc"><span class="sig">${t}</span>${oks.map((ok) => `<span class="chk ${ok ? "ok" : "no"}">${ok ? "✓" : "✕"}</span>`).join("")}</div>`).join("")}
-        </div>
-      </div>
-    </section>
-
     <section>
-      <div class="sechead"><h2>Across versions · tasks right out of ${total}</h2><span class="dim" style="font-size:13px">every version must pass all earlier tests</span></div>
-      <div class="vchart">${E.versions.map(([v, k]) => `
-        <div class="vcol"><div class="vbar"><i style="height:${(k / total) * 100}%"></i></div><div class="mono">${v}</div><div class="dim mono" style="font-size:12px">${k}/${total}</div></div>`).join("")}</div>
+      <div class="sechead"><h2>System context</h2><span class="legend"><i class="chip-d understood"></i>understood <i class="chip-d deprecated"></i>deprecated <i class="chip-d unknown"></i>unknown</span></div>
+      <div class="fields">${E.fields.map(([f, st, why]) => `<span class="fchip ${st}" data-why="${why}">${f}</span>`).join("")}</div>
+      <div class="inspect" id="ftip"></div>
     </section>`;
-
   copy();
+
+  $$("#replays .rp.click").forEach((row) => row.onclick = () => {
+    const d = $(`#rpd-${row.dataset.i}`);
+    const open = d.classList.toggle("on");
+    row.classList.toggle("sel", open);
+  });
+
   const tip = $("#evtip");
-  const idle = `<div class="tk">Hover any dot</div><div class="td">Each dot is one held-out task run by one model. Without the MCP, models trip over GurtAI's unwritten rules; with it, the rules are applied in code.</div>`;
+  const idle = `<div class="tk">Hover a rule</div><div class="td">Each square is one month. Jan–Jun is what walter learned from; Jul–Oct (outlined) is held out. A rule that stops agreeing with recent history is flagged as a change.</div>`;
   tip.innerHTML = idle;
-  $$(".matrix .d").forEach((d) => {
-    d.addEventListener("mouseenter", () => {
-      $$(".matrix .d.hl").forEach((x) => x.classList.remove("hl"));
-      $$(`.matrix .d[data-t="${d.dataset.t}"]`).forEach((x) => x.classList.add("hl"));
-      const [ok, why] = E.setups[d.dataset.s][d.dataset.m][+d.dataset.t];
-      tip.innerHTML = `<div class="tk">${d.dataset.m} · ${d.dataset.s === "This MCP" ? m.name.replace("GurtAI ", "") : d.dataset.s}</div><div class="tt">${E.tasks[+d.dataset.t]} <span class="${ok ? "okc" : "noc"}">${ok ? "right" : "wrong"}</span></div><div class="td">${why}</div>`;
+  $$(".re.click").forEach((row) => {
+    row.addEventListener("mouseenter", () => {
+      const r = E.rules.find((x) => x.id === row.dataset.id);
+      $$(".re.click").forEach((x) => x.classList.toggle("sel", x === row));
+      tip.innerHTML = `<div class="tk">${r.id} · ${r.asked ? "waiting on an answer" : r.drift ? "change detected" : "confirmed by history"}</div>
+        <div class="tt">${r.text}</div>
+        <div class="td">Explains ${r.support[0].toLocaleString()} of ${r.support[1].toLocaleString()} ${r.unit ?? "decisions"}.</div>
+        ${r.drift ? `<div class="tm warnc">${r.drift}</div>` : ""}
+        ${r.counter.length ? `<div class="tm">Counterexamples:<br>${r.counter.map((c) => "· " + c).join("<br>")}</div>` : `<div class="tm">No counterexamples in history.</div>`}`;
     });
   });
-  $(".matrix").addEventListener("mouseleave", () => { $$(".matrix .d.hl").forEach((x) => x.classList.remove("hl")); tip.innerHTML = idle; });
+  $$(".re.click")[0].parentElement.addEventListener("mouseleave", () => { $$(".re.click").forEach((x) => x.classList.remove("sel")); tip.innerHTML = idle; });
+
+  const ftip = $("#ftip");
+  const fidle = `<div class="tk">Hover a field</div><div class="td">Custom fields are where tribal knowledge hides. Unknown fields are what walter will ask about next.</div>`;
+  ftip.innerHTML = fidle;
+  $$(".fchip").forEach((c) => {
+    c.addEventListener("mouseenter", () => { ftip.innerHTML = `<div class="tk">${c.classList[1]}</div><div class="tt mono">${c.textContent}</div><div class="td">${c.dataset.why}</div>`; });
+    c.addEventListener("mouseleave", () => { ftip.innerHTML = fidle; });
+  });
 }
 
 // ── dot matrix: 12 × 12, one column per 2-hour window ───────────────────
