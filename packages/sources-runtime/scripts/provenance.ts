@@ -137,6 +137,18 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     test: "tests/source-lane/providers/jira/shared-patches.test.ts",
     tests: ["tests/source-lane/providers/jira/donor-selection.test.ts"],
   },
+  "src/routes/slack-callback.ts": {
+    status: "patched",
+    reason: "final-audit L3: the HMAC-signed OAuth state is accepted once (sha256 recorded in source_lane_oauth_state_uses, drizzle/10300), not until it expires. final-audit L3: the HMAC-signed OAuth state is accepted once (sha256 recorded in source_lane_oauth_state_uses, drizzle/10300), not until it expires.",
+    test: "tests/source-lane/core/oauth-state-single-use.test.ts",
+    tests: ["tests/source-lane/core/oauth-state-single-use.test.ts"],
+  },
+  "src/routes/notion-callback.ts": {
+    status: "patched",
+    reason: "final-audit L3: the HMAC-signed OAuth state is accepted once (sha256 recorded in source_lane_oauth_state_uses, drizzle/10300), not until it expires. final-audit L3: the HMAC-signed OAuth state is accepted once (sha256 recorded in source_lane_oauth_state_uses, drizzle/10300), not until it expires.",
+    test: "tests/source-lane/core/oauth-state-single-use.test.ts",
+    tests: ["tests/source-lane/core/oauth-state-single-use.test.ts"],
+  },
   "src/mirror/materializer.ts": {
     status: "patched",
     reason: "slack request 1: fold the append-only Slack ledger into channel-day files. granola fidelity P1: render the user's typed notes (notes_markdown/notes_plain) in summary.md next to the AI summary. granola fidelity P1: render the user's typed notes (notes_markdown/notes_plain) in summary.md next to the AI summary",
@@ -147,6 +159,11 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     status: "patched",
     reason: "coordinator (final-audit M3): disconnect deletes every Nango connection of the provider for the tenant.",
     test: "tests/source-lane/core/shared-patches-nango-disconnect.test.ts",
+  },
+  "src/integrations/notion/webhook.ts": {
+    status: "patched",
+    reason: "notion report: the handshake verification token (the webhook signing secret) is logged as a sha256 fingerprint unless NOTION_WEBHOOK_LOG_VERIFICATION_TOKEN=1",
+    test: "tests/source-lane/providers/notion/webhook-token-log.test.ts",
   },
   "src/mirror/backfill.ts": {
     status: "patched",

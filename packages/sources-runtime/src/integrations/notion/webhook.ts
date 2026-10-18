@@ -81,7 +81,14 @@ export async function handleNotionWebhook(input: {
     // can be retrieved from CloudWatch and stored as
     // NOTION_WEBHOOK_VERIFICATION_TOKEN (it is not sensitive beyond this app's
     // webhook signing and is only reachable in our own logs).
-    console.log(`[notion] webhook verification token received: ${verificationToken}`);
+    // SOURCE-LANE PATCH (notion report): the token is this webhook's signing secret, so logs carry only its
+    // fingerprint unless the operator opts in for the one-time setup (NOTION_WEBHOOK_LOG_VERIFICATION_TOKEN=1).
+    const fingerprint = createHash("sha256").update(verificationToken, "utf8").digest("hex").slice(0, 12);
+    if (process.env.NOTION_WEBHOOK_LOG_VERIFICATION_TOKEN === "1") {
+      console.log(`[notion] webhook verification token received (sha256 ${fingerprint}): ${verificationToken}`);
+    } else {
+      console.log(`[notion] webhook verification token received (sha256 ${fingerprint}); set NOTION_WEBHOOK_LOG_VERIFICATION_TOKEN=1 and re-send the verification from the Notion portal to log it once`);
+    }
     return { status: 200, body: { ok: true, verification_token: verificationToken } };
   }
 

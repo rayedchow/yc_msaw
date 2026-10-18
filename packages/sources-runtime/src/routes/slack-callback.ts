@@ -4,6 +4,8 @@ import {
   exchangeSlackOAuthCode,
   validateSlackOAuthState,
 } from "../integrations/slack/connect.js";
+import { db } from "../db/client.js";
+import { consumeOAuthStateOnce } from "../source-lane/core/oauth-state.js";
 import { oauthCallbackPage } from "./callback-page.js";
 
 /** Hosted OAuth callback for Slack user-token OAuth. */
@@ -30,8 +32,9 @@ slackCallbackRoute.get("/", async (c) => {
     }), 400);
   }
 
+  // SOURCE-LANE PATCH (final-audit L3): a signed state is accepted once, not until it expires.
   const stateResult = validateSlackOAuthState(state);
-  if (!stateResult) {
+  if (!stateResult || !(await consumeOAuthStateOnce(db, "slack", state))) {
     return c.html(oauthCallbackPage({
       title: "Invalid or expired request",
       body: "The connection request expired. Please try connecting again.",

@@ -2113,15 +2113,16 @@
     },
     {
       "path": "src/integrations/notion/webhook.ts",
-      "sha256": "80439b7cd65ee3a8a1831d2dffc52ad86ccbcb5060e19c9ec7bb63e8e915c461",
+      "sha256": "b49bbffe4838ef391c8ab89578a9324ea811d368d30cf667da1d9ca8c61e2e04",
       "status": "patched",
-      "owner": "notion",
+      "owner": "notion, coordinator",
       "donorPath": "src/integrations/notion/webhook.ts",
       "donorSha256": "3c0a843e023234589d924445245a2178ef45e2544e05f445cc4689b98aa8cd06",
-      "reason": "SOURCE-LANE PATCH (notion agent): (1) ledger first: the webhook signal event is written before removeNotionPageContent/removeNotionDataSourceContent (audit defect: removal preceded the ledger row, contradicting docs and the poll/reconcile paths); (2) best-effort hint into the deep lane (enqueueNotionSourceHint via dynamic import, errors logged, never fail the webhook).",
+      "reason": "SOURCE-LANE PATCH (notion agent): (1) ledger first: the webhook signal event is written before removeNotionPageContent/removeNotionDataSourceContent (audit defect: removal preceded the ledger row, contradicting docs and the poll/reconcile paths); (2) best-effort hint into the deep lane (enqueueNotionSourceHint via dynamic import, errors logged, never fail the webhook). notion report: the handshake verification token (the webhook signing secret) is logged as a sha256 fingerprint unless NOTION_WEBHOOK_LOG_VERIFICATION_TOKEN=1",
       "tests": [
         "tests/integrations/notion/webhook.test.ts (donor, unchanged, passes)",
-        "tests/source-lane/providers/notion/module.test.ts (ledger-first ordering, hints)"
+        "tests/source-lane/providers/notion/module.test.ts (ledger-first ordering, hints)",
+        "tests/source-lane/providers/notion/webhook-token-log.test.ts"
       ]
     },
     {
@@ -2953,17 +2954,27 @@
     },
     {
       "path": "src/routes/notion-callback.ts",
-      "sha256": "e07b7765771421bc03f980ed487189a3bb1e986117b9dec47b20c683adc518ce",
-      "status": "verbatim",
+      "sha256": "7ce491c4a3d3e3cfefb5500431ccb6cb2eb09d95de0698ad028a78cff11ce321",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/routes/notion-callback.ts",
-      "donorSha256": "e07b7765771421bc03f980ed487189a3bb1e986117b9dec47b20c683adc518ce"
+      "donorSha256": "e07b7765771421bc03f980ed487189a3bb1e986117b9dec47b20c683adc518ce",
+      "reason": "final-audit L3: the HMAC-signed OAuth state is accepted once (sha256 recorded in source_lane_oauth_state_uses, drizzle/10300), not until it expires.",
+      "tests": [
+        "tests/source-lane/core/oauth-state-single-use.test.ts"
+      ]
     },
     {
       "path": "src/routes/slack-callback.ts",
-      "sha256": "06c381c91fa8152fecca86d780b23c6f101b2637354005890e4bc97ab59e2e36",
-      "status": "verbatim",
+      "sha256": "8c23a627bbfa6503db1575c47c238188021a3bb1c632d295d180a74f69fa95c4",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/routes/slack-callback.ts",
-      "donorSha256": "06c381c91fa8152fecca86d780b23c6f101b2637354005890e4bc97ab59e2e36"
+      "donorSha256": "06c381c91fa8152fecca86d780b23c6f101b2637354005890e4bc97ab59e2e36",
+      "reason": "final-audit L3: the HMAC-signed OAuth state is accepted once (sha256 recorded in source_lane_oauth_state_uses, drizzle/10300), not until it expires.",
+      "tests": [
+        "tests/source-lane/core/oauth-state-single-use.test.ts"
+      ]
     },
     {
       "path": "src/source-lane/providers/binary/index.ts",
