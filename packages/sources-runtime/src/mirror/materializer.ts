@@ -3127,6 +3127,9 @@ function renderGranolaSummary(input: GranolaMeetingSourcePayload): string {
   const summary = [stringValue(payload.summaryMarkdown), stringValue(payload.summaryText)]
     .filter(Boolean)
     .join("\n\n");
+  // SOURCE-LANE PATCH (granola fidelity P1): the user's own typed notes are kept in the raw record but were never
+  // rendered; show them next to Granola's AI summary, as donor internal@7e6e39bf render_note_text did.
+  const typedNotes = stringValue(payload.notes_markdown) ?? stringValue(payload.notes_plain) ?? stringValue(payload.notesMarkdown) ?? stringValue(payload.notesPlain);
   return [
     `# ${headingText(title)}`,
     "",
@@ -3144,6 +3147,7 @@ function renderGranolaSummary(input: GranolaMeetingSourcePayload): string {
     "## Summary",
     "",
     bodyText(summary, "No Granola summary was available for this meeting."),
+    ...(typedNotes ? ["", "## My notes", "", typedNotes] : []),
   ].join("\n");
 }
 

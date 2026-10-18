@@ -632,6 +632,7 @@ async function backfillGranola(userId: string, limitPerSource: number | null): P
   // rule of granola_source_notes, drizzle/9500) - and skip notes whose newest
   // observation is a deletion tombstone. Rendering every revision concurrently
   // left an arbitrary revision as the projection and resurrected deleted notes.
+  // Granola fidelity P1: a note with only the user's typed notes is rendered too.
   const rows = rowsFromExecute<GranolaEventRow>(await db.execute(sql`
     WITH latest AS (
       SELECT DISTINCT ON (source_object_id) id, source_object_id, source_event_id, "timestamp", raw_payload, created_at
@@ -656,6 +657,7 @@ async function backfillGranola(userId: string, limitPerSource: number | null): P
         COALESCE(l.raw_payload->>'summaryMarkdown', '') <> ''
         OR COALESCE(l.raw_payload->>'summaryText', '') <> ''
         OR jsonb_typeof(l.raw_payload->'transcript') = 'array'
+        OR COALESCE(l.raw_payload->>'notes_markdown', l.raw_payload->>'notes_plain', l.raw_payload->>'notesMarkdown', l.raw_payload->>'notesPlain', '') <> ''
       )
     ORDER BY l."timestamp" DESC, l.id ASC
     ${limitSql(limitPerSource)}

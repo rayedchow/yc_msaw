@@ -102,6 +102,9 @@ export async function granolaCoverage(ctx: ExportContext, opts: GranolaCoverageO
     if (sweep?.confirmFailed) gaps.push(`${sweep.confirmFailed} possible deletion(s) could not be confirmed`);
     if (activeCooldown) gaps.push(`rate limited by Granola until ${activeCooldown} (Retry-After)`);
     if (state.include_transcript === false) gaps.push("transcripts are excluded by the connection (includeTranscript=false)");
+    // The user's own (unmerged) gigabrain codex/granola-api-primary branch judged OAuth/MCP not full-fidelity, and its
+    // tool names/fields are unverified here: never claim complete over it.
+    if (state.auth_mode === "oauth_mcp") gaps.push("connected via Granola OAuth/MCP, whose tools and fields are not verified to match the public API; connect a Granola API key for the full-fidelity path");
     else if (c.notes_without_transcript) gaps.push(`${c.notes_without_transcript} live note(s) have no transcript from Granola (not returned, forbidden or empty)`);
     out.push(gaps.length
       ? { ...base, state: "partial", reason: gaps.join("; ") }

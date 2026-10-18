@@ -2694,12 +2694,12 @@
     },
     {
       "path": "src/mirror/backfill.ts",
-      "sha256": "4ab31eb8be35ed662ea37dfdc2225e75654aec1f50303f071f297257c6ef274f",
+      "sha256": "5a40425d8cadd1b93e5bba1b95af91e360ebb7dd4167752bb262cc804685cc39",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/mirror/backfill.ts",
       "donorSha256": "e391aa01ddc5c6ad0d4faf4b1aef5fd02ee6d3e2de011a3cc6c40c8d2977cfc2",
-      "reason": "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones). slack request 1: fold the append-only Slack ledger into window files. granola request 1: render each Granola note's latest snapshot only and skip notes whose newest observation is a tombstone.",
+      "reason": "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones). slack request 1: fold the append-only Slack ledger into window files. granola request 1: render each Granola note's latest snapshot only and skip notes whose newest observation is a tombstone. granola fidelity P1: a Granola note with only typed notes is rendered by mirror.backfill",
       "tests": [
         "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts",
         "tests/source-lane/providers/granola/mirror-backfill.test.ts",
@@ -2729,13 +2729,14 @@
     },
     {
       "path": "src/mirror/materializer.ts",
-      "sha256": "e9940bd45ca4f8834233409345aa34bad55a01ecc5b6dd81d53d0a637932ce90",
+      "sha256": "c816fe3813ccead17190417f7fba3cf9c13d91bc80b6649f153bc202bca6a582",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/mirror/materializer.ts",
       "donorSha256": "2c1fe9478519ff72ceb64adc187213c581c3143698b7180808cc1685dc05db96",
-      "reason": "slack request 1: fold the append-only Slack ledger into channel-day files.",
+      "reason": "slack request 1: fold the append-only Slack ledger into channel-day files. granola fidelity P1: render the user's typed notes (notes_markdown/notes_plain) in summary.md next to the AI summary",
       "tests": [
+        "tests/source-lane/providers/granola/mirror-backfill.test.ts",
         "tests/source-lane/providers/slack/fold.test.ts"
       ]
     },

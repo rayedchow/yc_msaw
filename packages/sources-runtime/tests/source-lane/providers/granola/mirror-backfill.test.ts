@@ -11,6 +11,8 @@ import { FakeGranola, note } from "./fake-granola.js";
 import { runGranolaSourceBackfill, runGranolaSourcePoll } from "../../../../src/source-lane/providers/granola/lane.js";
 import { granolaNoteDirectory } from "../../../../src/source-lane/providers/granola/export-map.js";
 import { backfillSourceWikiMirror } from "../../../../src/mirror/backfill.js";
+import { granolaCoverage } from "../../../../src/source-lane/providers/granola/coverage.js";
+import { db } from "./harness.js";
 
 /**
  * Regression for patch request granola #1 (src/mirror/backfill.ts is shared; the coordinator applies
@@ -59,6 +61,44 @@ describe("mirror.backfill renders only the current state of each Granola note", 
     const files = await mirror(T);
     expect(files.get(`${keepDir}/summary.md`)).toContain("## v4");
     expect([...files.keys()].some((p) => p.startsWith(goneDir))).toBe(false);
+    vi.unstubAllGlobals();
+  });
+});
+
+describe("Granola fidelity (granola-fidelity-findings L1/L3)", () => {
+  it("renders the user's typed notes next to the AI summary, also for a note that has nothing else", async () => {
+    const fake = new FakeGranola();
+    fake.account(KEY);
+    fake.put(KEY, note("typed", ago(10), { notes_markdown: "- my own typed line", summary_markdown: "AI summary text" } as never));
+    fake.put(KEY, note("only-notes", ago(9), { notes_markdown: "- typed notes only", summary_markdown: null, summary_text: null, transcript: null } as never));
+    vi.stubGlobal("fetch", fake.fetch);
+    await connectGranola(T, KEY, { lastUpdatedAt: ago(5) });
+    await runGranolaSourceBackfill(T);
+    await query(`DELETE FROM mirror_files WHERE user_id = $1`, [T]);
+    await backfillSourceWikiMirror({ userId: T, limitPerSource: null, sources: ["granola"] } as never);
+    const files = await mirror(T);
+    const typed = files.get(`${granolaNoteDirectory("typed", "Meeting typed")}/summary.md`)!;
+    expect(typed).toContain("AI summary text");
+    expect(typed).toContain("## My notes\n\n- my own typed line");
+    expect(files.get(`${granolaNoteDirectory("only-notes", "Meeting only-notes")}/summary.md`)).toContain("- typed notes only");
+    vi.unstubAllGlobals();
+  });
+
+  it("never reports the OAuth/MCP transport as complete", async () => {
+    const fake = new FakeGranola();
+    fake.account(KEY);
+    fake.put(KEY, note("n1", ago(10)));
+    vi.stubGlobal("fetch", fake.fetch);
+    await connectGranola(T, KEY, { lastUpdatedAt: ago(5) });
+    await runGranolaSourceBackfill(T);
+    await runGranolaSourcePoll(T);
+    const apiKey = await granolaCoverage({ tenantId: T, executor: db as never });
+    await query(`UPDATE granola_source_state SET auth_mode = 'oauth_mcp' WHERE tenant_id = $1`, [T]);
+    const oauth = await granolaCoverage({ tenantId: T, executor: db as never });
+    const account = (r: Array<{ scope: string; state: string; reason?: string }>) => r.find((c) => c.scope.startsWith("account:"))!;
+    expect(account(apiKey).state, JSON.stringify(apiKey)).toBe("complete");
+    expect(account(oauth).state).toBe("partial");
+    expect(account(oauth).reason).toContain("Granola OAuth/MCP");
     vi.unstubAllGlobals();
   });
 });
