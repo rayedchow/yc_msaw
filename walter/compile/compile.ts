@@ -12,9 +12,11 @@ import { orderCases, type Rule } from "../mine/backtest.js";
 import type { Question } from "../mine/miner.js";
 import { writeProject } from "../deploy/project.js";
 import { domainOf } from "../domains/index.js";
+import { instructionsText, playbookMarkdown, skillMarkdown } from "./playbook.js";
 
 export interface KnowledgeRule extends Rule { applies?: { n: number; of: number }; train: { n: number; ok: number }; heldOut: { n: number; ok: number }; months: { month: string; n: number; ok: number }[]; change: { month: string; agreement: number } | null; status?: "confirmed" | "changed" | "open" | "retired"; counterexamples?: { month: string; key: string; expected: unknown; got: unknown }[]; error?: string | null }
-export interface Knowledge { mcp: string; pack?: string; name?: string; system: string; rules: KnowledgeRule[]; questions: (Question & { answer?: string; answeredAt?: string })[]; answers?: Record<string, string>; version?: number; changelog?: { version: number; note: string; at: string }[] }
+export interface Policy { text: string; evidence?: string; source: "observed" | "human" | "agent"; at?: string }
+export interface Knowledge { mcp: string; pack?: string; name?: string; policies?: Policy[]; system: string; rules: KnowledgeRule[]; questions: (Question & { answer?: string; answeredAt?: string })[]; answers?: Record<string, string>; version?: number; changelog?: { version: number; note: string; at: string }[] }
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 
@@ -39,13 +41,17 @@ ${rules.map((r) => `  {
 `;
 }
 
-export async function compile(k: Knowledge, dir: string, name: string): Promise<{ hash: string; tools: string[] }> {
+export async function compile(k: Knowledge, dir: string, name: string, opts: { notes?: string } = {}): Promise<{ hash: string; tools: string[] }> {
   const domain = domainOf(k.pack ?? k.mcp);
   const rulesTs = rulesModule(k);
   const kinds = new Set(shipped(k).map((r) => r.kind));
   // A domain tool ships when at least one of its decision kinds has a rule.
   const tools = [...domain.tools.filter((t) => t.kinds.some((kd) => kinds.has(kd))).map((t) => t.name), "company_rules", "report_outcome"];
-  const meta = { name, mcp: k.mcp, title: k.name ?? domain.name, description: domain.description, version: k.version ?? 1, tools,
+  const title = k.name ?? domain.name;
+  const notes = opts.notes ?? (await fs.readFile(path.join(HERE, "../integrations", domain.mdFile), "utf8").catch(() => ""));
+  const playbook = playbookMarkdown(k, domain, { name: title, notes, tools });
+  const skill = skillMarkdown(k, domain, { name: title, slug: name, notes, tools });
+  const meta = { name, mcp: k.mcp, title, description: domain.description, version: k.version ?? 1, tools, instructions: instructionsText(k, domain, title), playbook,
     questions: k.questions.filter((q) => !q.answer).map(({ rule_id, question, options }) => ({ rule_id, question, options })),
     answers: k.questions.filter((q) => q.answer).map(({ rule_id, question, answer }) => ({ rule_id, question, answer })) };
   const template = await fs.readFile(path.join(HERE, "server.template.ts"), "utf8");
@@ -56,6 +62,6 @@ export async function compile(k: Knowledge, dir: string, name: string): Promise<
   // The build hash covers everything that ships, so walter can tell which build is live.
   const hash = createHash("sha256").update(template + fragment + system + runtime + rulesTs + JSON.stringify(meta)).digest("hex").slice(0, 12);
   const index = template.replace("const META = __META__;", `const META = ${JSON.stringify({ ...meta, hash })};`).replace("// __DOMAIN_TOOLS__", fragment);
-  await writeProject(dir, name, `${k.name ?? domain.name}, compiled by walter from system history`, { "index.ts": index, "src/rules.ts": rulesTs, "src/system.ts": system, "src/domain.ts": runtime });
+  await writeProject(dir, name, `${k.name ?? domain.name}, compiled by walter from system history`, { "index.ts": index, "src/rules.ts": rulesTs, "src/system.ts": system, "src/domain.ts": runtime, [`skills/${name}-playbook/SKILL.md`]: skill });
   return { hash, tools };
 }

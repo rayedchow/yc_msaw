@@ -10,7 +10,7 @@ import type { Domain } from "../domains/types.js";
 import { backtestRule, compileRule, firstValue, HELD_OUT_FROM, makeBench, orderCases, type Bench, type Rule, type RuleResult } from "./backtest.js";
 
 export interface Question { rule_id: string; question: string; options: string[]; evidence: string }
-export interface MineResult { rules: Rule[]; questions: Question[]; summary: string; transcript: Msg[]; steps: number }
+export interface MineResult { rules: Rule[]; questions: Question[]; policies: { text: string; evidence?: string; source: "observed" }[]; summary: string; transcript: Msg[]; steps: number }
 
 const clip = (s: string, n = 6000) => (s.length > n ? s.slice(0, n) + `\n… [${s.length - n} more chars]` : s);
 
@@ -35,9 +35,11 @@ How to work:
    should cover every decision; backtests report what share each rule applies to.
 4. save_rule only what holds on learned history (normally >= 97%). Give each a plain-English title and a short label of at
    most 18 characters.
-5. If history cannot settle something (a few unexplained cases, a rule that only fits a handful of decisions, or a change
+5. Some knowledge is not a decision you can score (what a field really means, who does what, a convention people follow,
+   a tag that is secondary). Record it with record_policy, with the evidence you saw. Agents read these as context.
+6. If history cannot settle something (a few unexplained cases, a rule that only fits a handful of decisions, or a change
    in recent months), call ask_question with evidence and 2-3 options. Do not guess.
-6. When every decision kind has rules (or a question), call finish with a short summary.
+7. When every decision kind has rules (or a question), call finish with a short summary.
 
 Rule code is one JS arrow function, no imports, deterministic. Helpers on ctx: ${d.ctxHelp}.`;
 
@@ -50,6 +52,7 @@ function tools(d: Domain): ToolSpec[] {
     { type: "function", function: { name: "list_decisions", description: "The decision kinds walter extracted from history, with counts, what each rule function receives and must return.", parameters: { type: "object", properties: {} } } },
     { type: "function", function: { name: "backtest_rule", description: "Backtest a rule against recorded decisions. Returns learned/held-out agreement, a month-by-month series, change detection and counterexamples. For set kinds, saved exclude rules are applied before include rules are judged.", parameters: { type: "object", properties: { id: { type: "string" }, title: { type: "string" }, kind: { type: "string", enum: kinds }, role: { type: "string", enum: ["include", "exclude"] }, code: { type: "string" } }, required: ["id", "title", "kind", "code"] } } },
     { type: "function", function: { name: "save_rule", description: "Keep a backtested rule. Same fields as backtest_rule plus short (at most 18 characters) and evidence (one sentence on what in history supports it).", parameters: { type: "object", properties: { id: { type: "string" }, title: { type: "string" }, short: { type: "string" }, evidence: { type: "string" }, kind: { type: "string", enum: kinds }, role: { type: "string", enum: ["include", "exclude"] }, code: { type: "string" } }, required: ["id", "title", "short", "evidence", "kind", "code"] } } },
+    { type: "function", function: { name: "record_policy", description: "Record company knowledge that is not a scorable decision: what a field really means, a convention, who is responsible for what. One sentence, plus the evidence from history.", parameters: { type: "object", properties: { text: { type: "string" }, evidence: { type: "string" } }, required: ["text", "evidence"] } } },
     { type: "function", function: { name: "ask_question", description: "Ask a human something history cannot settle. Tie it to a rule id.", parameters: { type: "object", properties: { rule_id: { type: "string" }, question: { type: "string" }, options: { type: "array", items: { type: "string" } }, evidence: { type: "string" } }, required: ["rule_id", "question", "options", "evidence"] } } },
     { type: "function", function: { name: "finish", description: "Done mining.", parameters: { type: "object", properties: { summary: { type: "string" } }, required: ["summary"] } } },
   ];
@@ -106,6 +109,7 @@ export async function mine(domain: Domain, client: SystemClient, opts: { model?:
   const bench = makeBench(domain, data);
   const saved = new Map<string, Rule>();
   const questions: Question[] = [];
+  const policies: MineResult["policies"] = [];
   let summary = "";
   const sandbox = vm.createContext({ data, ctx: bench.ctx, Math, Number, String, Date, JSON, Array, Object, Set, Map, RegExp });
 
@@ -137,6 +141,10 @@ export async function mine(domain: Domain, client: SystemClient, opts: { model?:
       saved.set(rule.id, { ...rule, fallback: res.applies.n === res.applies.of });
       return { saved: true, ...summarize(res), together: coverage(bench, [...saved.values()]) };
     },
+    record_policy: (a) => {
+      policies.push({ text: String(a.text), evidence: String(a.evidence ?? ""), source: "observed" });
+      return { recorded: true, total: policies.length };
+    },
     ask_question: (a) => {
       questions.push({ rule_id: a.rule_id, question: a.question, options: a.options, evidence: a.evidence });
       return { recorded: true };
@@ -163,7 +171,7 @@ export async function mine(domain: Domain, client: SystemClient, opts: { model?:
       try {
         const args = JSON.parse(tc.function.arguments || "{}");
         result = await handlers[tc.function.name]?.(args) ?? { error: `unknown tool ${tc.function.name}` };
-        log(`step ${steps} ${tc.function.name} ${tc.function.name === "save_rule" || tc.function.name === "ask_question" ? JSON.stringify(args).slice(0, 160) : ""}`);
+        log(`step ${steps} ${tc.function.name} ${["save_rule", "ask_question", "record_policy"].includes(tc.function.name) ? JSON.stringify(args).slice(0, 160) : ""}`);
       } catch (e) {
         result = { error: (e as Error).message.slice(0, 500) };
         log(`step ${steps} ${tc.function.name} error ${(e as Error).message.slice(0, 120)}`);
@@ -171,5 +179,5 @@ export async function mine(domain: Domain, client: SystemClient, opts: { model?:
       messages.push({ role: "tool", tool_call_id: tc.id, content: clip(JSON.stringify(result) ?? "null") });
     }
   }
-  return { rules: [...saved.values()], questions, summary, transcript: messages, steps, bench };
+  return { rules: [...saved.values()], questions, policies, summary, transcript: messages, steps, bench };
 }

@@ -36,6 +36,11 @@ const caveatsFor = (kinds) => [
   ...RULES.filter((r) => kinds.includes(r.kind) && r.change && r.status !== "confirmed").map((r) => `Rule ${r.id} ("${r.title}") stopped matching history in ${r.change.month}; a human has not confirmed the new behaviour yet.`),
   ...META.questions.filter((q) => RULES.some((r) => r.id === q.rule_id && kinds.includes(r.kind))).map((q) => `Open question on ${q.rule_id}: ${q.question}`),
 ];
+// Tool descriptions name the company rules each tool applies, so agents see the context before calling.
+const ctxDesc = (kinds) => {
+  const rs = RULES.filter((r) => kinds.includes(r.kind));
+  return rs.length ? ` GurtAI rules applied: ${rs.map((r) => `${r.id} ${r.title}`).join("; ")}. Details: walter://playbook.` : "";
+};
 const ok = (data) => ({ content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: data });
 function tracked(name, fn) {
   return async (args, ctx) => {
@@ -56,15 +61,19 @@ function tracked(name, fn) {
 const server = new MCPServer({
   name: META.name, title: META.title, version: `1.${META.version}.0`,
   description: `${META.description} Compiled by walter from history.`,
+  instructions: META.instructions,
 });
 
 // __DOMAIN_TOOLS__
 
 server.tool({
   name: "company_rules",
-  description: "The GurtAI rules this MCP applies, with how well each matched history, plus questions still open.",
+  description: "The GurtAI rules this MCP applies with their evidence, the full playbook (observed policies, answers from people) and questions still open. Call this when you need to explain or double-check an answer.",
   inputSchema: z.object({}), annotations: { readOnlyHint: true },
-}, tracked("company_rules", async () => ok({ version: META.version, rules: RULES.map((r) => ({ ...brief(r), kind: r.kind, evidence: r.evidence, status: r.status })), open_questions: META.questions, answered: META.answers })));
+}, tracked("company_rules", async () => ok({ version: META.version, rules: RULES.map((r) => ({ ...brief(r), kind: r.kind, evidence: r.evidence, status: r.status })), open_questions: META.questions, answered: META.answers, playbook: META.playbook })));
+
+server.resource({ name: "playbook", uri: "walter://playbook", title: `${META.title} playbook`, description: "GurtAI's tribal knowledge for this system: verified rules with evidence, observed policies, answers from people, open questions.", mimeType: "text/markdown" },
+  async (uri) => ({ contents: [{ uri: uri.href, mimeType: "text/markdown", text: META.playbook }] }));
 
 server.tool({
   name: "report_outcome",

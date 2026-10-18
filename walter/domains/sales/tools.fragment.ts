@@ -1,9 +1,9 @@
 // @ts-nocheck
-// Sales MCP tools, spliced into compile/server.template.ts. In scope: server, z, load, rulesOf, cases, brief, caveatsFor, ok, tracked, META,
+// Sales MCP tools, spliced into compile/server.template.ts. In scope: server, z, load, rulesOf, cases, ctxDesc, brief, caveatsFor, ok, tracked, META,
 // and the rule helpers (quarterOf, quarterRange, rootDomain).
 if (META.tools.includes("get_commit")) server.tool({
   name: "get_commit",
-  description: "GurtAI's commit (forecast) for a quarter, computed the way RevOps reports it: which deals count, what value each counts at, and why. Defaults to the current quarter as of now.",
+  description: "GurtAI's commit (forecast) for a quarter, computed the way RevOps reports it: which deals count, what value each counts at, and why. Defaults to the current quarter as of now." + ctxDesc(["commit_membership", "commit_total"]),
   inputSchema: z.object({ quarter: z.string().optional().describe("e.g. 2026-Q4"), as_of: z.string().optional().describe("ISO date; defaults to now") }),
   annotations: { readOnlyHint: true },
 }, tracked("get_commit", async ({ quarter, as_of }) => {
@@ -29,7 +29,7 @@ if (META.tools.includes("get_commit")) server.tool({
 
 if (META.tools.includes("route_contact")) server.tool({
   name: "route_contact",
-  description: "Who should own a contact at GurtAI. Pass an email (and, for new people, the country by full English name, e.g. \"Germany\"). Returning contacts and new contacts follow different company rules; the answer says which applied.",
+  description: "Who should own a contact at GurtAI. Pass an email (and, for new people, the country by full English name, e.g. \"Germany\"). Returning contacts and new contacts follow different company rules; the answer says which applied." + ctxDesc(["new_contact_owner", "returning_contact_owner"]),
   inputSchema: z.object({ email: z.string().optional(), country: z.string().optional().describe("full English country name, e.g. Germany"), contact_id: z.string().optional() }),
   annotations: { readOnlyHint: true },
 }, tracked("route_contact", async ({ email, country, contact_id }) => {
@@ -53,7 +53,7 @@ if (META.tools.includes("route_contact")) server.tool({
 
 if (META.tools.includes("find_account")) server.tool({
   name: "find_account",
-  description: "Find GurtAI's canonical company record for a domain or name, with known duplicates folded in the way RevOps merges them.",
+  description: "Find GurtAI's canonical company record for a domain or name, with known duplicates folded in the way RevOps merges them." + ctxDesc(["same_company"]),
   inputSchema: z.object({ query: z.string().describe("domain, URL or company name") }),
   annotations: { readOnlyHint: true },
 }, tracked("find_account", async ({ query }) => {

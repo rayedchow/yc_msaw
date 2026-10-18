@@ -48,6 +48,7 @@ export async function mineToKnowledge(domain: Domain, id: string, opts: { name?:
     summary: r.summary,
     rules: results.map(({ rule, result }) => ({ ...rule, id: ids.get(rule.id)!, slug: rule.id, short: (rule.short ?? "").slice(0, 22), train: result.train, heldOut: result.heldOut, months: result.months, change: result.change ?? null, counterexamples: result.counterexamples.slice(0, 10), error: result.error ?? null, applies: result.applies, fallback: domain.kinds[rule.kind]?.combine !== "set" && result.applies.n === result.applies.of })),
     questions: r.questions.map((q) => ({ ...q, rule_id: ids.get(q.rule_id) ?? q.rule_id })),
+    policies: r.policies.map((p) => ({ ...p, at: new Date().toISOString() })),
     replay,
   };
   await fs.mkdir(path.dirname(knowledgePath(id)), { recursive: true });
@@ -62,7 +63,7 @@ export async function buildAndShip(k: Knowledge, opts: { deploy?: boolean; log?:
   const conn = connectionFor(state, k.mcp);
   const name = `gurtai-${k.mcp}`;
   const dir = path.join(STATE_DIR, "projects", name);
-  const { hash, tools } = await compile(k, dir, name);
+  const { hash, tools } = await compile(k, dir, name, state.connections?.[k.mcp]?.notes ? { notes: state.connections[k.mcp]!.notes } : {});
   log(`compiled ${name} v${k.version ?? 1} (${hash}): ${tools.join(", ")}`);
   const admin = state.walterToken ?? randomBytes(18).toString("base64url");
   const env = { GURTAI_URL: conn.url, GURTAI_TOKEN: conn.token, WALTER_TOKEN: admin };

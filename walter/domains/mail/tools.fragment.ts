@@ -1,9 +1,9 @@
 // @ts-nocheck
-// Support inbox MCP tools, spliced into compile/server.template.ts. In scope: server, z, load, rulesOf, cases, brief, caveatsFor, ok, tracked, META.
+// Support inbox MCP tools, spliced into compile/server.template.ts. In scope: server, z, load, rulesOf, cases, ctxDesc, brief, caveatsFor, ok, tracked, META.
 
 if (META.tools.includes("triage_email")) server.tool({
   name: "triage_email",
-  description: "How GurtAI's support team handles an incoming email to support@: which queue label it gets, who owns it, and whether anyone will reply. Applies the team's actual triage rules.",
+  description: "How GurtAI's support team handles an incoming email to support@: which queue label it gets, who owns it, and whether anyone will reply. Applies the team's actual triage rules." + ctxDesc(["thread_label", "thread_assignee"]),
   inputSchema: z.object({ from: z.string().describe("sender email address"), subject: z.string(), snippet: z.string().optional(), received_at: z.string().optional().describe("ISO datetime; defaults to now") }),
   annotations: { readOnlyHint: true },
 }, tracked("triage_email", async ({ from, subject, snippet, received_at }) => {

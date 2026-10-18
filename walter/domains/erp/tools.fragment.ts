@@ -1,5 +1,5 @@
 // @ts-nocheck
-// Finance (AP) MCP tools, spliced into compile/server.template.ts. In scope: server, z, load, rulesOf, cases, brief, caveatsFor, ok, tracked, META.
+// Finance (AP) MCP tools, spliced into compile/server.template.ts. In scope: server, z, load, rulesOf, cases, ctxDesc, brief, caveatsFor, ok, tracked, META.
 import { openAt } from "./src/domain.ts";
 
 const DAY_MS = 86_400_000;
@@ -9,7 +9,7 @@ const billView = (d, b, runAt) => { const s = d.ctx.stateAt("vendorbill", b.id, 
 
 if (META.tools.includes("payment_run")) server.tool({
   name: "payment_run",
-  description: "The bills GurtAI's AP payment run pays and the total, decided the way the finance team actually runs it (which approvals count, what is held back, what amount is paid). Runs happen on Fridays; defaults to the next run.",
+  description: "The bills GurtAI's AP payment run pays and the total, decided the way the finance team actually runs it (which approvals count, what is held back, what amount is paid). Runs happen on Fridays; defaults to the next run." + ctxDesc(["bill_in_run", "run_total"]),
   inputSchema: z.object({ run_date: z.string().optional().describe("ISO date or datetime of the run (a Friday); defaults to the next Friday") }),
   annotations: { readOnlyHint: true },
 }, tracked("payment_run", async ({ run_date }) => {
@@ -29,7 +29,7 @@ if (META.tools.includes("payment_run")) server.tool({
 
 if (META.tools.includes("explain_bill")) server.tool({
   name: "explain_bill",
-  description: "Whether a vendor bill will be paid in the next payment run, and which GurtAI rule decides it.",
+  description: "Whether a vendor bill will be paid in the next payment run, and which GurtAI rule decides it." + ctxDesc(["bill_in_run"]),
   inputSchema: z.object({ bill: z.string().describe("bill internal id or tranid (e.g. BILL-8123)"), run_date: z.string().optional() }),
   annotations: { readOnlyHint: true },
 }, tracked("explain_bill", async ({ bill, run_date }) => {
@@ -47,7 +47,7 @@ if (META.tools.includes("explain_bill")) server.tool({
 
 if (META.tools.includes("code_bill")) server.tool({
   name: "code_bill",
-  description: "The GL account GurtAI's AP team codes a new bill from this vendor to.",
+  description: "The GL account GurtAI's AP team codes a new bill from this vendor to." + ctxDesc(["gl_account"]),
   inputSchema: z.object({ vendor: z.string().describe("vendor name or id"), amount: z.number().optional(), memo: z.string().optional() }),
   annotations: { readOnlyHint: true },
 }, tracked("code_bill", async ({ vendor, amount, memo }) => {
