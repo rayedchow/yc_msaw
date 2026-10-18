@@ -198,6 +198,23 @@
   .vcol { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 64px; font-size: 13px; }
   .vbar { width: 28px; height: 140px; background: var(--border); position: relative; }
   .vbar i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--accent); }
+  /* MCP page tabs + evals strip */
+  .ptabs { display: flex; justify-content: flex-start; margin: 0; gap: 28px; padding: 0 28px; border-bottom: 1px solid var(--border); max-width: none; height: auto; background: none; backdrop-filter: none; border-left: 0; border-right: 0; }
+  .ptabs a { padding: 12px 0 13px; font-size: 14px; color: var(--tertiary); text-decoration: none; border-bottom: 2px solid transparent; display: flex; align-items: center; gap: 8px; cursor: pointer; }
+  .ptabs a:hover { color: var(--text); }
+  .ptabs a.on { color: var(--text); border-bottom-color: var(--accent); }
+  .tbadge { font-family: var(--mono); font-size: 11px; padding: 1px 6px; background: var(--accent); color: #141414; }
+  .tbadge.dim { background: var(--border); color: var(--tertiary); }
+  .evstrip .cell { padding: 18px 28px 20px; }
+  .evstrip .l { font-size: 13px; color: var(--muted); }
+  .evstrip .v { font-family: var(--mono); font-size: 28px; font-weight: 600; letter-spacing: -0.03em; margin-top: 2px; }
+  .evstrip .v span { font-size: 15px; color: var(--tertiary); margin-left: 2px; }
+  .evstrip .this .v { color: var(--accent); }
+  .evstrip .meter { margin-top: 10px; }
+  .evstrip .this .meter i { background: var(--accent); }
+  .evlink { display: flex; flex-direction: column; justify-content: center; gap: 4px; text-decoration: none; color: var(--text); background: rgba(196,181,253,0.06); cursor: pointer; }
+  .evlink:hover { background: rgba(196,181,253,0.12); }
+  .evlink .go { font-size: 16px; font-weight: 600; color: var(--accent); }
 </style>
 </head>
 <body>
@@ -359,6 +376,53 @@ function renderList() {
   startDots();
 }
 
+// ── shared MCP header + tabs (Overview · Evals) ───────────────────────────
+function evalScore(m) {
+  const E = EVALS[m.id];
+  if (!E) return null;
+  const total = E.tasks.length * E.models.length;
+  const rows = Object.keys(E.setups).map((s) => {
+    const k = E.models.reduce((a, mo) => a + E.setups[s][mo].filter(([ok]) => ok).length, 0);
+    return { s, label: s === "This MCP" ? m.name.replace("GurtAI ", "") : s, k, pct: Math.round((k / total) * 100) };
+  });
+  return { total, rows };
+}
+function mcpHeader(m, active) {
+  const sc = evalScore(m);
+  const mine = sc?.rows.find((r) => r.s === "This MCP");
+  return `
+    <section class="pad head" style="padding-bottom:20px">
+      <div>
+        <h1>${m.name}</h1>
+        <div class="url">${statusEl(m)}<span>${m.url}</span></div>
+      </div>
+      <button class="pill" id="copy">Copy URL</button>
+    </section>
+    <nav class="ptabs">
+      <a href="#${m.id}" class="${active === "overview" ? "on" : ""}">Overview</a>
+      <a href="#${m.id}/evals" class="${active === "evals" ? "on" : ""}">Evals ${mine ? `<span class="tbadge">${mine.pct}%</span>` : `<span class="tbadge dim">pending</span>`}</a>
+    </nav>`;
+}
+function evalStrip(m) {
+  const sc = evalScore(m);
+  if (!sc) return `
+    <section class="evstrip">
+      <div class="cell"><div class="l">Evals</div><div class="dim" style="font-size:14px;margin-top:6px">Run after the first build passes its backtests.</div></div>
+    </section>`;
+  return `
+    <section class="evstrip">
+      <div class="row" style="grid-template-columns: repeat(3, 1fr) 220px">
+        ${sc.rows.map((r) => `
+          <div class="cell ${r.s === "This MCP" ? "this" : ""}">
+            <div class="l">${r.label}</div>
+            <div class="v">${r.pct}<span>%</span></div>
+            <div class="meter"><i style="width:${r.pct}%"></i></div>
+          </div>`).join("")}
+        <a class="cell evlink" href="#${m.id}/evals"><span class="l">Held-out evals</span><span class="go">Open evals →</span><span class="dim" style="font-size:12px">${sc.total} task runs · ${EVALS[m.id].models.length} models</span></a>
+      </div>
+    </section>`;
+}
+
 // ── detail ────────────────────────────────────────────────────────────────
 const SHORT = {
   R1: "booked gate", R2: "arr, not amount", R3: "sandbox excluded", R4: "owner by territory", R5: "keep existing owner", R6: "root domain",
@@ -458,13 +522,8 @@ function renderDetail(m) {
   };
 
   $("#app").innerHTML = `
-    <section class="pad head">
-      <div>
-        <h1>${m.name}</h1>
-        <div class="url">${statusEl(m)}<span>${m.url}</span></div>
-      </div>
-      <div style="display:flex;gap:10px"><button class="pill ghost" id="evalsBtn">Evals</button><button class="pill" id="copy">Copy URL</button></div>
-    </section>
+    ${mcpHeader(m, "overview")}
+    ${evalStrip(m)}
 
 
     <section class="treewrap" id="treewrap">
@@ -522,7 +581,6 @@ function renderDetail(m) {
   $("#snippet").textContent = snippets.url;
   $$("#tabs button").forEach((b) => b.onclick = () => { $$("#tabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#snippet").textContent = snippets[b.dataset.c]; });
   $("#copy").onclick = () => navigator.clipboard?.writeText(m.url);
-  $("#evalsBtn").onclick = () => (location.hash = m.id + "/evals");
   $$("#question .opt").forEach((o) => o.onclick = () => {
     $$("#question .opt").forEach((x) => x.classList.toggle("picked", x === o));
     const r = m.rules[m.question.rule];
@@ -589,14 +647,15 @@ const EVALS = {
 };
 
 function renderEvals(m) {
-  $("#crumb").innerHTML = `<button id="back">MCPs</button><span>/</span><button id="up">${m.name}</button><span>/</span><span class="cur">Evals</span>`;
+  $("#crumb").innerHTML = `<button id="back">MCPs</button><span>/</span><span class="cur">${m.name}</span>`;
   $("#back").onclick = () => (location.hash = "");
-  $("#up").onclick = () => (location.hash = m.id);
+  const copy = () => { $("#copy").onclick = () => navigator.clipboard?.writeText(m.url); };
   const E = EVALS[m.id];
   if (!E) {
     $("#app").innerHTML = `
-      <section class="pad head"><div><h1>Evals</h1><p>${m.name}</p></div></section>
+      ${mcpHeader(m, "evals")}
       <section><div class="empty" style="padding:28px">Evals run after the first build passes its backtests. ${m.status === "ask" ? "This MCP is waiting on one answer." : "Mining is still in progress."}</div></section>`;
+    copy();
     return;
   }
   const setups = Object.keys(E.setups);
@@ -605,12 +664,8 @@ function renderEvals(m) {
   const pct = (x) => Math.round((x / total) * 100);
 
   $("#app").innerHTML = `
-    <section class="pad head">
-      <div>
-        <h1>Evals</h1>
-        <p>${E.note}</p>
-      </div>
-    </section>
+    ${mcpHeader(m, "evals")}
+    <section class="pad" style="padding-top:22px;padding-bottom:22px"><span class="muted">${E.note}</span></section>
 
     <section class="row c3 evhero">
       ${setups.map((s) => `
@@ -659,6 +714,7 @@ function renderEvals(m) {
         <div class="vcol"><div class="vbar"><i style="height:${(k / total) * 100}%"></i></div><div class="mono">${v}</div><div class="dim mono" style="font-size:12px">${k}/${total}</div></div>`).join("")}</div>
     </section>`;
 
+  copy();
   const tip = $("#evtip");
   const idle = `<div class="tk">Hover any dot</div><div class="td">Each dot is one held-out task run by one model. Without the MCP, models trip over GurtAI's unwritten rules; with it, the rules are applied in code.</div>`;
   tip.innerHTML = idle;
