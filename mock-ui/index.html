@@ -3,284 +3,372 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>Acme · Company MCPs</title>
+<title>walter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --bg: #141414;
-    --panel: #191919;
-    --sunk: #101010;
-    --line: #262626;
-    --line-2: #333333;
-    --text: #ECECEC;
-    --soft: #B4B4B4;
-    --dim: #7C7C7C;
+    --bg: #1A1A1A;
+    --surface: #111111;
+    --raise: #202020;
+    --border: #2A2A2A;
+    --border-strong: #3A3A3A;
+    --text: #EAEAEA;
+    --muted: #B4B4B4;
+    --tertiary: #8A8A8A;
     --accent: #FEC508;
-    --accent-bg: rgba(254, 197, 8, 0.10);
-    --ok: #5BD08A;
-    --bad: #FF8A80;
-    --blue: #8AB4FF;
-    --sans: "Neue Haas Grotesk", "Inter Tight", "Helvetica Neue", Helvetica, Arial, sans-serif;
+    --accent-glow: rgba(254, 197, 8, 0.14);
+    --grid-line: rgba(255, 255, 255, 0.035);
+    --ok: #4ADE80;
+    --bad: #F87171;
+    --maxw: 68rem;
+    --sans: "Neue Haas Grotesk", "Helvetica Neue", "Inter Tight", Helvetica, Arial, sans-serif;
     --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
-  html, body { margin: 0; height: 100%; }
-  body { background: var(--bg); color: var(--text); font: 15px/1.55 var(--sans); display: grid; grid-template-columns: 232px 1fr; grid-template-rows: auto 1fr; overflow: hidden; }
-  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; text-align: left; }
-  code { font-family: var(--mono); font-size: .9em; color: var(--text); }
-  h1 { margin: 0; font-size: 26px; font-weight: 600; letter-spacing: -0.035em; }
-  ::selection { background: var(--accent-bg); }
+  html, body { margin: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.55; font-size: 15px; }
+  h1 { margin: 0; font-weight: 700; letter-spacing: -0.045em; font-size: 32px; line-height: 1.05; }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  code, pre, .mono { font-family: var(--mono); }
+  ::selection { background: var(--accent-glow); }
 
-  /* narration bar (demo only) */
-  .strip { grid-column: 1 / -1; background: var(--accent); color: #111; font-size: 12px; font-weight: 600; text-align: center; padding: 7px 12px; display: none; }
-  body.demo .strip { display: block; }
+  .frame { position: fixed; inset: 0; pointer-events: none; display: flex; justify-content: center; }
+  .frame > div { width: 100%; max-width: var(--maxw); border-left: 1px solid var(--border); border-right: 1px solid var(--border); position: relative; }
+  .frame > div::before, .frame > div::after { content: ""; position: absolute; top: 0; bottom: 0; width: 50vw; background-size: 32px 32px;
+    background-image: linear-gradient(to right, var(--grid-line) 1px, transparent 1px), linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px); }
+  .frame > div::before { right: 100%; }
+  .frame > div::after { left: 100%; }
 
-  /* sidebar */
-  aside { grid-row: 2; border-right: 1px solid var(--line); background: var(--sunk); display: flex; flex-direction: column; padding: 16px 12px; gap: 2px; }
-  .brand { display: flex; align-items: center; gap: 10px; padding: 4px 10px 14px; font-weight: 600; letter-spacing: -0.02em; }
-  .brand i { width: 14px; height: 14px; border: 2px solid var(--text); position: relative; }
-  .brand i::after { content: ""; position: absolute; inset: 2px; background: var(--accent); }
-  .ws { margin-left: auto; font-size: 12px; color: var(--dim); font-weight: 400; }
-  .navlabel { font-size: 12px; color: var(--dim); padding: 14px 10px 6px; }
-  .nav { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border-radius: 6px; color: var(--soft); font-size: 14px; }
-  .nav:hover { background: var(--panel); color: var(--text); }
-  .nav.on { background: var(--panel); color: var(--text); }
-  .nav .n { margin-left: auto; font-family: var(--mono); font-size: 11px; color: var(--dim); }
-  .dot { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); flex: none; display: inline-block; }
-  .dot.y { background: var(--accent); }
-  .dot.g { background: var(--line-2); }
-  .foot { margin-top: auto; padding: 12px 10px 0; border-top: 1px solid var(--line); font-size: 12px; color: var(--dim); display: flex; flex-direction: column; gap: 6px; }
+  .top { position: sticky; top: 0; z-index: 20; }
+  .strip { max-width: var(--maxw); margin: 0 auto; background: var(--accent); color: #000; text-align: center; font-size: 11px; font-weight: 600; padding: 8px 16px; min-height: 33px; }
+  nav { max-width: var(--maxw); margin: 0 auto; height: 58px; padding: 0 28px; display: flex; align-items: center; justify-content: space-between;
+    background: rgba(26,26,26,0.92); backdrop-filter: blur(8px); border: 1px solid var(--border); border-top: 0; }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.04em; font-size: 17px; }
+  .brand i { width: 16px; height: 16px; border: 2px solid var(--text); position: relative; }
+  .brand i::after { content: ""; position: absolute; inset: 3px; background: var(--accent); }
+  .tabs { display: flex; gap: 24px; margin-left: 32px; }
+  .tab { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
+  .label { font-size: 13px; }
+  .tab { color: var(--tertiary); padding: 21px 0; border-bottom: 2px solid transparent; }
+  .tab.on { color: var(--text); border-bottom-color: var(--accent); }
+  .label { color: var(--tertiary); }
+  .pill { padding: 9px 18px; border-radius: 999px; background: var(--text); color: #0A0A0A; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+  .pill.ghost { background: transparent; color: var(--text); border: 1px solid var(--border-strong); }
+  .pill:hover { opacity: .85; }
 
-  /* main = page + docked terminal */
-  .main { grid-row: 2; display: grid; grid-template-rows: 1fr 290px; min-height: 0; }
-  .page { overflow: auto; padding: 32px 40px 40px; }
-  .view { display: none; max-width: 980px; }
+  main { position: relative; z-index: 1; max-width: var(--maxw); margin: 0 auto; border-left: 1px solid var(--border); border-right: 1px solid var(--border); min-height: calc(100vh - 91px); }
+  .view { display: none; }
   .view.on { display: block; }
-  .phead { display: flex; justify-content: space-between; align-items: flex-end; gap: 24px; margin-bottom: 24px; }
-  .phead p { margin: 6px 0 0; color: var(--soft); }
-  .btn { padding: 8px 14px; border-radius: 6px; background: var(--text); color: #111; font-size: 13px; font-weight: 600; white-space: nowrap; }
-  .btn.ghost { background: transparent; color: var(--text); border: 1px solid var(--line-2); }
-  .btn:hover { opacity: .88; }
-  .muted { color: var(--soft); }
-  .dim { color: var(--dim); }
+  section { border-bottom: 1px solid var(--border); }
+  .pad { padding: 28px; }
+  .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
+  .head p { margin: 6px 0 0; color: var(--muted); }
+  .muted { color: var(--muted); }
   .ok { color: var(--ok); }
   .bad { color: var(--bad); }
-  .mono { font-family: var(--mono); }
-  .tag { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border-radius: 4px; border: 1px solid var(--line-2); color: var(--soft); white-space: nowrap; }
-  .tag.y { border-color: transparent; background: var(--accent); color: #111; }
+  .badge { white-space: nowrap; padding: 2px 7px; border: 1px solid var(--border-strong); font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--muted); }
+  .badge.y { border-color: var(--accent); color: var(--accent); }
+  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: var(--ok); margin-right: 8px; vertical-align: middle; }
+  .dot.y { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .dot.g { background: var(--border-strong); }
 
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 10px; overflow: hidden; }
-  .card + .card { margin-top: 16px; }
-  .ctitle { padding: 12px 18px; border-bottom: 1px solid var(--line); font-size: 13px; color: var(--soft); display: flex; justify-content: space-between; align-items: center; gap: 12px; }
-  .rowx { display: grid; align-items: center; padding: 13px 18px; border-top: 1px solid var(--line); gap: 16px; }
-  .rowx:first-child { border-top: 0; }
-  .rowx.click:hover { background: #1E1E1E; cursor: pointer; }
-  .rowx.sel { background: #1E1E1E; box-shadow: inset 2px 0 0 var(--accent); }
-  .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
-  pre.code { margin: 0; padding: 14px 18px; font: 12.5px/1.7 var(--mono); color: var(--soft); white-space: pre-wrap; background: var(--sunk); border-top: 1px solid var(--line); }
+  .row { display: grid; }
+  .row > * { border-right: 1px solid var(--border); }
+  .row > *:last-child { border-right: 0; }
+  .c2 { grid-template-columns: 1fr 1fr; }
+  .c3 { grid-template-columns: repeat(3, 1fr); }
+  .c4 { grid-template-columns: repeat(4, 1fr); }
+  .split { grid-template-columns: 1.5fr 1fr; }
+  .cell { padding: 22px 28px; }
+  .hov:hover { background: var(--surface); cursor: pointer; }
+  .sel { background: var(--surface); box-shadow: inset 2px 0 0 var(--accent); }
 
-  /* servers */
-  .url { display: flex; align-items: center; gap: 10px; margin-top: 8px; font-family: var(--mono); font-size: 13px; color: var(--soft); }
-  .tool { grid-template-columns: 1.2fr 1.3fr 84px; }
-  .tool .tag { justify-self: end; }
-  .tool .sig { font-family: var(--mono); font-size: 13.5px; }
-  .ver { grid-template-columns: 30px 1.4fr repeat(3, 1fr); font-size: 13px; }
-  .stage { display: flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; color: var(--soft); }
-  .stage.p { color: var(--dim); }
-  .tabs { display: flex; gap: 4px; }
-  .tabs button { font-size: 12px; padding: 3px 9px; border-radius: 5px; color: var(--dim); }
-  .tabs button.on { background: var(--line); color: var(--text); }
+  pre { margin: 0; font-size: 12.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; color: #CFCFCF; }
+  .code { background: var(--surface); border: 1px solid var(--border); padding: 14px 16px; }
 
-  /* knowledge */
-  .stats { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 16px; }
-  .stat { padding: 16px 18px; transition: border-color .2s; }
-  .stat .v { font-size: 26px; font-weight: 600; letter-spacing: -0.03em; }
-  .stat .l { font-size: 13px; color: var(--soft); }
-  .stats .card + .card { margin-top: 0; }
-  .stat.active { border-color: var(--accent); }
-  .rule { grid-template-columns: 30px 1.3fr 1.2fr 64px; }
-  .rule .id { font-family: var(--mono); font-size: 12px; color: var(--dim); }
-  .rule.hidden { display: none; }
-  .opt { display: flex; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--line); }
-  .opt:hover { background: #1E1E1E; cursor: pointer; }
-  .opt.picked { background: var(--accent-bg); }
-  .opt b { font-family: var(--mono); color: var(--dim); font-weight: 500; }
+  /* connections */
+  .conn h3 { margin: 8px 0 2px; font-size: 16px; letter-spacing: -0.03em; }
+  .secret { margin-top: 16px; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); }
+  .add { display: flex; align-items: center; justify-content: center; color: var(--tertiary); }
 
-  /* activity */
-  .big { font-size: 44px; font-weight: 600; letter-spacing: -0.045em; line-height: 1.05; margin: 8px 0 6px; transition: opacity .3s; }
-  .gapc { padding: 20px 22px; }
-  .gapc.dimmed .big, .gapc.dimmed .meta { opacity: .1; }
-  .grid2 .card + .card { margin-top: 0; }
-  .meta { font-family: var(--mono); font-size: 12px; color: var(--soft); }
-  .bars { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
-  .bars .card + .card { margin-top: 0; }
-  .bar { padding: 18px; }
-  .track { height: 64px; background: var(--sunk); border-radius: 6px; position: relative; overflow: hidden; margin: 12px 0 10px; }
-  .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--soft); transition: height 1s cubic-bezier(.2,.7,.2,1); }
-  .fill.t { background: repeating-linear-gradient(45deg, var(--accent) 0 6px, #b38a00 6px 12px); }
-  .bar .v { font-family: var(--mono); font-size: 18px; }
+  /* discovery */
+  .num { font-family: var(--mono); font-size: 24px; font-weight: 700; margin-top: 4px; }
+  .stepc.active { box-shadow: inset 0 -2px 0 var(--accent); }
+  .rules { width: 100%; border-collapse: collapse; }
+  .rules th { text-align: left; padding: 12px 28px; border-bottom: 1px solid var(--border); }
+  .rules td { padding: 14px 28px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 14px; }
+  .rules tr { transition: opacity .35s; }
+  .rules tr.hidden { opacity: 0; }
+  .rules tbody tr:hover { background: var(--surface); cursor: pointer; }
+  .rules tr.sel { box-shadow: inset 2px 0 0 var(--accent); background: var(--surface); }
+  .rid { font-family: var(--mono); font-weight: 700; color: var(--tertiary); margin-right: 10px; }
+  .codeRow td { padding-top: 0; }
+  .q .opt { display: flex; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--border); }
+  .q .opt:hover { background: var(--surface); cursor: pointer; }
+  .q .opt.picked { background: var(--accent-glow); }
+  .q .opt b { font-family: var(--mono); color: var(--accent); }
 
-  /* terminal */
-  .term { border-top: 1px solid var(--line); background: #0C0C0C; display: grid; grid-template-rows: auto 1fr; min-height: 0; }
-  .thead { display: flex; align-items: center; gap: 14px; padding: 8px 18px; border-bottom: 1px solid var(--line); font-size: 12px; color: var(--dim); }
-  .thead b { color: var(--soft); font-weight: 500; font-family: var(--mono); }
-  .thead .live { margin-left: auto; display: flex; align-items: center; gap: 6px; }
-  .tbody { overflow: auto; padding: 12px 18px; font: 12.5px/1.8 var(--mono); color: var(--soft); }
+  /* mcp */
+  .tool .sig { font-family: var(--mono); font-size: 13px; font-weight: 700; }
+  .tool .rl { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--tertiary); }
+  .ctabs { display: flex; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--border); }
+  .ctab { padding: 12px 0; font-size: 13px; color: var(--tertiary); border-bottom: 2px solid transparent; }
+  .ctab.on { color: var(--text); border-bottom-color: var(--accent); }
+  .ver { display: grid; grid-template-columns: 60px 1fr 1fr 1fr 1.3fr; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 11px; }
+  .ver > div { padding: 12px 28px 12px 0; }
+  .ver > div:first-child { padding-left: 28px; font-weight: 700; }
+  .ver .p { color: var(--tertiary); }
+
+  /* live */
+  .big { font-size: 48px; font-weight: 700; letter-spacing: -0.05em; line-height: 1; margin: 14px 0 12px; }
+  .meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .dim .big, .dim .meta { opacity: .1; }
+  @keyframes flash { from { background: var(--accent-glow); } to { background: transparent; } }
+  .bar .track { height: 90px; background: var(--surface); position: relative; margin: 14px 0 10px; }
+  .bar .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--text); transition: height 1s cubic-bezier(.2,.7,.2,1); }
+  .bar .fill.t { background: repeating-linear-gradient(45deg, var(--accent) 0 6px, #8a6b00 6px 12px); }
+  .bar .v { font-family: var(--mono); font-size: 20px; font-weight: 700; }
+
+  .term { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; justify-content: center; pointer-events: none; }
+  .term > div { pointer-events: auto; width: 100%; max-width: var(--maxw); height: 250px; display: grid; grid-template-rows: auto 1fr;
+    background: #0E0E0E; border: 1px solid var(--border); border-bottom: 0; }
+  .thead { display: flex; align-items: center; gap: 14px; padding: 9px 28px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--tertiary); }
+  .thead b { color: var(--text); font-weight: 500; font-family: var(--mono); }
+  .thead .live { margin-left: auto; display: flex; align-items: center; }
+  .tbody { overflow: auto; padding: 12px 28px; font: 12.5px/1.8 var(--mono); color: var(--muted); }
   .tl { white-space: pre-wrap; word-break: break-word; }
   .tl .p { color: var(--text); }
   .tl .p::before { content: "› "; color: var(--accent); }
-  .tl .out { color: var(--blue); }
-  .tl .in { color: var(--dim); }
-  .tl .okk { color: var(--ok); }
-  .tl .err { color: var(--bad); }
-  .cursor { display: inline-block; width: 7px; height: 14px; background: var(--soft); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
+  .tl .o { color: #8AB4FF; }
+  .tl .i { color: var(--tertiary); }
+  .tl .g { color: var(--ok); }
+  .tl .r { color: var(--bad); }
+  .cursor { display: inline-block; width: 7px; height: 14px; background: var(--muted); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
   @keyframes blink { 50% { opacity: 0; } }
-
-  .demo { display: flex; gap: 6px; align-items: center; font: 500 11px var(--mono); color: var(--dim); margin-top: 6px; }
-  .demo span { margin-right: auto; }
-  .demo button { padding: 4px 9px; border: 1px solid var(--line-2); border-radius: 5px; color: var(--soft); background: var(--bg); }
-  .hl { box-shadow: 0 0 0 1px var(--accent); }
+  main { padding-bottom: 250px; }
+  .demo { display: flex; gap: 6px; align-items: center; margin-left: 16px; font: 600 11px var(--mono); }
+  .demo span { color: var(--tertiary); }
+  .demo button { padding: 2px 8px; border: 1px solid var(--border-strong); color: var(--muted); }
+  .demo button:hover { border-color: var(--accent); }
+  .hl { outline: 1px solid var(--accent); }
 </style>
 </head>
 <body>
-<div class="strip" id="strip"></div>
+<div class="frame"><div></div></div>
 
-<aside>
-  <div class="brand"><i></i>untitled <span class="ws">Acme</span></div>
-  <div class="navlabel">Servers</div>
-  <button class="nav" data-tab="servers"><span class="dot y"></span>Acme Sales MCP<span class="n">v3</span></button>
-  <div class="navlabel">Build</div>
-  <button class="nav" data-tab="knowledge">Knowledge<span class="n">6 rules</span></button>
-  <button class="nav" data-tab="connections">Connections<span class="n">2</span></button>
-  <div class="navlabel">Use</div>
-  <button class="nav" data-tab="activity">Activity<span class="n">4 agents</span></button>
-  <div class="foot">
-    <div style="display:flex;align-items:center;gap:8px"><span class="dot"></span>Hosted on Manufact</div>
-    <div>Owned by Acme</div>
-    <div class="demo"><span id="demoPos">demo</span><button id="prev">←</button><button id="next">→</button></div>
-  </div>
-</aside>
-
-<div class="main">
-<div class="page">
-
-<!-- SERVERS -->
-<div class="view" id="v-servers">
-  <div class="phead">
-    <div>
-      <h1>Acme Sales MCP</h1>
-      <div class="url"><span class="dot y"></span>https://acme-sales.run.mcp-use.com/mcp</div>
-    </div>
-    <button class="btn" id="connectBtn">Connect an agent</button>
-  </div>
-
-  <div class="card">
-    <div class="ctitle"><span>Tools</span><span class="dim">Acme's rules are compiled in</span></div>
-    <div id="tools"></div>
-  </div>
-
-  <div class="grid2" style="margin-top:16px">
-    <div class="card">
-      <div class="ctitle"><span>Connect</span>
-        <div class="tabs" id="ctabs"><button class="on" data-c="url">URL</button><button data-c="claude">Claude</button><button data-c="cursor">Cursor</button></div>
+<div class="top">
+  <div class="strip" id="strip">Every company runs HubSpot differently. Its agents should get an MCP that knows how.</div>
+  <nav>
+    <div style="display:flex;align-items:center">
+      <div class="brand"><i></i>walter</div>
+      <div class="tabs">
+        <button class="tab" data-tab="connections">Connections</button>
+        <button class="tab" data-tab="discovery">Discovery</button>
+        <button class="tab" data-tab="mcp">MCP</button>
+        <button class="tab" data-tab="live">Live</button>
       </div>
-      <pre class="code" id="snippet" style="border-top:0"></pre>
     </div>
-    <div class="card">
-      <div class="ctitle"><span>Versions</span><span class="dim">tests → evals → live</span></div>
-      <div id="versions"></div>
-    </div>
-  </div>
+  </nav>
 </div>
 
-<!-- KNOWLEDGE -->
-<div class="view" id="v-knowledge">
-  <div class="phead">
-    <div>
-      <h1>Knowledge</h1>
-      <p>Rules mined from Acme's data and history. Each one is code, backtested against what people actually decided.</p>
-    </div>
-  </div>
-  <div class="stats" id="stats">
-    <div class="card stat" data-s="0"><div class="v">3,104</div><div class="l">historical changes mined</div></div>
-    <div class="card stat" data-s="1"><div class="v">6</div><div class="l">rules hold on held-out Q3</div></div>
-    <div class="card stat" data-s="2"><div class="v">1</div><div class="l">question for a human</div></div>
-    <div class="card stat" data-s="3"><div class="v">11</div><div class="l">tests compiled</div></div>
-  </div>
-  <div class="card">
-    <div class="ctitle" style="display:grid;grid-template-columns:30px 1.3fr 1.2fr 64px;gap:16px"><span></span><span>Rule</span><span>Evidence</span><span>Held-out</span></div>
-    <div id="rules"></div>
-    <pre class="code" id="ruleCode"></pre>
-  </div>
-  <div class="card" id="question">
-    <div class="ctitle"><span>Question for RevOps</span><span class="dim">history can't settle this</span></div>
-    <div style="padding:14px 18px">5 of 6 territory exceptions are contacts that already existed. Do existing contacts always keep their owner?</div>
-    <div class="opt" data-a="A"><b>A</b>Yes, never reassign them.</div>
-    <div class="opt" data-a="B"><b>B</b>No, always use territory.</div>
-  </div>
-</div>
+<main>
 
 <!-- CONNECTIONS -->
 <div class="view" id="v-connections">
-  <div class="phead">
+  <section class="pad head">
     <div>
       <h1>Connections</h1>
-      <p>Each system is a <code>.md</code> for context and a secret for access. Secrets are injected at request time; no model sees them.</p>
+      <p>A <code>.md</code> for context. A secret for access. No model ever sees the secret.</p>
     </div>
-    <button class="btn ghost">Add connection</button>
-  </div>
-  <div class="card">
-    <div id="conns"></div>
-    <pre class="code" id="md"></pre>
-  </div>
+    <button class="pill" data-go="discovery">Discover →</button>
+  </section>
+  <section class="row c3" id="conns">
+    <div class="cell conn hov sel" data-conn="hubspot">
+      <span class="label">hubspot.md</span>
+      <h3>HubSpot CRM</h3>
+      <div class="muted" style="font-size:13px">API · read, write to sandbox</div>
+      <div class="secret"><span>HUBSPOT_TOKEN</span><span>••••••••</span></div>
+    </div>
+    <div class="cell conn hov" data-conn="warehouse">
+      <span class="label">warehouse.md</span>
+      <h3>acme_analytics</h3>
+      <div class="muted" style="font-size:13px">Postgres · read only</div>
+      <div class="secret"><span>WAREHOUSE_URL</span><span>••••••••</span></div>
+    </div>
+    <div class="cell add hov"><span class="label">+ Add</span></div>
+  </section>
+  <section class="pad">
+    <pre class="code" id="mdBody"></pre>
+  </section>
 </div>
 
-<!-- ACTIVITY -->
-<div class="view" id="v-activity">
-  <div class="phead">
+<!-- DISCOVERY -->
+<div class="view" id="v-discovery">
+  <section class="pad head">
+    <div>
+      <h1>Discovery</h1>
+      <p>History is the answer key. Each rule is code, backtested on what people actually decided.</p>
+    </div>
+  </section>
+  <section class="row c4" id="steps">
+    <div class="cell stepc" data-s="0"><div class="label">Mined</div><div class="num">3,104</div><div class="muted" style="font-size:12px">changes in 2 years</div></div>
+    <div class="cell stepc" data-s="1"><div class="label">Backtested</div><div class="num">6</div><div class="muted" style="font-size:12px">rules hold on Q3</div></div>
+    <div class="cell stepc" data-s="2"><div class="label">Asked</div><div class="num">1</div><div class="muted" style="font-size:12px">question</div></div>
+    <div class="cell stepc" data-s="3"><div class="label">Compiled</div><div class="num">4</div><div class="muted" style="font-size:12px">tools · 11 tests</div></div>
+  </section>
+  <section>
+    <table class="rules">
+      <thead><tr><th class="label">Rule</th><th class="label">Evidence</th><th class="label">Held-out</th></tr></thead>
+      <tbody id="ruleRows"></tbody>
+    </table>
+  </section>
+  <section class="pad">
+    <div class="q code" id="question" style="padding:0">
+      <div style="padding:16px 18px">
+        <div class="label" style="margin-bottom:8px">Question for RevOps</div>
+        5 of 6 territory exceptions are contacts that already existed. Do existing contacts always keep their owner?
+      </div>
+      <div class="opt" data-a="A"><b>A</b>Yes, never reassign them.</div>
+      <div class="opt" data-a="B"><b>B</b>No, always use territory.</div>
+    </div>
+    <p class="muted mono" style="font-size:11px;margin:10px 0 0" id="qNote">Until answered, the tool keeps owners and returns <code>assumptions: ["R5"]</code>.</p>
+  </section>
+</div>
+
+<!-- MCP -->
+<div class="view" id="v-mcp">
+  <section class="pad head">
+    <div>
+      <h1>Acme Sales MCP</h1>
+      <p class="mono" style="font-size:12px"><span class="dot y"></span>v3 · acme-sales.run.mcp-use.com/mcp</p>
+    </div>
+  </section>
+  <section class="row split">
+    <div>
+      <div class="row c2" id="tools"></div>
+    </div>
+    <div>
+      <div class="ctabs" id="ctabs">
+        <button class="ctab on" data-c="url">URL</button>
+        <button class="ctab" data-c="claude">Claude</button>
+        <button class="ctab" data-c="cursor">Cursor</button>
+      </div>
+      <div class="pad"><pre class="code" id="snippet"></pre>
+        <p class="muted" style="font-size:12px;margin:12px 0 0">Any MCP client. Nothing to install in the agent.</p>
+      </div>
+    </div>
+  </section>
+  <section>
+    <div id="versions"></div>
+  </section>
+</div>
+
+<!-- LIVE -->
+<div class="view" id="v-live">
+  <section class="pad head">
     <div>
       <h1>"What's our Q4 commit?"</h1>
       <p>Same agent, same question.</p>
     </div>
-    <button class="btn" id="runGap">Run</button>
-  </div>
-  <div class="grid2">
-    <div class="card gapc" id="gapRaw"><div class="muted" style="font-size:13px">Raw HubSpot API</div><div class="big bad">$493,000</div><div class="meta">14 calls · 41k tokens · wrong</div></div>
-    <div class="card gapc" id="gapMcp"><div class="muted" style="font-size:13px">Acme Sales MCP</div><div class="big ok">$605,000</div><div class="meta">1 call · 0.9k tokens · correct</div></div>
-  </div>
-  <div class="card" style="margin-top:16px">
-    <div class="ctitle"><span>Agents connected</span><button class="btn ghost" id="drift" style="font-size:12px;padding:4px 10px">Change a rule</button></div>
-    <div id="agents"></div>
-  </div>
-  <div class="bars" id="bars" style="margin-top:16px">
-    <div class="card bar"><div class="muted" style="font-size:13px">Raw API</div><div class="track"><div class="fill" data-h="0"></div></div><div class="v">0/8</div></div>
-    <div class="card bar"><div class="muted" style="font-size:13px">+ Memory</div><div class="track"><div class="fill" data-h="50"></div></div><div class="v">4/8</div></div>
-    <div class="card bar"><div class="muted" style="font-size:13px">Company MCP</div><div class="track"><div class="fill t" data-h="100"></div></div><div class="v">8/8 <span class="dim" style="font-size:12px">target</span></div></div>
-  </div>
+    <div style="display:flex;gap:10px"><button class="pill ghost" id="drift">Change a rule</button><button class="pill" id="runGap">Run →</button></div>
+  </section>
+  <section class="row c2" id="gap">
+    <div class="cell" id="gapRaw">
+      <div class="label">Raw HubSpot API</div>
+      <div class="big bad">$493,000</div>
+      <div class="meta">14 calls · 41k tokens</div>
+    </div>
+    <div class="cell" id="gapMcp">
+      <div class="label">Acme Sales MCP</div>
+      <div class="big ok">$605,000</div>
+      <div class="meta">1 call · 0.9k tokens</div>
+    </div>
+  </section>
+  <section class="row c3" id="bars">
+    <div class="cell bar"><div class="label">Raw API</div><div class="track"><div class="fill" data-h="0"></div></div><div class="v">0/8</div></div>
+    <div class="cell bar"><div class="label">+ Memory</div><div class="track"><div class="fill" data-h="50"></div></div><div class="v">4/8</div></div>
+    <div class="cell bar"><div class="label">Company MCP</div><div class="track"><div class="fill t" data-h="100"></div></div><div class="v">8/8 <span class="muted" style="font-size:11px;font-weight:400">target</span></div></div>
+  </section>
 </div>
 
-</div>
+</main>
 
-<!-- TERMINAL: what agents actually see -->
-<div class="term">
-  <div class="thead">
-    <b id="termTitle">agent session</b>
-    <span id="termSub"></span>
-    <span class="live"><span class="dot"></span>live</span>
-  </div>
+<div class="term"><div>
+  <div class="thead"><b id="termTitle">agent session</b><span id="termSub"></span><span class="live"><span class="dot"></span>live</span><div class="demo"><span id="demoPos">0/8</span><button id="prev">←</button><button id="next">→</button></div></div>
   <div class="tbody" id="term"></div>
-</div>
-</div>
+</div></div>
+
+
 
 <script>
 const $ = (s) => document.querySelector(s);
 const $$ = (s) => [...document.querySelectorAll(s)];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
-// ── terminal ──────────────────────────────────────────────────────────────
+const MD = {
+  hubspot: `# HubSpot CRM (Acme)
+Sales system of record.
+
+## Notes
+- Enterprise pipeline is ours
+- Ask RevOps before trusting "Closed Won"
+
+secret: HUBSPOT_TOKEN · scopes: read, write (sandbox)`,
+  warehouse: `# acme_analytics (Postgres)
+Read-only replica RevOps reports from.
+
+## Tables
+- forecast_snapshots     reported commit per quarter
+- hubspot_field_history  every property change
+
+secret: WAREHOUSE_URL · read only`,
+};
+
+const RULES = [
+  { id: "R1", text: "Closed Won counts only when <code>booked</code>", ev: "Set by RevOps on 97% of revenue deals", ho: "98%",
+    code: `isClosedWon(d) ? d.booked === true : isContractSent(d)` },
+  { id: "R2", text: "Value is <code>arr</code>, not <code>amount</code>", ev: "Σarr matches every reported quarter", ho: "100%",
+    code: `value = (d) => Number(d.arr)   // amount includes services` },
+  { id: "R3", text: "Partner Sandbox never counts", ev: "Absent from every reported number", ho: "100%",
+    code: `eligible = (d) => d.pipeline !== "9900001"` },
+  { id: "R4", text: "New leads owned by territory", ev: "1,234 of 1,240 assignments", ho: "100%",
+    code: `owner = (c) => TERRITORY[c.country]   // EMEA 201 · AMER 202 · APAC 203` },
+  { id: "R5", text: "Existing contacts keep owner", ev: "5 of 6 territory exceptions", ho: "asked",
+    code: `owner = (c, existing) => existing ? existing.owner : territoryOwner(c)` },
+  { id: "R6", text: "Companies match on root domain", ev: "All 41 past merges", ho: "100%",
+    code: `key = (url) => url.toLowerCase().replace(/^\\w+:\\/\\/(www\\.)?|^www\\./, "").split("/")[0]` },
+];
+let openRule = 0;
+
+const TOOLS = [
+  { sig: "get_commit(quarter)", rules: "R1 R2 R3", kind: "read" },
+  { sig: "import_leads(leads)", rules: "R4 R5 R6", kind: "plan → commit" },
+  { sig: "find_account(domain)", rules: "R6", kind: "read" },
+  { sig: "report_outcome(…)", rules: "agent → MCP", kind: "feedback" },
+];
+
+const SNIP = {
+  url: `https://acme-sales.run.mcp-use.com/mcp
+Authorization: Bearer <agent token>`,
+  claude: `{ "mcpServers": { "acme-sales": {
+    "url": "https://acme-sales.run.mcp-use.com/mcp" } } }`,
+  cursor: `// .cursor/mcp.json
+{ "mcpServers": { "acme-sales": {
+    "url": "https://acme-sales.run.mcp-use.com/mcp" } } }`,
+};
+
+
+const FEED = [
+  ["02:10:04", "acme-ops-bot", "get_commit → $605k"],
+  ["02:10:11", "claude-desktop", "find_account → 30103"],
+  ["02:10:19", "acme-sdr-agent", "import_leads → plan · 6 create"],
+  ["02:10:31", "cursor", "get_commit → Q3"],
+];
+
+// ── terminal: what agents actually see ─────────────────────────────────────
 let termRun = 0;
-async function term(title, sub, lines, { speed = 1 } = {}) {
+async function term(title, sub, lines, speed = 1) {
   const run = ++termRun;
   $("#termTitle").textContent = title;
   $("#termSub").textContent = sub;
@@ -290,213 +378,159 @@ async function term(title, sub, lines, { speed = 1 } = {}) {
     if (run !== termRun) return;
     const el = document.createElement("div");
     el.className = "tl";
-    const span = document.createElement("span");
-    if (cls) span.className = cls;
-    span.textContent = text;
-    el.appendChild(span);
+    const sp = document.createElement("span");
+    if (cls) sp.className = cls;
+    sp.textContent = text;
+    el.appendChild(sp);
     box.appendChild(el);
     box.scrollTop = box.scrollHeight;
     await sleep(wait * speed);
   }
   if (run === termRun) { const c = document.createElement("span"); c.className = "cursor"; box.appendChild(c); }
 }
-
 const T = {
-  servers: ["agent session", "glm-5p3 · connected over MCP", [
+  mcp: ["agent session", "glm-5p3 · connected over MCP", [
     ["p", "agent --mcp https://acme-sales.run.mcp-use.com/mcp"],
-    ["out", "→ initialize"],
-    ["in", "← serverInfo { name: \"acme-sales\", version: \"3\" }"],
-    ["out", "→ tools/list"],
-    ["in", "← get_commit · import_leads · find_account · report_outcome"],
+    ["o", "→ initialize"],
+    ["i", "← serverInfo { name: \"acme-sales\", version: \"3\" }"],
+    ["o", "→ tools/list"],
+    ["i", "← get_commit · import_leads · find_account · report_outcome"],
     ["", "user: what's our Q4 commit?", 500],
-    ["out", "→ tools/call get_commit { \"quarter\": \"2026-Q4\" }", 600],
-    ["in", "← { \"total_usd\": 605000, \"deals\": 7, \"rules_applied\": [\"R1@v3\", \"R2@v3\", \"R3@v3\"], \"assumptions\": [] }"],
-    ["okk", "agent: Q4 commit is $605,000 across 7 deals."],
+    ["o", "→ tools/call get_commit { \"quarter\": \"2026-Q4\" }", 600],
+    ["i", "← { \"total_usd\": 605000, \"deals\": 7, \"rules_applied\": [\"R1@v3\", \"R2@v3\", \"R3@v3\"], \"assumptions\": [] }"],
+    ["g", "agent: Q4 commit is $605,000 across 7 deals."],
   ]],
-  knowledge: ["miner", "hubspot + acme_analytics · read only", [
+  discovery: ["miner", "hubspot + acme_analytics · read only", [
     ["p", "sql: select count(*) from hubspot_field_history where changed_at > now() - interval '2 years'"],
-    ["in", "3104"],
+    ["i", "3104"],
     ["p", "sql: select changed_by_team, count(*) from hubspot_field_history where property = 'booked' group by 1"],
-    ["in", "RevOps · 412   (97% of revenue deals)"],
+    ["i", "RevOps · 412   (97% of revenue deals)"],
     ["p", "hypothesis R1: commit counts Closed Won only when booked = true"],
-    ["out", "backtest R1   train Q1–Q2 96%   held-out Q3 98%   ✓"],
-    ["out", "backtest R2   Σarr = reported commit in 3/3 quarters   ✓"],
-    ["out", "backtest R4   owner = territory explains 1,234 / 1,240"],
-    ["err", "residual: 6 assignments, 5 are pre-existing contacts → ask RevOps"],
-    ["okk", "compiled 4 tools · 11 tests · draft v3 verified through an MCP client"],
+    ["o", "backtest R1   train Q1–Q2 96%   held-out Q3 98%   ✓"],
+    ["o", "backtest R2   Σarr = reported commit in 3/3 quarters   ✓"],
+    ["o", "backtest R4   owner = territory explains 1,234 / 1,240"],
+    ["r", "residual: 6 assignments, 5 are pre-existing contacts → ask RevOps"],
+    ["g", "compiled 4 tools · 11 tests · draft v3 verified through an MCP client"],
   ]],
   connections: ["connection check", "secrets injected by host", [
     ["p", "connect hubspot   (HUBSPOT_TOKEN from secrets · never shown to models)"],
-    ["in", "GET /crm/v3/objects/deals?limit=1   → 200"],
-    ["in", "GET /crm/v3/pipelines/deals         → 3 pipelines"],
+    ["i", "GET /crm/v3/objects/deals?limit=1   → 200"],
+    ["i", "GET /crm/v3/pipelines/deals         → 3 pipelines"],
     ["p", "connect acme_analytics   (WAREHOUSE_URL from secrets · read only)"],
-    ["in", "tables: forecast_snapshots · hubspot_field_history · lead_assignments"],
-    ["okk", "2 systems ready for discovery"],
+    ["i", "tables: forecast_snapshots · hubspot_field_history · lead_assignments"],
+    ["g", "2 systems ready for discovery"],
   ]],
-  activity: ["mcp traffic", "all agents · acme-sales", [
-    ["in", "02:10:04  acme-ops-bot     glm-5p3       get_commit 2026-Q4       → $605,000"],
-    ["in", "02:10:11  claude-desktop   claude-haiku  find_account hooli.com   → 30103"],
-    ["in", "02:10:19  acme-sdr-agent   minimax-m3    import_leads 7 leads     → plan: 6 create, 1 skip"],
-    ["in", "02:10:22  acme-sdr-agent   minimax-m3    import_leads plan 9f2c   → committed"],
-    ["in", "02:10:31  cursor                         get_commit 2026-Q3       → ok"],
+  live: ["mcp traffic", "all agents · acme-sales", [
+    ["i", "02:10:04  acme-ops-bot     glm-5p3       get_commit 2026-Q4       → $605,000"],
+    ["i", "02:10:11  claude-desktop   claude-haiku  find_account hooli.com   → 30103"],
+    ["i", "02:10:19  acme-sdr-agent   minimax-m3    import_leads 7 leads     → plan: 6 create, 1 skip"],
+    ["i", "02:10:31  cursor                         get_commit 2026-Q3       → ok"],
   ]],
 };
 
-// ── data ──────────────────────────────────────────────────────────────────
-const TOOLS = [
-  ["get_commit(quarter)", "Committed revenue for a quarter", "R1 R2 R3"],
-  ["import_leads(leads)", "Lead import, plan then commit", "R4 R5 R6"],
-  ["find_account(domain)", "The one company for a domain", "R6"],
-  ["report_outcome(…)", "Agents report what went wrong", "feedback"],
-];
-const SNIP = {
-  url: `https://acme-sales.run.mcp-use.com/mcp
-Authorization: Bearer <agent token>`,
-  claude: `{ "mcpServers": { "acme-sales": {
-  "url": "https://acme-sales.run.mcp-use.com/mcp" } } }`,
-  cursor: `// .cursor/mcp.json
-{ "mcpServers": { "acme-sales": {
-  "url": "https://acme-sales.run.mcp-use.com/mcp" } } }`,
-};
-const RULES = [
-  ["R1", "Closed Won counts only when <code>booked</code>", "Set by RevOps on 97% of revenue deals", "98%", `isClosedWon(d) ? d.booked === true : isContractSent(d)`],
-  ["R2", "Value is <code>arr</code>, not <code>amount</code>", "Σarr matches every reported quarter", "100%", `value = (d) => Number(d.arr)   // amount includes one-time services`],
-  ["R3", "Partner Sandbox never counts", "Absent from every reported number", "100%", `eligible = (d) => d.pipeline !== "9900001"`],
-  ["R4", "New leads owned by territory", "1,234 of 1,240 assignments", "100%", `owner = (c) => TERRITORY[c.country]   // EMEA 201 · AMER 202 · APAC 203`],
-  ["R5", "Existing contacts keep owner", "5 of 6 territory exceptions", "asked", `owner = (c, existing) => existing ? existing.owner : territoryOwner(c)`],
-  ["R6", "Companies match on root domain", "All 41 past merges", "100%", `key = (url) => rootDomain(url)   // lowercase, no scheme, no www.`],
-];
-const CONNS = [
-  ["hubspot", "HubSpot CRM", "API · read, write to sandbox", "HUBSPOT_TOKEN"],
-  ["warehouse", "acme_analytics", "Postgres · read only", "WAREHOUSE_URL"],
-];
-const MD = {
-  hubspot: `# HubSpot CRM (Acme)
-Sales system of record.
-
-## Notes
-- Enterprise pipeline is ours
-- Ask RevOps before trusting "Closed Won"`,
-  warehouse: `# acme_analytics (Postgres)
-Read-only replica RevOps reports from.
-
-## Tables
-- forecast_snapshots     reported commit per quarter
-- hubspot_field_history  every property change`,
-};
-const AGENTS = [
-  ["claude-desktop", "claude-haiku-5-5", "12 calls"],
-  ["cursor", "—", "4 calls"],
-  ["acme-ops-bot", "glm-5p3", "31 calls"],
-  ["acme-sdr-agent", "minimax-m3", "9 calls"],
-];
-
-// ── render ────────────────────────────────────────────────────────────────
-$("#tools").innerHTML = TOOLS.map(([s, d, r]) => `<div class="rowx tool"><span class="sig">${s}</span><span class="muted">${d}</span><span class="tag">${r}</span></div>`).join("");
-function snip(k) { $$("#ctabs button").forEach((b) => b.classList.toggle("on", b.dataset.c === k)); $("#snippet").textContent = SNIP[k]; }
-$$("#ctabs button").forEach((b) => b.onclick = () => snip(b.dataset.c));
-
-const VERS = [["v1", "first build"], ["v2", "R1 added"]];
-function verRow(v, why, s) {
-  const st = (l, done) => `<span class="stage ${done ? "" : "p"}"><span class="dot ${done ? "" : "g"}"></span>${l}</span>`;
-  return `<div class="rowx ver"><span class="mono dim">${v}</span><span class="muted">${why}</span>${st("tests", s > 0)}${st("evals", s > 1)}${st("live", s > 2)}</div>`;
+function showMd(k) {
+  $("#mdBody").textContent = MD[k];
+  $$("#conns .conn").forEach((c) => c.classList.toggle("sel", c.dataset.conn === k));
 }
-function renderVersions(cur = 3) { $("#versions").innerHTML = VERS.map(([v, w]) => verRow(v, w, 3)).join("") + verRow("v3", "R4 · plan → commit", cur); }
-async function ship() { for (let s = 0; s <= 3; s++) { renderVersions(s); await sleep(650); } }
+$$("#conns .conn").forEach((c) => c.onclick = () => showMd(c.dataset.conn));
 
-let openRule = 0;
 function renderRules(visible = RULES.length) {
-  $("#rules").innerHTML = RULES.map(([id, t, ev, ho], i) => `
-    <div class="rowx rule click ${i >= visible ? "hidden" : ""} ${i === openRule ? "sel" : ""}" data-i="${i}">
-      <span class="id">${id}</span><span>${t}</span><span class="muted">${ev}</span>
-      <span class="mono" style="font-size:13px">${ho === "asked" ? '<span class="tag y">asked</span>' : ho}</span>
-    </div>`).join("");
-  $("#ruleCode").textContent = RULES[openRule][4];
-  $$("#rules .rule").forEach((r) => r.onclick = () => { openRule = +r.dataset.i; renderRules(); });
+  $("#ruleRows").innerHTML = RULES.map((r, i) => `
+    <tr data-i="${i}" class="${i >= visible ? "hidden" : ""} ${i === openRule ? "sel" : ""}">
+      <td><span class="rid">${r.id}</span>${r.text}</td>
+      <td class="muted">${r.ev}</td>
+      <td class="mono" style="font-size:12px">${r.ho === "asked" ? '<span class="badge y">asked</span>' : r.ho}</td>
+    </tr>
+    ${i === openRule && i < visible ? `<tr class="codeRow sel"><td colspan="3"><pre class="code">${r.code}</pre></td></tr>` : ""}`).join("");
+  $$("#ruleRows tr[data-i]").forEach((tr) => tr.onclick = () => { openRule = +tr.dataset.i; renderRules(); });
 }
+
 $$("#question .opt").forEach((o) => o.onclick = () => {
   $$("#question .opt").forEach((x) => x.classList.toggle("picked", x === o));
-  if (o.dataset.a === "A") { RULES[4][3] = "100%"; openRule = 4; renderRules(); }
+  if (o.dataset.a === "A") {
+    RULES[4].ho = "100%"; openRule = 4; renderRules();
+    $("#qNote").innerHTML = "Saved as a test. Ships in the next version.";
+  }
 });
 
-let conn = "hubspot";
-function renderConns() {
-  $("#conns").innerHTML = CONNS.map(([k, n, d, s]) => `
-    <div class="rowx click ${k === conn ? "sel" : ""}" data-k="${k}" style="grid-template-columns: 1fr 1.2fr auto">
-      <span><span class="mono dim" style="font-size:12px">${k}.md</span><br>${n}</span>
-      <span class="muted">${d}</span>
-      <span class="mono dim" style="font-size:12px">${s} ••••••</span>
-    </div>`).join("");
-  $("#md").textContent = MD[conn];
-  $$("#conns .rowx").forEach((r) => r.onclick = () => { conn = r.dataset.k; renderConns(); });
-}
+$("#tools").innerHTML = TOOLS.map((t) => `
+  <div class="cell tool" style="border-bottom:1px solid var(--border)">
+    <div style="display:flex;justify-content:space-between;gap:8px"><span class="sig">${t.sig}</span><span class="badge">${t.kind}</span></div>
+    <div class="rl">${t.rules}</div>
+  </div>`).join("");
 
-$("#agents").innerHTML = AGENTS.map(([c, m, n]) => `<div class="rowx" style="grid-template-columns: 1fr 1fr auto"><span><span class="dot" style="margin-right:10px"></span>${c}</span><span class="muted mono" style="font-size:12px">${m}</span><span class="dim mono" style="font-size:12px">${n}</span></div>`).join("");
+function snip(k) {
+  $$("#ctabs .ctab").forEach((b) => b.classList.toggle("on", b.dataset.c === k));
+  $("#snippet").textContent = SNIP[k];
+}
+$$("#ctabs .ctab").forEach((b) => b.onclick = () => snip(b.dataset.c));
+
+const VERS = [["v1", "first build", "6/6"], ["v2", "R1 added", "9/9"]];
+function verRow(v, why, s) {
+  const st = (label, done) => `<div class="${done ? "" : "p"}"><span class="dot ${done ? "" : "g"}"></span>${label}</div>`;
+  return `<div class="ver"><div>${v}</div><div class="muted">${why}</div>${st("preview", s > 0)}${st("tests", s > 1)}${st(s > 3 ? "live" : "evals 3 models", s > 2)}</div>`;
+}
+function renderVersions(cur = 4) {
+  $("#versions").innerHTML = VERS.map(([v, w]) => verRow(v, w, 4)).join("") + verRow("v3", "R4 · plan → commit", cur);
+}
+async function ship() { for (let s = 0; s <= 4; s++) { renderVersions(s); await sleep(600); } }
 
 async function drift() {
-  go("activity", false);
   await term("mcp traffic", "rule change detected", [
-    ["in", "02:14:02  acme-ops-bot     get_commit 2026-Q4   → $605,000   R1@v3"],
-    ["err", "02:14:05  backtest         R1 fails on the new forecast snapshot (Contract Sent excluded since Oct 1)"],
-    ["out", "02:14:06  builder          v4 preview · R1′ + 12 tests"],
-    ["out", "02:14:40  manufact         evals: claude ✓  glm ✓  minimax ✓"],
-    ["okk", "02:14:48  manufact         v4 live"],
-    ["in", "02:14:55  claude-desktop   get_commit 2026-Q4   → $382,000   R1′@v4", 600],
-  ], { speed: 2.4 });
+    ["i", "02:14:02  acme-ops-bot     get_commit 2026-Q4   → $605,000   R1@v3"],
+    ["r", "02:14:05  backtest         R1 fails on the new forecast snapshot (Contract Sent excluded since Oct 1)"],
+    ["o", "02:14:06  builder          v4 preview · R1′ + 12 tests"],
+    ["o", "02:14:40  manufact         evals: claude ✓  glm ✓  minimax ✓"],
+    ["g", "02:14:48  manufact         v4 live"],
+    ["i", "02:14:55  claude-desktop   get_commit 2026-Q4   → $382,000   R1′@v4"],
+  ], 3);
 }
 $("#drift").onclick = drift;
 
 async function runGap() {
-  $("#gapRaw").classList.add("dimmed"); $("#gapMcp").classList.add("dimmed");
-  await sleep(500); $("#gapRaw").classList.remove("dimmed");
-  await sleep(1100); $("#gapMcp").classList.remove("dimmed");
+  $("#gapRaw").classList.add("dim"); $("#gapMcp").classList.add("dim");
+  await sleep(500); $("#gapRaw").classList.remove("dim");
+  await sleep(1100); $("#gapMcp").classList.remove("dim");
 }
 $("#runGap").onclick = runGap;
 const bars = (on) => $$("#bars .fill").forEach((f) => f.style.height = on ? f.dataset.h + "%" : "0");
 
-function go(tab, withTerm = true) {
-  $$(".nav").forEach((n) => n.classList.toggle("on", n.dataset.tab === tab));
+function go(tab) {
+  $$(".tab").forEach((t) => t.classList.toggle("on", t.dataset.tab === tab));
   $$(".view").forEach((v) => v.classList.toggle("on", v.id === "v-" + tab));
-  $(".page").scrollTop = 0;
-  if (tab === "activity") setTimeout(() => bars(true), 120);
-  if (withTerm) term(...T[tab]);
+  if (tab === "live") setTimeout(() => bars(true), 100);
+  if (T[tab]) term(...T[tab]);
+  window.scrollTo({ top: 0 });
 }
-$$(".nav").forEach((n) => n.onclick = () => go(n.dataset.tab));
-$("#connectBtn").onclick = () => term(...T.servers);
+$$(".tab").forEach((t) => t.onclick = () => go(t.dataset.tab));
+$$("[data-go]").forEach((b) => b.onclick = () => go(b.dataset.go));
 
-// ── demo (→ / ←, Esc hides the narration) ─────────────────────────────────
 const STEPS = [
-  ["Agents can use HubSpot. They don't know Acme's HubSpot.", async () => { go("activity"); $("#gapMcp").classList.add("dimmed"); }],
-  ["Point it at the systems. Context in a .md, access in a secret.", async () => go("connections")],
+  ["Agents can use HubSpot. They don't know Acme's HubSpot.", async () => { go("live"); $("#gapMcp").classList.add("dim"); }],
+  ["Point it at the systems. Context in a .md, access in a secret.", async () => { go("connections"); showMd("hubspot"); }],
   ["It mines the unwritten rules from history and backtests each one.", async () => {
-    go("knowledge"); openRule = 0; renderRules(0);
-    for (let s = 0; s < 4; s++) { $$("#stats .stat").forEach((x) => x.classList.toggle("active", +x.dataset.s === s)); if (s === 1) for (let i = 1; i <= RULES.length; i++) { renderRules(i); await sleep(240); } else await sleep(420); }
-    $$("#stats .stat").forEach((x) => x.classList.remove("active")); }],
-  ["One question history can't settle. The answer becomes a test.", async () => { go("knowledge", false); $("#question").scrollIntoView({ behavior: "smooth", block: "center" }); $("#question").classList.add("hl"); await sleep(1600); $("#question").classList.remove("hl"); }],
-  ["Rules become tools. Tests → evals on every model → live, on Manufact.", async () => { go("servers", false); await ship(); }],
-  ["Any agent connects. One call. Rules applied, assumptions explicit.", async () => { go("servers"); }],
-  ["Same agent, one call: $605,000. Nothing to read. Nothing to skip.", async () => { go("activity"); await sleep(300); $("#gapMcp").classList.remove("dimmed"); }],
-  ["A rule changes. A backtest breaks. v4 ships. Every agent gets it.", async () => { await drift(); }],
+    go("discovery"); openRule = 0; renderRules(0);
+    for (let s = 0; s < 4; s++) { $$("#steps .stepc").forEach((x) => x.classList.toggle("active", +x.dataset.s === s)); if (s === 1) for (let i = 1; i <= RULES.length; i++) { renderRules(i); await sleep(260); } else await sleep(420); } }],
+  ["One question history can't settle. The answer becomes a test.", async () => { go("discovery"); $("#question").scrollIntoView({ behavior: "smooth", block: "center" }); $("#question").classList.add("hl"); await sleep(1500); $("#question").classList.remove("hl"); }],
+  ["Rules become tools. Preview → tests → evals on every model → live.", async () => { go("mcp"); await ship(); }],
+  ["What an agent sees: one call, rules applied, assumptions explicit.", async () => { go("mcp"); }],
+  ["Same agent, one call: $605,000. Nothing to read. Nothing to skip.", async () => { go("live"); await sleep(400); $("#gapMcp").classList.remove("dim"); }],
+  ["A rule changes. A backtest breaks. v4 ships. Every agent gets it.", async () => { go("live"); await drift(); }],
 ];
 let step = -1;
 async function toStep(i) {
-  document.body.classList.add("demo");
   step = Math.max(0, Math.min(STEPS.length - 1, i));
-  $("#demoPos").textContent = `demo ${step + 1}/${STEPS.length}`;
+  $("#demoPos").textContent = `${step + 1}/${STEPS.length}`;
   $("#strip").textContent = STEPS[step][0];
   await STEPS[step][1]();
 }
 $("#next").onclick = () => toStep(step + 1);
 $("#prev").onclick = () => toStep(step - 1);
-document.addEventListener("keydown", (e) => {
-  if (e.key === "ArrowRight") toStep(step + 1);
-  if (e.key === "ArrowLeft") toStep(step - 1);
-  if (e.key === "Escape") document.body.classList.remove("demo");
-});
+document.addEventListener("keydown", (e) => { if (e.key === "ArrowRight") toStep(step + 1); if (e.key === "ArrowLeft") toStep(step - 1); });
 
-snip("url"); renderVersions(); renderRules(); renderConns();
-const t0 = location.hash.slice(1);
-go(["servers", "knowledge", "connections", "activity"].includes(t0) ? t0 : "servers");
+showMd("hubspot"); renderRules(); snip("url"); renderVersions(); $("#demoPos").textContent = `0/${STEPS.length}`;
+const [t0, e0] = location.hash.slice(1).split(",");
+go(["connections", "discovery", "mcp", "live"].includes(t0) ? t0 : "connections");
 </script>
 </body>
 </html>
