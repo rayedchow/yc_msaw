@@ -19,6 +19,7 @@ import { notionProvider } from "./notion/index.js";
 import { slackProvider } from "./slack/index.js";
 import { stripeProvider } from "./stripe/index.js";
 import { whatsappPersonalProvider } from "./whatsapp-personal/index.js";
+import { zoomProvider } from "./zoom/index.js";
 
 /**
  * Enabled source providers. Append-only, one line per provider, alphabetical by id;
@@ -44,6 +45,7 @@ const SPECIALIZED_PROVIDERS: readonly SourceProviderModule[] = [
   slackProvider,
   stripeProvider,
   whatsappPersonalProvider,
+  zoomProvider,
 ];
 
 /**

@@ -84,6 +84,11 @@ describe("github content lane: initial capture", () => {
     await drain(exporter);
     const everything = (await Promise.all((await yc.paths()).map(async (p) => (await yc.file(p))!.bytes.toString("latin1") + JSON.stringify((await yc.file(p))!.provenance)))).join("\n");
     expect(everything).not.toContain("nango-secret-test-key");
+    // GitHub returns a short-lived clone token for private repositories; it never reaches a file.
+    expect(everything).not.toContain("TEMPCLONETOKEN");
+    expect((await yc.json(`${CODE}/_repo.json`)).raw.temp_clone_token).toBe("[redacted: github credential]");
+    const stored = await query(`SELECT raw::text AS t FROM github_source_repos`);
+    expect(stored[0]!.t).not.toContain("TEMPCLONETOKEN");
     expect(everything.toLowerCase()).not.toContain("authorization");
   });
 });

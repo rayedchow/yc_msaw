@@ -45,6 +45,8 @@ The donor variables in `packages/sources-runtime/src/env.ts` (`DATABASE_URL`, `E
 | `GOOGLE_WORKSPACE_SERVICE_ACCOUNT_KEY_JSON` (or `_CLIENT_EMAIL` + `_PRIVATE_KEY`) | Service account for domain-wide delegation. |
 | `GOOGLE_DWD_TENANT_APPROVALS` | Operator allowlist that maps each tenant to the Workspace domains and mailboxes it may impersonate, e.g. `{"<tenantNs>":{"domains":["acme.com"],"directoryAdmin":"admin@acme.com"}}`. A domain listed for two tenants is refused for both. Without an entry, DWD is refused (403 `dwd_not_approved`). |
 | `COMPOSIO_API_KEY`, `COMPOSIO_GOOGLE_AUTH_CONFIG_ID` (+ per-product `COMPOSIO_GOOGLE_{GMAIL,CALENDAR,DOCS,DRIVE,ADMIN}_AUTH_CONFIG_ID`), `COMPOSIO_API_BASE_URL` | Optional Composio broker for Google. |
+| `ZOOM_CLIENT_ID`, `ZOOM_CLIENT_SECRET`, `ZOOM_REDIRECT_URI` | Zoom user-managed General OAuth app; the redirect defaults to `${SOURCES_RUNTIME_PUBLIC_URL}/auth/zoom/callback`. Connect with `POST /v1/sources/connect/zoom` `{"mode":"oauth"}`. |
+| `UNIPILE_PERSONAL_CONNECTORS_ENABLED` | `1` opts in to the experimental WhatsApp/Instagram personal connectors (Unipile; Terms of Service risk). Off by default. |
 | `NANGO_SECRET_KEY`, `NANGO_API_BASE_URL` | Nango API (environment secret key). |
 | `NANGO_WEBHOOK_SECRET` | Donor `/webhooks/nango` route: set to the Nango webhook **signing key** (not the API key). Only `X-Nango-Hmac-Sha256` is accepted. |
 | `NANGO_WEBHOOK_SIGNING_KEY` (+ `_PREVIOUS` during rotation), `NANGO_RECORDS_CONFIG` / `NANGO_RECORDS_CONFIG_FILE` | Generic records lane (`/webhooks/nango-records`): signing key, plus the operator catalog of Nango integration ids and models. See `packages/sources-runtime/src/source-lane/providers/nango-records/README.md`. |

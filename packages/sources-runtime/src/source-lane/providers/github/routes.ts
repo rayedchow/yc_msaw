@@ -8,11 +8,10 @@ import {
   setGithubRepoSyncing,
   type GithubInstallationRepo,
 } from "../../../integrations/github/repo-sync.js";
-import { redactProviderPayload } from "../../../vault/redaction.js";
 import type { InternalRouteDeps } from "../../core/types.js";
 import type { ForwardedPrincipal } from "../../internal/app.js";
 import { GithubApiError, GithubClient, GithubRateLimitedError, isRecord, repoEndpoint } from "./api.js";
-import { githubConnections, markOutOfScope, type GithubConnectionRow } from "./content.js";
+import { githubConnections, markOutOfScope, redactGithubPayload, type GithubConnectionRow } from "./content.js";
 import { findRepoByName, listRefs, listRepos, purgeRepoContent, quotaBlockedUntil, setFilesRetired, setRepoExtraRefs, upsertRepo, type GithubDb } from "./store.js";
 
 /**
@@ -132,7 +131,7 @@ export async function selectionView(db: GithubDb, tenantId: string, client: Gith
 async function readableThrough(client: GithubClient, conns: readonly GithubConnectionRow[], name: string): Promise<{ conn: GithubConnectionRow; raw: Record<string, unknown> } | null> {
   for (const conn of conns) {
     const r = await client.get(conn, repoEndpoint(name), undefined, [301, 302, 307, 403, 404]);
-    if (r.status === 200 && isRecord(r.data)) return { conn, raw: redactProviderPayload("github", r.data) as Record<string, unknown> };
+    if (r.status === 200 && isRecord(r.data)) return { conn, raw: redactGithubPayload(r.data) };
   }
   return null;
 }

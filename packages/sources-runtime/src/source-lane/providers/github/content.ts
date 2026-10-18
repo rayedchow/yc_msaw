@@ -182,8 +182,25 @@ function str(v: unknown): string | null {
   return null;
 }
 
+/** Keys GitHub uses for short-lived credentials inside REST payloads (e.g. a private repository's clone token). */
+const CREDENTIAL_KEYS = new Set(["temp_clone_token"]);
+export const CREDENTIAL_REDACTION = "[redacted: github credential]";
+
+function stripCredentials(value: unknown): unknown {
+  if (Array.isArray(value)) return value.map(stripCredentials);
+  if (!isRecord(value)) return value;
+  const out: Record<string, unknown> = {};
+  for (const [k, v] of Object.entries(value)) out[k] = CREDENTIAL_KEYS.has(k) && v !== null && v !== "" ? CREDENTIAL_REDACTION : stripCredentials(v);
+  return out;
+}
+
+/** Donor GitHub redaction (signed asset URLs) plus credential keys the donor rules do not cover. */
+export function redactGithubPayload(payload: Record<string, unknown>): Record<string, unknown> {
+  return stripCredentials(redactProviderPayload(GITHUB_PROVIDER, payload)) as Record<string, unknown>;
+}
+
 function redact(payload: Record<string, unknown>): Record<string, unknown> {
-  return redactProviderPayload(GITHUB_PROVIDER, payload) as Record<string, unknown>;
+  return redactGithubPayload(payload);
 }
 
 function message(error: unknown): string {

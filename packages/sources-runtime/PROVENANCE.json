@@ -885,6 +885,16 @@
       ]
     },
     {
+      "path": "drizzle/9700_zoom_lane.sql",
+      "sha256": "79fd475606494a8b854ede5b0aa5fdb47cd9e5ebac0357bf6c4c8dc8ebc742f4",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "zoom_oauth_states, zoom_sync_state, zoom_meetings + journal trigger.",
+      "tests": [
+        "tests/source-lane/providers/zoom/zoom.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9800_coding_sessions_lane.sql",
       "sha256": "2e36a090ec753e4fbe2c910b9d4ee03ffb93ddf0039b0df9c5bf79a27e6a045c",
       "status": "new",
@@ -1873,17 +1883,18 @@
     },
     {
       "path": "src/integrations/registry.ts",
-      "sha256": "586bb145a5d94e602ed9e11b03bf33fb46cee579cc3fcc4004c856936cef4685",
+      "sha256": "3a0910cc9e3b9b967a88e7d757c4c2cd81feac2b8158d5b1dddb27de41afa30a",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/registry.ts",
       "donorSha256": "7d0076b5c7bca8d5155e320455ff5f7d479fd50939eeb4e1b4f7e64027d1c55b",
-      "reason": "Coordinator: registers Stripe, Discord, Cursor agents and the WhatsApp/Instagram personal connectors.",
+      "reason": "Coordinator: registers Stripe, Discord, Cursor agents, Zoom and the WhatsApp/Instagram personal connectors.",
       "tests": [
         "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
         "tests/source-lane/providers/discord/discord.test.ts",
         "tests/source-lane/providers/stripe/stripe.test.ts",
-        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts",
+        "tests/source-lane/providers/zoom/zoom.test.ts"
       ]
     },
     {
@@ -2185,6 +2196,105 @@
           "path": "brain/src/integrations/whatsapp-personal/poller.ts",
           "use": "whatsappPersonalEventType, messageSenderId"
         }
+      ]
+    },
+    {
+      "path": "src/integrations/zoom/callback.ts",
+      "sha256": "9dba0666a0122354b89cc7776eeba2e77383901aca1f7cc05af209c3a8a78147",
+      "status": "patched",
+      "owner": "coordinator",
+      "donorRepo": "askshepherd/aqueduct",
+      "donorCommit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
+      "donorPath": "src/routes/zoom-callback.ts",
+      "donorSha256": "35b958547b2782c01edb75fa09ceb08c820296a8e6e64342dbfbbeb334d8f2a2",
+      "reason": "Callback consumes the single-use state; plain-text pages (donor callback-page helper is API-plane).",
+      "tests": [
+        "tests/source-lane/providers/zoom/zoom.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/zoom/client.ts",
+      "sha256": "702d1b800d838b14645e8aadf51f864e08222479fea713028baeb182b49f369d",
+      "status": "patched",
+      "owner": "coordinator",
+      "donorRepo": "askshepherd/aqueduct",
+      "donorCommit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
+      "donorPath": "src/integrations/zoom/client.ts",
+      "donorSha256": "64ba0d0383c12dd443c3d99080e8dc25d6bd069342237aa040684b6b8bc1cf1e",
+      "reason": "zoomRequest: no in-process sleeps (ZoomApiError with Retry-After for the cursor), manual redirects with the bearer only on zoom.us hosts, https only, transport seam for tests; list/participants/download functions unchanged.",
+      "tests": [
+        "tests/source-lane/providers/zoom/zoom.test.ts",
+        "tests/integrations/zoom/vtt.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/zoom/connect.ts",
+      "sha256": "2570c1df3825ab4ccb6a69fad43cd8712208d828a91e2d2234a2248ab9413d84",
+      "status": "patched",
+      "owner": "coordinator",
+      "donorRepo": "askshepherd/aqueduct",
+      "donorCommit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
+      "donorPath": "src/integrations/zoom/connect.ts",
+      "donorSha256": "ea35695011d585464db91bb0ae2e1c0df91e562072977c76e565f006d2276496",
+      "reason": "Lane-owned schedules (no shared dispatch patch), no default-KB wiring, strict body, disconnect revokes at Zoom.",
+      "tests": [
+        "tests/source-lane/providers/zoom/zoom.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/zoom/index.ts",
+      "sha256": "9dac3a07873e96ffba340aaea25f060017f2385e5555f017777ac88bdc6f940b",
+      "status": "patched",
+      "owner": "coordinator",
+      "donorRepo": "askshepherd/aqueduct",
+      "donorCommit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
+      "donorPath": "src/integrations/zoom/index.ts",
+      "donorSha256": "916e9f34d80d61f28155dee9c9ff3da20f01438f1354c006713115ca86b49ea3",
+      "reason": "Tenant from the task; bounded resumable backfill that re-enqueues itself; callback mounted from callback.ts.",
+      "tests": [
+        "tests/source-lane/providers/zoom/zoom.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/zoom/oauth.ts",
+      "sha256": "c6074aabb97a7da29cd38a6de28b7acc0dc25919b35756391d82b0bcee2d1c30",
+      "status": "patched",
+      "owner": "coordinator",
+      "donorRepo": "askshepherd/aqueduct",
+      "donorCommit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
+      "donorPath": "src/integrations/zoom/oauth.ts",
+      "donorSha256": "f5907662334ebc8e603b591cb1cdb852f739c87c8db664ced9fc64ff1944a2a8",
+      "reason": "Signed state additionally recorded (sha256) in zoom_oauth_states and consumed atomically (single-use, tenant-bound); redirect defaults to SOURCES_RUNTIME_PUBLIC_URL; token requests refuse redirects; revoke on disconnect; env read at call time.",
+      "tests": [
+        "tests/source-lane/providers/zoom/zoom.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/zoom/poller.ts",
+      "sha256": "4a087d433c1cac382728a8a6de187573709fc3881f35a8cf43864b00fdd6e6f1",
+      "status": "patched",
+      "owner": "coordinator",
+      "donorRepo": "askshepherd/aqueduct",
+      "donorCommit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
+      "donorPath": "src/integrations/zoom/poller.ts",
+      "donorSha256": "054f3654cbade4322a6ea71b6c79cb50be515fdb7f680b8bf448a44146dfae9b",
+      "reason": "Donor windows/identity/snapshot hashing kept; leased resumable lanes (window index + page token, expiry restart), Retry-After persisted, refresh only under the tenant lease, current snapshot in zoom_meetings, local credential redaction (download/play URLs), no graph enqueue.",
+      "tests": [
+        "tests/source-lane/providers/zoom/zoom.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/zoom/vtt.ts",
+      "sha256": "6b8bbaea5739e3b987d2049108dfddbdcd648367da28e9d49c66dd403b485ee0",
+      "status": "verbatim",
+      "owner": "coordinator",
+      "donorRepo": "askshepherd/aqueduct",
+      "donorCommit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
+      "donorPath": "src/integrations/zoom/vtt.ts",
+      "donorSha256": "6b8bbaea5739e3b987d2049108dfddbdcd648367da28e9d49c66dd403b485ee0",
+      "reason": "Zoom WebVTT parser, byte copy of the unmerged Zoom branch.",
+      "tests": [
+        "tests/integrations/zoom/vtt.test.ts"
       ]
     },
     {
@@ -3377,16 +3487,17 @@
     },
     {
       "path": "src/source-lane/providers/index.ts",
-      "sha256": "0a2080d971dc86a86267de01c8fe3d598595b93a899d90178a76fb0ca69e0dbc",
+      "sha256": "4b96caa1cc0d5122c940565ef52e260973368d989a49dd651f9bfbea80447ebb",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Provider registry (+ stripe, discord, cursor-agents, coding-sessions, whatsapp-personal, instagram-personal).",
+      "reason": "Provider registry (+ stripe, discord, cursor-agents, coding-sessions, zoom, whatsapp-personal, instagram-personal).",
       "tests": [
         "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",
         "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
         "tests/source-lane/providers/discord/discord.test.ts",
         "tests/source-lane/providers/nango-records/shared-patches.test.ts",
-        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts",
+        "tests/source-lane/providers/zoom/zoom.test.ts"
       ]
     },
     {
@@ -3806,6 +3917,24 @@
       "reason": "WhatsApp personal provider module.",
       "tests": [
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/zoom/index.ts",
+      "sha256": "8bc85c9ad30886b135f136aa01c3cd4a585cb5a0a593f862292c8f58fab9ee68",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Zoom provider: summary/transcript/meeting.json per meeting with the branch's renderers and directory naming, rename moves, truthful coverage (transcripts only).",
+      "tests": [
+        "tests/source-lane/providers/zoom/zoom.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
+          "path": "src/mirror/materializer.ts",
+          "use": "materializeZoomMeetingSourceWiki, renderZoomSummary, renderZoomTranscript, zoomMeetingSourceDirectory"
+        }
       ]
     },
     {
@@ -4310,6 +4439,20 @@
       "status": "verbatim",
       "donorPath": "tests/integrations/slack/windows.test.ts",
       "donorSha256": "b632943f9fc95d7470e53b9242dfd53fa2c76e3155fe2c81049dac8d1cf16f41"
+    },
+    {
+      "path": "tests/integrations/zoom/vtt.test.ts",
+      "sha256": "4758d48a95a59e2b7a665996fd09044ea0e6a174de849b0017f279c1e9cef478",
+      "status": "verbatim",
+      "owner": "coordinator",
+      "donorRepo": "askshepherd/aqueduct",
+      "donorCommit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
+      "donorPath": "tests/integrations/zoom/vtt.test.ts",
+      "donorSha256": "4758d48a95a59e2b7a665996fd09044ea0e6a174de849b0017f279c1e9cef478",
+      "reason": "Donor VTT parser test (byte copy).",
+      "tests": [
+        "tests/integrations/zoom/vtt.test.ts"
+      ]
     },
     {
       "path": "tests/mirror/backfill.test.ts",
@@ -5262,6 +5405,16 @@
       "reason": "Unipile lanes regression suite.",
       "tests": [
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/zoom/zoom.test.ts",
+      "sha256": "57786354144f078063cb58e11805f32534299ae964f845c23cc0151ed83d96ca",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Zoom lane regression suite.",
+      "tests": [
+        "tests/source-lane/providers/zoom/zoom.test.ts"
       ]
     },
     {

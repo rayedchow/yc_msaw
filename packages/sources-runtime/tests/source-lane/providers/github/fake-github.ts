@@ -228,6 +228,7 @@ export class FakeGithub {
       html_url: `https://github.com/${r.fullName}`,
       url: `https://api.github.com/repos/${r.fullName}`,
       permissions: { admin: false, push: false, pull: true },
+      ...(r.private ? { temp_clone_token: "ABCDEFTEMPCLONETOKEN0123456789" } : {}),
     };
   }
 

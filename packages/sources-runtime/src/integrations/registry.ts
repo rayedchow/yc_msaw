@@ -14,6 +14,8 @@ import { stripeIntegration } from "./stripe/index.js";
 import { discordIntegration } from "./discord/index.js";
 // SOURCE-LANE PATCH (coordinator, cursor-agents): read-only Cursor background agents collector.
 import { cursorAgentsIntegration } from "./cursor-agents/index.js";
+// SOURCE-LANE PATCH (coordinator, zoom): Zoom transcripts (aqueduct c7e1415 branch).
+import { zoomIntegration } from "./zoom/index.js";
 // SOURCE-LANE PATCH (coordinator, unipile): WhatsApp/Instagram personal over Unipile (read-only, operator opt-in).
 import { instagramPersonalIntegration } from "./instagram-personal/index.js";
 import { whatsappPersonalIntegration } from "./whatsapp-personal/index.js";
@@ -36,6 +38,7 @@ export const integrations: AqueductIntegration[] = [
   stripeIntegration,
   discordIntegration,
   cursorAgentsIntegration,
+  zoomIntegration,
   instagramPersonalIntegration,
   whatsappPersonalIntegration,
 ];
