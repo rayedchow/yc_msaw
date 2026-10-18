@@ -1,0 +1,3535 @@
+{
+ "kind": "crm-generalization-report",
+ "batch": "crm2",
+ "generatedAt": "2026-10-18T01:36:39.569Z",
+ "head": "bf2514f8b80052dddba36f9730b23986723f2a38",
+ "labels": {
+  "scope": "EXPLORATORY: one sample per cell; no statistical significance is claimed. Differences between single cells may be noise.",
+  "models": "REAL Fireworks models (kimi-k3, glm-5p3, minimax-m3) in Pi 1.3 sessions; real memory builds (runMemoryBuild, Kimi root, Modal workspaces).",
+  "crms": "SYNTHETIC CONTRACT FIXTURES of documented HubSpot/Pipedrive/Zoho CRM v8/Attio v2 API subsets. Not vendor accounts; passing is not an integration certification.",
+  "transport": "Matrix/training adapters: host-authored children over real MCP on loopback (LOCAL TEST PUBLISHER, not Manufact). Adaptation demos publish via Manufact; in the adaptation records of THIS batch, Manufact-published CRM children: NONE (derived from seed receipts and post-build integration records).",
+  "scoring": "Primary success = host fixture oracle on full initial/final state + mutation log (reverted forbidden writes count). Answer-text evidence is secondary.",
+  "successDenominator": "Exact-success counts use ALL predeclared cells per target x memory condition (3 models) as denominator; missing, INFRA*, INVALID*, UNAVAILABLE-ARM and ERROR cells count as non-success. 'scored-only' rate (SUCCESS/PARTIAL/FAIL/ERROR cells) is secondary.",
+  "unintendedWrites": "COMPOSITE PENALTY, not a count of distinct records or physical write requests: wrongRecords + forbiddenMutations + wrongCrmMutations + createdOrDeleted (oracle field unintendedWrites, kept raw). One wrong record can contribute several points (e.g. 1 wrong record + 2 forbidden field mutations on the same deal = 3). Components in unintendedPenaltyComponents; shown as 'N (wr/fm/wc/cd)'.",
+  "foreignPatterns": "Per-row foreign-API-pattern counts are summed by pattern key across all CRM instances in the cell (per-instance raw counts remain in cell result files)."
+ },
+ "manifest": {
+  "file": "reports/crm-matrix-manifest-crm2.json",
+  "head": "bf2514f8b80052dddba36f9730b23986723f2a38",
+  "createdAt": "2026-10-18T00:29:36.798Z"
+ },
+ "provenance": {
+  "preregisteredHead": "bf2514f8b80052dddba36f9730b23986723f2a38",
+  "reportGeneratedAtHead": "a5b1602d64f6d51428795e4a925a0afbdc634c1e",
+  "frozenSourceHashes": {
+   "hubspot": "3464650bbb9d62ace65e4de136ae96cb79a62acc8ff74968924abf2a2b74813b",
+   "pipedrive": "ae939c519cc61e05e40c0b7dbf67444bf3ab59d55243898bcfb0da0e926c2e65",
+   "zoho": "4df6ec3e7dcab5337e5e62756deef04b060a8c44038a6d3a2e40e6f4fc7aecf1",
+   "attio": "9bd65f2e093fb5b818bca643f4f3dea0318bac7ede8bdc1119852192b679bbc7",
+   "docs": "9a4a1bddc757f680c7296581a6ddd60ae7793f4b3f897320f47bb383b15a13d0",
+   "attio-deficient": "2b473ebc0fc29e7133d559edc9f5dd70f0265e486b627b0e8f79dfde3d7ee819",
+   "generic-http": "ce5140ad951c2748169f26b4974861d626c83a4ce3083c8dfe808633a61f1661"
+  },
+  "limits": {
+   "train": {
+    "maxTurns": 16,
+    "maxToolCalls": 40,
+    "timeoutMs": 300000
+   },
+   "matrix": {
+    "maxTurns": 18,
+    "maxToolCalls": 48,
+    "timeoutMs": 240000
+   },
+   "adapt": {
+    "maxTurns": 24,
+    "maxToolCalls": 70,
+    "timeoutMs": 420000
+   }
+  },
+  "builderBudgetPrereg": {
+   "maxSessions": 1,
+   "maxDescendants": 3,
+   "maxDepth": 2,
+   "maxConcurrentAgents": 3,
+   "maxTurns": 40,
+   "maxToolCalls": 160,
+   "maxWallClockMs": 900000
+  },
+  "budgetsPrereg": {
+   "customer": {
+    "input": 20000000,
+    "output": 1000000
+   },
+   "builder": {
+    "input": 20000000,
+    "output": 1000000
+   },
+   "note": "two explicit ceilings: customer Pi usage and builder usage are metered separately; exceeding stops new cells/build calls"
+  },
+  "amendments": {
+   "attio-deficient": {
+    "oldFingerprint": "2b473ebc0fc29e7133d559edc9f5dd70f0265e486b627b0e8f79dfde3d7ee819",
+    "newFingerprint": "340a9df9802580e9072ad3f2a272c7a88d9d2f95551b3c2a644f4daf9c0ce83e",
+    "reason": "host seed bug: smoke case expected an isError 404 tool result to pass; sealed harness fails isError steps; smoke reduced to integration_info. No model call had used this overlay.",
+    "at": "2026-10-18T01:30:12.469Z"
+   }
+  },
+  "batchNotes": {
+   "scope": "Operator notes recorded for batch crm2 ONLY (written after its rounds ran); not claims about any other batch or later variant. Derived facts elsewhere in this report are authoritative.",
+   "amendment": "attio-deficient seed overlay amended AFTER the crm2 matrix post-integrity check passed (that check is preserved as-is); the overlay is used only by far demos, never by matrix cells.",
+   "deviations": [
+    "Round-1 H/M builds failed under maxSessions 1 / 15 min (preserved). Round 2 (declared before execution): maxSessions 2, 30 min, builder ceiling 30M/1.5M. H published in r2; M r2 failed with 'model_error: fetch failed' (recorded as infra) and was rerun as r3 with the r2 budget.",
+    "adapt-cold variants: original, r2, r3, each in a fresh tenant; all preserved.",
+    "adapt-far original and r2 aborted during host seeding (see adaptation records); quota not raised and no existing Manufact project deleted or repurposed during these crm2 rounds.",
+    "Matrix/training limits stayed at the preregistered caps; later 100x-limit steering applies only to runs after these rows."
+   ]
+  }
+ },
+ "publication": [
+  {
+   "variant": "far",
+   "seededPublish": [],
+   "liveAfterBuild": [],
+   "error": "Error: seed crm-attio integration_validate failed: {\"code\":\"validation_failed\",\"message\":\"smoke (smoke): 1 case(s) failed\"}"
+  },
+  {
+   "variant": "cold",
+   "seededPublish": [],
+   "liveAfterBuild": [],
+   "error": null
+  },
+  {
+   "variant": "cold.r2",
+   "seededPublish": [],
+   "liveAfterBuild": [],
+   "error": null
+  },
+  {
+   "variant": "cold.r3",
+   "seededPublish": [],
+   "liveAfterBuild": [],
+   "error": null
+  },
+  {
+   "variant": "far.r2",
+   "seededPublish": [],
+   "liveAfterBuild": [],
+   "error": "Error: seed crm-attio integration_publish failed: {\"code\":\"manufact_forbidden\",\"message\":\"Manufact POST /servers -> HTTP 403: Project limit reached (5). Upgrade your plan to add more.\",\"details\":{\"sta"
+  }
+ ],
+ "observations": [
+  "Exploratory, one sample per cell. Exact successes by memory condition (all targets): cold 12/12, H 10/12, M 10/12.",
+  "Non-success cells: C-minimax-H (FAIL, stop=max-turns); C-minimax-M (FAIL, stop=max-turns); CD-minimax-H (PARTIAL, stop=max-turns); CD-minimax-M (FAIL, stop=max-turns).",
+  "Cells with any unintended-write penalty: 0; cells with wrong-CRM writes: 0.",
+  "Observed (raw stored tool-call args): adapter `query` objects sent empty per model: glm 0/42, kimi 0/27, minimax 45/45. OBSERVATIONAL ONLY: correlated with the model/transport path (MiniMax uses Pi's Anthropic-messages path, Kimi/GLM openai-completions) and the open-record `query` schema, but the cause (model behavior vs. schema handling vs. provider) is NOT established. Where it occurs it is a potential confound shared by every condition of that model; it is not a memory effect by itself.",
+  "Adaptation variants recorded: far: aborted (Error: seed crm-attio integration_validate failed: {\"code\":\"validation_failed\",\"message\":\"); cold: ran; cold.r2: ran; cold.r3: ran; far.r2: aborted (Error: seed crm-attio integration_publish failed: {\"code\":\"manufact_forbidden\",\"message\":\"). Task success and mechanism gates are reported per variant below."
+ ],
+ "integrity": {
+  "matrixIntegrityOk": true,
+  "anyIntegrityFailure": false,
+  "checks": [
+   {
+    "file": "integrity-matrix-1792286376144.json",
+    "ok": true,
+    "problems": []
+   },
+   {
+    "file": "integrity-matrix-post-1792286840641.json",
+    "ok": true,
+    "problems": []
+   },
+   {
+    "file": "integrity-train-1792283380911.json",
+    "ok": true,
+    "problems": []
+   }
+  ]
+ },
+ "training": [
+  {
+   "curriculum": "H",
+   "model": "kimi",
+   "family": "exec-review",
+   "target": "hubspot",
+   "org": "Tailspin Logistics",
+   "id": "trH-1",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 9,
+   "apiErrors": 1,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 72856,
+    "output": 1529,
+    "cacheRead": 64198,
+    "piCost": 0.0681684
+   },
+   "latencyMs": 47644,
+   "traceOk": true,
+   "traceSha256": "e21c1ac2240ed2d906ec2593b917e508c6180fc128c53e57fdf2124dac3a9262",
+   "traceSessionId": "crm2-trh-1-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. For Tailspin Logistics (company 15453922410), I found 12 associated deals; 8 were closed (won/lost across both pipelines, including the Enterprise pipeline's closed stages) and were left untouched. The 4 open deals were updated with Next step = `Exec review 2026-11-03` and the `exec_review` tag appended (preserving existing tags):\n\n- **62440709311** — Training package (tags: budget_hold;lega"
+  },
+  {
+   "curriculum": "H",
+   "model": "glm",
+   "family": "exec-review",
+   "target": "hubspot",
+   "org": "Wingtip Outfitters",
+   "id": "trH-2",
+   "outcome": "PARTIAL",
+   "correct": "3/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 11,
+   "toolCalls": 10,
+   "apiErrors": 3,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 99954,
+    "output": 1584,
+    "cacheRead": 93230,
+    "piCost": 0.04062299999999999
+   },
+   "latencyMs": 18868,
+   "traceOk": true,
+   "traceSha256": "0719ccb6c8ce35f9ec5b44d0e8f93abc236e3844a7d25fb67e5d9d0874d0bc38",
+   "traceSessionId": "crm2-trh-2-a1",
+   "evidence": "3/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. Exec-review prep for Wingtip Outfitters (company 21816385933, domain wingtip-outfitters.example):\n\n**Deals updated (3 open deals):**\n- **54364697912** — Seat expansion (Appointment Scheduled): Next step set to `Exec review 2026-11-03`; review tags now `budget_hold;legal_review;exec_review` (existing tags preserved)\n- **54364717251** — Archive storage (Qualified To Buy): Next step set; tags n"
+  },
+  {
+   "curriculum": "H",
+   "model": "kimi",
+   "family": "won-closeout",
+   "target": "hubspot",
+   "org": "Proseware Health",
+   "id": "trH-3",
+   "outcome": "SUCCESS",
+   "correct": "1/1",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 8,
+   "toolCalls": 8,
+   "apiErrors": 2,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 0,
+   "memoryPagesRead": [],
+   "usage": {
+    "input": 58224,
+    "output": 1202,
+    "cacheRead": 53296,
+    "piCost": 0.04880279999999999
+   },
+   "latencyMs": 40457,
+   "traceOk": true,
+   "traceSha256": "a5e5fce57581c8f5194ed02c999d75c3140ef5f7826b5437a473ff3161e2971a",
+   "traceSessionId": "crm2-trh-3-a1",
+   "evidence": "1/1 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "Done. The deal **54524019425** (\"Proseware Health — Platform renewal\", company Proseware Health) was updated:\n\n- **Deal stage** → \"Closed won (Enterprise)\" (`609559880`), the closed-won stage of its Enterprise pipeline\n- **Review tags** → `renewal;closed_q4` — kept the existing `renewal` tag and added the closed-q4 tag (its internal option value is `closed_q4`)\n\nNote: a second deal with the same n"
+  },
+  {
+   "curriculum": "H",
+   "model": "glm",
+   "family": "won-closeout",
+   "target": "hubspot",
+   "org": "Lucerne Publishing",
+   "id": "trH-4",
+   "outcome": "SUCCESS",
+   "correct": "1/1",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 11,
+   "toolCalls": 11,
+   "apiErrors": 2,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 106229,
+    "output": 837,
+    "cacheRead": 98775,
+    "piCost": 0.0397999
+   },
+   "latencyMs": 12560,
+   "traceOk": true,
+   "traceSha256": "4b8b2794b85c4f857c687229e2dc7600ade0f014895c599d7c7f5668d987c7c2",
+   "traceSessionId": "crm2-trh-4-a1",
+   "evidence": "1/1 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "Done. Deal updated: **56779596243** (\"Lucerne Publishing — Platform renewal\").\n\n- Moved it to the Enterprise pipeline's won stage \"Closed won (Enterprise\" (`133788255`), so it's now closed won.\n- Review tags set to `renewal;closed_q4` — the existing `renewal` tag was kept, and `closed-q4` was applied as the account's allowed option `closed_q4` (the field rejected the hyphenated spelling).\n- No oth"
+  },
+  {
+   "curriculum": "M",
+   "model": "kimi",
+   "family": "exec-review",
+   "target": "hubspot",
+   "org": "Tailspin Logistics",
+   "id": "trM-1",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 8,
+   "apiErrors": 1,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 71619,
+    "output": 1430,
+    "cacheRead": 63564,
+    "piCost": 0.0646842
+   },
+   "latencyMs": 50587,
+   "traceOk": true,
+   "traceSha256": "bc1f02158affb3380b80a97079c87f3aaf5a5a61b6d76dd8e227dbb1b2647164",
+   "traceSessionId": "crm2-trm-1-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. For Tailspin Logistics (company ID 22333681234), I found 12 associated deals; 4 were open and were updated with Next step = `Exec review 2026-11-03` and the `exec_review` (label \"exec-review\") tag appended to their existing review tags:\n\n- **43239908529** — Onboarding services (tags: budget_hold;legal_review;exec_review)\n- **43239930459** — Seat expansion (tags: exec_review)\n- **43239948368*"
+  },
+  {
+   "curriculum": "M",
+   "model": "glm",
+   "family": "won-closeout",
+   "target": "hubspot",
+   "org": "Proseware Health",
+   "id": "trM-2",
+   "outcome": "FAIL",
+   "correct": "0/1",
+   "unintendedWrites": 3,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 1,
+    "forbiddenMutations": 2,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 13,
+   "toolCalls": 14,
+   "apiErrors": 2,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 121629,
+    "output": 1111,
+    "cacheRead": 100921,
+    "piCost": 0.060119059999999995
+   },
+   "latencyMs": 17513,
+   "traceOk": true,
+   "traceSha256": "811db9fbbc328061922aac63e34a06ccc419ea6521e4652575a3db9456e3d3fb",
+   "traceSessionId": "crm2-trm-2-a1",
+   "evidence": "0/1 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. Deal updated: **56098378366** (\"Proseware Health — Platform renewal\").\n\n- Moved `dealstage` to the Enterprise pipeline's won stage `450541411` (\"Closed won (Enterprise)\", isClosed=true, probability 1.0) — closedate was auto-set.\n- Appended `closed_q4` to the Review tags checkbox field, preserving the existing `renewal` tag — now stored as `renewal;closed_q4`.\n- No other deals, companies, or "
+  },
+  {
+   "curriculum": "M",
+   "model": "glm",
+   "family": "exec-review",
+   "target": "pipedrive",
+   "org": "Wingtip Outfitters",
+   "id": "trM-3",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 8,
+   "toolCalls": 13,
+   "apiErrors": 1,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 77945,
+    "output": 1183,
+    "cacheRead": 54330,
+    "piCost": 0.052392
+   },
+   "latencyMs": 13289,
+   "traceOk": true,
+   "traceSha256": "04a25a69c1d65baeba472c923149ef36747b4c6178396822a8854df7e08e48a3",
+   "traceSessionId": "crm2-trm-3-a1",
+   "evidence": "4/4 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "Done. Updated the 4 open Wingtip Outfitters deals:\n\n- **2886** (Data migration) — Next step set; Review tags now budget-hold, legal-review, exec-review\n- **2948** (Regional rollout) — Next step set; Review tags now exec-review\n- **3044** (Reporting suite) — Next step set; Review tags now renewal, exec-review\n- **3054** (Integration bundle) — Next step set; Review tags now exec-review\n\nAll four now"
+  },
+  {
+   "curriculum": "M",
+   "model": "kimi",
+   "family": "won-closeout",
+   "target": "pipedrive",
+   "org": "Lucerne Publishing",
+   "id": "trM-4",
+   "outcome": "SUCCESS",
+   "correct": "1/1",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 14,
+   "toolCalls": 15,
+   "apiErrors": 2,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 146469,
+    "output": 1490,
+    "cacheRead": 133112,
+    "piCost": 0.10235459999999999
+   },
+   "latencyMs": 61593,
+   "traceOk": true,
+   "traceSha256": "bbd2cddc1ebdd6ea501b901eb07b84a941cf2f0a8797234bc0539a814a8c4259",
+   "traceSessionId": "crm2-trm-4-a1",
+   "evidence": "1/1 expected IDs reported, 2 other IDs",
+   "error": null,
+   "finalPreview": "Done. Deal ID **2053** (\"Lucerne Publishing — Platform renewal\", organization 129 with domain lucerne-publishing.example — the duplicate org 132 was not touched):\n\n- Status set to **won** (won_time/close_time recorded 2026-10-18)\n- Review tags field updated to `[177, 180]` — kept the existing `renewal` tag and added `closed-q4`\n\nNo other deals, companies, or fields were modified."
+  }
+ ],
+ "builds": {
+  "H": {
+   "status": "failed",
+   "budget": "round-1 declared budget",
+   "revisionBefore": null,
+   "revisionAfter": "rev-a4f070c189382ef3f3f89921",
+   "failure": [
+    "budget_exhausted: Budget exhausted: turns limit 40 (used/requested 40). Session limit reached in the last of 1 allowed session(s)"
+   ],
+   "agents": [
+    {
+     "agentId": "root",
+     "model": "accounts/fireworks/models/kimi-k3",
+     "depth": 0,
+     "status": "budget_exhausted",
+     "turns": 40,
+     "toolCalls": 46
+    },
+    {
+     "agentId": "root.1",
+     "model": "accounts/fireworks/models/glm-5p3",
+     "depth": 1,
+     "status": "completed",
+     "turns": 40,
+     "toolCalls": 47
+    },
+    {
+     "agentId": "root.2",
+     "model": "accounts/fireworks/models/glm-5p3",
+     "depth": 1,
+     "status": "completed",
+     "turns": 18,
+     "toolCalls": 31
+    }
+   ],
+   "tokens": {
+    "promptTokens": 2804669,
+    "completionTokens": 98279,
+    "wallMs": 895363
+   },
+   "traceArchive": [
+    {
+     "bytes": 4842694,
+     "chunks": 35,
+     "days": 1,
+     "disabled": false,
+     "events": 255,
+     "files": 43,
+     "firstDay": "2026-10-17",
+     "lastDay": "2026-10-17",
+     "partitions": 4,
+     "schema": "procmem.trace-archive/v1",
+     "sessions": 4,
+     "sha256": "959b99471f2d99f1447600250efdf4e2581f8b65388dc92eb9d36edc6559ec0e"
+    }
+   ]
+  },
+  "M": {
+   "status": "failed",
+   "budget": "round-1 declared budget",
+   "revisionBefore": null,
+   "revisionAfter": "rev-d6ebb26bee3cc18ab561eed5",
+   "failure": [
+    "aborted: The operation was aborted due to timeout"
+   ],
+   "agents": [
+    {
+     "agentId": "root",
+     "model": "accounts/fireworks/models/kimi-k3",
+     "depth": 0,
+     "status": "aborted",
+     "turns": 36,
+     "toolCalls": 40
+    },
+    {
+     "agentId": "root.1",
+     "model": "accounts/fireworks/models/glm-5p3",
+     "depth": 1,
+     "status": "failed",
+     "turns": 40,
+     "toolCalls": 43
+    },
+    {
+     "agentId": "root.2",
+     "model": "accounts/fireworks/models/glm-5p3",
+     "depth": 1,
+     "status": "failed",
+     "turns": 38,
+     "toolCalls": 40
+    }
+   ],
+   "tokens": {
+    "promptTokens": 3919442,
+    "completionTokens": 104718,
+    "wallMs": 900553
+   },
+   "traceArchive": [
+    {
+     "bytes": 6055767,
+     "chunks": 40,
+     "days": 1,
+     "disabled": false,
+     "events": 306,
+     "files": 51,
+     "firstDay": "2026-10-17",
+     "lastDay": "2026-10-17",
+     "partitions": 4,
+     "schema": "procmem.trace-archive/v1",
+     "sessions": 4,
+     "sha256": "c223ca0405dd771069f1b482a3c719748750403a9e4c2c4a70eae03008105656"
+    }
+   ]
+  },
+  "H.r2": {
+   "status": "published",
+   "budget": {
+    "maxSessions": 2,
+    "maxDescendants": 3,
+    "maxDepth": 2,
+    "maxConcurrentAgents": 3,
+    "maxTurns": 40,
+    "maxToolCalls": 160,
+    "maxWallClockMs": 1800000
+   },
+   "revisionBefore": "rev-a4f070c189382ef3f3f89921",
+   "revisionAfter": "rev-1fd49b38966d4c2dd83687d1",
+   "failure": [
+    null
+   ],
+   "agents": [
+    {
+     "agentId": "root",
+     "model": "accounts/fireworks/models/kimi-k3",
+     "depth": 0,
+     "status": "completed",
+     "turns": 23,
+     "toolCalls": 30
+    },
+    {
+     "agentId": "root.1",
+     "model": "accounts/fireworks/models/glm-5p3",
+     "depth": 1,
+     "status": "completed",
+     "turns": 33,
+     "toolCalls": 38
+    },
+    {
+     "agentId": "root.2",
+     "model": "accounts/fireworks/models/minimax-m3",
+     "depth": 1,
+     "status": "completed",
+     "turns": 64,
+     "toolCalls": 71
+    }
+   ],
+   "tokens": {
+    "promptTokens": 3562588,
+    "completionTokens": 56635,
+    "wallMs": 649226
+   },
+   "traceArchive": [
+    {
+     "bytes": 4842694,
+     "chunks": 35,
+     "days": 1,
+     "disabled": false,
+     "events": 255,
+     "files": 43,
+     "firstDay": "2026-10-17",
+     "lastDay": "2026-10-17",
+     "partitions": 4,
+     "schema": "procmem.trace-archive/v1",
+     "sessions": 4,
+     "sha256": "959b99471f2d99f1447600250efdf4e2581f8b65388dc92eb9d36edc6559ec0e"
+    }
+   ]
+  },
+  "M.r2": {
+   "status": "failed",
+   "budget": {
+    "maxSessions": 2,
+    "maxDescendants": 3,
+    "maxDepth": 2,
+    "maxConcurrentAgents": 3,
+    "maxTurns": 40,
+    "maxToolCalls": 160,
+    "maxWallClockMs": 1800000
+   },
+   "revisionBefore": "rev-d6ebb26bee3cc18ab561eed5",
+   "revisionAfter": "rev-d6ebb26bee3cc18ab561eed5",
+   "failure": [
+    "model_error: fetch failed"
+   ],
+   "agents": [
+    {
+     "agentId": "root",
+     "model": "accounts/fireworks/models/kimi-k3",
+     "depth": 0,
+     "status": "failed",
+     "turns": 11,
+     "toolCalls": 13
+    },
+    {
+     "agentId": "root.1",
+     "model": "accounts/fireworks/models/glm-5p3",
+     "depth": 1,
+     "status": "cancelled",
+     "turns": 55,
+     "toolCalls": 63
+    },
+    {
+     "agentId": "root.2",
+     "model": "accounts/fireworks/models/glm-5p3",
+     "depth": 1,
+     "status": "cancelled",
+     "turns": 40,
+     "toolCalls": 44
+    }
+   ],
+   "tokens": {
+    "promptTokens": 2875364,
+    "completionTokens": 99422,
+    "wallMs": 771315
+   },
+   "traceArchive": [
+    {
+     "bytes": 6055767,
+     "chunks": 40,
+     "days": 1,
+     "disabled": false,
+     "events": 306,
+     "files": 51,
+     "firstDay": "2026-10-17",
+     "lastDay": "2026-10-17",
+     "partitions": 4,
+     "schema": "procmem.trace-archive/v1",
+     "sessions": 4,
+     "sha256": "c223ca0405dd771069f1b482a3c719748750403a9e4c2c4a70eae03008105656"
+    }
+   ]
+  },
+  "H.r3": null,
+  "M.r3": {
+   "status": "published",
+   "budget": {
+    "maxSessions": 2,
+    "maxDescendants": 3,
+    "maxDepth": 2,
+    "maxConcurrentAgents": 3,
+    "maxTurns": 40,
+    "maxToolCalls": 160,
+    "maxWallClockMs": 1800000
+   },
+   "revisionBefore": "rev-d6ebb26bee3cc18ab561eed5",
+   "revisionAfter": "rev-7bb6cb3ac86849a78ad3dcfc",
+   "failure": [
+    null
+   ],
+   "agents": [
+    {
+     "agentId": "root",
+     "model": "accounts/fireworks/models/kimi-k3",
+     "depth": 0,
+     "status": "completed",
+     "turns": 51,
+     "toolCalls": 74
+    },
+    {
+     "agentId": "root.1",
+     "model": "accounts/fireworks/models/glm-5p3",
+     "depth": 1,
+     "status": "completed",
+     "turns": 55,
+     "toolCalls": 72
+    },
+    {
+     "agentId": "root.2",
+     "model": "accounts/fireworks/models/glm-5p3",
+     "depth": 1,
+     "status": "completed",
+     "turns": 39,
+     "toolCalls": 43
+    }
+   ],
+   "tokens": {
+    "promptTokens": 4922763,
+    "completionTokens": 82223,
+    "wallMs": 918325
+   },
+   "traceArchive": [
+    {
+     "bytes": 6055767,
+     "chunks": 40,
+     "days": 1,
+     "disabled": false,
+     "events": 306,
+     "files": 51,
+     "firstDay": "2026-10-17",
+     "lastDay": "2026-10-17",
+     "partitions": 4,
+     "schema": "procmem.trace-archive/v1",
+     "sessions": 4,
+     "sha256": "c223ca0405dd771069f1b482a3c719748750403a9e4c2c4a70eae03008105656"
+    }
+   ]
+  }
+ },
+ "frozen": {
+  "cold": {
+   "ns": "crmmem-cold-crm2",
+   "revisionId": "rev-68f4115dd2f9d1375e5c95c3",
+   "treeSha256": "9baf88a938633b2031dcc147cbe669f522642c02cd92a807545c00e8af0cefb4",
+   "files": 1
+  },
+  "H": {
+   "ns": "crmmem-h-crm2",
+   "revisionId": "rev-039ab239f306e87ace0a8329",
+   "treeSha256": "361b5c19b130ab7d4c72dc64f52a0c6da80134b5ff29ece879d7cd1fd784e992",
+   "files": 5,
+   "sourceNs": "crmtr-h-crm2",
+   "sourceRevision": "rev-1fd49b38966d4c2dd83687d1",
+   "buildStatus": "published"
+  },
+  "M": {
+   "ns": "crmmem-m-crm2",
+   "revisionId": "rev-b80cee8fe30a78d4cca5d2f1",
+   "treeSha256": "c87d96db8306f12207b39031ff467a0db3e16eaa88a1514d397b1696e94f91ac",
+   "files": 17,
+   "sourceNs": "crmtr-m-crm2",
+   "sourceRevision": "rev-7bb6cb3ac86849a78ad3dcfc",
+   "buildStatus": "published"
+  }
+ },
+ "matrix": [
+  {
+   "target": "A",
+   "model": "kimi",
+   "condition": "cold",
+   "id": "A-kimi-cold",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 8,
+   "toolCalls": 8,
+   "apiErrors": 1,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 72330,
+    "output": 1401,
+    "cacheRead": 63470,
+    "piCost": 0.066636
+   },
+   "latencyMs": 52561,
+   "traceOk": true,
+   "traceSha256": "8565bf5dd28730873034e12a6d6a2f6b858a3be1932463aa250395d7ae80daea",
+   "traceSessionId": "crm2-a-kimi-cold-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. For Fabrikam Robotics (company 24048551531), I found 12 associated deals, skipped the 8 closed (won/lost) ones, and updated the 4 open deals — setting Next step (`hs_next_step`) to `Exec review 2026-11-03` and appending the `exec-review` tag to Review tags while preserving existing tags:\n\n- **44636962491** — Support plan (tags now: budget-hold, legal-review, exec-review)\n- **44636983696** — "
+  },
+  {
+   "target": "A",
+   "model": "kimi",
+   "condition": "H",
+   "id": "A-kimi-H",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 10,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 4,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/integrations/hubspot/index.md",
+    "$KNOWLEDGE/integrations/hubspot/exec-review-prep.md"
+   ],
+   "usage": {
+    "input": 102281,
+    "output": 1406,
+    "cacheRead": 88843,
+    "piCost": 0.0880569
+   },
+   "latencyMs": 57419,
+   "traceOk": true,
+   "traceSha256": "9678d39af187426eb96adfe71d1988ce99872695e59e19452725eaba75618e33",
+   "traceSessionId": "crm2-a-kimi-h-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. For Fabrikam Robotics (company 24048551531, fabrikam-robotics.example), I set **Next step** to `Exec review 2026-11-03` and appended the `exec_review` tag (value for the \"exec-review\" tag) on all 4 open deals, preserving existing tags:\n\n- **44636962491** — Support plan (Appointment Scheduled; tags: budget_hold;legal_review;exec_review)\n- **44636983696** — Analytics add-on (Qualified To Buy; "
+  },
+  {
+   "target": "A",
+   "model": "kimi",
+   "condition": "M",
+   "id": "A-kimi-M",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 7,
+   "toolCalls": 8,
+   "apiErrors": 2,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [],
+   "usage": {
+    "input": 83940,
+    "output": 1227,
+    "cacheRead": 71543,
+    "piCost": 0.0770589
+   },
+   "latencyMs": 46192,
+   "traceOk": true,
+   "traceSha256": "7b9dc7888a63e5276f05a11e244b965d1f1a38573e8a47d1249d806b302ce38f",
+   "traceSessionId": "crm2-a-kimi-m-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. For Fabrikam Robotics (company 24048551531), I updated all 4 open deals — set Next step to `Exec review 2026-11-03` and appended `exec-review` (stored value `exec_review`) to Review tags, preserving existing tags:\n\n- **44636962491** (Support plan) — tags: budget_hold;legal_review;exec_review\n- **44636983696** (Analytics add-on) — tags: exec_review\n- **44636995574** (Training package) — tags:"
+  },
+  {
+   "target": "A",
+   "model": "glm",
+   "condition": "cold",
+   "id": "A-glm-cold",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 11,
+   "toolCalls": 10,
+   "apiErrors": 2,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 110245,
+    "output": 1502,
+    "cacheRead": 93095,
+    "piCost": 0.054823500000000004
+   },
+   "latencyMs": 22294,
+   "traceOk": true,
+   "traceSha256": "df825c2ba9a0f4569ea57c8540d3d4c519b1f858e0f4044336a71e00c2c1f81d",
+   "traceSessionId": "crm2-a-glm-cold-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. In the Fabrikam Robotics HubSpot account, I found 12 deals associated with Fabrikam Robotics (company 24048551531, fabrikam-robotics.example); 8 were closed won/lost and left untouched. I updated the 4 open deals, setting **Next step** to `Exec review 2026-11-03` and adding the **exec-review** tag while preserving existing review tags:\n\n- **44636962491** — Support plan (tags now: budget_hold"
+  },
+  {
+   "target": "A",
+   "model": "glm",
+   "condition": "H",
+   "id": "A-glm-H",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 10,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 4,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/integrations/hubspot/index.md",
+    "$KNOWLEDGE/integrations/hubspot/exec-review-prep.md"
+   ],
+   "usage": {
+    "input": 104444,
+    "output": 1184,
+    "cacheRead": 90618,
+    "piCost": 0.048126680000000005
+   },
+   "latencyMs": 15492,
+   "traceOk": true,
+   "traceSha256": "6a9449874e4a364edc84ea5589cd203102cb6e0fe272dc183f0bcdbe8f055113",
+   "traceSessionId": "crm2-a-glm-h-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. Company Fabrikam Robotics (id 24048551531, matched by domain fabrikam-robotics.example) had 12 associated deals; 4 were open per pipeline-stage metadata (including one on the Enterprise pipeline's numeric \"Security review\" stage). I updated those 4 only:\n\n- **44636962491** (Support plan) — Next step set; review_tags now `budget_hold;legal_review;exec_review`\n- **44636983696** (Analytics add-"
+  },
+  {
+   "target": "A",
+   "model": "glm",
+   "condition": "M",
+   "id": "A-glm-M",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 10,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 5,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md",
+    "$KNOWLEDGE/integrations/hubspot/index.md",
+    "$KNOWLEDGE/integrations/hubspot/review-tags-checkbox-property.md"
+   ],
+   "usage": {
+    "input": 102910,
+    "output": 1036,
+    "cacheRead": 91301,
+    "piCost": 0.04454925999999999
+   },
+   "latencyMs": 12329,
+   "traceOk": true,
+   "traceSha256": "e4c0116899b27b26673a4c4a8f50bc04dfb0869aa4866c335a4cb2490bbd35af",
+   "traceSessionId": "crm2-a-glm-m-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. Exec-review prep completed in the Fabrikam Robotics HubSpot account.\n\n**Updated deals (4 open deals; all 8 closed deals untouched):**\n- **44636962491** — Support plan: `hs_next_step` set; tags `budget_hold;legal_review;exec_review`\n- **44636983696** — Analytics add-on: set; tags `exec_review`\n- **44636995574** — Training package: set; tags `renewal;exec_review`\n- **44636998157** — API access"
+  },
+  {
+   "target": "A",
+   "model": "minimax",
+   "condition": "cold",
+   "id": "A-minimax-cold",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 15,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 111817,
+    "output": 2892,
+    "cacheRead": 81637,
+    "piCost": 0.01742262
+   },
+   "latencyMs": 14858,
+   "traceOk": true,
+   "traceSha256": "b74da4c8681432e970d8779c0a37e39e537bf7366bf4c526ac47ca6e5462f771",
+   "traceSessionId": "crm2-a-minimax-cold-a1",
+   "evidence": "4/4 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "All updates succeeded. The server-stored values match the requirements:\n- Open deals only (closed won/lost deals untouched)\n- `hs_next_step` set to `Exec review 2026-11-03`\n- `review_tags` had `exec-review` (`exec_review`) appended, with previously stored checkboxes preserved (`budget_hold;legal_review`, `renewal`)\n- No other fields modified\n\n**Updated deal IDs (4):**\n- `44636962491` — Fabrikam Ro"
+  },
+  {
+   "target": "A",
+   "model": "minimax",
+   "condition": "H",
+   "id": "A-minimax-H",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 12,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 4,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/integrations/hubspot/index.md",
+    "$KNOWLEDGE/integrations/hubspot/exec-review-prep.md"
+   ],
+   "usage": {
+    "input": 115646,
+    "output": 3373,
+    "cacheRead": 82426,
+    "piCost": 0.01895916
+   },
+   "latencyMs": 14074,
+   "traceOk": true,
+   "traceSha256": "9f26cb042aa7e344bdd1a4a9417bb85f3cd4369a72b210f82b41ef0f252fc455",
+   "traceSessionId": "crm2-a-minimax-h-a1",
+   "evidence": "4/4 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "All four open deals updated successfully. The response confirms the exact intended write on every deal — both the Next step value and the appended `review_tags` (with existing tags preserved), and `dealstage` was not changed.\n\n**Updated deal IDs:**\n- `44636962491` (Fabrikam Robotics — Support plan) — review_tags: `budget_hold;legal_review` → `budget_hold;legal_review;exec_review`\n- `44636983696` ("
+  },
+  {
+   "target": "A",
+   "model": "minimax",
+   "condition": "M",
+   "id": "A-minimax-M",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 14,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 7,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md",
+    "$KNOWLEDGE/integrations/hubspot/index.md",
+    "$KNOWLEDGE/integrations/hubspot/searching-and-finding-records.md",
+    "$KNOWLEDGE/integrations/hubspot/updating-deals.md",
+    "$KNOWLEDGE/integrations/hubspot/review-tags-checkbox-property.md"
+   ],
+   "usage": {
+    "input": 117730,
+    "output": 2496,
+    "cacheRead": 78976,
+    "piCost": 0.01935996
+   },
+   "latencyMs": 12739,
+   "traceOk": true,
+   "traceSha256": "d9ba78e6692403ba7146f8eb64b1b86a558658e7873cd70e33480780bd05bb21",
+   "traceSessionId": "crm2-a-minimax-m-a1",
+   "evidence": "4/4 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "Batch update succeeded (`status: COMPLETE`). Response confirms each update: `hs_next_step = \"Exec review 2026-11-03\"`, `review_tags` shows existing tags preserved plus `exec_review` appended, and `dealstage`/`pipeline` (and all other fields) unaffected.\n\n**Updated deals (4 OPEN deals):**\n\n- `44636962491` — Fabrikam Robotics — Support plan *(tags: budget_hold;legal_review → budget_hold;legal_review"
+  },
+  {
+   "target": "C",
+   "model": "kimi",
+   "condition": "cold",
+   "id": "C-kimi-cold",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 7,
+   "toolCalls": 6,
+   "apiErrors": 1,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 52208,
+    "output": 973,
+    "cacheRead": 46958,
+    "piCost": 0.0444324
+   },
+   "latencyMs": 36263,
+   "traceOk": true,
+   "traceSha256": "3f14b36f1581c79dfea49877d04d2d8a328486d8640dfe64d4359762577c30b5",
+   "traceSessionId": "crm2-c-kimi-cold-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. For Litware Analytics (account 5702702000006783774), I found 12 deals, of which 4 were open. I updated only those 4 — setting Next Step to `Exec review 2026-11-03` and appending the `exec-review` tag while preserving existing tags. All updates returned SUCCESS.\n\nUpdated deal IDs:\n- **5702702000006785568** — Regional rollout (Qualification); tags: budget-hold, legal-review, exec-review\n- **57"
+  },
+  {
+   "target": "C",
+   "model": "kimi",
+   "condition": "H",
+   "id": "C-kimi-H",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 8,
+   "toolCalls": 10,
+   "apiErrors": 1,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 76170,
+    "output": 1314,
+    "cacheRead": 66891,
+    "piCost": 0.0676143
+   },
+   "latencyMs": 47936,
+   "traceOk": true,
+   "traceSha256": "0ffde2c3a2c0c5a2862b10a395bd5f45e896749dee76531fec7eab5c46e36165",
+   "traceSessionId": "crm2-c-kimi-h-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. For the Litware Analytics account (ID 5702702000006783774, domain litware-analytics.example), I found 12 deals; 4 were open and all were updated successfully — Next Step set to `Exec review 2026-11-03` and `exec-review` appended to Review Tags (existing tags preserved):\n\n- **5702702000006785568** — Regional rollout (Qualification); tags now budget-hold, legal-review, exec-review\n- **57027020"
+  },
+  {
+   "target": "C",
+   "model": "kimi",
+   "condition": "M",
+   "id": "C-kimi-M",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 11,
+   "toolCalls": 12,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 3,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md"
+   ],
+   "usage": {
+    "input": 130228,
+    "output": 1397,
+    "cacheRead": 116644,
+    "piCost": 0.09670019999999999
+   },
+   "latencyMs": 60282,
+   "traceOk": true,
+   "traceSha256": "c8e14da8e7b478d6f97f6b405d25bbb49aed9cceb5fbbe8c9660029e4156005c",
+   "traceSessionId": "crm2-c-kimi-m-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. Exec-review prep applied to all 4 open Litware Analytics deals in Zoho CRM, verified by read-back:\n\n**Updated deal IDs:**\n- `5702702000006785568` — Regional rollout (Qualification); tags now budget-hold, legal-review, exec-review\n- `5702702000006789529` — Usage overage (Proposal/Price Quote); tags now exec-review\n- `5702702000006793718` — Sandbox licences (Proposal/Price Quote); tags now ren"
+  },
+  {
+   "target": "C",
+   "model": "glm",
+   "condition": "cold",
+   "id": "C-glm-cold",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 14,
+   "apiErrors": 4,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 82294,
+    "output": 1613,
+    "cacheRead": 75254,
+    "piCost": 0.03651924
+   },
+   "latencyMs": 19651,
+   "traceOk": true,
+   "traceSha256": "df1ae252a364800dab74bf2e43b613eaa1f1a69afdcb4e03c578de29e407fa19",
+   "traceSessionId": "crm2-c-glm-cold-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. In Zoho CRM I found the company \"Litware Analytics\" (id 5702702000006783774, domain litware-analytics.example — I excluded a similarly named account with domain litware-analytics-holdings.example). Of its deals, 4 are open; I set `Next_Step` to \"Exec review 2026-11-03\" and appended the `exec-review` tag while preserving existing tags:\n\n- 5702702000006785568 (Regional rollout — Qualification;"
+  },
+  {
+   "target": "C",
+   "model": "glm",
+   "condition": "H",
+   "id": "C-glm-H",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 8,
+   "toolCalls": 7,
+   "apiErrors": 1,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 71950,
+    "output": 1027,
+    "cacheRead": 64171,
+    "piCost": 0.03209386
+   },
+   "latencyMs": 13803,
+   "traceOk": true,
+   "traceSha256": "7b71890ecce77223f57fcd95096abe99d65692098f354627c76fb6e2d15bb515",
+   "traceSessionId": "crm2-c-glm-h-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. In the Litware Analytics Zoho org, the company's account (ID 5702702000006783774, matching primary domain litware-analytics.example) had 4 open deals — all updated successfully (verified):\n\n- **5702702000006785568** — Regional rollout: Next step set, tags now `budget-hold, legal-review, exec-review`\n- **5702702000006789529** — Usage overage: Next step set, tags now `exec-review`\n- **57027020"
+  },
+  {
+   "target": "C",
+   "model": "glm",
+   "condition": "M",
+   "id": "C-glm-M",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 10,
+   "toolCalls": 13,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 3,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md"
+   ],
+   "usage": {
+    "input": 123513,
+    "output": 1337,
+    "cacheRead": 91186,
+    "piCost": 0.07484895999999999
+   },
+   "latencyMs": 22531,
+   "traceOk": true,
+   "traceSha256": "7eca7c6d9295ddd71a74a61c6af6a3e0e282f4bb9ea635c40bbab75bbc6e2769",
+   "traceSessionId": "crm2-c-glm-m-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Exec-review prep complete in Litware Analytics' Zoho CRM org.\n\n**What I did:**\n1. Found the account by domain (`litware-analytics.example`) → Account ID `5702702000006783774` (unique match).\n2. Enumerated all 12 related deals; classified open vs. closed by the `Stage` picklist (closed values in this org: Closed Won, Closed Lost, Closed-Lost to Competition).\n3. For the 4 open deals, set `Next_Step`"
+  },
+  {
+   "target": "C",
+   "model": "minimax",
+   "condition": "cold",
+   "id": "C-minimax-cold",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "max-turns",
+   "turns": 18,
+   "toolCalls": 26,
+   "apiErrors": 10,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 289717,
+    "output": 4377,
+    "cacheRead": 243422,
+    "piCost": 0.03374622
+   },
+   "latencyMs": 25329,
+   "traceOk": true,
+   "traceSha256": "adbb820299318be69210635cc84de7d97ef4566535018e88a3dfb2839479f3a2",
+   "traceSessionId": "crm2-c-minimax-cold-a1",
+   "evidence": "4/4 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "All 4 OPEN deals were updated successfully. Verification reads back confirm the exact required values.\n\n**Updated deal IDs (OPEN deals for Litware Analytics, litware-analytics.example):**\n- `5702702000006785568` — Litware Analytics — Regional rollout (Qualification) → Next_Step: `Exec review 2026-11-03`, Review_Tags: `[\"budget-hold\",\"legal-review\",\"exec-review\"]`\n- `5702702000006789529` — Litware "
+  },
+  {
+   "target": "C",
+   "model": "minimax",
+   "condition": "H",
+   "id": "C-minimax-H",
+   "outcome": "FAIL",
+   "correct": "0/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "max-turns",
+   "turns": 19,
+   "toolCalls": 27,
+   "apiErrors": 9,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 6,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/integrations/index.md",
+    "$KNOWLEDGE/integrations/hubspot/exec-review-prep.md"
+   ],
+   "usage": {
+    "input": 338267,
+    "output": 3005,
+    "cacheRead": 289078,
+    "piCost": 0.03570738
+   },
+   "latencyMs": 23178,
+   "traceOk": true,
+   "traceSha256": "f024941884425e460b541dfd8ef5d5f5990a49179787275384d3d125f4d9d1be",
+   "traceSessionId": "crm2-c-minimax-h-a1",
+   "evidence": "0/4 expected IDs reported, 0 other IDs",
+   "error": "This operation was aborted",
+   "finalPreview": ""
+  },
+  {
+   "target": "C",
+   "model": "minimax",
+   "condition": "M",
+   "id": "C-minimax-M",
+   "outcome": "FAIL",
+   "correct": "0/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "max-turns",
+   "turns": 19,
+   "toolCalls": 33,
+   "apiErrors": 14,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 6,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md",
+    "$KNOWLEDGE/integrations/index.md"
+   ],
+   "usage": {
+    "input": 327907,
+    "output": 3133,
+    "cacheRead": 280273,
+    "piCost": 0.03486618
+   },
+   "latencyMs": 26601,
+   "traceOk": true,
+   "traceSha256": "f8c4b882056e117544043b0872795f47c5534c88426cc6e67e26106740aa8c42",
+   "traceSessionId": "crm2-c-minimax-m-a1",
+   "evidence": "0/4 expected IDs reported, 0 other IDs",
+   "error": "This operation was aborted",
+   "finalPreview": ""
+  },
+  {
+   "target": "D",
+   "model": "kimi",
+   "condition": "cold",
+   "id": "D-kimi-cold",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 7,
+   "toolCalls": 10,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 85700,
+    "output": 1508,
+    "cacheRead": 62306,
+    "piCost": 0.1114938
+   },
+   "latencyMs": 53231,
+   "traceOk": true,
+   "traceSha256": "507c916b5b96b85d79cf7821419e87b550e92f69f50387f520f67dae29ad4d62",
+   "traceSessionId": "crm2-d-kimi-cold-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. For Coho Vineyard (coho-vineyard.example, company record c894601f-2b23-43e8-b679-3caee62d13c6), I set Next step to `Exec review 2026-11-03` and added the `exec-review` review tag (preserving existing tags) on all 4 open deals:\n\n- `85c6f924-fda0-4f8c-8472-e304f7aa56a6` — Compliance module (Lead; kept budget-hold, legal-review)\n- `97a4b695-e9e9-4d94-981d-0196e4a3fd7e` — Sandbox licences (In Pr"
+  },
+  {
+   "target": "D",
+   "model": "kimi",
+   "condition": "H",
+   "id": "D-kimi-H",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 6,
+   "toolCalls": 8,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 71549,
+    "output": 1447,
+    "cacheRead": 50622,
+    "piCost": 0.0996726
+   },
+   "latencyMs": 54251,
+   "traceOk": true,
+   "traceSha256": "5a0372f22364e1b612fe0fc122cbd7a047470d05a5e7a05a93fda934f07af517",
+   "traceSessionId": "crm2-d-kimi-h-a1",
+   "evidence": "4/4 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "Done. All four open Coho Vineyard deals were updated with Next step = `Exec review 2026-11-03` and the `exec-review` tag added (existing tags preserved):\n\n- `85c6f924-fda0-4f8c-8472-e304f7aa56a6` — Compliance module (Lead; kept budget-hold, legal-review)\n- `97a4b695-e9e9-4d94-981d-0196e4a3fd7e` — Sandbox licences (In Progress)\n- `a7d20128-f1e3-4c26-8412-e83f8bef5e15` — Training package (Negotiatio"
+  },
+  {
+   "target": "D",
+   "model": "kimi",
+   "condition": "M",
+   "id": "D-kimi-M",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 8,
+   "toolCalls": 13,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 3,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md"
+   ],
+   "usage": {
+    "input": 105992,
+    "output": 1995,
+    "cacheRead": 79036,
+    "piCost": 0.1345038
+   },
+   "latencyMs": 73928,
+   "traceOk": true,
+   "traceSha256": "c61121346b107ecb94315dd298eb349c36fea68b73ef544bcbb76b29efc9dbef",
+   "traceSessionId": "crm2-d-kimi-m-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. I found Coho Vineyard (record c894601f-2b23-43e8-b679-3caee62d13c6, domain coho-vineyard.example) with 12 associated deals: 4 Won and 4 Lost (left untouched) and 4 open deals (Lead / In Progress / 2× Negotiation). For each open deal I set Next step to exactly `Exec review 2026-11-03` and added the `exec-review` tag to Review tags, preserving existing tags (verified in the read-backs):\n\n- `85"
+  },
+  {
+   "target": "D",
+   "model": "glm",
+   "condition": "cold",
+   "id": "D-glm-cold",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 8,
+   "toolCalls": 13,
+   "apiErrors": 1,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 106788,
+    "output": 1394,
+    "cacheRead": 79599,
+    "piCost": 0.06489394
+   },
+   "latencyMs": 20583,
+   "traceOk": true,
+   "traceSha256": "c6ec05110c18e957badb519a95a50c6bb784ff0b52697c468925a65acd6e992a",
+   "traceSessionId": "crm2-d-glm-cold-a1",
+   "evidence": "4/4 expected IDs reported, 1 other IDs",
+   "error": null,
+   "finalPreview": "Done. I found Coho Vineyard (record `c894601f-2b23-43e8-b679-3caee62d13c6`) and its 12 associated deals; 8 were closed (Won/Lost) and left untouched. I updated the 4 OPEN deals, setting `next_step` to \"Exec review 2026-11-03\" and adding the `exec-review` tag (PATCH, so existing tags were preserved):\n\n- `85c6f924-fda0-4f8c-8472-e304f7aa56a6` — Coho Vineyard — Compliance module (Lead); tags now budg"
+  },
+  {
+   "target": "D",
+   "model": "glm",
+   "condition": "H",
+   "id": "D-glm-H",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "max-turns",
+   "turns": 19,
+   "toolCalls": 24,
+   "apiErrors": 5,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 3,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/integrations/index.md"
+   ],
+   "usage": {
+    "input": 224686,
+    "output": 1718,
+    "cacheRead": 194007,
+    "piCost": 0.10095161999999999
+   },
+   "latencyMs": 22589,
+   "traceOk": true,
+   "traceSha256": "f11091665c6f97b006881369f1c3f8e238e2f88302bb7e1436637c1767580cad",
+   "traceSessionId": "crm2-d-glm-h-a1",
+   "evidence": "0/4 expected IDs reported, 0 other IDs",
+   "error": "This operation was aborted",
+   "finalPreview": ""
+  },
+  {
+   "target": "D",
+   "model": "glm",
+   "condition": "M",
+   "id": "D-glm-M",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 14,
+   "toolCalls": 17,
+   "apiErrors": 2,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 3,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md"
+   ],
+   "usage": {
+    "input": 211551,
+    "output": 1775,
+    "cacheRead": 181589,
+    "piCost": 0.09696994
+   },
+   "latencyMs": 26952,
+   "traceOk": true,
+   "traceSha256": "337ec980865a18bf9d6eb8ba496af42d0e73fdd523fc07957660a1014f154c23",
+   "traceSessionId": "crm2-d-glm-m-a1",
+   "evidence": "4/4 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "Done. Exec-review prep completed for Coho Vineyard (found by primary domain coho-vineyard.example).\n\n**Deals updated (4 open deals — stages Lead, In Progress, Negotiation ×2):**\n- `85c6f924-fda0-4f8c-8472-e304f7aa56a6` — Compliance module (kept existing tags budget-hold, legal-review)\n- `97a4b695-e9e9-4d94-981d-0196e4a3fd7e` — Sandbox licences\n- `a7d20128-f1e3-4c26-8412-e83f8bef5e15` — Training pa"
+  },
+  {
+   "target": "D",
+   "model": "minimax",
+   "condition": "cold",
+   "id": "D-minimax-cold",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 20,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 152613,
+    "output": 3598,
+    "cacheRead": 97376,
+    "piCost": 0.02673126
+   },
+   "latencyMs": 15532,
+   "traceOk": true,
+   "traceSha256": "b87b55286f668fba77006ceb9d14299a307b4762018322a53c6776690cff5221",
+   "traceSessionId": "crm2-d-minimax-cold-a1",
+   "evidence": "4/4 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "All 4 open deals were updated successfully. Each PATCH set `next_step = \"Exec review 2026-11-03\"` and added `exec-review` to `review_tags` while preserving any existing tags (Compliance module kept `budget-hold` + `legal-review`; Training package kept `renewal`). No won/lost deals were touched.\n\nUpdated deal IDs:\n\n- `85c6f924-fda0-4f8c-8472-e304f7aa56a6` (Coho Vineyard — Compliance module, stage: "
+  },
+  {
+   "target": "D",
+   "model": "minimax",
+   "condition": "H",
+   "id": "D-minimax-H",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 15,
+   "toolCalls": 25,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 6,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/integrations/index.md",
+    "$KNOWLEDGE/integrations/hubspot/index.md"
+   ],
+   "usage": {
+    "input": 233020,
+    "output": 4106,
+    "cacheRead": 172514,
+    "piCost": 0.03342984
+   },
+   "latencyMs": 21143,
+   "traceOk": true,
+   "traceSha256": "e83efd46175b0069f7da1e3a98a10c8409a53190cb3c2f154e17cfb0cb6cbb1d",
+   "traceSessionId": "crm2-d-minimax-h-a1",
+   "evidence": "4/4 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "All four OPEN deals updated successfully; closed deals left untouched and no other fields modified.\n\n**Updated deals (record IDs):**\n\n- `85c6f924-fda0-4f8c-8472-e304f7aa56a6` — Coho Vineyard — Compliance module (Lead)\n- `97a4b695-e9e9-4d94-981d-0196e4a3fd7e` — Coho Vineyard — Sandbox licences (In Progress)\n- `a7d20128-f1e3-4c26-8412-e83f8bef5e15` — Coho Vineyard — Training package (Negotiation)\n- "
+  },
+  {
+   "target": "D",
+   "model": "minimax",
+   "condition": "M",
+   "id": "D-minimax-M",
+   "outcome": "SUCCESS",
+   "correct": "4/4",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 15,
+   "toolCalls": 24,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 5,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md"
+   ],
+   "usage": {
+    "input": 273293,
+    "output": 5068,
+    "cacheRead": 210768,
+    "piCost": 0.03748518
+   },
+   "latencyMs": 30531,
+   "traceOk": true,
+   "traceSha256": "2da588621caa67fe4bf10028b0d641b54829f077510ecf137a53928131bda896",
+   "traceSessionId": "crm2-d-minimax-m-a1",
+   "evidence": "4/4 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "All four updates succeeded with verified final state in the response. Verification summary:\n\n| Deal | Stage | next_step after | review_tags after |\n|------|-------|-----------------|-------------------|\n| 85c6f924… Compliance module | Lead (open) | \"Exec review 2026-11-03\" | budget-hold, legal-review, **exec-review** (appended) |\n| 97a4b695… Sandbox licences | In Progress (open) | \"Exec review 202"
+  },
+  {
+   "target": "CD",
+   "model": "kimi",
+   "condition": "cold",
+   "id": "CD-kimi-cold",
+   "outcome": "SUCCESS",
+   "correct": "8/8",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 7,
+   "toolCalls": 12,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 86089,
+    "output": 1953,
+    "cacheRead": 62644,
+    "piCost": 0.1184232
+   },
+   "latencyMs": 63069,
+   "traceOk": true,
+   "traceSha256": "906eba1a2c1996c1275cf987a0e4b6a89296b050fbff18864e28b40aa7f97cc5",
+   "traceSessionId": "crm2-cd-kimi-cold-a1",
+   "evidence": "8/8 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "Done. For Alpine Ski House, I set Next step to `Exec review 2026-11-03` and appended the `exec-review` tag (preserving existing tags) on every open deal in both CRMs. Closed (Won/Lost) deals, other companies (e.g. the separate \"Alpine Ski House\" record with domain alpine-ski-house-holdings.example in Attio), and all other fields were left untouched.\n\n**Zoho CRM — updated deal IDs:**\n- 909797700000"
+  },
+  {
+   "target": "CD",
+   "model": "kimi",
+   "condition": "H",
+   "id": "CD-kimi-H",
+   "outcome": "SUCCESS",
+   "correct": "8/8",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 9,
+   "toolCalls": 22,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 3,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 149719,
+    "output": 2741,
+    "cacheRead": 114740,
+    "piCost": 0.18047400000000002
+   },
+   "latencyMs": 90374,
+   "traceOk": true,
+   "traceSha256": "1f11e89931039f3a6cbb70042c2002222a4d024b0f5a7e7971f57314d1e0eec9",
+   "traceSessionId": "crm2-cd-kimi-h-a1",
+   "evidence": "8/8 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "All done. For every open Alpine Ski House deal I set Next step = `Exec review 2026-11-03` and added the `exec-review` tag while preserving existing tags. Closed (Won/Lost) deals were left untouched in both CRMs.\n\n**Zoho CRM — updated deals (all SUCCESS):**\n- 9097977000001761254 — Onboarding services (Qualification); tags: budget-hold, legal-review, exec-review\n- 9097977000001765610 — Archive stora"
+  },
+  {
+   "target": "CD",
+   "model": "kimi",
+   "condition": "M",
+   "id": "CD-kimi-M",
+   "outcome": "SUCCESS",
+   "correct": "8/8",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 11,
+   "toolCalls": 23,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 3,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md"
+   ],
+   "usage": {
+    "input": 187839,
+    "output": 2897,
+    "cacheRead": 152239,
+    "piCost": 0.1959267
+   },
+   "latencyMs": 110469,
+   "traceOk": true,
+   "traceSha256": "0f211e3b37eec2262684a44a02153b8deecf9272b76cb4249408f80cb321c953",
+   "traceSessionId": "crm2-cd-kimi-m-a1",
+   "evidence": "8/8 expected IDs reported, 2 other IDs",
+   "error": null,
+   "finalPreview": "Done — exec-review prep completed in both CRMs. Company identified by domain `alpine-ski-house.example` in each (Zoho account 9097977000001758516; Attio company a97e2b5c-9cbd-4921-bd35-6c5595f180b3). All closed (Won/Lost) deals and other companies were left untouched.\n\n**Zoho CRM** — updated 4 open deals (Next step = `Exec review 2026-11-03`, `exec-review` appended to Review tags):\n- `909797700000"
+  },
+  {
+   "target": "CD",
+   "model": "glm",
+   "condition": "cold",
+   "id": "CD-glm-cold",
+   "outcome": "SUCCESS",
+   "correct": "8/8",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 14,
+   "toolCalls": 26,
+   "apiErrors": 7,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 211881,
+    "output": 3359,
+    "cacheRead": 183940,
+    "piCost": 0.10172139999999999
+   },
+   "latencyMs": 42251,
+   "traceOk": true,
+   "traceSha256": "dc597127c11553969a6dc1414a83e9d97ca3229efcce052efd75ac6fd8445a61",
+   "traceSessionId": "crm2-cd-glm-cold-a1",
+   "evidence": "8/8 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "Done. Exec-review prep applied to every open Alpine Ski House deal in both CRMs; each got Next step = `Exec review 2026-11-03` and the `exec-review` review tag (existing tags preserved). All closed (won/lost) deals and other companies were left untouched.\n\n**Zoho CRM** — updated deal IDs:\n- 9097977000001761254 — Onboarding services (Qualification) — tags now: budget-hold, legal-review, exec-review"
+  },
+  {
+   "target": "CD",
+   "model": "glm",
+   "condition": "H",
+   "id": "CD-glm-H",
+   "outcome": "SUCCESS",
+   "correct": "8/8",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 13,
+   "toolCalls": 18,
+   "apiErrors": 3,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 2,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 221591,
+    "output": 3022,
+    "cacheRead": 183869,
+    "piCost": 0.11391354000000001
+   },
+   "latencyMs": 41726,
+   "traceOk": true,
+   "traceSha256": "81f8ea05a02d4333d237119450829a5611d13064683f3eba4940ec574180ad51",
+   "traceSessionId": "crm2-cd-glm-h-a1",
+   "evidence": "8/8 expected IDs reported, 3 other IDs",
+   "error": null,
+   "finalPreview": "Done — exec-review prep completed in both CRMs.\n\n**Zoho CRM** (Alpine Ski House account 9097977000001758516, website alpine-ski-house.example; note a similarly-named account 9097977000001759518 belongs to a different domain and was excluded) — 4 open deals updated, all returned SUCCESS:\n- 9097977000001761254 (Onboarding services) — tags now budget-hold, legal-review, exec-review\n- 9097977000001765"
+  },
+  {
+   "target": "CD",
+   "model": "glm",
+   "condition": "M",
+   "id": "CD-glm-M",
+   "outcome": "SUCCESS",
+   "correct": "8/8",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 12,
+   "toolCalls": 26,
+   "apiErrors": 0,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 4,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md",
+    "$KNOWLEDGE/integrations/index.md"
+   ],
+   "usage": {
+    "input": 249310,
+    "output": 2780,
+    "cacheRead": 203640,
+    "piCost": 0.1291164
+   },
+   "latencyMs": 35157,
+   "traceOk": true,
+   "traceSha256": "41c58ca08ab14331350f45e3a7bb17e99044e658f3274dfa5d5f92f21910d81c",
+   "traceSessionId": "crm2-cd-glm-m-a1",
+   "evidence": "8/8 expected IDs reported, 2 other IDs",
+   "error": null,
+   "finalPreview": "Done — exec-review prep completed in both CRMs, verified by read-back. Company found by primary domain `alpine-ski-house.example` in each; closed deals and other fields untouched.\n\n**Zoho CRM (Alpine Ski House Zoho org)** — updated 4 open deals (company 9097977000001758516):\n- `9097977000001761254` (Onboarding services — Qualification): Next step = `Exec review 2026-11-03`; Review Tags now `budget"
+  },
+  {
+   "target": "CD",
+   "model": "minimax",
+   "condition": "cold",
+   "id": "CD-minimax-cold",
+   "outcome": "SUCCESS",
+   "correct": "8/8",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "completed",
+   "turns": 17,
+   "toolCalls": 41,
+   "apiErrors": 7,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 3,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 510226,
+    "output": 10844,
+    "cacheRead": 427782,
+    "piCost": 0.06341292
+   },
+   "latencyMs": 57316,
+   "traceOk": true,
+   "traceSha256": "34ef576c06102052b5036c1988135536bff41c20e14424ed0f61a5baf395d820",
+   "traceSessionId": "crm2-cd-minimax-cold-a1",
+   "evidence": "8/8 expected IDs reported, 0 other IDs",
+   "error": null,
+   "finalPreview": "All updates verified. The 4 open Zoho deals show `Next_Step: \"Exec review 2026-11-03\"` and `Review_Tags` includes `exec-review` (merged with existing tags where present). Closed deals (Closed Won/Lost/Lost to Competition) remain untouched.\n\n---\n\n## Summary\n\n### Zoho CRM (Alpine Ski House Zoho org) — 4 open deals updated\nFor each: `Next_Step` set to `Exec review 2026-11-03`, `exec-review` tag added"
+  },
+  {
+   "target": "CD",
+   "model": "minimax",
+   "condition": "H",
+   "id": "CD-minimax-H",
+   "outcome": "PARTIAL",
+   "correct": "6/8",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "max-turns",
+   "turns": 19,
+   "toolCalls": 36,
+   "apiErrors": 4,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 4,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md"
+   ],
+   "usage": {
+    "input": 370433,
+    "output": 4995,
+    "cacheRead": 308663,
+    "piCost": 0.04304478
+   },
+   "latencyMs": 29502,
+   "traceOk": true,
+   "traceSha256": "e1b8bb215ec75256c8dc758ec657e89919464a097d435acd479e6e01e0510f8b",
+   "traceSessionId": "crm2-cd-minimax-h-a1",
+   "evidence": "0/8 expected IDs reported, 0 other IDs",
+   "error": "This operation was aborted",
+   "finalPreview": ""
+  },
+  {
+   "target": "CD",
+   "model": "minimax",
+   "condition": "M",
+   "id": "CD-minimax-M",
+   "outcome": "FAIL",
+   "correct": "0/8",
+   "unintendedWrites": 0,
+   "unintendedPenaltyComponents": {
+    "wrongRecords": 0,
+    "forbiddenMutations": 0,
+    "wrongCrmMutations": 0,
+    "createdOrDeleted": 0
+   },
+   "tagLoss": 0,
+   "wrongCrmMutations": 0,
+   "stoppedBy": "max-turns",
+   "turns": 19,
+   "toolCalls": 39,
+   "apiErrors": 6,
+   "foreignPatterns": {},
+   "nonTargetRequests": 0,
+   "memoryCalls": 6,
+   "memoryPagesRead": [
+    "$KNOWLEDGE/index.md",
+    "$KNOWLEDGE/workflows/crm-deal-hygiene-tasks.md",
+    "$KNOWLEDGE/integrations/index.md"
+   ],
+   "usage": {
+    "input": 388140,
+    "output": 4110,
+    "cacheRead": 318675,
+    "piCost": 0.044892
+   },
+   "latencyMs": 27428,
+   "traceOk": true,
+   "traceSha256": "ad12bd9ecdb19eb90d7f6ad6c43d2b390898b467f023f751e99c396cfb442724",
+   "traceSessionId": "crm2-cd-minimax-m-a1",
+   "evidence": "0/8 expected IDs reported, 0 other IDs",
+   "error": "This operation was aborted",
+   "finalPreview": ""
+  }
+ ],
+ "matrixSummary": {
+  "A": {
+   "cold": "3/3 exact (scored-only 3/3; non-scored: none)",
+   "H": "3/3 exact (scored-only 3/3; non-scored: none)",
+   "M": "3/3 exact (scored-only 3/3; non-scored: none)"
+  },
+  "C": {
+   "cold": "3/3 exact (scored-only 3/3; non-scored: none)",
+   "H": "2/3 exact (scored-only 2/3; non-scored: none)",
+   "M": "2/3 exact (scored-only 2/3; non-scored: none)"
+  },
+  "D": {
+   "cold": "3/3 exact (scored-only 3/3; non-scored: none)",
+   "H": "3/3 exact (scored-only 3/3; non-scored: none)",
+   "M": "3/3 exact (scored-only 3/3; non-scored: none)"
+  },
+  "CD": {
+   "cold": "3/3 exact (scored-only 3/3; non-scored: none)",
+   "H": "2/3 exact (scored-only 2/3; non-scored: none)",
+   "M": "2/3 exact (scored-only 2/3; non-scored: none)"
+  }
+ },
+ "targets": {
+  "A": "familiar A (HubSpot) on a new organization/data",
+  "C": "near held-out C (Zoho CRM v8)",
+  "D": "far held-out D (Attio v2)",
+  "CD": "multiple unseen CRMs C+D in one task"
+ },
+ "cost": {
+  "note": "Tokens from provider usage reported to Pi / the builder client. Pi cost = Pi catalog price ESTIMATE; builder calls have no cost field (UNAVAILABLE, not $0).",
+  "trainingCustomers": {
+   "input": 754925,
+   "output": 10366,
+   "piCostEstimateUsd": 0.477
+  },
+  "heldoutMatrixCustomers": {
+   "input": 6254017,
+   "output": 94003,
+   "piCostEstimateUsd": 2.5884
+  },
+  "builds": {
+   "H": {
+    "promptTokens": 2804669,
+    "completionTokens": 98279,
+    "wallMs": 895363
+   },
+   "M": {
+    "promptTokens": 3919442,
+    "completionTokens": 104718,
+    "wallMs": 900553
+   },
+   "H.r2": {
+    "promptTokens": 3562588,
+    "completionTokens": 56635,
+    "wallMs": 649226
+   },
+   "M.r2": {
+    "promptTokens": 2875364,
+    "completionTokens": 99422,
+    "wallMs": 771315
+   },
+   "H.r3": null,
+   "M.r3": {
+    "promptTokens": 4922763,
+    "completionTokens": 82223,
+    "wallMs": 918325
+   },
+   "far": null,
+   "cold": {
+    "promptTokens": 2284633,
+    "completionTokens": 103284,
+    "wallMs": 900698
+   },
+   "cold.r2": {
+    "promptTokens": 588557,
+    "completionTokens": 6848,
+    "wallMs": 284475
+   },
+   "cold.r3": {
+    "promptTokens": 702428,
+    "completionTokens": 8108,
+    "wallMs": 305119
+   },
+   "far.r2": null
+  },
+  "meters": {
+   "adapt-cold-builder": {
+    "input": 2873190,
+    "output": 110132,
+    "cacheRead": 0,
+    "calls": 101,
+    "costReported": 0,
+    "callsWithoutCost": 101
+   },
+   "adapt-cold-customer": {
+    "input": 706515,
+    "output": 8399,
+    "cacheRead": 590472,
+    "calls": 31,
+    "costReported": 0.6512555999999999,
+    "callsWithoutCost": 0
+   },
+   "adapt-cold.r3-builder": {
+    "input": 702428,
+    "output": 8108,
+    "cacheRead": 0,
+    "calls": 25,
+    "costReported": 0,
+    "callsWithoutCost": 25
+   },
+   "adapt-cold.r3-customer": {
+    "input": 428066,
+    "output": 4808,
+    "cacheRead": 383349,
+    "calls": 17,
+    "costReported": 0.32127569999999994,
+    "callsWithoutCost": 0
+   },
+   "adapt-far-builder": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "calls": 0,
+    "costReported": 0,
+    "callsWithoutCost": 0
+   },
+   "adapt-far-customer": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "calls": 0,
+    "costReported": 0,
+    "callsWithoutCost": 0
+   },
+   "adapt-far.r2-builder": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "calls": 0,
+    "costReported": 0,
+    "callsWithoutCost": 0
+   },
+   "adapt-far.r2-customer": {
+    "input": 0,
+    "output": 0,
+    "cacheRead": 0,
+    "calls": 0,
+    "costReported": 0,
+    "callsWithoutCost": 0
+   },
+   "build-builder": {
+    "input": 13162063,
+    "output": 359054,
+    "cacheRead": 0,
+    "calls": 434,
+    "costReported": 0,
+    "callsWithoutCost": 434
+   },
+   "build.r3-builder": {
+    "input": 4922763,
+    "output": 82223,
+    "cacheRead": 0,
+    "calls": 145,
+    "costReported": 0,
+    "callsWithoutCost": 145
+   },
+   "matrix-customer": {
+    "input": 6254017,
+    "output": 94003,
+    "cacheRead": 5099795,
+    "calls": 411,
+    "costReported": 2.588578639999999,
+    "callsWithoutCost": 5
+   },
+   "train-customer": {
+    "input": 754925,
+    "output": 10366,
+    "cacheRead": 661426,
+    "calls": 83,
+    "costReported": 0.47694395999999994,
+    "callsWithoutCost": 0
+   }
+  }
+ },
+ "adaptation": {
+  "far": {
+   "labels": {
+    "customer": "REAL: one Pi session object (Fireworks model) for both attempts; tools only via procmem SDK LiveToolRegistry against the local procmem parent",
+    "upstream": "SYNTHETIC CONTRACT FIXTURES; Manufact-hosted children reach them through Modal encrypted tunnels",
+    "children": "crm-attio: HOST-SEEDED DEFICIENT revision really published on Manufact; crm-hubspot/crm-pipedrive/crm-docs: host-authored, local test publisher (loopback)",
+    "builder": "REAL runMemoryBuild (Kimi root, GLM/MiniMax children, Modal workspaces) + real integration runtime (Modal sandbox, sealed validation, Exa research, Manufact publish); host gives no repaired source",
+    "joint": "memory AND tools change jointly; not an isolated memory effect (the 36-cell matrix is the memory control)"
+   },
+   "error": "Error: seed crm-attio integration_validate failed: {\"code\":\"validation_failed\",\"message\":\"smoke (smoke): 1 case(s) failed\"}\n    at call (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/eval/crm/adapt.ts:73:41)\n    at async seedIntegration (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/eval/crm/adapt.ts:81:13)\n    at async runAdaptation (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/eval/crm/adapt.ts:250:25)\n    at async <anonymous> (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/scripts/crm-run.ts:608:17)\n    at async withParent (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/scripts/crm-run.ts:428:12)\n    at async phaseAdapt (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/scripts/crm-run.ts:595:3)\n    at async <anonymous> (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/scripts/crm-run.ts:638:5)",
+   "task": {
+    "prompt": "Exec-review prep in our Attio CRM (Southridge Analytics Attio workspace). Company: Southridge Analytics (primary domain southridge-analytics.example).\nFor every OPEN deal (not won and not lost) associated with this company: (1) set the deal's Next step field to exactly `Exec review 2026-11-03`; (2) add the review tag `exec-review` to the deal's Review tags field, keeping any review tags already on the deal.\nDo not modify closed (won/lost) deals, deals of other companies, or any other field. When finished, reply with the IDs of the deals you updated.",
+    "targets": [
+     "attio"
+    ],
+    "org": "Southridge Analytics"
+   },
+   "taskSuccessAttempt1": null,
+   "taskSuccessAttempt2Cumulative": null,
+   "attempt2DeltaSuccess": null,
+   "attempts": [],
+   "mechanismSuccess": false,
+   "proofGates": null,
+   "readiness": {
+    "detectedBy": "not detected",
+    "readySlugs": [],
+    "detail": null
+   },
+   "sessionProof": null,
+   "memory": {
+    "before": "rev-24c2c9332e90c6b976ceb99a",
+    "afterAttempt1": null,
+    "afterBuild": null,
+    "changedFiles": []
+   },
+   "integrations": {
+    "before": {},
+    "after": {},
+    "changedSources": {}
+   },
+   "build": null,
+   "regressions": {},
+   "freshness": {
+    "priorTraceKeys": 0,
+    "clonedTreeSha256": "c87d96db8306f12207b39031ff467a0db3e16eaa88a1514d397b1696e94f91ac",
+    "frozenTreeSha256": "c87d96db8306f12207b39031ff467a0db3e16eaa88a1514d397b1696e94f91ac",
+    "cloneMatches": true
+   },
+   "fixtures": {
+    "hubspot": {
+     "where": "local"
+    },
+    "pipedrive": {
+     "where": "local"
+    },
+    "attio": {
+     "where": "modal-tunnel",
+     "sandboxId": "sb-01M56A0E7EA85E4DXHGWQ9DM4V"
+    }
+   }
+  },
+  "cold": {
+   "labels": {
+    "customer": "REAL: one Pi session object (Fireworks model) for both attempts; tools only via procmem SDK LiveToolRegistry against the local procmem parent",
+    "upstream": "SYNTHETIC CONTRACT FIXTURES; Manufact-hosted children reach them through Modal encrypted tunnels",
+    "children": "generic-http + crm-docs: host-authored, local test publisher (loopback); every CRM-specific child is builder-authored and Manufact-published",
+    "builder": "REAL runMemoryBuild (Kimi root, GLM/MiniMax children, Modal workspaces) + real integration runtime (Modal sandbox, sealed validation, Exa research, Manufact publish); host gives no repaired source",
+    "joint": "memory AND tools change jointly; not an isolated memory effect (the 36-cell matrix is the memory control)"
+   },
+   "error": null,
+   "task": {
+    "prompt": "Exec-review prep in BOTH of these CRMs: our Zoho CRM (Blue Yonder Freight Zoho CRM org) and our Attio (Blue Yonder Freight Attio workspace) — do the work separately in each CRM. Company: Blue Yonder Freight (primary domain blue-yonder-freight.example).\nFor every OPEN deal (not won and not lost) associated with this company: (1) set the deal's Next step field to exactly `Exec review 2026-11-03`; (2) add the review tag `exec-review` to the deal's Review tags field, keeping any review tags already on the deal.\nDo not modify closed (won/lost) deals, deals of other companies, or any other field. When finished, reply with the IDs of the deals you updated in each CRM.",
+    "targets": [
+     "zoho",
+     "attio"
+    ],
+    "org": "Blue Yonder Freight"
+   },
+   "taskSuccessAttempt1": true,
+   "taskSuccessAttempt2Cumulative": true,
+   "attempt2DeltaSuccess": true,
+   "attempts": [
+    {
+     "runId": "crm2.adapt-cold.a1",
+     "stoppedBy": "completed",
+     "toolCallsByName": {
+      "memory__open_memory": 1,
+      "integration__generic-http__list_connections": 1,
+      "memory__read": 1,
+      "integration__generic-http__http_request": 19
+     },
+     "correct": "8/8",
+     "unintendedWrites": 0,
+     "unintendedPenaltyComponents": {
+      "wrongRecords": 0,
+      "forbiddenMutations": 0,
+      "wrongCrmMutations": 0,
+      "createdOrDeleted": 0
+     },
+     "tagLoss": 0,
+     "usage": {
+      "input": 173922,
+      "output": 3388,
+      "cacheRead": 146762,
+      "piCostEstimateUsd": 0.1763286,
+      "requests": 11
+     },
+     "traceOk": true,
+     "finalPreview": "Done. Exec-review prep completed in both CRMs for Blue Yonder Freight (primary domain blue-yonder-freight.example; the duplicate \"Blue Yonder Freight Holdings\" account was left untouched). For each open deal I set Next step = `Exec review 2026-11-03` and appended the `exec-review` tag, preserving existing tags. Closed (Won/Lost) deals were not modified.\n\n**Zoho CRM** (Account 9726451000002215473) — updated deals:\n- `9726451000002219392` — Reporting suite (Qualification; tags now budget-hold, leg"
+    },
+    {
+     "runId": "crm2.adapt-cold.a2",
+     "stoppedBy": "completed",
+     "toolCallsByName": {
+      "memory__open_memory": 1,
+      "memory__read": 1,
+      "integration__generic-http__http_request": 2
+     },
+     "correct": "8/8",
+     "unintendedWrites": 0,
+     "unintendedPenaltyComponents": {
+      "wrongRecords": 0,
+      "forbiddenMutations": 0,
+      "wrongCrmMutations": 0,
+      "createdOrDeleted": 0
+     },
+     "tagLoss": 0,
+     "usage": {
+      "input": 141924,
+      "output": 980,
+      "cacheRead": 100681,
+      "piCostEstimateUsd": 0.16863329999999999,
+      "requests": 4
+     },
+     "traceOk": true,
+     "finalPreview": "I re-checked the current state in both CRMs before writing — all target deals were already correctly updated by the previous run, so no new writes were needed (no duplicates, no other fields touched).\n\n**Zoho CRM** (Account 9726451000002215473, Blue Yonder Freight — blue-yonder-freight.example) — the 4 open deals, all verified with Next step = `Exec review 2026-11-03` and `exec-review` tag present:\n- `9726451000002219392` — Reporting suite (Qualification; tags: budget-hold, legal-review, exec-re"
+    }
+   ],
+   "mechanismSuccess": false,
+   "proofGates": {
+    "freshTenantAndClone": {
+     "ok": true,
+     "detail": {
+      "priorTraceKeys": 0
+     }
+    },
+    "attempt1StoredTraceComplete": {
+     "ok": true,
+     "detail": {
+      "ok": true,
+      "problems": []
+     }
+    },
+    "attempt2StoredTraceComplete": {
+     "ok": true,
+     "detail": {
+      "ok": true,
+      "problems": []
+     }
+    },
+    "attempt2TraceSeesNewToolSchemas": {
+     "ok": false
+    },
+    "sameSessionObjectAndHistoryPrefix": {
+     "ok": true
+    },
+    "builderAuthoredValidatedPublished": {
+     "ok": false,
+     "detail": [
+      "integration_write:false",
+      "integration_validate:false",
+      "integration_git_commit:false",
+      "integration_promote:false",
+      "integration_publish:false"
+     ]
+    },
+    "memoryRevisionChanged": {
+     "ok": false,
+     "detail": {
+      "from": "rev-1f0e601bb542144a2207a2b0",
+      "to": "rev-1f0e601bb542144a2207a2b0",
+      "files": []
+     }
+    },
+    "deployedPromotedCommitLive": {
+     "ok": false,
+     "detail": {
+      "ready": [],
+      "changedSlugs": []
+     }
+    },
+    "targetsReadyInSdk": {
+     "ok": false,
+     "detail": "not detected"
+    },
+    "readinessByAutomaticPoll": {
+     "ok": false,
+     "detail": "not detected"
+    },
+    "attempt2CalledNewOrRepairedTargetTools": {
+     "ok": false,
+     "detail": {
+      "used": [],
+      "genericCalls": 2
+     }
+    },
+    "attempt2ReopenedAndReadNewMemory": {
+     "ok": true,
+     "detail": {
+      "newRev": "rev-1f0e601bb542144a2207a2b0",
+      "pagesRead": [
+       "$KNOWLEDGE/index.md"
+      ]
+     }
+    }
+   },
+   "readiness": {
+    "detectedBy": "not detected",
+    "readySlugs": [],
+    "detail": {}
+   },
+   "sessionProof": {
+    "piSessionId": "01a14c6b-dc7a-7465-9063-d797567e2dad",
+    "conversationId": "crmbench:crm2:adapt-cold",
+    "sameObject": true,
+    "prefix": {
+     "count": 35,
+     "sha256": "101b51129804155068856cd01ced16afe257451a85214301ae5bc4a6a7096b77"
+    },
+    "prefixAfterAttempt2": {
+     "count": 35,
+     "sha256": "101b51129804155068856cd01ced16afe257451a85214301ae5bc4a6a7096b77"
+    },
+    "detectedBy": "not detected",
+    "toolsChanged": [
+     {
+      "at": "2026-10-18T00:31:39.629Z",
+      "version": 1,
+      "added": [
+       "memory__open_memory",
+       "memory__read",
+       "memory__grep",
+       "memory__find",
+       "memory__ls",
+       "memory__shell",
+       "memory__poll_command",
+       "memory__write_command",
+       "memory__cancel_command",
+       "memory__write",
+       "memory__edit",
+       "memory__view_file",
+       "integration__crm-docs__integration_info",
+       "integration__crm-docs__docs_search",
+       "integration__crm-docs__docs_read",
+       "integration__crm-docs__docs_list",
+       "integration__generic-http__integration_info",
+       "integration__generic-http__list_connections",
+       "integration__generic-http__http_request"
+      ],
+      "updated": [],
+      "removed": []
+     }
+    ]
+   },
+   "memory": {
+    "before": "rev-1f0e601bb542144a2207a2b0",
+    "afterAttempt1": "rev-1f0e601bb542144a2207a2b0",
+    "afterBuild": "rev-1f0e601bb542144a2207a2b0",
+    "changedFiles": []
+   },
+   "integrations": {
+    "before": {},
+    "after": {},
+    "changedSources": {}
+   },
+   "build": {
+    "status": "failed",
+    "agents": [
+     {
+      "agentId": "root",
+      "model": "accounts/fireworks/models/kimi-k3",
+      "status": "aborted",
+      "turns": 23,
+      "toolCalls": 29
+     },
+     {
+      "agentId": "root.1",
+      "model": "accounts/fireworks/models/glm-5p3",
+      "status": "aborted",
+      "turns": 28,
+      "toolCalls": 36
+     },
+     {
+      "agentId": "root.2",
+      "model": "accounts/fireworks/models/glm-5p3",
+      "status": "aborted",
+      "turns": 32,
+      "toolCalls": 36
+     }
+    ],
+    "traceArchive": [
+     {
+      "bytes": 2608716,
+      "chunks": 13,
+      "days": 1,
+      "disabled": false,
+      "events": 105,
+      "files": 21,
+      "firstDay": "2026-10-17",
+      "lastDay": "2026-10-17",
+      "partitions": 1,
+      "schema": "procmem.trace-archive/v1",
+      "sessions": 1,
+      "sha256": "59d4ec1f73da36988c2f8ff2697ff49a13eaf405a2fe80a1d5d4abc87df80723"
+     }
+    ]
+   },
+   "regressions": {},
+   "freshness": {
+    "priorTraceKeys": 0
+   },
+   "fixtures": {
+    "zoho": {
+     "where": "modal-tunnel",
+     "sandboxId": "sb-01M566QC2N2TTT1H9EDZ66983E"
+    },
+    "attio": {
+     "where": "modal-tunnel",
+     "sandboxId": "sb-01M566QHXJ934RBRJDFR9D54G1"
+    }
+   }
+  },
+  "cold.r2": {
+   "labels": {
+    "customer": "REAL: one Pi session object (Fireworks model) for both attempts; tools only via procmem SDK LiveToolRegistry against the local procmem parent",
+    "upstream": "SYNTHETIC CONTRACT FIXTURES; Manufact-hosted children reach them through Modal encrypted tunnels",
+    "children": "generic-http + crm-docs: host-authored, local test publisher (loopback); every CRM-specific child is builder-authored and Manufact-published",
+    "builder": "REAL runMemoryBuild (Kimi root, GLM/MiniMax children, Modal workspaces) + real integration runtime (Modal sandbox, sealed validation, Exa research, Manufact publish); host gives no repaired source",
+    "joint": "memory AND tools change jointly; not an isolated memory effect (the 36-cell matrix is the memory control)"
+   },
+   "error": null,
+   "task": {
+    "prompt": "Exec-review prep in BOTH of these CRMs: our Zoho CRM (Blue Yonder Freight Zoho CRM org) and our Attio (Blue Yonder Freight Attio workspace) — do the work separately in each CRM. Company: Blue Yonder Freight (primary domain blue-yonder-freight.example).\nFor every OPEN deal (not won and not lost) associated with this company: (1) set the deal's Next step field to exactly `Exec review 2026-11-03`; (2) add the review tag `exec-review` to the deal's Review tags field, keeping any review tags already on the deal.\nDo not modify closed (won/lost) deals, deals of other companies, or any other field. When finished, reply with the IDs of the deals you updated in each CRM.",
+    "targets": [
+     "zoho",
+     "attio"
+    ],
+    "org": "Blue Yonder Freight"
+   },
+   "taskSuccessAttempt1": true,
+   "taskSuccessAttempt2Cumulative": true,
+   "attempt2DeltaSuccess": true,
+   "attempts": [
+    {
+     "runId": "crm2.adapt-cold-r2.a1",
+     "stoppedBy": "completed",
+     "toolCallsByName": {
+      "memory__open_memory": 1,
+      "integration__generic-http__list_connections": 1,
+      "memory__read": 1,
+      "integration__crm-docs__docs_search": 2,
+      "integration__crm-docs__docs_read": 4,
+      "integration__generic-http__http_request": 12
+     },
+     "correct": "8/8",
+     "unintendedWrites": 0,
+     "unintendedPenaltyComponents": {
+      "wrongRecords": 0,
+      "forbiddenMutations": 0,
+      "wrongCrmMutations": 0,
+      "createdOrDeleted": 0
+     },
+     "tagLoss": 0,
+     "usage": {
+      "input": 151254,
+      "output": 2812,
+      "cacheRead": 119133,
+      "piCostEstimateUsd": 0.17428290000000002,
+      "requests": 10
+     },
+     "traceOk": true,
+     "finalPreview": "All updates succeeded. For each open Blue Yonder Freight deal I set Next step = `Exec review 2026-11-03` and added the `exec-review` tag, preserving existing tags. Closed (won/lost) deals were left untouched.\n\n**Zoho CRM (4 deals updated):**\n- `9726451000002219392` — Reporting suite (Qualification; tags now budget-hold, legal-review, exec-review)\n- `9726451000002222737` — Edge connectors (Proposal/Price Quote)\n- `9726451000002225727` — Seat expansion (Proposal/Price Quote; tags now renewal, exec"
+    },
+    {
+     "runId": "crm2.adapt-cold-r2.a2",
+     "stoppedBy": "completed",
+     "toolCallsByName": {
+      "memory__open_memory": 1,
+      "integration__generic-http__list_connections": 1,
+      "memory__read": 2,
+      "integration__generic-http__http_request": 4
+     },
+     "correct": "8/8",
+     "unintendedWrites": 0,
+     "unintendedPenaltyComponents": {
+      "wrongRecords": 0,
+      "forbiddenMutations": 0,
+      "wrongCrmMutations": 0,
+      "createdOrDeleted": 0
+     },
+     "tagLoss": 0,
+     "usage": {
+      "input": 239415,
+      "output": 1219,
+      "cacheRead": 223896,
+      "piCostEstimateUsd": 0.13201079999999998,
+      "requests": 6
+     },
+     "traceOk": true,
+     "finalPreview": "I re-checked every Blue Yonder Freight deal in both CRMs. All open deals were already correctly updated by the previous attempt — every open deal already has Next step = `Exec review 2026-11-03` and the `exec-review` tag (with prior tags preserved), and all closed (won/lost) deals are untouched. No further writes were needed this run.\n\n**Zoho CRM — open deals verified in target state:**\n- `9726451000002219392` — Reporting suite (Qualification; tags: budget-hold, legal-review, exec-review)\n- `972"
+    }
+   ],
+   "mechanismSuccess": false,
+   "proofGates": {
+    "freshTenantAndClone": {
+     "ok": true,
+     "detail": {
+      "priorTraceKeys": 0
+     }
+    },
+    "attempt1StoredTraceComplete": {
+     "ok": true,
+     "detail": {
+      "ok": true,
+      "problems": []
+     }
+    },
+    "attempt2StoredTraceComplete": {
+     "ok": true,
+     "detail": {
+      "ok": true,
+      "problems": []
+     }
+    },
+    "attempt2TraceSeesNewToolSchemas": {
+     "ok": false
+    },
+    "sameSessionObjectAndHistoryPrefix": {
+     "ok": true
+    },
+    "builderAuthoredValidatedPublished": {
+     "ok": false,
+     "detail": [
+      "integration_write:false",
+      "integration_validate:false",
+      "integration_git_commit:false",
+      "integration_promote:false",
+      "integration_publish:false"
+     ]
+    },
+    "memoryRevisionChanged": {
+     "ok": false,
+     "detail": {
+      "from": "rev-60c830aae129238777e83d8b",
+      "to": "rev-60c830aae129238777e83d8b",
+      "files": []
+     }
+    },
+    "deployedPromotedCommitLive": {
+     "ok": false,
+     "detail": {
+      "ready": [],
+      "changedSlugs": []
+     }
+    },
+    "targetsReadyInSdk": {
+     "ok": false,
+     "detail": "not detected"
+    },
+    "readinessByAutomaticPoll": {
+     "ok": false,
+     "detail": "not detected"
+    },
+    "attempt2CalledNewOrRepairedTargetTools": {
+     "ok": false,
+     "detail": {
+      "used": [],
+      "genericCalls": 5
+     }
+    },
+    "attempt2ReopenedAndReadNewMemory": {
+     "ok": true,
+     "detail": {
+      "newRev": "rev-60c830aae129238777e83d8b",
+      "pagesRead": [
+       "$KNOWLEDGE/index.md",
+       "$KNOWLEDGE/index.md"
+      ]
+     }
+    }
+   },
+   "readiness": {
+    "detectedBy": "not detected",
+    "readySlugs": [],
+    "detail": {}
+   },
+   "sessionProof": {
+    "piSessionId": "01a14c81-9a9e-70b6-b817-8c6d056d88fd",
+    "conversationId": "crmbench:crm2:adapt-cold-r2",
+    "sameObject": true,
+    "prefix": {
+     "count": 33,
+     "sha256": "f7d1b17886fb949412ae730db485c2f3828cde6fd06f79b5539005848c9957f9"
+    },
+    "prefixAfterAttempt2": {
+     "count": 33,
+     "sha256": "f7d1b17886fb949412ae730db485c2f3828cde6fd06f79b5539005848c9957f9"
+    },
+    "detectedBy": "not detected",
+    "toolsChanged": [
+     {
+      "at": "2026-10-18T00:55:24.552Z",
+      "version": 1,
+      "added": [
+       "memory__open_memory",
+       "memory__read",
+       "memory__grep",
+       "memory__find",
+       "memory__ls",
+       "memory__shell",
+       "memory__poll_command",
+       "memory__write_command",
+       "memory__cancel_command",
+       "memory__write",
+       "memory__edit",
+       "memory__view_file",
+       "integration__crm-docs__integration_info",
+       "integration__crm-docs__docs_search",
+       "integration__crm-docs__docs_read",
+       "integration__crm-docs__docs_list",
+       "integration__generic-http__integration_info",
+       "integration__generic-http__list_connections",
+       "integration__generic-http__http_request"
+      ],
+      "updated": [],
+      "removed": []
+     }
+    ]
+   },
+   "memory": {
+    "before": "rev-60c830aae129238777e83d8b",
+    "afterAttempt1": "rev-60c830aae129238777e83d8b",
+    "afterBuild": "rev-60c830aae129238777e83d8b",
+    "changedFiles": []
+   },
+   "integrations": {
+    "before": {},
+    "after": {},
+    "changedSources": {}
+   },
+   "build": {
+    "status": "failed",
+    "agents": [
+     {
+      "agentId": "root",
+      "model": "accounts/fireworks/models/kimi-k3",
+      "status": "failed",
+      "turns": 21,
+      "toolCalls": 24
+     }
+    ],
+    "traceArchive": [
+     {
+      "bytes": 2502027,
+      "chunks": 12,
+      "days": 1,
+      "disabled": false,
+      "events": 99,
+      "files": 19,
+      "firstDay": "2026-10-17",
+      "lastDay": "2026-10-17",
+      "partitions": 1,
+      "schema": "procmem.trace-archive/v1",
+      "sessions": 1,
+      "sha256": "9facd2b316b41de94b272d403dba9ce2f3aa7480562402e12cdd92a84b3e8fb0"
+     }
+    ]
+   },
+   "regressions": {},
+   "freshness": {
+    "priorTraceKeys": 0
+   },
+   "fixtures": {
+    "zoho": {
+     "where": "modal-tunnel",
+     "sandboxId": "sb-01M5682VQFGWX3SZB65FKWJDEF"
+    },
+    "attio": {
+     "where": "modal-tunnel",
+     "sandboxId": "sb-01M56831233TPJ05M58K6HWFKZ"
+    }
+   }
+  },
+  "cold.r3": {
+   "labels": {
+    "customer": "REAL: one Pi session object (Fireworks model) for both attempts; tools only via procmem SDK LiveToolRegistry against the local procmem parent",
+    "upstream": "SYNTHETIC CONTRACT FIXTURES; Manufact-hosted children reach them through Modal encrypted tunnels",
+    "children": "generic-http + crm-docs: host-authored, local test publisher (loopback); every CRM-specific child is builder-authored and Manufact-published",
+    "builder": "REAL runMemoryBuild (Kimi root, GLM/MiniMax children, Modal workspaces) + real integration runtime (Modal sandbox, sealed validation, Exa research, Manufact publish); host gives no repaired source",
+    "joint": "memory AND tools change jointly; not an isolated memory effect (the 36-cell matrix is the memory control)"
+   },
+   "error": null,
+   "task": {
+    "prompt": "Exec-review prep in BOTH of these CRMs: our Zoho CRM (Blue Yonder Freight Zoho CRM org) and our Attio (Blue Yonder Freight Attio workspace) — do the work separately in each CRM. Company: Blue Yonder Freight (primary domain blue-yonder-freight.example).\nFor every OPEN deal (not won and not lost) associated with this company: (1) set the deal's Next step field to exactly `Exec review 2026-11-03`; (2) add the review tag `exec-review` to the deal's Review tags field, keeping any review tags already on the deal.\nDo not modify closed (won/lost) deals, deals of other companies, or any other field. When finished, reply with the IDs of the deals you updated in each CRM.",
+    "targets": [
+     "zoho",
+     "attio"
+    ],
+    "org": "Blue Yonder Freight"
+   },
+   "taskSuccessAttempt1": true,
+   "taskSuccessAttempt2Cumulative": true,
+   "attempt2DeltaSuccess": true,
+   "attempts": [
+    {
+     "runId": "crm2.adapt-cold-r3.a1",
+     "stoppedBy": "completed",
+     "toolCallsByName": {
+      "memory__open_memory": 1,
+      "integration__generic-http__list_connections": 1,
+      "memory__read": 1,
+      "integration__generic-http__http_request": 16,
+      "integration__crm-docs__docs_search": 2,
+      "integration__crm-docs__docs_read": 2
+     },
+     "correct": "8/8",
+     "unintendedWrites": 0,
+     "unintendedPenaltyComponents": {
+      "wrongRecords": 0,
+      "forbiddenMutations": 0,
+      "wrongCrmMutations": 0,
+      "createdOrDeleted": 0
+     },
+     "tagLoss": 0,
+     "usage": {
+      "input": 205528,
+      "output": 3696,
+      "cacheRead": 176095,
+      "piCostEstimateUsd": 0.1965675,
+      "requests": 11
+     },
+     "traceOk": true,
+     "finalPreview": "Done. Exec-review prep completed in both CRMs for Blue Yonder Freight (Attio company `d494d04b…9cc5`; Zoho account `9726451000002215473` — the exact-domain match, not the holdings account). Every open deal got `Next step` = `Exec review 2026-11-03` and the `exec-review` tag added on top of existing tags; all closed won/lost deals and other companies were left untouched.\n\n**Zoho CRM — updated deal IDs (4):**\n- `9726451000002219392` (Qualification — kept budget-hold, legal-review)\n- `9726451000002"
+    },
+    {
+     "runId": "crm2.adapt-cold-r3.a2",
+     "stoppedBy": "completed",
+     "toolCallsByName": {
+      "memory__open_memory": 1,
+      "memory__read": 3,
+      "integration__generic-http__http_request": 2
+     },
+     "correct": "8/8",
+     "unintendedWrites": 0,
+     "unintendedPenaltyComponents": {
+      "wrongRecords": 0,
+      "forbiddenMutations": 0,
+      "wrongCrmMutations": 0,
+      "createdOrDeleted": 0
+     },
+     "tagLoss": 0,
+     "usage": {
+      "input": 222538,
+      "output": 1112,
+      "cacheRead": 207254,
+      "piCostEstimateUsd": 0.1247082,
+      "requests": 6
+     },
+     "traceOk": true,
+     "finalPreview": "I re-pinned memory (new revision now documents this exact workflow) and re-checked every deal in both CRMs before writing. **Everything from my previous run is already in the desired state — no new writes were needed this time.**\n\nVerified current state of all open deals:\n\n**Zoho CRM (account 9726451000002215473, exact-domain match)** — all 4 open deals already have `Next_Step = \"Exec review 2026-11-03\"` and `exec-review` in `Review_Tags` alongside prior tags:\n- `9726451000002219392` (Qualificat"
+    }
+   ],
+   "mechanismSuccess": false,
+   "proofGates": {
+    "freshTenantAndClone": {
+     "ok": true,
+     "detail": {
+      "priorTraceKeys": 0
+     }
+    },
+    "attempt1StoredTraceComplete": {
+     "ok": true,
+     "detail": {
+      "ok": true,
+      "problems": []
+     }
+    },
+    "attempt2StoredTraceComplete": {
+     "ok": true,
+     "detail": {
+      "ok": true,
+      "problems": []
+     }
+    },
+    "attempt2TraceSeesNewToolSchemas": {
+     "ok": false
+    },
+    "sameSessionObjectAndHistoryPrefix": {
+     "ok": true
+    },
+    "builderAuthoredValidatedPublished": {
+     "ok": false,
+     "detail": [
+      "integration_write:false",
+      "integration_validate:false",
+      "integration_git_commit:false",
+      "integration_promote:false",
+      "integration_publish:false"
+     ]
+    },
+    "memoryRevisionChanged": {
+     "ok": true,
+     "detail": {
+      "from": "rev-8e934dc886be0f1e6b788330",
+      "to": "rev-0a9377a0b56774a66d5301f3",
+      "files": [
+       "crm/attio-records.md",
+       "crm/exec-review-prep.md",
+       "crm/index.md",
+       "crm/zoho-crm-deals.md",
+       "index.md"
+      ]
+     }
+    },
+    "deployedPromotedCommitLive": {
+     "ok": false,
+     "detail": {
+      "ready": [],
+      "changedSlugs": []
+     }
+    },
+    "targetsReadyInSdk": {
+     "ok": false,
+     "detail": "not detected"
+    },
+    "readinessByAutomaticPoll": {
+     "ok": false,
+     "detail": "not detected"
+    },
+    "attempt2CalledNewOrRepairedTargetTools": {
+     "ok": false,
+     "detail": {
+      "used": [],
+      "genericCalls": 2
+     }
+    },
+    "attempt2ReopenedAndReadNewMemory": {
+     "ok": true,
+     "detail": {
+      "newRev": "rev-0a9377a0b56774a66d5301f3",
+      "pagesRead": [
+       "$KNOWLEDGE/index.md",
+       "$KNOWLEDGE/index.md",
+       "$KNOWLEDGE/crm/index.md"
+      ]
+     }
+    }
+   },
+   "readiness": {
+    "detectedBy": "not detected",
+    "readySlugs": [],
+    "detail": {}
+   },
+   "sessionProof": {
+    "piSessionId": "01a14c93-079f-714b-b91c-ee2c7bc6e27e",
+    "conversationId": "crmbench:crm2:adapt-cold-r3",
+    "sameObject": true,
+    "prefix": {
+     "count": 36,
+     "sha256": "035c7c009b16888fe522f2534f5164f2416afbf7533891b35a47cffd4fbecfd3"
+    },
+    "prefixAfterAttempt2": {
+     "count": 36,
+     "sha256": "035c7c009b16888fe522f2534f5164f2416afbf7533891b35a47cffd4fbecfd3"
+    },
+    "detectedBy": "not detected",
+    "toolsChanged": [
+     {
+      "at": "2026-10-18T01:14:26.571Z",
+      "version": 1,
+      "added": [
+       "memory__open_memory",
+       "memory__read",
+       "memory__grep",
+       "memory__find",
+       "memory__ls",
+       "memory__shell",
+       "memory__poll_command",
+       "memory__write_command",
+       "memory__cancel_command",
+       "memory__write",
+       "memory__edit",
+       "memory__view_file",
+       "integration__crm-docs__integration_info",
+       "integration__crm-docs__docs_search",
+       "integration__crm-docs__docs_read",
+       "integration__crm-docs__docs_list",
+       "integration__generic-http__integration_info",
+       "integration__generic-http__list_connections",
+       "integration__generic-http__http_request"
+      ],
+      "updated": [],
+      "removed": []
+     }
+    ]
+   },
+   "memory": {
+    "before": "rev-8e934dc886be0f1e6b788330",
+    "afterAttempt1": "rev-8e934dc886be0f1e6b788330",
+    "afterBuild": "rev-0a9377a0b56774a66d5301f3",
+    "changedFiles": [
+     "crm/attio-records.md",
+     "crm/exec-review-prep.md",
+     "crm/index.md",
+     "crm/zoho-crm-deals.md",
+     "index.md"
+    ]
+   },
+   "integrations": {
+    "before": {},
+    "after": {},
+    "changedSources": {}
+   },
+   "build": {
+    "status": "published",
+    "agents": [
+     {
+      "agentId": "root",
+      "model": "accounts/fireworks/models/kimi-k3",
+      "status": "completed",
+      "turns": 25,
+      "toolCalls": 30
+     }
+    ],
+    "traceArchive": [
+     {
+      "bytes": 3006550,
+      "chunks": 13,
+      "days": 1,
+      "disabled": false,
+      "events": 108,
+      "files": 23,
+      "firstDay": "2026-10-17",
+      "lastDay": "2026-10-17",
+      "partitions": 1,
+      "schema": "procmem.trace-archive/v1",
+      "sessions": 1,
+      "sha256": "31a59363723062e7bc1e0a6ac331c58671257fa385b300008105de93b904cc1e"
+     }
+    ]
+   },
+   "regressions": {},
+   "freshness": {
+    "priorTraceKeys": 0
+   },
+   "fixtures": {
+    "zoho": {
+     "where": "modal-tunnel",
+     "sandboxId": "sb-01M5695QEX5MCRZGRT2VBFBQSK"
+    },
+    "attio": {
+     "where": "modal-tunnel",
+     "sandboxId": "sb-01M5695WEMYMYK5NYZ1H8F1RWX"
+    }
+   }
+  },
+  "far.r2": {
+   "labels": {
+    "customer": "REAL: one Pi session object (Fireworks model) for both attempts; tools only via procmem SDK LiveToolRegistry against the local procmem parent",
+    "upstream": "SYNTHETIC CONTRACT FIXTURES; Manufact-hosted children reach them through Modal encrypted tunnels",
+    "children": "crm-attio: HOST-SEEDED DEFICIENT revision really published on Manufact; crm-hubspot/crm-pipedrive/crm-docs: host-authored, local test publisher (loopback)",
+    "builder": "REAL runMemoryBuild (Kimi root, GLM/MiniMax children, Modal workspaces) + real integration runtime (Modal sandbox, sealed validation, Exa research, Manufact publish); host gives no repaired source",
+    "joint": "memory AND tools change jointly; not an isolated memory effect (the 36-cell matrix is the memory control)"
+   },
+   "error": "Error: seed crm-attio integration_publish failed: {\"code\":\"manufact_forbidden\",\"message\":\"Manufact POST /servers -> HTTP 403: Project limit reached (5). Upgrade your plan to add more.\",\"details\":{\"status\":403}}\n    at call (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/eval/crm/adapt.ts:73:41)\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)\n    at async seedIntegration (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/eval/crm/adapt.ts:84:16)\n    at async runAdaptation (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/eval/crm/adapt.ts:250:25)\n    at async <anonymous> (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/scripts/crm-run.ts:616:17)\n    at async withParent (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/scripts/crm-run.ts:436:12)\n    at async phaseAdapt (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/scripts/crm-run.ts:603:3)\n    at async <anonymous> (/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/scripts/crm-run.ts:646:5)",
+   "task": {
+    "prompt": "Exec-review prep in our Attio CRM (Southridge Analytics Attio workspace). Company: Southridge Analytics (primary domain southridge-analytics.example).\nFor every OPEN deal (not won and not lost) associated with this company: (1) set the deal's Next step field to exactly `Exec review 2026-11-03`; (2) add the review tag `exec-review` to the deal's Review tags field, keeping any review tags already on the deal.\nDo not modify closed (won/lost) deals, deals of other companies, or any other field. When finished, reply with the IDs of the deals you updated.",
+    "targets": [
+     "attio"
+    ],
+    "org": "Southridge Analytics"
+   },
+   "taskSuccessAttempt1": null,
+   "taskSuccessAttempt2Cumulative": null,
+   "attempt2DeltaSuccess": null,
+   "attempts": [],
+   "mechanismSuccess": false,
+   "proofGates": null,
+   "readiness": {
+    "detectedBy": "not detected",
+    "readySlugs": [],
+    "detail": null
+   },
+   "sessionProof": null,
+   "memory": {
+    "before": "rev-2225657e65d05225a634e499",
+    "afterAttempt1": null,
+    "afterBuild": null,
+    "changedFiles": []
+   },
+   "integrations": {
+    "before": {},
+    "after": {},
+    "changedSources": {}
+   },
+   "build": null,
+   "regressions": {},
+   "freshness": {
+    "priorTraceKeys": 0,
+    "clonedTreeSha256": "c87d96db8306f12207b39031ff467a0db3e16eaa88a1514d397b1696e94f91ac",
+    "frozenTreeSha256": "c87d96db8306f12207b39031ff467a0db3e16eaa88a1514d397b1696e94f91ac",
+    "cloneMatches": true
+   },
+   "fixtures": {
+    "hubspot": {
+     "where": "local"
+    },
+    "pipedrive": {
+     "where": "local"
+    },
+    "attio": {
+     "where": "modal-tunnel",
+     "sandboxId": "sb-01M56A3BMTPTABC3CXC5SA23P6"
+    }
+   }
+  }
+ },
+ "abortedBatches": [
+  {
+   "batch": "crm1",
+   "reason": "aborted batch preserved (see .context/crm-eval-progress.md)",
+   "records": [
+    {
+     "id": "train-trH-1",
+     "outcome": "INFRA",
+     "correct": "-",
+     "unintendedWrites": null,
+     "unintendedPenaltyComponents": null,
+     "tagLoss": null,
+     "wrongCrmMutations": null,
+     "stoppedBy": null,
+     "turns": null,
+     "toolCalls": null,
+     "apiErrors": null,
+     "foreignPatterns": {},
+     "nonTargetRequests": null,
+     "memoryCalls": 0,
+     "memoryPagesRead": [],
+     "usage": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "piCost": 0
+     },
+     "latencyMs": null,
+     "traceOk": null,
+     "traceSha256": null,
+     "traceSessionId": null,
+     "evidence": null,
+     "error": "Error: infra: child launch failed: EEXIST: file already exists, symlink '/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/node_modules' -> '/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/.context/crm-batches/crm1/stage/child-pipedrive/node_modules'\n ",
+     "finalPreview": ""
+    },
+    {
+     "id": "train-trH-2",
+     "outcome": "INFRA",
+     "correct": "-",
+     "unintendedWrites": null,
+     "unintendedPenaltyComponents": null,
+     "tagLoss": null,
+     "wrongCrmMutations": null,
+     "stoppedBy": null,
+     "turns": null,
+     "toolCalls": null,
+     "apiErrors": null,
+     "foreignPatterns": {},
+     "nonTargetRequests": null,
+     "memoryCalls": 0,
+     "memoryPagesRead": [],
+     "usage": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "piCost": 0
+     },
+     "latencyMs": null,
+     "traceOk": null,
+     "traceSha256": null,
+     "traceSessionId": null,
+     "evidence": null,
+     "error": "Error: infra: child launch failed: EEXIST: file already exists, symlink '/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/node_modules' -> '/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/.context/crm-batches/crm1/stage/child-hubspot/node_modules'\n   ",
+     "finalPreview": ""
+    },
+    {
+     "id": "train-trH-3",
+     "outcome": "INFRA",
+     "correct": "-",
+     "unintendedWrites": null,
+     "unintendedPenaltyComponents": null,
+     "tagLoss": null,
+     "wrongCrmMutations": null,
+     "stoppedBy": null,
+     "turns": null,
+     "toolCalls": null,
+     "apiErrors": null,
+     "foreignPatterns": {},
+     "nonTargetRequests": null,
+     "memoryCalls": 0,
+     "memoryPagesRead": [],
+     "usage": {
+      "input": 0,
+      "output": 0,
+      "cacheRead": 0,
+      "piCost": 0
+     },
+     "latencyMs": null,
+     "traceOk": null,
+     "traceSha256": null,
+     "traceSessionId": null,
+     "evidence": null,
+     "error": "Error: infra: child launch failed: EEXIST: file already exists, symlink '/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/node_modules' -> '/Users/ishanramrakhiani/.codex/worktrees/crm-generalization/yc-hackathon/.context/crm-batches/crm1/stage/child-docs/node_modules'\n    at",
+     "finalPreview": ""
+    },
+    {
+     "id": "train-trH-4",
+     "outcome": "SUCCESS",
+     "correct": "1/1",
+     "unintendedWrites": 0,
+     "unintendedPenaltyComponents": {
+      "wrongRecords": 0,
+      "forbiddenMutations": 0,
+      "wrongCrmMutations": 0,
+      "createdOrDeleted": 0
+     },
+     "tagLoss": 0,
+     "wrongCrmMutations": 0,
+     "stoppedBy": "completed",
+     "turns": 9,
+     "toolCalls": 9,
+     "apiErrors": 1,
+     "foreignPatterns": {},
+     "nonTargetRequests": 0,
+     "memoryCalls": 2,
+     "memoryPagesRead": [
+      "$KNOWLEDGE/index.md"
+     ],
+     "usage": {
+      "input": 83775,
+      "output": 852,
+      "cacheRead": 71327,
+      "piCost": 0.039721019999999996
+     },
+     "latencyMs": 13360,
+     "traceOk": true,
+     "traceSha256": "a91246b842942acfd31963299863a00de75a1d0a02b3cc72096c50c77d3a28c2",
+     "traceSessionId": "crm1-trh-4-a1",
+     "evidence": "1/1 expected IDs reported, 1 other IDs",
+     "error": null,
+     "finalPreview": "Done. Updated deal **56081911376** (\"Lucerne Publishing — Platform renewal\", associated with Lucerne Publishing, domain lucerne-publishing.example):\n\n- Marked as won: deal stage set to \"Closed won (Enterprise)\" (`606849548`) in the Enterprise pipeline.\n- Review tags now `renewal;closed_q4` — kept the existing `renewal` tag and added the Q4 close-out tag (the field only accepts `closed_q4` as an al"
+    }
+   ]
+  }
+ ]
+}

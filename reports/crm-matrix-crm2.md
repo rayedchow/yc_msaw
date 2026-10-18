@@ -1,0 +1,389 @@
+# CRM generalization benchmark — batch crm2
+
+> EXPLORATORY: one sample per cell; no statistical significance is claimed. Differences between single cells may be noise.
+> SYNTHETIC CONTRACT FIXTURES of documented HubSpot/Pipedrive/Zoho CRM v8/Attio v2 API subsets. Not vendor accounts; passing is not an integration certification.
+> REAL Fireworks models (kimi-k3, glm-5p3, minimax-m3) in Pi 1.3 sessions; real memory builds (runMemoryBuild, Kimi root, Modal workspaces).
+> Matrix/training adapters: host-authored children over real MCP on loopback (LOCAL TEST PUBLISHER, not Manufact). Adaptation demos publish via Manufact; in the adaptation records of THIS batch, Manufact-published CRM children: NONE (derived from seed receipts and post-build integration records).
+
+HEAD `bf2514f8b80052dddba36f9730b23986723f2a38`; manifest `reports/crm-matrix-manifest-crm2.json`. Matrix integrity (pre+post frozen adapters/fixtures/docs): **OK**.
+
+## Provenance
+
+- Preregistered HEAD `bf2514f8b80052dddba36f9730b23986723f2a38`; report generated at HEAD `a5b1602d64f6d51428795e4a925a0afbdc634c1e`.
+- Limits: {"train":{"maxTurns":16,"maxToolCalls":40,"timeoutMs":300000},"matrix":{"maxTurns":18,"maxToolCalls":48,"timeoutMs":240000},"adapt":{"maxTurns":24,"maxToolCalls":70,"timeoutMs":420000}}; builder budget prereg {"maxSessions":1,"maxDescendants":3,"maxDepth":2,"maxConcurrentAgents":3,"maxTurns":40,"maxToolCalls":160,"maxWallClockMs":900000}.
+- Amendments: ["attio-deficient"]
+- Operator notes recorded for batch crm2 ONLY (written after its rounds ran); not claims about any other batch or later variant. Derived facts elsewhere in this report are authoritative.
+- attio-deficient seed overlay amended AFTER the crm2 matrix post-integrity check passed (that check is preserved as-is); the overlay is used only by far demos, never by matrix cells.
+- DEVIATION (crm2): Round-1 H/M builds failed under maxSessions 1 / 15 min (preserved). Round 2 (declared before execution): maxSessions 2, 30 min, builder ceiling 30M/1.5M. H published in r2; M r2 failed with 'model_error: fetch failed' (recorded as infra) and was rerun as r3 with the r2 budget.
+- DEVIATION (crm2): adapt-cold variants: original, r2, r3, each in a fresh tenant; all preserved.
+- DEVIATION (crm2): adapt-far original and r2 aborted during host seeding (see adaptation records); quota not raised and no existing Manufact project deleted or repurposed during these crm2 rounds.
+- DEVIATION (crm2): Matrix/training limits stayed at the preregistered caps; later 100x-limit steering applies only to runs after these rows.
+
+## Observations and confounds (read before the tables)
+
+- Exploratory, one sample per cell. Exact successes by memory condition (all targets): cold 12/12, H 10/12, M 10/12.
+- Non-success cells: C-minimax-H (FAIL, stop=max-turns); C-minimax-M (FAIL, stop=max-turns); CD-minimax-H (PARTIAL, stop=max-turns); CD-minimax-M (FAIL, stop=max-turns).
+- Cells with any unintended-write penalty: 0; cells with wrong-CRM writes: 0.
+- Observed (raw stored tool-call args): adapter `query` objects sent empty per model: glm 0/42, kimi 0/27, minimax 45/45. OBSERVATIONAL ONLY: correlated with the model/transport path (MiniMax uses Pi's Anthropic-messages path, Kimi/GLM openai-completions) and the open-record `query` schema, but the cause (model behavior vs. schema handling vs. provider) is NOT established. Where it occurs it is a potential confound shared by every condition of that model; it is not a memory effect by itself.
+- Adaptation variants recorded: far: aborted (Error: seed crm-attio integration_validate failed: {"code":"validation_failed","message":"); cold: ran; cold.r2: ran; cold.r3: ran; far.r2: aborted (Error: seed crm-attio integration_publish failed: {"code":"manufact_forbidden","message":"). Task success and mechanism gates are reported per variant below.
+
+## Training (8 sessions; traces only into crmtr-h / crmtr-m)
+
+| id | curriculum | model | family | target | outcome | correct | unintended penalty (wr/fm/wc/cd) | stop | tools | tokens in/out |
+|---|---|---|---|---|---|---|---|---|---|---|
+| trH-1 | H | kimi | exec-review | hubspot | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | completed | 9 | 72856/1529 |
+| trH-2 | H | glm | exec-review | hubspot | PARTIAL | 3/4 | 0 (wr0/fm0/wc0/cd0) | completed | 10 | 99954/1584 |
+| trH-3 | H | kimi | won-closeout | hubspot | SUCCESS | 1/1 | 0 (wr0/fm0/wc0/cd0) | completed | 8 | 58224/1202 |
+| trH-4 | H | glm | won-closeout | hubspot | SUCCESS | 1/1 | 0 (wr0/fm0/wc0/cd0) | completed | 11 | 106229/837 |
+| trM-1 | M | kimi | exec-review | hubspot | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | completed | 8 | 71619/1430 |
+| trM-2 | M | glm | won-closeout | hubspot | FAIL | 0/1 | 3 (wr1/fm2/wc0/cd0) | completed | 14 | 121629/1111 |
+| trM-3 | M | glm | exec-review | pipedrive | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | completed | 13 | 77945/1183 |
+| trM-4 | M | kimi | won-closeout | pipedrive | SUCCESS | 1/1 | 0 (wr0/fm0/wc0/cd0) | completed | 15 | 146469/1490 |
+
+## Memory builds (real runMemoryBuild, integrations OFF)
+
+- **H**: failed; null → rev-a4f070c189382ef3f3f89921; agents 3; tokens {"promptTokens":2804669,"completionTokens":98279,"wallMs":895363}
+- **M**: failed; null → rev-d6ebb26bee3cc18ab561eed5; agents 3; tokens {"promptTokens":3919442,"completionTokens":104718,"wallMs":900553}
+- **H.r2**: published; rev-a4f070c189382ef3f3f89921 → rev-1fd49b38966d4c2dd83687d1; agents 3; tokens {"promptTokens":3562588,"completionTokens":56635,"wallMs":649226}
+- **M.r2**: failed; rev-d6ebb26bee3cc18ab561eed5 → rev-d6ebb26bee3cc18ab561eed5; agents 3; tokens {"promptTokens":2875364,"completionTokens":99422,"wallMs":771315}
+- **H.r3**: MISSING
+- **M.r3**: published; rev-d6ebb26bee3cc18ab561eed5 → rev-7bb6cb3ac86849a78ad3dcfc; agents 3; tokens {"promptTokens":4922763,"completionTokens":82223,"wallMs":918325}
+
+Frozen arms: {"cold":{"ns":"crmmem-cold-crm2","revisionId":"rev-68f4115dd2f9d1375e5c95c3","treeSha256":"9baf88a938633b2031dcc147cbe669f522642c02cd92a807545c00e8af0cefb4","files":1},"H":{"ns":"crmmem-h-crm2","revisionId":"rev-039ab239f306e87ace0a8329","treeSha256":"361b5c19b130ab7d4c72dc64f52a0c6da80134b5ff29ece879d7cd1fd784e992","files":5,"sourceNs":"crmtr-h-crm2","sourceRevision":"rev-1fd49b38966d4c2dd83687d1","buildStatus":"published"},"M":{"ns":"crmmem-m-crm2","revisionId":"rev-b80cee8fe30a78d4cca5d2f1","treeSha256":"c87d96db8306f12207b39031ff467a0db3e16eaa88a1514d397b1696e94f91ac","files":17,"sourceNs":"crmtr-m-crm2","sourceRevision":"rev-7bb6cb3ac86849a78ad3dcfc","buildStatus":"published"}}
+
+## Scored transfer matrix (36 cells, one sample each)
+
+> Unintended penalty: COMPOSITE PENALTY, not a count of distinct records or physical write requests: wrongRecords + forbiddenMutations + wrongCrmMutations + createdOrDeleted (oracle field unintendedWrites, kept raw). One wrong record can contribute several points (e.g. 1 wrong record + 2 forbidden field mutations on the same deal = 3). Components in unintendedPenaltyComponents; shown as 'N (wr/fm/wc/cd)'.
+
+| target | model | memory | outcome | correct | unintended penalty (wr/fm/wc/cd) | tag loss | wrong-CRM writes | stop | tools | API errors | foreign patterns | memory calls | tokens in/out | trace |
+|---|---|---|---|---|---|---|---|---|---|---|---|---|---|---|
+| A | kimi | cold | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 8 | 1 | - | 2 | 72330/1401 | ok |
+| A | kimi | H | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 10 | 0 | - | 4 | 102281/1406 | ok |
+| A | kimi | M | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 8 | 2 | - | 2 | 83940/1227 | ok |
+| A | glm | cold | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 10 | 2 | - | 2 | 110245/1502 | ok |
+| A | glm | H | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 10 | 0 | - | 4 | 104444/1184 | ok |
+| A | glm | M | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 10 | 0 | - | 5 | 102910/1036 | ok |
+| A | minimax | cold | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 15 | 0 | - | 2 | 111817/2892 | ok |
+| A | minimax | H | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 12 | 0 | - | 4 | 115646/3373 | ok |
+| A | minimax | M | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 14 | 0 | - | 7 | 117730/2496 | ok |
+| C | kimi | cold | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 6 | 1 | - | 2 | 52208/973 | ok |
+| C | kimi | H | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 10 | 1 | - | 2 | 76170/1314 | ok |
+| C | kimi | M | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 12 | 0 | - | 3 | 130228/1397 | ok |
+| C | glm | cold | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 14 | 4 | - | 2 | 82294/1613 | ok |
+| C | glm | H | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 7 | 1 | - | 2 | 71950/1027 | ok |
+| C | glm | M | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 13 | 0 | - | 3 | 123513/1337 | ok |
+| C | minimax | cold | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | max-turns | 26 | 10 | - | 2 | 289717/4377 | ok |
+| C | minimax | H | FAIL | 0/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | max-turns | 27 | 9 | - | 6 | 338267/3005 | ok |
+| C | minimax | M | FAIL | 0/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | max-turns | 33 | 14 | - | 6 | 327907/3133 | ok |
+| D | kimi | cold | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 10 | 0 | - | 2 | 85700/1508 | ok |
+| D | kimi | H | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 8 | 0 | - | 2 | 71549/1447 | ok |
+| D | kimi | M | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 13 | 0 | - | 3 | 105992/1995 | ok |
+| D | glm | cold | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 13 | 1 | - | 2 | 106788/1394 | ok |
+| D | glm | H | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | max-turns | 24 | 5 | - | 3 | 224686/1718 | ok |
+| D | glm | M | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 17 | 2 | - | 3 | 211551/1775 | ok |
+| D | minimax | cold | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 20 | 0 | - | 2 | 152613/3598 | ok |
+| D | minimax | H | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 25 | 0 | - | 6 | 233020/4106 | ok |
+| D | minimax | M | SUCCESS | 4/4 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 24 | 0 | - | 5 | 273293/5068 | ok |
+| CD | kimi | cold | SUCCESS | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 12 | 0 | - | 2 | 86089/1953 | ok |
+| CD | kimi | H | SUCCESS | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 22 | 0 | - | 3 | 149719/2741 | ok |
+| CD | kimi | M | SUCCESS | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 23 | 0 | - | 3 | 187839/2897 | ok |
+| CD | glm | cold | SUCCESS | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 26 | 7 | - | 2 | 211881/3359 | ok |
+| CD | glm | H | SUCCESS | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 18 | 3 | - | 2 | 221591/3022 | ok |
+| CD | glm | M | SUCCESS | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 26 | 0 | - | 4 | 249310/2780 | ok |
+| CD | minimax | cold | SUCCESS | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | completed | 41 | 7 | - | 3 | 510226/10844 | ok |
+| CD | minimax | H | PARTIAL | 6/8 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | max-turns | 36 | 4 | - | 4 | 370433/4995 | ok |
+| CD | minimax | M | FAIL | 0/8 | 0 (wr0/fm0/wc0/cd0) | 0 | 0 | max-turns | 39 | 6 | - | 6 | 388140/4110 | ok |
+
+### Exact-success counts per target × memory condition (exploratory, n=3 predeclared cells each)
+
+> Exact-success counts use ALL predeclared cells per target x memory condition (3 models) as denominator; missing, INFRA*, INVALID*, UNAVAILABLE-ARM and ERROR cells count as non-success. 'scored-only' rate (SUCCESS/PARTIAL/FAIL/ERROR cells) is secondary.
+
+| target | cold | H | M |
+|---|---|---|---|
+| A (familiar A (HubSpot) on a new organization/data) | 3/3 exact (scored-only 3/3; non-scored: none) | 3/3 exact (scored-only 3/3; non-scored: none) | 3/3 exact (scored-only 3/3; non-scored: none) |
+| C (near held-out C (Zoho CRM v8)) | 3/3 exact (scored-only 3/3; non-scored: none) | 2/3 exact (scored-only 2/3; non-scored: none) | 2/3 exact (scored-only 2/3; non-scored: none) |
+| D (far held-out D (Attio v2)) | 3/3 exact (scored-only 3/3; non-scored: none) | 3/3 exact (scored-only 3/3; non-scored: none) | 3/3 exact (scored-only 3/3; non-scored: none) |
+| CD (multiple unseen CRMs C+D in one task) | 3/3 exact (scored-only 3/3; non-scored: none) | 2/3 exact (scored-only 2/3; non-scored: none) | 2/3 exact (scored-only 2/3; non-scored: none) |
+
+## Cost (training vs held-out separately)
+
+```json
+{
+ "note": "Tokens from provider usage reported to Pi / the builder client. Pi cost = Pi catalog price ESTIMATE; builder calls have no cost field (UNAVAILABLE, not $0).",
+ "trainingCustomers": {
+  "input": 754925,
+  "output": 10366,
+  "piCostEstimateUsd": 0.477
+ },
+ "heldoutMatrixCustomers": {
+  "input": 6254017,
+  "output": 94003,
+  "piCostEstimateUsd": 2.5884
+ },
+ "builds": {
+  "H": {
+   "promptTokens": 2804669,
+   "completionTokens": 98279,
+   "wallMs": 895363
+  },
+  "M": {
+   "promptTokens": 3919442,
+   "completionTokens": 104718,
+   "wallMs": 900553
+  },
+  "H.r2": {
+   "promptTokens": 3562588,
+   "completionTokens": 56635,
+   "wallMs": 649226
+  },
+  "M.r2": {
+   "promptTokens": 2875364,
+   "completionTokens": 99422,
+   "wallMs": 771315
+  },
+  "H.r3": null,
+  "M.r3": {
+   "promptTokens": 4922763,
+   "completionTokens": 82223,
+   "wallMs": 918325
+  },
+  "far": null,
+  "cold": {
+   "promptTokens": 2284633,
+   "completionTokens": 103284,
+   "wallMs": 900698
+  },
+  "cold.r2": {
+   "promptTokens": 588557,
+   "completionTokens": 6848,
+   "wallMs": 284475
+  },
+  "cold.r3": {
+   "promptTokens": 702428,
+   "completionTokens": 8108,
+   "wallMs": 305119
+  },
+  "far.r2": null
+ },
+ "meters": {
+  "adapt-cold-builder": {
+   "input": 2873190,
+   "output": 110132,
+   "cacheRead": 0,
+   "calls": 101,
+   "costReported": 0,
+   "callsWithoutCost": 101
+  },
+  "adapt-cold-customer": {
+   "input": 706515,
+   "output": 8399,
+   "cacheRead": 590472,
+   "calls": 31,
+   "costReported": 0.6512555999999999,
+   "callsWithoutCost": 0
+  },
+  "adapt-cold.r3-builder": {
+   "input": 702428,
+   "output": 8108,
+   "cacheRead": 0,
+   "calls": 25,
+   "costReported": 0,
+   "callsWithoutCost": 25
+  },
+  "adapt-cold.r3-customer": {
+   "input": 428066,
+   "output": 4808,
+   "cacheRead": 383349,
+   "calls": 17,
+   "costReported": 0.32127569999999994,
+   "callsWithoutCost": 0
+  },
+  "adapt-far-builder": {
+   "input": 0,
+   "output": 0,
+   "cacheRead": 0,
+   "calls": 0,
+   "costReported": 0,
+   "callsWithoutCost": 0
+  },
+  "adapt-far-customer": {
+   "input": 0,
+   "output": 0,
+   "cacheRead": 0,
+   "calls": 0,
+   "costReported": 0,
+   "callsWithoutCost": 0
+  },
+  "adapt-far.r2-builder": {
+   "input": 0,
+   "output": 0,
+   "cacheRead": 0,
+   "calls": 0,
+   "costReported": 0,
+   "callsWithoutCost": 0
+  },
+  "adapt-far.r2-customer": {
+   "input": 0,
+   "output": 0,
+   "cacheRead": 0,
+   "calls": 0,
+   "costReported": 0,
+   "callsWithoutCost": 0
+  },
+  "build-builder": {
+   "input": 13162063,
+   "output": 359054,
+   "cacheRead": 0,
+   "calls": 434,
+   "costReported": 0,
+   "callsWithoutCost": 434
+  },
+  "build.r3-builder": {
+   "input": 4922763,
+   "output": 82223,
+   "cacheRead": 0,
+   "calls": 145,
+   "costReported": 0,
+   "callsWithoutCost": 145
+  },
+  "matrix-customer": {
+   "input": 6254017,
+   "output": 94003,
+   "cacheRead": 5099795,
+   "calls": 411,
+   "costReported": 2.588578639999999,
+   "callsWithoutCost": 5
+  },
+  "train-customer": {
+   "input": 754925,
+   "output": 10366,
+   "cacheRead": 661426,
+   "calls": 83,
+   "costReported": 0.47694395999999994,
+   "callsWithoutCost": 0
+  }
+ }
+}
+```
+
+## Same-session adaptation demonstrations
+
+### far
+
+**Outcome: INFRA-SETUP (no customer model call, no builder).** Error: seed crm-attio integration_validate failed: {"code":"validation_failed","message":"smoke (smoke): 1 case(s) failed"}
+
+- Task success (host oracle): attempt 1 = **null**, attempt 2 cumulative = **null** (delta-only null).
+- Mechanism (all proof gates): **false** — reported separately from task success.
+- Readiness: not detected; ready []
+- Memory: null → null (0 files)
+- Integration source changes: {}
+
+| gate | ok | detail |
+|---|---|---|
+
+| attempt | stop | correct | unintended penalty (wr/fm/wc/cd) | tag loss | trace ok | tool calls |
+|---|---|---|---|---|---|---|
+
+### cold
+
+- Task success (host oracle): attempt 1 = **true**, attempt 2 cumulative = **true** (delta-only true).
+- Mechanism (all proof gates): **false** — reported separately from task success.
+- Readiness: not detected; ready []
+- Memory: rev-1f0e601bb542144a2207a2b0 → rev-1f0e601bb542144a2207a2b0 (0 files)
+- Integration source changes: {}
+
+| gate | ok | detail |
+|---|---|---|
+| freshTenantAndClone | yes | {"priorTraceKeys":0} |
+| attempt1StoredTraceComplete | yes | {"ok":true,"problems":[]} |
+| attempt2StoredTraceComplete | yes | {"ok":true,"problems":[]} |
+| attempt2TraceSeesNewToolSchemas | **NO** | "" |
+| sameSessionObjectAndHistoryPrefix | yes | "" |
+| builderAuthoredValidatedPublished | **NO** | ["integration_write:false","integration_validate:false","integration_git_commit:false","integration_promote:false","integration_publish:false"] |
+| memoryRevisionChanged | **NO** | {"from":"rev-1f0e601bb542144a2207a2b0","to":"rev-1f0e601bb542144a2207a2b0","files":[]} |
+| deployedPromotedCommitLive | **NO** | {"ready":[],"changedSlugs":[]} |
+| targetsReadyInSdk | **NO** | "not detected" |
+| readinessByAutomaticPoll | **NO** | "not detected" |
+| attempt2CalledNewOrRepairedTargetTools | **NO** | {"used":[],"genericCalls":2} |
+| attempt2ReopenedAndReadNewMemory | yes | {"newRev":"rev-1f0e601bb542144a2207a2b0","pagesRead":["$KNOWLEDGE/index.md"]} |
+
+| attempt | stop | correct | unintended penalty (wr/fm/wc/cd) | tag loss | trace ok | tool calls |
+|---|---|---|---|---|---|---|
+| 1 | completed | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | true | {"memory__open_memory":1,"integration__generic-http__list_connections":1,"memory__read":1,"integration__generic-http__http_request":19} |
+| 2 | completed | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | true | {"memory__open_memory":1,"memory__read":1,"integration__generic-http__http_request":2} |
+
+### cold.r2
+
+- Task success (host oracle): attempt 1 = **true**, attempt 2 cumulative = **true** (delta-only true).
+- Mechanism (all proof gates): **false** — reported separately from task success.
+- Readiness: not detected; ready []
+- Memory: rev-60c830aae129238777e83d8b → rev-60c830aae129238777e83d8b (0 files)
+- Integration source changes: {}
+
+| gate | ok | detail |
+|---|---|---|
+| freshTenantAndClone | yes | {"priorTraceKeys":0} |
+| attempt1StoredTraceComplete | yes | {"ok":true,"problems":[]} |
+| attempt2StoredTraceComplete | yes | {"ok":true,"problems":[]} |
+| attempt2TraceSeesNewToolSchemas | **NO** | "" |
+| sameSessionObjectAndHistoryPrefix | yes | "" |
+| builderAuthoredValidatedPublished | **NO** | ["integration_write:false","integration_validate:false","integration_git_commit:false","integration_promote:false","integration_publish:false"] |
+| memoryRevisionChanged | **NO** | {"from":"rev-60c830aae129238777e83d8b","to":"rev-60c830aae129238777e83d8b","files":[]} |
+| deployedPromotedCommitLive | **NO** | {"ready":[],"changedSlugs":[]} |
+| targetsReadyInSdk | **NO** | "not detected" |
+| readinessByAutomaticPoll | **NO** | "not detected" |
+| attempt2CalledNewOrRepairedTargetTools | **NO** | {"used":[],"genericCalls":5} |
+| attempt2ReopenedAndReadNewMemory | yes | {"newRev":"rev-60c830aae129238777e83d8b","pagesRead":["$KNOWLEDGE/index.md","$KNOWLEDGE/index.md"]} |
+
+| attempt | stop | correct | unintended penalty (wr/fm/wc/cd) | tag loss | trace ok | tool calls |
+|---|---|---|---|---|---|---|
+| 1 | completed | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | true | {"memory__open_memory":1,"integration__generic-http__list_connections":1,"memory__read":1,"integration__crm-docs__docs_search":2,"integration__crm-docs__docs_read":4,"integration__generic-http__http_request":12} |
+| 2 | completed | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | true | {"memory__open_memory":1,"integration__generic-http__list_connections":1,"memory__read":2,"integration__generic-http__http_request":4} |
+
+### cold.r3
+
+- Task success (host oracle): attempt 1 = **true**, attempt 2 cumulative = **true** (delta-only true).
+- Mechanism (all proof gates): **false** — reported separately from task success.
+- Readiness: not detected; ready []
+- Memory: rev-8e934dc886be0f1e6b788330 → rev-0a9377a0b56774a66d5301f3 (5 files)
+- Integration source changes: {}
+
+| gate | ok | detail |
+|---|---|---|
+| freshTenantAndClone | yes | {"priorTraceKeys":0} |
+| attempt1StoredTraceComplete | yes | {"ok":true,"problems":[]} |
+| attempt2StoredTraceComplete | yes | {"ok":true,"problems":[]} |
+| attempt2TraceSeesNewToolSchemas | **NO** | "" |
+| sameSessionObjectAndHistoryPrefix | yes | "" |
+| builderAuthoredValidatedPublished | **NO** | ["integration_write:false","integration_validate:false","integration_git_commit:false","integration_promote:false","integration_publish:false"] |
+| memoryRevisionChanged | yes | {"from":"rev-8e934dc886be0f1e6b788330","to":"rev-0a9377a0b56774a66d5301f3","files":["crm/attio-records.md","crm/exec-review-prep.md","crm/index.md","crm/zoho-crm-deals.md","index.md"]} |
+| deployedPromotedCommitLive | **NO** | {"ready":[],"changedSlugs":[]} |
+| targetsReadyInSdk | **NO** | "not detected" |
+| readinessByAutomaticPoll | **NO** | "not detected" |
+| attempt2CalledNewOrRepairedTargetTools | **NO** | {"used":[],"genericCalls":2} |
+| attempt2ReopenedAndReadNewMemory | yes | {"newRev":"rev-0a9377a0b56774a66d5301f3","pagesRead":["$KNOWLEDGE/index.md","$KNOWLEDGE/index.md","$KNOWLEDGE/crm/index.md"]} |
+
+| attempt | stop | correct | unintended penalty (wr/fm/wc/cd) | tag loss | trace ok | tool calls |
+|---|---|---|---|---|---|---|
+| 1 | completed | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | true | {"memory__open_memory":1,"integration__generic-http__list_connections":1,"memory__read":1,"integration__generic-http__http_request":16,"integration__crm-docs__docs_search":2,"integration__crm-docs__docs_read":2} |
+| 2 | completed | 8/8 | 0 (wr0/fm0/wc0/cd0) | 0 | true | {"memory__open_memory":1,"memory__read":3,"integration__generic-http__http_request":2} |
+
+### far.r2
+
+**Outcome: INFRA-SETUP (no customer model call, no builder).** Error: seed crm-attio integration_publish failed: {"code":"manufact_forbidden","message":"Manufact POST /servers -> HTTP 403: Project limit reached (5). Upgrade your plan to add more.","details":{"status":403}}
+
+- Task success (host oracle): attempt 1 = **null**, attempt 2 cumulative = **null** (delta-only null).
+- Mechanism (all proof gates): **false** — reported separately from task success.
+- Readiness: not detected; ready []
+- Memory: null → null (0 files)
+- Integration source changes: {}
+
+| gate | ok | detail |
+|---|---|---|
+
+| attempt | stop | correct | unintended penalty (wr/fm/wc/cd) | tag loss | trace ok | tool calls |
+|---|---|---|---|---|---|---|
+
+## Aborted batches (preserved, not merged into results)
+
+- crm1: aborted batch preserved (see .context/crm-eval-progress.md); records: train-trH-1=INFRA, train-trH-2=INFRA, train-trH-3=INFRA, train-trH-4=SUCCESS

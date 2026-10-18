@@ -4,6 +4,7 @@
  * Writes reports/crm-matrix-<batch>.json / .md / .html. Every predeclared cell is listed (completed, failed, infra,
  * invalid, unavailable arm, or MISSING). One sample per cell: exploratory, no statistical claims.
  */
+import { execFileSync } from "node:child_process";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import { parseArgs } from "node:util";
@@ -113,6 +114,30 @@ const aborted = await Promise.all((values.aborted ?? []).map(async (b) => {
   return { batch: b, reason: "aborted batch preserved (see .context/crm-eval-progress.md)", records: await Promise.all(fs2.map(async (f) => { const r = JSON.parse(await fs.readFile(path.join(d, f), "utf8")); return cellRow(f.replace(/\.json$/, ""), r, false); })) };
 }));
 
+// ------------------------------------------------------------------ facts DERIVED from records (no hard-coded outcomes)
+const perCondition = Object.fromEntries(["cold", "H", "M"].map((c) => { const rows = matrix.filter((r) => r.condition === c); return [c, `${rows.filter((r) => r.outcome === "SUCCESS").length}/${rows.length}`]; }));
+const nonSuccess = matrix.filter((r) => r.outcome !== "SUCCESS").map((r) => `${r.id} (${r.outcome}, stop=${r.stoppedBy ?? "-"})`);
+const penaltyCells = matrix.filter((r) => (r.unintendedWrites ?? 0) > 0).length;
+const wrongCrmCells = matrix.filter((r) => (r.wrongCrmMutations ?? 0) > 0).length;
+// Empty `query` objects in raw stored tool-call args, per model (matrix + training cell records).
+const emptyQuery: Record<string, { empty: number; total: number }> = {};
+for (const f of files.filter((x) => /^(cell|train)-.*\.json$/.test(x))) {
+  const r = await read(f);
+  for (const c of (r?.storedTrace?.toolCalls ?? []) as Rec[]) {
+    if (!String(c.name).endsWith("_request") || !c.args || typeof c.args !== "object" || !("query" in c.args)) continue;
+    const e = (emptyQuery[r.model] ??= { empty: 0, total: 0 });
+    e.total += 1;
+    if (c.args.query == null || (typeof c.args.query === "object" && Object.keys(c.args.query).length === 0) || c.args.query === "") e.empty += 1;
+  }
+}
+// Publication facts from durable adaptation records (seed receipts + post-build integration records).
+const publication = Object.entries(adapt).map(([k, a]) => {
+  const seededPublish = ((a?.seeded ?? []) as Rec[]).filter((x) => x.receipts?.integration_publish).map((x) => x.slug);
+  const live = Object.entries((a?.integrations?.after ?? {}) as Record<string, Rec>).filter(([, v]) => v?.active).map(([sl, v]) => ({ slug: sl, deploymentId: v.active.deploymentId, mcpUrl: v.mcpUrl ?? null }));
+  return { variant: k, seededPublish, liveAfterBuild: live, error: a?.error ? String(a.error).split("\n")[0]!.slice(0, 200) : null };
+});
+const anyPublished = publication.some((p) => p.seededPublish.length || p.liveAfterBuild.length);
+
 const report = {
   kind: "crm-generalization-report",
   batch: BATCH,
@@ -122,13 +147,49 @@ const report = {
     scope: "EXPLORATORY: one sample per cell; no statistical significance is claimed. Differences between single cells may be noise.",
     models: "REAL Fireworks models (kimi-k3, glm-5p3, minimax-m3) in Pi 1.3 sessions; real memory builds (runMemoryBuild, Kimi root, Modal workspaces).",
     crms: "SYNTHETIC CONTRACT FIXTURES of documented HubSpot/Pipedrive/Zoho CRM v8/Attio v2 API subsets. Not vendor accounts; passing is not an integration certification.",
-    transport: "Matrix/training adapters: host-authored children over real MCP on loopback (LOCAL TEST PUBLISHER, not Manufact). Adaptation demos: Manufact-published children (see adaptation section).",
+    transport: `Matrix/training adapters: host-authored children over real MCP on loopback (LOCAL TEST PUBLISHER, not Manufact). Adaptation demos publish via Manufact; in the adaptation records of THIS batch, Manufact-published CRM children: ${anyPublished ? publication.flatMap((p) => [...p.seededPublish.map((s) => `${p.variant}:${s}(seed)`), ...p.liveAfterBuild.map((l) => `${p.variant}:${l.slug}`)]).join(", ") : "NONE"} (derived from seed receipts and post-build integration records).`,
     scoring: "Primary success = host fixture oracle on full initial/final state + mutation log (reverted forbidden writes count). Answer-text evidence is secondary.",
     successDenominator: "Exact-success counts use ALL predeclared cells per target x memory condition (3 models) as denominator; missing, INFRA*, INVALID*, UNAVAILABLE-ARM and ERROR cells count as non-success. 'scored-only' rate (SUCCESS/PARTIAL/FAIL/ERROR cells) is secondary.",
     unintendedWrites: "COMPOSITE PENALTY, not a count of distinct records or physical write requests: wrongRecords + forbiddenMutations + wrongCrmMutations + createdOrDeleted (oracle field unintendedWrites, kept raw). One wrong record can contribute several points (e.g. 1 wrong record + 2 forbidden field mutations on the same deal = 3). Components in unintendedPenaltyComponents; shown as 'N (wr/fm/wc/cd)'.",
     foreignPatterns: "Per-row foreign-API-pattern counts are summed by pattern key across all CRM instances in the cell (per-instance raw counts remain in cell result files).",
   },
   manifest: { file: `reports/crm-matrix-manifest-${BATCH}.json`, head: manifest.head, createdAt: manifest.createdAt },
+  provenance: {
+    preregisteredHead: manifest.head,
+    reportGeneratedAtHead: (() => {
+      try {
+        return execFileSync("git", ["rev-parse", "HEAD"], { cwd: REPO, encoding: "utf8" }).trim();
+      } catch {
+        return null;
+      }
+    })(),
+    frozenSourceHashes: (manifest as Rec).sources?.adapterFingerprints ?? null,
+    limits: (manifest as Rec).limits ?? null,
+    builderBudgetPrereg: (manifest as Rec).builderBudget ?? null,
+    budgetsPrereg: (manifest as Rec).budgets ?? null,
+    amendments: existsSync(path.join(BDIR, "amendments.json")) ? JSON.parse(await fs.readFile(path.join(BDIR, "amendments.json"), "utf8")) : {},
+    batchNotes:
+      BATCH === "crm2"
+        ? {
+            scope: "Operator notes recorded for batch crm2 ONLY (written after its rounds ran); not claims about any other batch or later variant. Derived facts elsewhere in this report are authoritative.",
+            amendment: "attio-deficient seed overlay amended AFTER the crm2 matrix post-integrity check passed (that check is preserved as-is); the overlay is used only by far demos, never by matrix cells.",
+            deviations: [
+              "Round-1 H/M builds failed under maxSessions 1 / 15 min (preserved). Round 2 (declared before execution): maxSessions 2, 30 min, builder ceiling 30M/1.5M. H published in r2; M r2 failed with 'model_error: fetch failed' (recorded as infra) and was rerun as r3 with the r2 budget.",
+              "adapt-cold variants: original, r2, r3, each in a fresh tenant; all preserved.",
+              "adapt-far original and r2 aborted during host seeding (see adaptation records); quota not raised and no existing Manufact project deleted or repurposed during these crm2 rounds.",
+              "Matrix/training limits stayed at the preregistered caps; later 100x-limit steering applies only to runs after these rows.",
+            ],
+          }
+        : null,
+  },
+  publication,
+  observations: [
+    `Exploratory, one sample per cell. Exact successes by memory condition (all targets): cold ${perCondition.cold}, H ${perCondition.H}, M ${perCondition.M}.`,
+    `Non-success cells: ${nonSuccess.length ? nonSuccess.join("; ") : "none"}.`,
+    `Cells with any unintended-write penalty: ${penaltyCells}; cells with wrong-CRM writes: ${wrongCrmCells}.`,
+    `Observed (raw stored tool-call args): adapter \`query\` objects sent empty per model: ${Object.entries(emptyQuery).map(([m, v]) => `${m} ${v.empty}/${v.total}`).join(", ") || "n/a"}. OBSERVATIONAL ONLY: correlated with the model/transport path (MiniMax uses Pi's Anthropic-messages path, Kimi/GLM openai-completions) and the open-record \`query\` schema, but the cause (model behavior vs. schema handling vs. provider) is NOT established. Where it occurs it is a potential confound shared by every condition of that model; it is not a memory effect by itself.`,
+    `Adaptation variants recorded: ${publication.map((p) => `${p.variant}: ${p.error ? `aborted (${p.error.slice(0, 90)})` : "ran"}`).join("; ")}. Task success and mechanism gates are reported per variant below.`,
+  ],
   integrity: { matrixIntegrityOk, anyIntegrityFailure: integrityFailed, checks: integrity.map((i) => ({ file: i.file, ok: i.ok, problems: (i.problems ?? []).slice(0, 10) })) },
   training,
   builds: Object.fromEntries(Object.entries(builds).map(([k, b]) => [k, b && { status: b.status, budget: b.budget ?? "round-1 declared budget", revisionBefore: b.revisionBefore, revisionAfter: b.revisionAfter, failure: (b.receipts ?? []).map((r: Rec) => r.error ?? null), agents: b.agents?.map((a: Rec) => ({ agentId: a.agentId, model: a.model, depth: a.depth, status: a.status, turns: a.turns, toolCalls: a.toolCalls })), tokens: buildTokens(b), traceArchive: b.traceArchive }])),
@@ -177,6 +238,7 @@ const report = {
 const md: string[] = [];
 md.push(`# CRM generalization benchmark — batch ${BATCH}`, "", `> ${report.labels.scope}`, `> ${report.labels.crms}`, `> ${report.labels.models}`, `> ${report.labels.transport}`, "");
 md.push(`HEAD \`${state.head}\`; manifest \`${report.manifest.file}\`. Matrix integrity (pre+post frozen adapters/fixtures/docs): **${matrixIntegrityOk ? "OK" : "FAILED/INCOMPLETE — matrix cells INVALID"}**.`, "");
+md.push("## Provenance", "", `- Preregistered HEAD \`${report.provenance.preregisteredHead}\`; report generated at HEAD \`${report.provenance.reportGeneratedAtHead}\`.`, `- Limits: ${JSON.stringify(report.provenance.limits)}; builder budget prereg ${JSON.stringify(report.provenance.builderBudgetPrereg)}.`, `- Amendments: ${JSON.stringify(Object.keys(report.provenance.amendments))}`, ...(report.provenance.batchNotes ? [`- ${report.provenance.batchNotes.scope}`, `- ${report.provenance.batchNotes.amendment}`, ...report.provenance.batchNotes.deviations.map((d) => `- DEVIATION (crm2): ${d}`)] : []), "", "## Observations and confounds (read before the tables)", "", ...report.observations.map((o) => `- ${o}`), "");
 md.push("## Training (8 sessions; traces only into crmtr-h / crmtr-m)", "", "| id | curriculum | model | family | target | outcome | correct | unintended penalty (wr/fm/wc/cd) | stop | tools | tokens in/out |", "|---|---|---|---|---|---|---|---|---|---|---|");
 for (const r of training) md.push(`| ${r.id} | ${r.curriculum} | ${r.model} | ${r.family} | ${r.target} | ${r.outcome} | ${r.correct} | ${penaltyCell(r)} | ${r.stoppedBy ?? "-"} | ${r.toolCalls ?? "-"} | ${r.usage.input}/${r.usage.output} |`);
 md.push("", "## Memory builds (real runMemoryBuild, integrations OFF)", "");
@@ -194,7 +256,8 @@ for (const [k, a] of Object.entries(report.adaptation) as Array<[string, Rec]>) 
     md.push(a.missing ? "MISSING (not run)" : `UNAVAILABLE: ${a.unavailable}`, "");
     continue;
   }
-  if (a.error) md.push(`**ERROR:** ${a.error.slice(0, 600)}`, "");
+  if (a.error && !(a.attempts ?? []).length) md.push(`**Outcome: INFRA-SETUP (no customer model call, no builder).** ${a.error.split("\n")[0]!.slice(0, 400)}`, "");
+  else if (a.error) md.push(`**ERROR:** ${a.error.slice(0, 600)}`, "");
   md.push(`- Task success (host oracle): attempt 1 = **${a.taskSuccessAttempt1}**, attempt 2 cumulative = **${a.taskSuccessAttempt2Cumulative}** (delta-only ${a.attempt2DeltaSuccess}).`, `- Mechanism (all proof gates): **${a.mechanismSuccess}** — reported separately from task success.`, `- Readiness: ${a.readiness?.detectedBy}; ready ${JSON.stringify(a.readiness?.readySlugs)}`, `- Memory: ${a.memory.afterAttempt1} → ${a.memory.afterBuild} (${a.memory.changedFiles?.length ?? 0} files)`, `- Integration source changes: ${JSON.stringify(a.integrations.changedSources)}`, "");
   md.push("| gate | ok | detail |", "|---|---|---|");
   for (const [g, v] of Object.entries(a.proofGates ?? {}) as Array<[string, Rec]>) md.push(`| ${g} | ${v.ok ? "yes" : "**NO**"} | ${JSON.stringify(v.detail ?? "").replace(/\|/g, "/").slice(0, 220)} |`);

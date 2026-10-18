@@ -122,3 +122,11 @@ updated at 2026-10-18T01:33:34Z; neither time is backdated.
 In flight when this was recorded (original limits, unchanged): the crm2 36-cell matrix and adapt-cold.r3. crm2
 adapt-far round 1 and round 2 both failed during seeding with zero model calls (round 2: Manufact
 5-project limit). No far customer attempt has run yet. The Manufact 5-project quota still blocks far.
+
+## First-round outcome (batch crm2) and limitations
+
+See `reports/crm-matrix-crm2.md` (provenance, deviations, observations first). In short: 36/36 matrix cells ran
+(cold 12/12, H 10/12, M 10/12 exact; all 4 misses are MiniMax with trained memory on Zoho at the turn cap, with a potential confound:
+MiniMax's recorded `query` tool arguments were empty in every call, cause not established). The cold generic HTTP tool solved the
+multi-CRM task without any new MCP in all three cold-create runs; no builder-created CRM MCP or hot swap was
+demonstrated. The far-repair demo did not run (INFRA-SETUP: host seed smoke bug, then Manufact org project quota 403).
