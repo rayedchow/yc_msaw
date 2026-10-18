@@ -910,6 +910,29 @@
       ]
     },
     {
+      "path": "drizzle/9450_notion_source_lane.sql",
+      "sha256": "697a0d1bbb9cec1427bc607e3240452d786a8fe98aea963a17e565ca1027084f",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Notion deep-lane tables (quota per Notion budget: bot / workspace / endpoint, connection identity + capability denials, sync generations, restart-safe work queue with page grouping, current nodes, blocks, comments with open/resolved/deleted status, files with stable host+path and byte status, content-addressed block versions, append-only raw records, <=8 MiB byte chunks) and journal triggers via source_lane_journal_row with sweep bookkeeping columns ignored.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "drizzle/9451_notion_source_schedules.sql",
+      "sha256": "228efe8140df53a23da8b0f05c37faba351de301da03f5745a2493fe3f8a69d0",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Idempotent notion.source_sweep schedule for tenants already connected when the lane is installed (new connections: patch request notion 1).",
+      "tests": [
+        "tests/source-lane/providers/notion/module.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9550_imessage_device_ingest.sql",
       "sha256": "a90496678f6b14512efca3fceac38d1f7f2804642af7ed9a207d143912fc5349",
       "status": "new",
@@ -1923,10 +1946,17 @@
     },
     {
       "path": "src/integrations/notion/content.ts",
-      "sha256": "2a3312db39655b813d68d00c5037e88d13fd4c8301f64ae4ea204a3b767f5d2d",
-      "status": "verbatim",
+      "sha256": "afa4cad9ac15ce5142b3469062bd177bb9df4264a5db37d17249ed0e717f4177",
+      "status": "patched",
+      "owner": "notion",
       "donorPath": "src/integrations/notion/content.ts",
-      "donorSha256": "2a3312db39655b813d68d00c5037e88d13fd4c8301f64ae4ea204a3b767f5d2d"
+      "donorSha256": "2a3312db39655b813d68d00c5037e88d13fd4c8301f64ae4ea204a3b767f5d2d",
+      "reason": "SOURCE-LANE PATCH (notion agent): appended two exported pure functions, renderStoredNotionBlocks (stored raw block forest -> the walker's own blockToNode / synced-block annotation / comment summaries / renderBlock+renderBlocks, no Notion request) and renderStoredNotionComments, so the deep lane's readable projections use the donor renderer instead of a copy. Existing code byte-identical.",
+      "tests": [
+        "tests/integrations/notion/*.test.ts (donor, unchanged, 22 pass)",
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts"
+      ]
     },
     {
       "path": "src/integrations/notion/coverage.ts",
@@ -2007,10 +2037,16 @@
     },
     {
       "path": "src/integrations/notion/webhook.ts",
-      "sha256": "3c0a843e023234589d924445245a2178ef45e2544e05f445cc4689b98aa8cd06",
-      "status": "verbatim",
+      "sha256": "80439b7cd65ee3a8a1831d2dffc52ad86ccbcb5060e19c9ec7bb63e8e915c461",
+      "status": "patched",
+      "owner": "notion",
       "donorPath": "src/integrations/notion/webhook.ts",
-      "donorSha256": "3c0a843e023234589d924445245a2178ef45e2544e05f445cc4689b98aa8cd06"
+      "donorSha256": "3c0a843e023234589d924445245a2178ef45e2544e05f445cc4689b98aa8cd06",
+      "reason": "SOURCE-LANE PATCH (notion agent): (1) ledger first: the webhook signal event is written before removeNotionPageContent/removeNotionDataSourceContent (audit defect: removal preceded the ledger row, contradicting docs and the poll/reconcile paths); (2) best-effort hint into the deep lane (enqueueNotionSourceHint via dynamic import, errors logged, never fail the webhook).",
+      "tests": [
+        "tests/integrations/notion/webhook.test.ts (donor, unchanged, passes)",
+        "tests/source-lane/providers/notion/module.test.ts (ledger-first ordering, hints)"
+      ]
     },
     {
       "path": "src/integrations/office-audio/lane.ts",
@@ -2773,15 +2809,16 @@
     },
     {
       "path": "src/queue/dispatch.ts",
-      "sha256": "b302c5c3b91586a183d73bc212894992f07435b36e3fb78dbe9111e4dd4b9c8e",
+      "sha256": "24ec09c81ccb4f3c8f365a6f8619414ebd9998bfad3af51bba27bf3206d892ba",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/queue/dispatch.ts",
       "donorSha256": "3efb36af346a94abf50a50e44472ab50583eef8379193e2cb15befd9f3548bd0",
-      "reason": "calendar-contacts request 4 + confluence request 1 (see DECLARED_OVERRIDES). jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira. github patch request 1: startNangoPolling schedules github.content_sweep (own group) for GitHub. bitbucket request 1: bitbucket.content_sweep schedule in its own group.",
+      "reason": "calendar-contacts request 4 + confluence request 1 (see DECLARED_OVERRIDES). jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira. github patch request 1: startNangoPolling schedules github.content_sweep (own group) for GitHub. bitbucket request 1: bitbucket.content_sweep schedule in its own group. notion request 1: notion.source_sweep schedule on the donor notion group; notion request 2: donor notion.poll every 300 s.",
       "tests": [
         "tests/source-lane/core/shared-patches-bitbucket.test.ts",
         "tests/source-lane/core/shared-patches-confluence.test.ts",
+        "tests/source-lane/core/shared-patches-notion.test.ts",
         "tests/source-lane/core/shared-patches.test.ts",
         "tests/source-lane/providers/jira/shared-patches.test.ts"
       ]
@@ -4393,6 +4430,170 @@
         "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
         "tests/source-lane/providers/nango-records/export.test.ts",
         "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/notion/api.ts",
+      "sha256": "3077701c1508db900abbc6addc96e018affb8eba88964737472cf7bfe9a2acdf",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Notion REST transport for the deep lane: single attempt, no in-process sleep, typed 429/529 errors carrying Retry-After and the Notion budget (rate_limit_reason), 401 refresh-once, credential-free host-allowlisted manual-redirect streaming downloads of Notion-hosted files with byte cap.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/notion/client.ts",
+          "use": "Notion-Version constant (imported), API base, OAuth refresh request/metadata shape of refreshStoredNotionToken (not exported there), retryable status set"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/notion/coverage.ts",
+      "sha256": "ab40641248900780388718479e9bbb6304576147b7201276fa5da1bd89e2038c",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Truthful coverage from durable state: workspace current state (complete only when every gap is closed), history always partial, donor lane partial, blocked/pending states.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/notion/export-map.ts",
+      "sha256": "1a41c561acdf280d97c88c53f5f013727ed398ee03763052623d675b029f2f5a",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Extra-table exporters: connection json, readable tree + exact current raw (stored jsonb text spliced), chunked binary file versions + _file.json, immutable raw ledger with page trees composed from content-addressed versions; tombstones delete readable paths only.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/notion/index.ts",
+      "sha256": "14cab2c7a8339775bc3e596b0301ae9342ee785848d615de0e942ac9a1bb16b8",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Notion provider module (baseline by core) extended with the deep lane's extra tables, coverage and task handler; donor event sources and mirror root unchanged.",
+      "tests": [
+        "tests/source-lane/providers/notion/module.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/notion/model.ts",
+      "sha256": "937d1f923180d430ebfac1645c2c16e8b2a2c029ebd3f7acb4bb441204b857f0",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Pure mapping from Notion API objects to stored shapes: node/block inputs (2026-03-11 in_trash, data_source parents), file reference extraction before redaction (signed URL kept in memory only), donor Notion redaction, paginated-property predicate.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/notion/content.ts",
+          "use": "propertyNeedsHydration predicate (formula/relation/rollup always, has_more, >=25 items) reimplemented as propertiesNeedingHydration"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/notion/client.ts",
+          "use": "extractNotionTitle / notionParentInfo (imported)"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/notion/paths.ts",
+      "sha256": "7afa6513e9d169a82987ebc78073b205f685980c55188421667bafc308c62d8d",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Readable Notion hierarchy paths (<Title>--<id32>, rows under data sources, _deep past 40 levels), file and raw ledger paths under sources/notion/_workspaces/<ws>/<bot>/.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/notion/render.ts",
+      "sha256": "acd0439dc1c99a305e9a20f30989cc7019a429c3239c94f38dc36fe70649c6d0",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Readable projections built on the donor walker renderers (renderStoredNotionBlocks / renderNotionPropertyValue / renderStoredNotionComments): page.md front matter + properties + blocks + comments + file links, comments.md with status, database/data source markdown, native table CSV/markdown.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/notion/content.ts",
+          "use": "block/property/comment rendering (imported); hydratedPropertyPayload rules reimplemented in hydratedProperty"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/notion/store.ts",
+      "sha256": "8881af901d353517efb83888ffd5f338ae967865c7d0fba76386703487680fa5",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Persistence of the deep lane (tenant + connection scoped): connections, sync state/generations, durable work queue with cursor checkpoints, node/block/comment/file upserts with change detection, subtree re-journaling for moves, raw ledger, chunked bytes, quota cooldowns and leases.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/notion/sweep.ts",
+      "sha256": "986fda1fc29672b1173829d2acda873da1bb8680c7ad8e46ccee01748a39dd18",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Deep sweep (task notion.source_sweep): search + recursive traversal, every block level fully paginated, comments with resolved/deleted confirmation, paginated property hydration, data source queries with created_time windows past the result cap, immediate file byte capture with fresh-URL retry, generation confirm-before-tombstone, delta on Notion's clock, trash/restore/move handling, paced requests, Retry-After per Notion budget, lease, webhook hints.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/notion/reconcile.ts",
+          "use": "confirm-by-direct-fetch semantics (404 = deleted or unshared) before tombstoning"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/notion/poller.ts",
+          "use": "data source / standalone page discovery model and trash detection"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/notion/webhook.ts",
+          "use": "notionWebhookAffectedPageId / notionWebhookAffectedDataSourceId (imported) for webhook hints"
+        }
       ]
     },
     {
@@ -6128,6 +6329,111 @@
         "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
         "tests/source-lane/providers/nango-records/export.test.ts",
         "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/notion/deep-lane.test.ts",
+      "sha256": "af39dad2a5fe2604af165c80b47307f8fc2d150837133d4507b8de9d88fc794a",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Notion lane tests through production sweep, client, mappers, exporter and the real yc_msaw store.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/notion/fake-notion.ts",
+      "sha256": "40aa10a3b3b4d8e2542f23f0af95c17f4f467f63fb74b3b96348a2999f108df0",
+      "status": "new",
+      "owner": "notion",
+      "reason": "In-memory Notion API (2026-03-11 shapes, cursors, signed file URLs, injectable 429/401/expiry/invalid cursors) for lane tests; synthetic data only.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/notion/fixtures.ts",
+      "sha256": "5112a4602d7ddd40a14e05ac18dd25cfd08005bd9ddb814b22d08ffc261c5bb0",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Sweep/exporter helpers for lane tests.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/notion/harness.ts",
+      "sha256": "4057d1dd0b6e22f85cdc77eb27c6f18a0426ce607f1bc02f550d71bf5f95de80",
+      "status": "new",
+      "owner": "notion",
+      "reason": "PGlite harness with donor migrations + 9000-9002 + 9450/9451.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/notion/module.test.ts",
+      "sha256": "42186283123f7629698c1c00b395e726fc98a1f06039de08add22b9b62425639",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Notion lane tests through production sweep, client, mappers, exporter and the real yc_msaw store.",
+      "tests": [
+        "tests/source-lane/providers/notion/module.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/notion/real-pg.test.ts",
+      "sha256": "edb93536003c939df48883b9e1cc7f8615b09c1c38727568b43f6a88920dcb9c",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Notion lane tests through production sweep, client, mappers, exporter and the real yc_msaw store.",
+      "tests": [
+        "tests/source-lane/providers/notion/real-pg.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/notion/seed.ts",
+      "sha256": "5b218cc35f83fb0bc3d8061fbfe538988b0616d95156ec3b20dc7f6cc68f82ea",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Synthetic workspace fixture shared by PGlite and real-PostgreSQL suites.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/notion/transport.test.ts",
+      "sha256": "b6f35e83cc2ebb63bea9ac64221d3c841d178f3882c43ec7a7a889abac9a3630",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Notion lane tests through production sweep, client, mappers, exporter and the real yc_msaw store.",
+      "tests": [
+        "tests/source-lane/providers/notion/transport.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/notion/yc-store.ts",
+      "sha256": "c5059a5fca334651cd33c91e38661940e7381404879915e9cd1db91cddf1fa6a",
+      "status": "new",
+      "owner": "notion",
+      "reason": "Publish target applying the exporter wire protocol to the real yc_msaw SourceStore.",
+      "tests": [
+        "tests/source-lane/providers/notion/deep-lane.test.ts",
+        "tests/source-lane/providers/notion/transport.test.ts",
+        "tests/source-lane/providers/notion/module.test.ts",
+        "tests/source-lane/providers/notion/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
       ]
     },
     {

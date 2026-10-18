@@ -132,10 +132,12 @@ export async function startGooglePolling(tenantId: string): Promise<void> {
 
 export async function startNotionPolling(tenantId: string): Promise<void> {
   await ensureDefaultKbSchedule(tenantId);
+  // SOURCE-LANE PATCH (notion request 2): the donor poll every 300 s (was 60 s) so it no longer takes most of the
+  // connection's Notion rate budget from the deep sweep below, which covers everything it discovers.
   await upsertTaskSchedule({
     tenantId,
     kind: "notion.poll",
-    frequencySeconds: 60,
+    frequencySeconds: 300,
     groupKey: `${tenantId}:notion`,
     payload: { tenantId },
   });
@@ -153,6 +155,17 @@ export async function startNotionPolling(tenantId: string): Promise<void> {
     tenantId,
     kind: "notion.reconcile",
     frequencySeconds: 3_600,
+    groupKey: `${tenantId}:notion`,
+    payload: { tenantId },
+  });
+  // SOURCE-LANE PATCH (notion request 1): deep source sweep (src/source-lane/providers/notion/sweep.ts):
+  // every page/block/comment/data source row/file, durable cursors, confirm-before-tombstone.
+  // Same group key as the donor notion tasks so the two lanes never burst the connection's
+  // rate budget concurrently; a run is capped at 2 minutes.
+  await upsertTaskSchedule({
+    tenantId,
+    kind: "notion.source_sweep",
+    frequencySeconds: 120,
     groupKey: `${tenantId}:notion`,
     payload: { tenantId },
   });

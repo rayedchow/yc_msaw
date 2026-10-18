@@ -9400,3 +9400,70 @@ function numberFromEnv(name: string, fallback: number): number {
   const parsed = Number(process.env[name]);
   return Number.isFinite(parsed) && parsed > 0 ? Math.floor(parsed) : fallback;
 }
+
+// SOURCE-LANE PATCH (notion agent): render a block forest captured by the source-lane
+// collector (src/source-lane/providers/notion) with this walker's own node conversion,
+// synced-block annotation, comment summaries and markdown renderer, without any Notion
+// request. The collector paginates every level itself (no block/request/comment caps),
+// so the walker's fetch caps and their warnings do not apply here.
+export interface StoredNotionBlockTree {
+  block: NotionBlock;
+  children: StoredNotionBlockTree[];
+  /** Original synced block's subtree for a synced copy, when captured. */
+  syncedSourceChildren?: StoredNotionBlockTree[];
+}
+
+export function renderStoredNotionBlocks(input: {
+  roots: StoredNotionBlockTree[];
+  commentsByBlockId?: ReadonlyMap<string, NotionComment[]>;
+  childPagePaths?: ReadonlyMap<string, string>;
+  breadcrumbTrail?: NotionBreadcrumbEntry[];
+}): { markdown: string; blockTree: NotionBlockNode[]; warnings: NotionSourceWarning[]; references: NotionReference[] } {
+  const warnings: NotionSourceWarning[] = [];
+  const references: NotionReference[] = [];
+  const active = new Set<string>();
+  const toNodes = (trees: StoredNotionBlockTree[], depth: number, parentId: string | null): NotionBlockNode[] => {
+    const nodes: NotionBlockNode[] = [];
+    trees.forEach((tree, order) => {
+      if (active.has(tree.block.id)) {
+        warnings.push({ code: "block_cycle_skipped", blockId: tree.block.id, message: `Skipped recursive Notion block ${tree.block.id}.` });
+        return;
+      }
+      active.add(tree.block.id);
+      const node = blockToNode(tree.block, depth, order);
+      if (node.parentId === null) node.parentId = parentId;
+      node.children = toNodes(tree.children, depth + 1, node.id);
+      const sourceId = syncedFromBlockId(tree.block);
+      if (sourceId && node.children.length === 0 && tree.syncedSourceChildren?.length) {
+        node.children = toNodes(tree.syncedSourceChildren, depth + 1, node.id);
+        markSyncedSourceChildren(node.children, node.id, sourceId);
+        collectSyncedSourceAnnotations(node.children, references, warnings);
+      }
+      const childPath = node.type === "child_page" ? input.childPagePaths?.get(node.id) : undefined;
+      if (childPath) {
+        node.childPage = {
+          pageId: node.id, title: node.text, url: null, parentBlockId: node.parentId ?? "", relativePath: childPath,
+          properties: {}, propertyValues: [], bodyBlocks: [], bodyMarkdown: "", breadcrumbTrail: [], childPages: [], comments: [],
+        };
+      }
+      const raw = input.commentsByBlockId?.get(node.id) ?? [];
+      node.rawComments = raw;
+      node.comments = annotateCommentDiscussionPositions(raw.map(commentSummary).filter((c): c is NotionCommentSummary => c !== null));
+      references.push(...node.references);
+      warnings.push(...node.warnings);
+      active.delete(tree.block.id);
+      nodes.push(node);
+    });
+    return nodes;
+  };
+  const blockTree = toNodes(input.roots, 0, null);
+  assignRenderedMarkdown(blockTree, { breadcrumbTrail: input.breadcrumbTrail });
+  const markdown = renderBlocks(blockTree, renderContextForBlocks(blockTree, { breadcrumbTrail: input.breadcrumbTrail }));
+  return { markdown, blockTree, warnings, references };
+}
+
+/** SOURCE-LANE PATCH (notion agent): the walker's comment rendering for a captured comment list. */
+export function renderStoredNotionComments(comments: NotionComment[]): string {
+  const summaries = annotateCommentDiscussionPositions(comments.map(commentSummary).filter((c): c is NotionCommentSummary => c !== null));
+  return summaries.length ? renderComments(summaries) : "";
+}

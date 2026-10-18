@@ -145,6 +145,12 @@ async function processNotionWebhookEvent(event: NotionWebhookEvent): Promise<voi
   const dataSourceId = notionWebhookAffectedDataSourceId(event);
 
   for (const userId of users) {
+    // SOURCE-LANE PATCH (notion agent): ledger first, removal second (as the poll and
+    // reconcile paths already do): the signal event is written before any content removal.
+    if (shouldEmitWebhookSignalEvent(eventType)) {
+      await emitNotionWebhookSignalEvent(userId, event);
+    }
+
     if (pageId && eventType === "page.deleted") {
       await removeNotionPageContent(userId, pageId);
     }
@@ -165,9 +171,19 @@ async function processNotionWebhookEvent(event: NotionWebhookEvent): Promise<voi
       await enqueueCustomerBackendJob("notion-poll", "notion.poll", { userId });
     }
 
-    if (shouldEmitWebhookSignalEvent(eventType)) {
-      await emitNotionWebhookSignalEvent(userId, event);
-    }
+    await hintNotionSourceLane(userId, event);
+  }
+}
+
+// SOURCE-LANE PATCH (notion agent): targeted refresh items for the deep source lane
+// (src/source-lane/providers/notion/sweep.ts). Best effort: the lane's delta poll and full
+// passes are authoritative, so a failure here never fails the webhook.
+async function hintNotionSourceLane(userId: string, event: NotionWebhookEvent): Promise<void> {
+  try {
+    const { enqueueNotionSourceHint } = await import("../../source-lane/providers/notion/sweep.js");
+    await enqueueNotionSourceHint(db, userId, event);
+  } catch (err) {
+    console.warn("[notion-webhook] source-lane hint failed:", err instanceof Error ? err.message : String(err));
   }
 }
 

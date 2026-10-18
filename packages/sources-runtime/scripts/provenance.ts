@@ -94,9 +94,9 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/queue/dispatch.ts": {
     status: "patched",
-    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync. confluence patch request 1: startNangoPolling schedules confluence.sweep (own group) for Confluence. jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira. github patch request 1: startNangoPolling schedules github.content_sweep (own group) for GitHub. bitbucket request 1: bitbucket.content_sweep schedule in its own group.",
+    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync. confluence patch request 1: startNangoPolling schedules confluence.sweep (own group) for Confluence. jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira. github patch request 1: startNangoPolling schedules github.content_sweep (own group) for GitHub. bitbucket request 1: bitbucket.content_sweep schedule in its own group. notion request 1: notion.source_sweep schedule on the donor notion group; notion request 2: donor notion.poll every 300 s.",
     test: "tests/source-lane/core/shared-patches.test.ts",
-    tests: ["tests/source-lane/core/shared-patches-bitbucket.test.ts", "tests/source-lane/providers/jira/shared-patches.test.ts", "tests/source-lane/core/shared-patches-confluence.test.ts"],
+    tests: ["tests/source-lane/core/shared-patches-notion.test.ts", "tests/source-lane/core/shared-patches-bitbucket.test.ts", "tests/source-lane/providers/jira/shared-patches.test.ts", "tests/source-lane/core/shared-patches-confluence.test.ts"],
   },
   "src/integrations/nango/tasks.ts": {
     status: "patched",
