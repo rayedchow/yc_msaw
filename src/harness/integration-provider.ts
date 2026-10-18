@@ -88,6 +88,14 @@ export interface IntegrationProvidersOptions {
   loadModule?: () => Promise<unknown>;
 }
 
+/**
+ * The runtime is registered root-only (availableToChildren: false): it owns one
+ * repo sandbox. Tell the root so it delegates within what children actually have.
+ */
+export function integrationDelegationGuidance(toolNames: readonly string[]): string {
+  return `Integration tools are ROOT-ONLY: you alone hold ${toolNames.join(", ")} and own the MCP repos, research and any deploy. Spawned children do NOT receive these tools and cannot reach mcps/<slug>/ repos or the integration sandbox; never ask a child to call them or to create, test, commit or publish an MCP repo. A child can inspect the read-only traces and files, draft proposed source/tests/research notes in its own work/, edit knowledge pages within its exclusive knowledgeWriteScope, and return a handoff via complete_task. You read the handoff, decide it, and apply whatever MCP changes you choose through your own integration tools.`;
+}
+
 /** Provider over a live integration runtime; close() persists bundles and terminates its sandbox. */
 export class IntegrationRuntimeProvider extends IntegrationToolProvider {
   #closed = false;
@@ -98,7 +106,8 @@ export class IntegrationRuntimeProvider extends IntegrationToolProvider {
     super({ tools: runtime.tools, id: "integrations", allowScopes });
   }
   override get promptGuidance(): string {
-    return [INTEGRATION_TOOL_GUIDANCE, this.runtime.instructions].filter((s) => s && s.trim()).join("\n");
+    const names = this.descriptors().map((d) => d.name);
+    return [INTEGRATION_TOOL_GUIDANCE, integrationDelegationGuidance(names), this.runtime.instructions].filter((s) => s && s.trim()).join("\n");
   }
   /**
    * Close the runtime exactly once. A non-empty `errors` list from the runtime

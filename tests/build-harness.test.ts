@@ -366,7 +366,9 @@ describe("integration runtime wiring", () => {
     expect(results(run, "root", "repo_write_file")[0]).toMatchObject({ ok: true, status: "succeeded" });
     expect(results(run, "root", "integration_publish")[0].error.code).toBe("unknown_tool");
     expect(run.systemPrompts.root).toContain("REPO RULES");
+    expect(run.systemPrompts.root).toContain("Integration tools are ROOT-ONLY: you alone hold research_fetch_url, repo_write_file");
     expect(run.systemPrompts["root.1"]).not.toContain("REPO RULES");
+    expect(run.systemPrompts["root.1"]).not.toContain("ROOT-ONLY");
     expect(run.toolsSeen["root.1"]).not.toContain("repo_write_file");
     expect(closed).toBe(1);
     expect(receipt.providerClose).toEqual([{ id: "integrations", ok: true, detail: { persisted: [] } }]);
