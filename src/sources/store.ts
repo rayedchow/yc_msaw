@@ -764,6 +764,7 @@ export class SourceStore {
       prepared ??= await this.#prepare(identity, batch.changes, inlineBlobs);
 
       const overlay = new Overlay(this, head.value.root);
+      await overlay.prefetchDirs(prepared);
       await overlay.prefetchTombstoneVersions(prepared);
       const results: ChangeResult[] = [];
       const versions: StoredObject[] = [];
@@ -1037,6 +1038,42 @@ class Overlay {
 
   async #get(dir: DirState, name: string): Promise<TreeChild | undefined> {
     return (await this.#pageFor(dir, name)).entries![name];
+  }
+
+  /**
+   * Directory nodes and the pages holding the batch's names along every change's path, read level by level in batched
+   * gets. A cold replica otherwise loads each uncached directory one round trip at a time (a batch into N existing
+   * directories cost ~2N sequential gets). Only warms the node cache; apply() is unchanged.
+   */
+  async prefetchDirs(changes: readonly Prepared[]): Promise<void> {
+    const levels: Array<Set<string>> = [];
+    for (const c of changes) {
+      const parts = c.stored.split("/");
+      for (let i = 1; i < parts.length; i++) (levels[i - 1] ??= new Set()).add(parts.slice(0, i).join("/"));
+    }
+    await this.#load("", false);
+    const pagesHolding = async (entries: Iterable<[string, string]>) => {
+      const shas: string[] = [];
+      for (const [dirPath, name] of entries) {
+        const dir = this.#dirs.get(dirPath);
+        const page = dir?.pages[pageIndexFor(dir.pages, name)];
+        if (page && !page.entries && page.ref) shas.push(page.ref.sha);
+      }
+      await this.src.prefetchNodes(shas);
+    };
+    for (const level of levels) {
+      const dirs = [...level];
+      await pagesHolding(dirs.map((d) => [parentOf(d), baseName(d)]));
+      const trees: string[] = [];
+      for (const d of dirs) {
+        const parent = this.#dirs.get(parentOf(d));
+        const child = parent ? await this.#get(parent, baseName(d)) : undefined;
+        if (child?.t === "d") trees.push(child.tree);
+      }
+      await this.src.prefetchNodes(trees);
+      for (const d of dirs) await this.#load(d, false).catch(() => null);
+    }
+    await pagesHolding(changes.map((c) => [parentOf(c.stored), baseName(c.stored)]));
   }
 
   /** Versions of the tombstones these puts land on, in batched reads: apply() checks each for sticky withholding. */
