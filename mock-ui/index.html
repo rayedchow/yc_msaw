@@ -134,6 +134,7 @@
   .tree.focus .node:not(.hl), .tree.focus .edge:not(.hl) { opacity: .35; }
   .tree .nl { fill: var(--text); font-size: 13px; font-family: var(--mono); }
   .tree .ns { fill: var(--tertiary); font-size: 11.5px; }
+  .tree .rsep { stroke: var(--border); stroke-width: 1; }
   .tree .nh { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
   .tree .rule.asked rect { stroke: var(--accent); stroke-dasharray: 3 3; }
   .tree .rule.asked .nh { fill: var(--accent); }
@@ -372,6 +373,32 @@ const SHORT = {};   // rule id → short label, filled from the API
 const clip = (t, n) => (t.length > n ? t.slice(0, n - 1) + "…" : t);
 const strip = (h) => h.replace(/<[^>]+>/g, "");
 const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+// wrap text to a pixel width (measured in the tree's own font), at most `max` lines, the last one clipped with …
+const measureCtx = document.createElement("canvas").getContext("2d");
+function wrapText(text, width, font, max = 3) {
+  measureCtx.font = font;
+  const fits = (t) => measureCtx.measureText(t).width <= width;
+  const lines = [];
+  let cur = "";
+  for (const w of text.split(/[ \t\n]+/).filter(Boolean)) {
+    const next = cur ? cur + " " + w : w;
+    if (fits(next)) { cur = next; continue; }
+    if (cur) lines.push(cur);
+    cur = w;
+    while (!fits(cur) && cur.length > 1) {          // a single word wider than the box: hard-break it
+      let k = cur.length - 1;
+      while (k > 1 && !fits(cur.slice(0, k) + "-")) k--;
+      lines.push(cur.slice(0, k) + "-"); cur = cur.slice(k);
+    }
+  }
+  if (cur) lines.push(cur);
+  if (lines.length > max) {
+    let last = lines[max - 1] + " " + lines.slice(max).join(" ");
+    while (!fits(last + "…") && last.length > 1) last = last.slice(0, -1);
+    lines.length = max; lines[max - 1] = last.trimEnd() + "…";
+  }
+  return lines;
+}
 
 function treeModel(m) {
   const W = 1032, cx = W / 2, span = Math.max(m.integrations.length, m.tools.length, 1), cy = Math.max(150, (span - 1) * 31 + 60);
@@ -379,12 +406,16 @@ function treeModel(m) {
   const col = (items, x) => items.map((it, i) => ({ ...it, x, y: cy - ((items.length - 1) * 62) / 2 + i * 62 - NH / 2 }));
   const integ = col(m.integrations.map(([f, n, d, s]) => ({ kind: "integ", key: f, label: n, sub: f, f, n, d, s })), 24);
   const tools = col(m.tools.map(([sig, d, r]) => ({ kind: "tool", key: sig, label: sig.replace(/\(.*$/, ""), sub: r === "feedback" ? "agent feedback" : r, sig, d, rules: r.split(" ").filter((x) => /^[A-Z][A-Za-z0-9_-]*$/.test(x) && x !== "feedback") })), W - 24 - NW);
-  const busY = Math.max(290, cy + (span - 1) * 31 + 23 + 26), ruleY = busY + 40, RW = Math.min(150, (W - 48 - (m.rules.length - 1) * 14) / m.rules.length);
-  const totalW = m.rules.length * RW + (m.rules.length - 1) * 14;
+  const GAP = 12, busY = Math.max(290, cy + (span - 1) * 31 + 23 + 26), ruleY = busY + 40, RW = Math.min(160, (W - 48 - (m.rules.length - 1) * GAP) / m.rules.length);
+  const totalW = m.rules.length * RW + (m.rules.length - 1) * GAP;
   for (const r of m.rules) SHORT[r[0]] = r[5];
-  const rules = m.rules.map(([id, t, ev, h, code], i) => ({ kind: "rule", key: id, id, t, ev, h, code, x: cx - totalW / 2 + i * (RW + 14), y: ruleY, w: RW }));
+  const font = `11.5px ${getComputedStyle(document.body).getPropertyValue("--sans")}`;
+  const rules = m.rules.map(([id, t, ev, h, code], i) => ({ kind: "rule", key: id, id, t, ev, h, code, x: cx - totalW / 2 + i * (RW + GAP), y: ruleY, w: RW,
+    lines: wrapText((SHORT[id] ?? "").replace(/->/g, "→").replace(/→ /g, "→\u00a0"), RW - 22, font) }));
+  const RH = 46 + Math.max(1, ...rules.map((r) => r.lines.length)) * 15;
+  for (const r of rules) r.rh = RH;
   for (const r of rules) r.tools = tools.filter((t) => t.rules.includes(r.id)).map((t) => t.key);
-  const H = rules.length ? ruleY + 60 + 24 : cy + 120;
+  const H = rules.length ? ruleY + RH + 24 : cy + 120;
   return { W, H, cx, cy, NW, NH, CW, CH, busY, integ, tools, rules };
 }
 
@@ -415,10 +446,11 @@ function treeSvg(m, T) {
     const st = r.h === "asked" || r.h === "change" ? "asked" : r.h === "running" ? "running" : "ok";
     return `
     <g class="node rule ${st}" data-key="${r.key}" transform="translate(${r.x} ${r.y})">
-      <rect width="${r.w}" height="${NH + 6}" rx="3"/>
-      <text class="nl mono" x="12" y="20">${r.id}</text>
-      <text class="nh" x="${r.w - 12}" y="20" text-anchor="end">${r.h === "asked" ? "asked" : r.h === "running" ? "testing" : r.h}</text>
-      <text class="ns" x="12" y="38">${esc(clip((SHORT[r.id] ?? "").replace(/->/g, "→"), Math.max(8, Math.floor((r.w - 12) / 4.85))))}</text>
+      <rect width="${r.w}" height="${r.rh}" rx="3"/>
+      <text class="nl mono" x="11" y="21">${r.id}</text>
+      <text class="nh" x="${r.w - 11}" y="21" text-anchor="end">${r.h === "asked" ? "asked" : r.h === "running" ? "testing" : r.h}</text>
+      <line class="rsep" x1="11" x2="${r.w - 11}" y1="31" y2="31"/>
+      <text class="ns">${r.lines.map((l, i) => `<tspan x="11" y="${48 + i * 15}">${esc(l)}</tspan>`).join("")}</text>
     </g>`;
   };
   return `
