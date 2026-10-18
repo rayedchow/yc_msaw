@@ -514,7 +514,9 @@ export function adaptRun(events: readonly DemoEvent[], state: DemoState | null, 
     const end = [...list].reverse().find((event) => event.kind === "agent_end");
     const startData = isObject(start?.data) ? start.data : {};
     const modelFromMessage = list.map((event) => (isObject(event.data) && typeof event.data.model === "string" ? event.data.model : null)).find(Boolean) ?? null;
-    const parentId = listed?.parentId ?? start?.parentId ?? list.find((event) => event.parentId && event.parentId !== id)?.parentId ?? null;
+    // A parent that is an operator wrapper (a build's service row) is not an agent: use the agent parent the log records.
+    const agentParent = (candidate: string | null | undefined) => (candidate && candidate !== id && !operatorAgent(candidate) ? candidate : null);
+    const parentId = agentParent(listed?.parentId) ?? agentParent(start?.parentId) ?? list.map((event) => agentParent(event.parentId)).find(Boolean) ?? null;
     const customer = listed?.role ? listed.role === "customer" : id === "customer";
     const { status, label: statusLabel } = lifecycle({ customer, list, listed: listed?.status, end, active, ended, buildEnd, phases });
     const endData = isObject(end?.data) ? end.data : {};
@@ -545,17 +547,19 @@ export function adaptRun(events: readonly DemoEvent[], state: DemoState | null, 
     });
   }
   const byId = new Map(draft.map((agent) => [agent.id, agent]));
-  let subagents = 0;
+  // Subagents are numbered within their own root's tree (separate builds are separate runs).
+  const subagents = new Map<string, number>();
   let roots = 0;
   for (const agent of draft) {
     let depth = 0;
+    let root = agent.id;
     const seen = new Set([agent.id]);
     let parent = agent.parentId ? byId.get(agent.parentId) : undefined;
-    while (parent && !seen.has(parent.id)) { depth++; seen.add(parent.id); parent = parent.parentId ? byId.get(parent.parentId) : undefined; }
+    while (parent && !seen.has(parent.id)) { depth++; root = parent.id; seen.add(parent.id); parent = parent.parentId ? byId.get(parent.parentId) : undefined; }
     if (agent.parentId && !byId.has(agent.parentId)) agent.parentId = null;
     agent.depth = agent.parentId ? Math.max(1, depth) : 0;
     if (agent.depth === 0) { if (agent.kind === "build") agent.attempt = ++roots; }
-    else agent.ordinal = ++subagents;
+    else { const next = (subagents.get(root) ?? 0) + 1; subagents.set(root, next); agent.ordinal = next; }
   }
   const lastActivityAt = events.map((event) => event.at).filter((at): at is string => typeof at === "string").at(-1) ?? null;
   return { runId: typeof state?.runId === "string" ? state.runId : null, agents: draft, threads, operator, files: filesFrom(state), diffs, active, ended, mode, endedBy, producerPid: context.producer?.pid ?? null, lastActivityAt };

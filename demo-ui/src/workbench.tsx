@@ -43,10 +43,15 @@ import {
 import { activeSubagentWait, traceActivityEntries, type TraceItem } from "./aeye/web/components/agent-activity/trace-activity.js";
 import type { AdaptedRun, AgentThreadModel, DemoAgent, DemoEvent, DemoFile } from "./adapter.js";
 
-/** AEye's agentName, with the customer agent (a second root) named for what it is. */
+/**
+ * AEye's agentName, adapted: roots here are independent (customer sessions, separate build cycles), not
+ * retry attempts of one build, so a root is named by the name the run recorded for it (state.agents name)
+ * instead of "attempt N". A single build root keeps AEye's "Root agent"; subagents keep "Subagent N".
+ */
 function agentName(agent: DemoAgent, buildRoots: number): string {
-  if (agent.kind === "customer" && agent.depth === 0) return "Customer agent";
-  if (agent.depth === 0) return buildRoots > 1 ? `Root agent · attempt ${agent.attempt}` : "Root agent";
+  const recorded = agent.name && agent.name !== agent.id ? agent.name : null;
+  if (agent.kind === "customer" && agent.depth === 0) return recorded ?? "Customer agent";
+  if (agent.depth === 0) return buildRoots > 1 ? recorded ?? `Root agent · ${agent.id}` : "Root agent";
   return `Subagent ${agent.ordinal}`;
 }
 
