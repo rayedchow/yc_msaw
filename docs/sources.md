@@ -66,7 +66,7 @@ The existing auth stays the only authority: WorkOS/OIDC (or static keys on loopb
 
 | Route | Credential | Purpose |
 |---|---|---|
-| `POST /v1/sources/bindings` | `memory:build` (runtime), `traces:write` (device, `imessage` only) | Mint a publish binding for the caller's tenant; token shown once |
+| `POST /v1/sources/bindings` | `memory:build` | Mint a runtime publish binding for the caller's tenant; token shown once. `kind:"device"` is refused (400 `use_device_setup`): devices enrol only through `/v1/sources/devices/<provider>/setup` |
 | `GET /v1/sources/bindings`, `DELETE /v1/sources/bindings/:id` | `memory:build` | List (no secrets) / revoke |
 | `GET /v1/sources/status` | `memory:read` | Same data as `sources_status` |
 | `PUT /v1/sources/blobs/:sha256`, `POST /v1/sources/publish`, `POST /v1/sources/status-report` | binding token `psb_<tenant>.<id>.<secret>` only | Collector publication |
@@ -87,7 +87,7 @@ A binding only writes the provider directories it lists. Runtime routes exist on
 `SOURCES_RUNTIME_URL` and `SOURCES_RUNTIME_SERVICE_TOKEN` are set; yc_msaw forwards the verified
 principal as `x-procmem-principal`, and the runtime rejects a URL tenant that differs from it.
 
-Device bindings with `transport=runtime-ingest` (the Mac uploader) cannot call the publish routes at all;
+Device bindings (always `transport=runtime-ingest`, minted only by device setup) cannot call the publish routes at all;
 their raw uploads go to the runtime receiver, which confirms each request with yc_msaw. Revoking such a
 binding also revokes the runtime device credential and is authoritative immediately.
 

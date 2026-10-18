@@ -186,14 +186,19 @@ describe("$SOURCES over the filesystem MCP", () => {
     expect(asReader.status).toBe(401);
     await expect(connect(token)).rejects.toThrow();
     expect((await fetch(`${base}/v1/sources/bindings`, { headers: { Authorization: `Bearer ${token}` } })).status).toBe(401);
-    // Device bindings need the collection scope and are limited to device providers.
-    const device = await fetch(`${base}/v1/sources/bindings`, { method: "POST", headers: { Authorization: `Bearer ${ingestKey.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ kind: "device", providers: ["imessage"] }) });
-    expect(device.status).toBe(201);
+    // Device data only enters through the runtime receiver: the generic route mints no device binding for anyone
+    // (final-audit H2: a publish-capable device binding bypassed revocation and the office-audio consent gate).
+    for (const key of [ingestKey.key, readerKey.key]) {
+      const device = await fetch(`${base}/v1/sources/bindings`, { method: "POST", headers: { Authorization: `Bearer ${key}`, "Content-Type": "application/json" }, body: JSON.stringify({ kind: "device", providers: ["office-audio"] }) });
+      expect(device.status).toBe(400);
+      expect(((await device.json()) as { error: { code: string } }).error.code).toBe("use_device_setup");
+    }
     const deviceRuntime = await fetch(`${base}/v1/sources/bindings`, { method: "POST", headers: { Authorization: `Bearer ${ingestKey.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ kind: "runtime", providers: ["*"] }) });
     expect(deviceRuntime.status).toBe(403);
-    const deviceToken = ((await device.json()) as { token: string }).token;
-    const outside = await fetch(`${base}/v1/sources/publish`, { method: "POST", headers: { Authorization: `Bearer ${deviceToken}`, "Content-Type": "application/json" }, body: JSON.stringify({ batchId: "d1", changes: [put("sources/slack/x.md", "x")] }) });
-    expect(outside.status).toBe(403);
+    // A device binding (as minted by device setup) cannot publish.
+    const legacy = await app.sources!.bindings.create("acme", { kind: "device", providers: ["imessage"], transport: "runtime-ingest" }, { subject: "u", issuer: "iss" });
+    const asDevice = await fetch(`${base}/v1/sources/publish`, { method: "POST", headers: { Authorization: `Bearer ${legacy.token}`, "Content-Type": "application/json" }, body: JSON.stringify({ batchId: "d1", changes: [put("sources/imessage/x.md", "x")] }) });
+    expect(asDevice.status).toBe(403);
     // Runtime control routes are absent when no runtime is configured.
     expect((await fetch(`${base}/v1/sources/runtime/status`, { headers: { Authorization: `Bearer ${readerKey.key}` } })).status).toBe(404);
   });

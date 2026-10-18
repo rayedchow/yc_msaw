@@ -5,7 +5,7 @@ import { SCOPES } from "../auth/scopes.js";
 import { parseContentType, readBoundedBody, TraceIngestError } from "../traces/ingest.js";
 import { errorMessage } from "../util.js";
 import { createHash } from "node:crypto";
-import { DEVICE_KEY_PREFIXES, deviceKeyForBindingToken, looksLikeBindingToken, type BindingKind, type VerifiedBinding } from "./bindings.js";
+import { DEVICE_KEY_PREFIXES, DEVICE_PROVIDERS, deviceKeyForBindingToken, looksLikeBindingToken, type BindingKind, type VerifiedBinding } from "./bindings.js";
 import { SourceError } from "./paths.js";
 import type { GoogleAuthAction, NangoRecordsAction, RuntimeResponse, SourceRuntimeClient } from "./runtime-client.js";
 import { COVERAGE_STATES, type SourceService, type StatusReport } from "./service.js";
@@ -158,9 +158,14 @@ export const StatusReportSchema = z
 export async function createBindingRoute(request: Request, principal: Principal, service: SourceService): Promise<Response> {
   try {
     const input = CreateBindingSchema.parse(await readJson(request, MAX_ADMIN_BODY_BYTES));
-    // Connector runtimes are administrative collection (memory:build). Device uploaders
-    // (a user's own Mac) need the collection scope traces:write and are limited to device providers.
-    const need = input.kind === "runtime" ? SCOPES.memoryBuild : SCOPES.tracesWrite;
+    // Device data (iMessage, coding sessions, office audio) only enters through the runtime receiver, which enforces
+    // device revocation and the office-audio consent gate. A generic device binding could publish around both, so
+    // devices are enrolled only through POST /v1/sources/devices/<provider>/setup.
+    if (input.kind === "device") {
+      return error(400, "use_device_setup", `Device bindings are minted by POST /v1/sources/devices/<provider>/setup (${DEVICE_PROVIDERS.join(", ")})`);
+    }
+    // Connector runtimes are administrative collection (memory:build).
+    const need = SCOPES.memoryBuild;
     if (!principal.scopes.includes(need) && !principal.scopes.includes(SCOPES.memoryBuild)) {
       return bearerChallenge({ status: 403, error: "insufficient_scope", description: `Missing required scope: ${need}`, scope: need });
     }
@@ -228,8 +233,9 @@ export async function authenticateBinding(request: Request, service: SourceServi
   }
   const verified = await service.bindings.verify(token);
   if (!verified) return bearerChallenge({ status: 401, error: "invalid_token", description: "Unknown or revoked source binding" });
-  // Device uploaders whose raw data goes to the runtime receiver never publish files themselves.
-  if (verified.binding.transport === "runtime-ingest") {
+  // Device uploaders whose raw data goes to the runtime receiver never publish files themselves (including any
+  // device binding minted before device publishing was removed).
+  if (verified.binding.transport === "runtime-ingest" || verified.binding.kind === "device") {
     return bearerChallenge({ status: 403, error: "insufficient_scope", description: "This device binding uploads to the source runtime and cannot publish" });
   }
   return verified;

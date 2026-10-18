@@ -134,6 +134,8 @@ export class SourceBindings {
       throw new SourceError("forbidden_provider", `Device bindings may only write ${DEVICE_PROVIDERS.join(", ")}`);
     }
     if (input.transport === "runtime-ingest" && input.kind !== "device") throw new SourceError("invalid_input", "Only device bindings use runtime ingest");
+    // Device bindings never publish: their data goes through the runtime receiver (revocation, consent gate).
+    if (input.kind === "device" && input.transport !== "runtime-ingest") throw new SourceError("invalid_input", "Device bindings must use runtime ingest");
     const label = input.label === undefined || input.label === null ? null : String(input.label).slice(0, 200);
     const bindingId = `sb-${randomBytes(8).toString("hex")}`;
     const secret = randomBytes(32).toString("base64url");

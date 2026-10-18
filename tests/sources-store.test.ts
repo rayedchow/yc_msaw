@@ -321,6 +321,8 @@ describe("bindings and status", () => {
     await bindings.revoke("tenant-a", binding.bindingId);
     expect(await bindings.verify(token)).toBeNull();
     await expect(bindings.create("tenant-a", { kind: "device", providers: ["slack"] }, { subject: "u", issuer: "iss" })).rejects.toMatchObject({ code: "forbidden_provider" });
+    // Device bindings never publish (final-audit H2): they must be runtime-ingest.
+    await expect(bindings.create("tenant-a", { kind: "device", providers: ["office-audio"] }, { subject: "u", issuer: "iss" })).rejects.toMatchObject({ code: "invalid_input" });
   });
 
   it("separates data age, successful checks and collector heartbeat", async () => {
