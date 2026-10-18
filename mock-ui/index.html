@@ -47,7 +47,7 @@
   .strip { max-width: var(--maxw); margin: 0 auto; background: var(--accent); color: #141414; text-align: center; font-size: 12px; font-weight: 600; padding: 8px 16px; }
   nav { max-width: var(--maxw); margin: 0 auto; height: 58px; padding: 0 28px; display: flex; align-items: center; justify-content: space-between;
     background: rgba(26,26,26,0.94); backdrop-filter: blur(8px); border: 1px solid var(--border); border-top: 0; }
-  .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.04em; font-size: 17px; }
+  .brand { color: inherit; text-decoration: none; cursor: pointer; display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.04em; font-size: 17px; }
   .brand i { width: 16px; height: 16px; border: 2px solid var(--text); position: relative; }
   .brand i::after { content: ""; position: absolute; inset: 3px; background: var(--accent); }
   .crumb { display: flex; align-items: center; gap: 10px; margin-left: 22px; font-size: 14px; color: var(--tertiary); }
@@ -130,7 +130,7 @@
   .tree .edge { fill: none; stroke: #3A3A3A; stroke-width: 1.2; transition: stroke .2s, opacity .2s; }
   .tree .edge.hl { stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 4 4; animation: flow 1s linear infinite; }
   @keyframes flow { to { stroke-dashoffset: -16; } }
-  .tree .node { cursor: default; transition: opacity .2s; }
+  .tree .node { cursor: pointer; transition: opacity .2s; }
   .tree .node rect:not(.logo) { fill: #161616; stroke: #333; transition: stroke .2s, fill .2s; }
   .tree .node.hl rect:not(.logo) { stroke: var(--accent); fill: #1D1B24; }
   .tree.focus .node:not(.hl), .tree.focus .edge:not(.hl) { opacity: .35; }
@@ -179,7 +179,7 @@
   .mname { font-size: 12.5px; color: var(--muted); }
   .grp { display: flex; gap: 9px; padding-left: 20px; border-left: 1px solid var(--border); }
   .mhead .grp { border-left-color: transparent; }
-  .matrix .d { cursor: default; }
+  .matrix .d { cursor: pointer; }
   .matrix .d.hl { transform: scale(1.35); box-shadow: 0 0 0 3px var(--accent-glow); }
   .inspect .okc { color: var(--ok); font-weight: 500; font-size: 13px; margin-left: 8px; }
   .inspect .noc { color: var(--bad); font-weight: 500; font-size: 13px; margin-left: 8px; }
@@ -207,7 +207,7 @@
   <div class="strip">Every company runs HubSpot differently. Its agents should get MCPs that know how.</div>
   <nav>
     <div style="display:flex;align-items:center">
-      <div class="brand"><i></i>walter</div>
+      <a class="brand" href="#"><i></i>walter</a>
       <div class="crumb" id="crumb"></div>
     </div>
     <span class="org">GurtAI</span>
