@@ -45,7 +45,9 @@ The donor variables in `packages/sources-runtime/src/env.ts` (`DATABASE_URL`, `E
 | `GOOGLE_WORKSPACE_SERVICE_ACCOUNT_KEY_JSON` (or `_CLIENT_EMAIL` + `_PRIVATE_KEY`) | Service account for domain-wide delegation. |
 | `GOOGLE_DWD_TENANT_APPROVALS` | Operator allowlist that maps each tenant to the Workspace domains and mailboxes it may impersonate, e.g. `{"<tenantNs>":{"domains":["acme.com"],"directoryAdmin":"admin@acme.com"}}`. A domain listed for two tenants is refused for both. Without an entry, DWD is refused (403 `dwd_not_approved`). |
 | `COMPOSIO_API_KEY`, `COMPOSIO_GOOGLE_AUTH_CONFIG_ID` (+ per-product `COMPOSIO_GOOGLE_{GMAIL,CALENDAR,DOCS,DRIVE,ADMIN}_AUTH_CONFIG_ID`), `COMPOSIO_API_BASE_URL` | Optional Composio broker for Google. |
-| `NANGO_SECRET_KEY`, `NANGO_WEBHOOK_SIGNING_KEY` (+ `_PREVIOUS` for rotation), `NANGO_API_BASE_URL` | Nango records and webhooks. The webhook signing key is distinct from the API secret. See the Nango section of `source-providers.md`. |
+| `NANGO_SECRET_KEY`, `NANGO_API_BASE_URL` | Nango API (environment secret key). |
+| `NANGO_WEBHOOK_SECRET` | Donor `/webhooks/nango` route: set to the Nango webhook **signing key** (not the API key). Only `X-Nango-Hmac-Sha256` is accepted. |
+| `NANGO_WEBHOOK_SIGNING_KEY` (+ `_PREVIOUS` during rotation), `NANGO_RECORDS_CONFIG` / `NANGO_RECORDS_CONFIG_FILE` | Generic records lane (`/webhooks/nango-records`): signing key, plus the operator catalog of Nango integration ids and models. See `packages/sources-runtime/src/source-lane/providers/nango-records/README.md`. |
 
 Provider tuning knobs (`GMAIL_SOURCE_*`, `GDOCS_*`, `GOOGLE_CALENDAR_*`, `GOOGLE_CONTACTS_*`, `NANGO_RECORDS_*`, …)
 have safe defaults and are documented next to the code that reads them. `GOOGLE_WORKSPACE_USER_EMAIL` is
@@ -79,7 +81,7 @@ falls back to another mode.
 |---|---|---|
 | Direct OAuth (`oauth_direct`) | Personal or Workspace accounts, one account per consent | `POST /v1/sources/google/auth/oauth/start` (`memory:build`) with `{"capabilities":["gmail","calendar","docs","contacts"]}` returns `launchUrl`. The admin opens it in a browser; the consenting account must be the principal's verified email unless `account` names another. Tokens are encrypted at rest; refresh failures mark only that account `reauth_required`. |
 | Domain-wide delegation (`domain_wide_delegation`) | Workspace tenants, every mailbox in an approved domain | 1. A Workspace super-admin authorizes the service account's client ID for the scopes in `packages/sources-runtime/src/vault/google-auth.ts` (Admin console → Security → API controls → Domain-wide delegation). 2. The operator adds the tenant to `GOOGLE_DWD_TENANT_APPROVALS`. 3. `POST /v1/sources/google/auth/dwd/mailboxes` `{"email": …}`, or the donor `POST /v1/sources/connect/google` `{"userEmail": …}`. |
-| Composio (`composio_proxy`) | When a Composio project already brokers Google | `POST /v1/sources/google/auth/oauth/start` with `{"broker":"composio"}`. The connected account is verified server-side. Composio never hands out a bearer, so bearer-only lanes (the Docs OT changelog, the Drive inventory) report `blocked` (`ot_requires_bearer` / `composio_proxy_has_no_bearer`). |
+| Composio (`composio_proxy`) | When a Composio project already brokers Google | `POST /v1/sources/google/auth/oauth/start` with `{"broker":"composio"}`. The connected account is verified server-side. Gmail, Calendar and Contacts run through Composio's proxy. Composio never hands out a bearer, so the bearer-only Docs/Drive lane (content, OT changelog, Drive inventory) reports `blocked` (`ot_requires_bearer` / `composio_proxy_has_no_bearer`) for those accounts. |
 
 Revocation limits that stay true:
 

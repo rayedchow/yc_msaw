@@ -39,6 +39,7 @@ import {
   nextWork,
   pendingScanItems,
   quotaBlockedUntil,
+  recordDiscovery,
   recordRateLimited,
   recordRunOutcome,
   releaseQuotaLease,
@@ -279,19 +280,22 @@ export async function runConfluenceSweep(db: DbExecutor, tenantId: string, optio
     // Accessible-resources is counted against no site budget (one call per refresh interval).
     const discoveryClient = options.client ?? new ConfluenceClient(options.clientOptions);
     try {
-      await refreshSites(db, discoveryClient, tenantId, conn, options.siteRefreshMs ?? 60 * 60_000);
+      const n = await refreshSites(db, discoveryClient, tenantId, conn, options.siteRefreshMs ?? 60 * 60_000);
+      if (n !== null) await recordDiscovery(db, tenantId, conn.connectionId, n > 0 ? "ok" : "blocked", n > 0 ? null : "accessible-resources returned no site with a Confluence scope for this grant", n);
     } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
       if (error instanceof ConfluenceAuthError) {
         for (const s of await listSites(db, tenantId, conn.connectionId)) {
-          await setSiteStatus(db, { tenantId, connectionId: conn.connectionId, cloudId: s.cloud_id }, "blocked", error.message);
+          await setSiteStatus(db, { tenantId, connectionId: conn.connectionId, cloudId: s.cloud_id }, "blocked", message);
         }
-        report.notes.push(`connection ${conn.connectionId}: ${error.message}`);
-        if (!(await listSites(db, tenantId, conn.connectionId)).length) {
-          report.sites.push({ connectionId: conn.connectionId, cloudId: "", outcome: "blocked", requests: 0, items: 0, error: error.message });
-        }
+        await recordDiscovery(db, tenantId, conn.connectionId, "blocked", message, 0);
+        report.notes.push(`connection ${conn.connectionId}: ${message}`);
+        report.sites.push({ connectionId: conn.connectionId, cloudId: "", outcome: "blocked", requests: 0, items: 0, error: message });
         continue;
       }
-      report.notes.push(`connection ${conn.connectionId}: site discovery failed: ${error instanceof Error ? error.message : String(error)}`);
+      // Rate limits / transient failures on discovery: keep using the known sites this run.
+      await recordDiscovery(db, tenantId, conn.connectionId, "error", message, (await listSites(db, tenantId, conn.connectionId)).length);
+      report.notes.push(`connection ${conn.connectionId}: site discovery failed: ${message}`);
     }
     for (const site of await listSites(db, tenantId, conn.connectionId)) {
       if (site.status !== "active") continue;
@@ -301,11 +305,15 @@ export async function runConfluenceSweep(db: DbExecutor, tenantId: string, optio
   return report;
 }
 
-/** Atlassian sites whose granted scopes include Confluence; removed sites keep their content (access lost is not deletion). */
-export async function refreshSites(db: DbExecutor, client: ConfluenceClient, tenantId: string, conn: ConfluenceConnectionRow, refreshMs: number): Promise<void> {
+/**
+ * Atlassian sites whose granted scopes include Confluence; removed sites keep their content
+ * (access lost is not deletion). Returns the number of Confluence sites, or null when the
+ * known sites were fresh enough and no request was made.
+ */
+export async function refreshSites(db: DbExecutor, client: ConfluenceClient, tenantId: string, conn: ConfluenceConnectionRow, refreshMs: number): Promise<number | null> {
   const existing = await listSites(db, tenantId, conn.connectionId);
   const fresh = existing.length > 0 && existing.every((s) => s.status === "active" && Date.now() - new Date(String(s.last_seen_at)).getTime() < refreshMs);
-  if (fresh) return;
+  if (fresh) return null;
   const resources = await client.accessibleResources(conn);
   const keep: string[] = [];
   for (const r of resources) {
@@ -317,6 +325,7 @@ export async function refreshSites(db: DbExecutor, client: ConfluenceClient, ten
     await upsertSite(db, { tenantId, connectionId: conn.connectionId, cloudId, providerConfigKey: conn.providerConfigKey, siteUrl: str(r.url), siteName: str(r.name), scopes, status: "active" });
   }
   await markSitesRemoved(db, tenantId, conn.connectionId, keep, "site not returned by accessible-resources for this grant (access removed or app uninstalled); captured content is kept");
+  return keep.length;
 }
 
 async function runSite(db: DbExecutor, scope: SiteScope, conn: ConfluenceConnectionRow & { siteUrl: string | null }, owner: string, options: SweepOptions): Promise<SiteRunReport> {
@@ -813,7 +822,8 @@ async function listComments(ctx: Ctx, item: WorkRow): Promise<ItemOutcome> {
         if (res?.changed) changed = true;
         if (res) children.push(commentChildrenItem(containerType, containerId, commentType, res.id));
       }
-      await enqueueWork(ctx.db, ctx.scope, ctx.generation, children);
+      // Re-listing a level always re-lists the replies below it (a delta-triggered re-list must reach new replies).
+      await enqueueWork(ctx.db, ctx.scope, ctx.generation, children, { restart: true });
       if (changed) await bumpChildrenEpoch(ctx.db, ctx.scope, containerType, containerId);
     },
     [403, 404],

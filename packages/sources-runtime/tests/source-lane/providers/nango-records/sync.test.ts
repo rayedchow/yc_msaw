@@ -99,6 +99,26 @@ describe("generic Nango records sync", () => {
     expect(cov.find((c) => c.scope === `nango:${PCK}:conn-1:${MODEL}`)!.reason).toContain("1 record(s) were already pruned by Nango");
   });
 
+  it("stores no credentials, cookies or pre-authenticated download URLs in the raw ledger", async () => {
+    s.nango.upsert(PCK, "conn-1", MODEL, {
+      id: "f1",
+      name: "Q3.pdf",
+      "@microsoft.graph.downloadUrl": "https://contoso-my.sharepoint.com/download.aspx?UniqueId=1&tempauth=eyJ0eXAiOiJKV1Q",
+      thumbnail: { url: "https://cdn.example.test/t.png?sig=abc123&se=2026" },
+      webUrl: "https://contoso-my.sharepoint.com/personal/doc.pdf",
+      access_token: "ya29.secret",
+      headers: { Cookie: "session=abc", Authorization: "Bearer xyz" },
+      shared_link: { download_url: "https://dl.boxcloud.com/x" },
+    });
+    await runSync(s.lane, { tenantId: T, providerConfigKey: PCK, connectionId: "conn-1", model: MODEL });
+    const stored = (await q<{ t: string }>("SELECT raw_payload::text AS t FROM activity_events"))[0]!.t;
+    for (const secret of ["tempauth", "eyJ0eXAi", "sig=abc123", "ya29.secret", "session=abc", "Bearer xyz", "dl.boxcloud.com"]) expect(stored).not.toContain(secret);
+    const raw = JSON.parse(stored);
+    expect(raw).toMatchObject({ id: "f1", name: "Q3.pdf", webUrl: "https://contoso-my.sharepoint.com/personal/doc.pdf" });
+    expect(raw["@microsoft.graph.downloadUrl"]).toMatch(/^\[redacted/);
+    expect(raw.access_token).toMatch(/^\[redacted/);
+  });
+
   it("keeps two accounts of one tenant apart even with identical record ids and versions", async () => {
     await connect(s, T, "outlook", "conn-2");
     for (const conn of ["conn-1", "conn-2"]) s.nango.upsert(PCK, conn, MODEL, { id: "same-id", subject: "same" });

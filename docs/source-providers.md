@@ -16,7 +16,7 @@ Terms used in the tables:
 
 | Source | Paths | What is captured | Coverage and limits |
 |---|---|---|---|
-| Google auth | none | Direct OAuth, domain-wide delegation, or Composio, resolved per account | DWD scopes other than Gmail stay `pending` until a job uses them. Composio has no bearer, so bearer-only lanes are `blocked`. |
+| Google auth | none | Direct OAuth, domain-wide delegation, or Composio, resolved per account | DWD scopes other than Gmail stay `pending` until a job uses them. Composio accounts work for Gmail, Calendar and Contacts (proxied transport). The Docs/Drive lane needs a bearer, so for Composio accounts it is `blocked` or fails per account; it is never silently skipped. |
 | Gmail | `sources/gmail/<mailbox>/…` | The whole mailbox, resumably: readable pages with full bodies, raw message JSON, `.eml` (withheld when redaction changed the payload), attachment bytes (≤ 50 MiB), threads, raw history pages, `state.json`. Labels and deletes are applied in order. | Per mailbox, `complete` only after the current full pass finishes and history was checked within 15 minutes. No push (`users.watch`). Mail deleted before the first pass is unrecoverable. |
 | Calendar | `sources/calendar/accounts/<mailbox>/calendars/<id>/events/…`, plus the donor `sources/calendar/<yyyy>/<mm>/*.md` | Per-mailbox event snapshots (exact jsonb), append-only revisions with raw diffs, calendar metadata. Resumable full sync, 410 reset without losing snapshots, removal tombstones, push channels with polling fallback. | `complete` = current state complete; edit history only from first capture. The shared mirror buckets by UTC date (raw keeps zoned times). |
 | Contacts | `sources/google-contacts/accounts/<mailbox>/{connections,other-contacts}/<id>.{json,md}` | People API connections and other contacts, incremental via sync tokens, merges and deletions tracked, revisions with diffs. Synced every 15 minutes. | Photos are not requested. A missing `contacts.other.readonly` blocks only that endpoint. |
@@ -36,8 +36,9 @@ plus the donor mirror projection) exists for Confluence, Jira, GitHub, Bitbucket
 | Provider | State |
 |---|---|
 | Confluence, Jira, GitHub, Bitbucket, Slack, Notion, Granola, binary/Drive PDF | Integration in progress (per-provider agents) |
-| Nango generic records lane | Integration in progress |
-| Zoom, Linear, coding sessions, office audio, Stripe, Cursor agents, Instagram/WhatsApp personal, Discord | Queued |
+| Nango generic records lane | **Implemented** (`providers/nango-records`). Operator-declared Nango integrations and models only (`NANGO_RECORDS_CONFIG`), each verified against Nango's deployed sync functions. Sources that collide with a specialized module or a donor Nango integration are refused. Connect sessions are bound to the verified tenant. `/records` paging uses a durable cursor, Nango per-account quota cooldowns are persisted, and webhooks are HMAC-verified. Each record version is kept raw, plus a readable `sources/<source>/<pck>/<conn>/<model>/<id>.json` with tombstones. Coverage is **never complete**: Nango's cache holds the latest state only, and history depends on the sync function. File bytes are not downloaded. No Nango account exists yet, so every configured source reports `pending`. |
+| Stripe | **Implemented.** Signed webhooks on a per-connection URL (the tenant comes from the URL, never the body), `event.id` dedupe, a 30-day events backfill (Stripe lists events for 30 days only; the donor's 3650-day setting overclaimed), a missed-event poll, and current object snapshots (customers, products, prices, subscriptions, invoices by default) at `sources/stripe/<acct>/<live\|test>/<resource>/<id>.json` with tombstones. Read-only keys; no Stripe-side changes; capability secrets redacted. Coverage: events are complete only from the window start; the webhook is partial until a signing secret is set. |
+| Zoom, Linear, coding sessions, office audio, Cursor agents, Instagram/WhatsApp personal, Discord | Queued |
 
 ## Account setup that needs a human
 

@@ -11,6 +11,18 @@ export interface GenericNangoCaptureInput {
   provider: string;
   model: string;
   record: NangoRecord;
+  /**
+   * SOURCE-LANE PATCH (nango-expansion request 1): the exact Nango integration and connection
+   * the record was read from. When set they scope source_event_id (suffix
+   * `::conn:<providerConfigKey>:<connectionId>`, percent-encoded) and, when the source has no
+   * provider-native identity, the source object identity (namespace
+   * `nango:<providerConfigKey>:<connectionId>`, object `<model>:<recordId>`; both or neither, per
+   * ck_activity_event_source_object), so two accounts of one tenant never collide on identical
+   * record ids/versions. Never written into the raw payload. Absent = the legacy
+   * (connection-less) identity, unchanged.
+   */
+  providerConfigKey?: string;
+  connectionId?: string;
   eventType?: string;
   sourceEventId?: string;
   timestamp?: string | Date | null;
@@ -121,10 +133,15 @@ export function buildGenericNangoEventValues(input: GenericNangoCaptureInput): {
     defaultRecordKind: deleted ? "tombstone" : "snapshot",
   });
 
+  const connectionScope = connectionScopeOf(input, source);
+  const scopedIdentity = connectionScope && sourceContract.sourceNamespace === null && sourceContract.sourceObjectId === null
+    ? { sourceNamespace: connectionScope.namespace, sourceObjectId: `${model}:${recordId}` }
+    : {};
   return {
     userId: input.tenantId,
     source,
     ...sourceContract,
+    ...scopedIdentity,
     eventType,
     timestamp: times.timestamp,
     sourceUpdatedAt: times.sourceUpdatedAt,
@@ -137,8 +154,22 @@ export function buildGenericNangoEventValues(input: GenericNangoCaptureInput): {
       encodeSourceEventComponent(model),
       encodeSourceEventComponent(recordId),
       encodeSourceEventComponent(version),
-    ].join(":"),
+    ].join(":") + (connectionScope?.eventIdSuffix ?? ""),
     processingStatus: "collected",
+  };
+}
+
+/** SOURCE-LANE PATCH (nango-expansion request 1): connection identity of a generic capture, if known. */
+export function connectionScopeOf(
+  input: Pick<GenericNangoCaptureInput, "providerConfigKey" | "connectionId">,
+  source: string,
+): { namespace: string; eventIdSuffix: string } | null {
+  const connectionId = input.connectionId?.trim();
+  if (!connectionId) return null;
+  const providerConfigKey = input.providerConfigKey?.trim() || source;
+  return {
+    namespace: `nango:${providerConfigKey}:${connectionId}`,
+    eventIdSuffix: `::conn:${encodeURIComponent(providerConfigKey)}:${encodeURIComponent(connectionId)}`,
   };
 }
 

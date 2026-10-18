@@ -1,4 +1,4 @@
-import { createHash, createHmac, timingSafeEqual } from "node:crypto";
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { Hono } from "hono";
 import { sql } from "drizzle-orm";
 import { env } from "../../env.js";
@@ -42,13 +42,31 @@ export function registerNangoHttpRoutes(app: Hono): void {
 
 const registeredApps = new WeakSet<Hono>();
 
+/**
+ * SOURCE-LANE PATCH (nango-expansion request 2): verified deliveries that belong to another
+ * Nango lane (the generic records lane) are handed to it with the raw body and signature; it
+ * re-verifies. Keyed by lane id so re-registration replaces instead of stacking.
+ */
+export interface NangoWebhookDelegate {
+  claims(payload: Record<string, unknown>): boolean;
+  handle(rawBody: string, signature: string): Promise<{ status: number; body?: unknown }>;
+}
+
+const webhookDelegates = new Map<string, NangoWebhookDelegate>();
+
+export function registerNangoWebhookDelegate(id: string, delegate: NangoWebhookDelegate): void {
+  webhookDelegates.set(id, delegate);
+}
+
 export async function handleNangoWebhook(input: {
   body: string;
   signature?: string | null;
 }): Promise<NangoWebhookResult> {
-  const secret = (env.NANGO_WEBHOOK_SECRET ?? env.NANGO_SECRET_KEY)?.trim();
+  // SOURCE-LANE PATCH (nango-expansion request 2): the webhook SIGNING key only
+  // (Environment Settings > Webhooks > Signing key); the environment API key is a different key.
+  const secret = env.NANGO_WEBHOOK_SECRET?.trim();
   if (!secret) {
-    return { status: 503, body: { error: "Nango webhook secret is not configured" } };
+    return { status: 503, body: { error: "Nango webhook signing key is not configured (NANGO_WEBHOOK_SECRET)" } };
   }
   if (!verifyNangoWebhookSignature(input.body, input.signature, secret)) {
     return { status: 401, body: { error: "Invalid Nango webhook signature" } };
@@ -56,6 +74,13 @@ export async function handleNangoWebhook(input: {
 
   const payload = parseJsonObject(input.body);
   if (!payload) return { status: 400, body: { error: "Invalid Nango webhook payload" } };
+
+  for (const delegate of webhookDelegates.values()) {
+    if (!delegate.claims(payload)) continue;
+    const delegated = await delegate.handle(input.body, input.signature ?? "");
+    if (delegated.status >= 200 && delegated.status < 300) return { status: 204 };
+    return { status: delegated.status === 401 || delegated.status === 503 ? delegated.status : 400, body: { error: "Nango webhook delivery was refused by the records lane" } };
+  }
 
   const type = stringValue(payload.type)?.toLowerCase();
   if (type === "forward") {
@@ -83,14 +108,14 @@ export async function handleNangoWebhook(input: {
   return { status: 204 };
 }
 
-// Nango sends the webhook HMAC under different header names depending on
-// config/version: newer deliveries use `x-nango-signature`, older/alternate
-// ones use `x-nango-hmac-sha256`. Accept either so valid deliveries are not
-// rejected.
+// SOURCE-LANE PATCH (nango-expansion request 2): Nango's documented signature is
+// `X-Nango-Hmac-Sha256` (HMAC-SHA256 of the raw body with the webhook signing key). The legacy
+// `X-Nango-Signature` header is plain SHA-256 and must not authorize a delivery
+// (https://nango.dev/docs/guides/platform/webhooks-from-nango).
 export function readNangoSignatureHeader(
   get: (name: string) => string | null | undefined,
 ): string | null | undefined {
-  return get("x-nango-signature") ?? get("x-nango-hmac-sha256");
+  return get("x-nango-hmac-sha256");
 }
 
 export function verifyNangoWebhookSignature(
@@ -100,11 +125,8 @@ export function verifyNangoWebhookSignature(
 ): boolean {
   const actualHex = normalizeSignature(signature);
   if (!actualHex) return false;
-  const expected = [
-    createHmac("sha256", secret).update(body).digest("hex"),
-    createHash("sha256").update(secret).update(body).digest("hex"),
-  ];
-  return expected.some((candidate) => timingSafeHexEqual(candidate, actualHex));
+  // SOURCE-LANE PATCH (nango-expansion request 2): HMAC only; the legacy sha256(secret + body) never verifies.
+  return timingSafeHexEqual(createHmac("sha256", secret).update(body).digest("hex"), actualHex);
 }
 
 export async function nangoSyncCompletedPayload(

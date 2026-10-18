@@ -47,6 +47,10 @@ export function loadSourceRuntimeConfig(env: NodeJS.ProcessEnv, publicUrl: strin
 
 export type GoogleAuthAction = "status" | "oauth.start" | "dwd.add" | "account.delete";
 
+/** Generic Nango records lane setup (runtime providers/nango-records). */
+export type NangoRecordsAction = "status" | "session.create" | "session.get" | "connection.delete" | "sync";
+const NANGO_SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export interface RuntimeResponse {
   status: number;
   body: unknown;
@@ -122,6 +126,28 @@ export class SourceRuntimeClient {
         if (!/^[^\s@/]+@[^\s@/]+$/.test(email) || email.length > 320) throw new SourceError("invalid_input", "Invalid Google account email");
         return this.#call(p, "DELETE", `/google/auth/accounts/${encodeURIComponent(email)}`);
       }
+    }
+  }
+
+  /** Generic Nango records lane (runtime providers/nango-records). A fixed allowlist of routes; ids are validated here. */
+  nangoRecords(p: Principal, action: NangoRecordsAction, input: { body?: unknown; sessionId?: string; source?: string; connectionId?: string } = {}): Promise<RuntimeResponse> {
+    switch (action) {
+      case "status":
+        return this.#call(p, "GET", "/nango-records");
+      case "session.create":
+        return this.#call(p, "POST", "/nango-records/connect-sessions", input.body ?? {});
+      case "session.get": {
+        if (!NANGO_SESSION_ID_RE.test(input.sessionId ?? "")) throw new SourceError("invalid_input", "Invalid connect session id");
+        return this.#call(p, "GET", `/nango-records/connect-sessions/${input.sessionId!.toLowerCase()}`);
+      }
+      case "connection.delete": {
+        assertProvider(input.source ?? "");
+        const id = input.connectionId ?? "";
+        if (!id || id.length > 512 || /[\u0000-\u001f]/.test(id)) throw new SourceError("invalid_input", "Invalid connection id");
+        return this.#call(p, "DELETE", `/nango-records/connections/${input.source}/${encodeURIComponent(id)}`);
+      }
+      case "sync":
+        return this.#call(p, "POST", "/nango-records/sync", input.body ?? {});
     }
   }
 

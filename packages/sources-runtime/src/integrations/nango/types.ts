@@ -66,6 +66,9 @@ export function registerGenericNangoModels(provider: string, models: GenericNang
       model,
       process: (executor, record, ctx) => processGenericNangoRecord(executor, {
         tenantId: ctx.tenantId,
+        // SOURCE-LANE PATCH (nango-expansion request 1): keep the integration + connection identity.
+        ...(ctx.providerConfigKey ? { providerConfigKey: ctx.providerConfigKey } : {}),
+        ...(ctx.connectionId ? { connectionId: ctx.connectionId } : {}),
         provider,
         model,
         record,
@@ -114,6 +117,9 @@ export async function dispatchRecords(
       ? await processor.process(executor, record, input.ctx)
       : await processGenericNangoRecord(executor, {
         tenantId: input.ctx.tenantId,
+        // SOURCE-LANE PATCH (nango-expansion request 1): keep the integration + connection identity.
+        ...(input.ctx.providerConfigKey ? { providerConfigKey: input.ctx.providerConfigKey } : {}),
+        ...(input.ctx.connectionId ? { connectionId: input.ctx.connectionId } : {}),
         provider: input.provider,
         model: input.model,
         record,

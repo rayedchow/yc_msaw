@@ -795,6 +795,29 @@
       ]
     },
     {
+      "path": "drizzle/9650_nango_records.sql",
+      "sha256": "cbb1b1ef5fbacb2e3a95355cb08d791ae725d493bd8715b52c2ed6559ac67c7e",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Lane operational tables (sessions, connections, checkpoints, quota, slots, webhook deliveries, verification, capabilities, unconfigured models, tenant state); range 9650-9699. No exported content tables, so no journal triggers.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "drizzle/9900_stripe_source_lane.sql",
+      "sha256": "78d2ed2bff44725ab97f20688ad9dab789eb8e4b8963fca44d91cc6609b798b5",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "stripe_connections, stripe_cursors, stripe_object_snapshots + journal trigger (listing bookkeeping ignored).",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ]
+    },
+    {
       "path": "scripts/backfill-calcom-aliases.ts",
       "sha256": "4c329d9c3df1f3409cf427d37dc3db817cc2904cdca4e88c814177d272c8571c",
       "status": "verbatim",
@@ -1356,10 +1379,15 @@
     },
     {
       "path": "src/integrations/nango/capture.ts",
-      "sha256": "cccc5fc3bbdbd547a3a9e4766a4770a05e40d2e4895ade01ac485d11e1bd2e8b",
-      "status": "verbatim",
+      "sha256": "31b4ea4c678e4ffff2807cb6751e85dfe7efa92fdaba81ba9230ef6d6eb5c1ef",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/integrations/nango/capture.ts",
-      "donorSha256": "cccc5fc3bbdbd547a3a9e4766a4770a05e40d2e4895ade01ac485d11e1bd2e8b"
+      "donorSha256": "cccc5fc3bbdbd547a3a9e4766a4770a05e40d2e4895ade01ac485d11e1bd2e8b",
+      "reason": "nango-expansion request 1 (see DECLARED_OVERRIDES).",
+      "tests": [
+        "tests/source-lane/providers/nango-records/shared-patches.test.ts"
+      ]
     },
     {
       "path": "src/integrations/nango/client.ts",
@@ -1412,17 +1440,28 @@
     },
     {
       "path": "src/integrations/nango/types.ts",
-      "sha256": "169e028a9c6b6a93d10b821f6e1cca280ad723e7ef4a9d064e7c60acfe745f4b",
-      "status": "verbatim",
+      "sha256": "3afc5ffba8062ca2e04e960763f221769a4c7e4cad5ecebd6722ef2738856ae9",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/integrations/nango/types.ts",
-      "donorSha256": "169e028a9c6b6a93d10b821f6e1cca280ad723e7ef4a9d064e7c60acfe745f4b"
+      "donorSha256": "169e028a9c6b6a93d10b821f6e1cca280ad723e7ef4a9d064e7c60acfe745f4b",
+      "reason": "nango-expansion request 1 (see DECLARED_OVERRIDES).",
+      "tests": [
+        "tests/source-lane/providers/nango-records/shared-patches.test.ts"
+      ]
     },
     {
       "path": "src/integrations/nango/webhook.ts",
-      "sha256": "2efde81d06638862e4e79c01424364637d8b138b72e7f3ff7b3796dd804c5402",
-      "status": "verbatim",
+      "sha256": "feb4624326a9a8c26f694f9ac9a2ea203878d2dcb424e31aca6f0aa27d256602",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/integrations/nango/webhook.ts",
-      "donorSha256": "2efde81d06638862e4e79c01424364637d8b138b72e7f3ff7b3796dd804c5402"
+      "donorSha256": "2efde81d06638862e4e79c01424364637d8b138b72e7f3ff7b3796dd804c5402",
+      "reason": "nango-expansion request 2 (see DECLARED_OVERRIDES).",
+      "tests": [
+        "tests/integrations/nango/webhook.test.ts",
+        "tests/source-lane/providers/nango-records/shared-patches.test.ts"
+      ]
     },
     {
       "path": "src/integrations/notion/block-capabilities.ts",
@@ -1538,10 +1577,15 @@
     },
     {
       "path": "src/integrations/registry.ts",
-      "sha256": "7d0076b5c7bca8d5155e320455ff5f7d479fd50939eeb4e1b4f7e64027d1c55b",
-      "status": "verbatim",
+      "sha256": "0fd09560a213a3517d727d869742a5eb77d582145c3fd193e99be12d190a63e2",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/integrations/registry.ts",
-      "donorSha256": "7d0076b5c7bca8d5155e320455ff5f7d479fd50939eeb4e1b4f7e64027d1c55b"
+      "donorSha256": "7d0076b5c7bca8d5155e320455ff5f7d479fd50939eeb4e1b4f7e64027d1c55b",
+      "reason": "Coordinator (stripe): registers the Stripe connector (src/integrations/stripe, ported from gigabrain 5448774).",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ]
     },
     {
       "path": "src/integrations/slack/config.ts",
@@ -1626,6 +1670,138 @@
       "status": "verbatim",
       "donorPath": "src/integrations/source-sync-task.ts",
       "donorSha256": "1af4ab1ceba66aaeb131e75a37d82662e6f86426beda1d82b244c736cf688c1a"
+    },
+    {
+      "path": "src/integrations/stripe/api.ts",
+      "sha256": "5ec6e12afe4ab2c905414512c80da0115ea5e2d9de7e1fa13c26332fbe9eff82",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Read-only Stripe REST client (GET only): events.list and resource listings with pagination, 429/Stripe-Should-Retry/Retry-After classification.",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/stripe/backfill.ts",
+          "use": "events.list paging (limit 100, starting_after)"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/stripe/connect.ts",
+      "sha256": "112a66e6f4f9273886cd8dc77f08166a26189355bab5abed39211fdd6c2e9bb4",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Tenant-bound connect with read-only key verification and per-connection webhook URL; no Stripe-side mutation (donor created/deleted webhook endpoints).",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/stripe/connect.ts",
+          "use": "STRIPE_EVENTS list, key verification, secret storage"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/stripe/index.ts",
+      "sha256": "cdb739672d81edf4af97a1f30447ffa1581e4b6663210356128d5fdd2fd6068b",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Stripe AqueductIntegration: connect/disconnect, webhook route, stripe.sync/stripe.backfill handlers (tenant from the task, never the payload).",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/stripe/index.ts",
+          "use": "integration shape"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/stripe/signature.ts",
+      "sha256": "b658e12617716e949feef9465805dd91182accdaba4af84db4787793a9ea20f0",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Stripe webhook signature verification per Stripe's documented scheme (t/v1 HMAC-SHA256, 300 s tolerance, multiple v1 for secret rolling); replaces the donor's stripe.webhooks.constructEvent without adding the SDK.",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/stripe/webhook.ts",
+          "use": "constructEvent verification semantics"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/stripe/store.ts",
+      "sha256": "57782ef88443fc7182f9fec42728deb460cd1b132eab90e5946232fc0053ce8c",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Connections with connection+tenant-bound encrypted credentials, leased cursors, raw events with donor sourceEventId=event.id dedupe, ordered object snapshots, listing tombstones, Stripe capability-secret redaction.",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/stripe/webhook.ts",
+          "use": "activity_events insert keyed by event.id"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/stripe/connect.ts",
+          "use": "separate encrypted API key and webhook secret"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/stripe/sync.ts",
+      "sha256": "e605604f2a316e7cfb66dcf4f32dcf1ccc69353d8da5b5f0581f8e4bdaa2fb16",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Events backfill clamped to Stripe's 30-day events retention (donor allowed 3650 days), missed-event poll with high-water mark, resumable per-resource object listings; per-lane Retry-After/backoff and permission blocks.",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/stripe/backfill.ts",
+          "use": "runStripeBackfill events window + pagination"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/stripe/webhook.ts",
+      "sha256": "20890603d9e3e47dabdbe16c204e368a20c39d5c3af5d4b79f5f413dfeb8b88e",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "POST /webhooks/stripe/:connectionId: tenant from the URL connection (donor hard-coded userId 'default'), signature over the raw body, livemode/account checks, event.id dedupe.",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/stripe/webhook.ts",
+          "use": "webhook receiver"
+        }
+      ]
     },
     {
       "path": "src/integrations/types.ts",
@@ -1892,10 +2068,15 @@
     },
     {
       "path": "src/routes/nango-webhook.ts",
-      "sha256": "7b42cf345702395bdd64b8dd038dd53f6b5e7eab1c2e33810864b4a4c5cccda2",
-      "status": "verbatim",
+      "sha256": "e00cc51ace0eed3a02990b516870752b6add04ca55f535729555d571f143d34c",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/routes/nango-webhook.ts",
-      "donorSha256": "7b42cf345702395bdd64b8dd038dd53f6b5e7eab1c2e33810864b4a4c5cccda2"
+      "donorSha256": "7b42cf345702395bdd64b8dd038dd53f6b5e7eab1c2e33810864b4a4c5cccda2",
+      "reason": "nango-expansion request 2: the donor route reads only x-nango-hmac-sha256 and passes the raw body to the patched handler.",
+      "tests": [
+        "tests/integrations/nango/webhook.test.ts"
+      ]
     },
     {
       "path": "src/routes/notion-callback.ts",
@@ -2603,6 +2784,244 @@
       ]
     },
     {
+      "path": "src/source-lane/providers/index.ts",
+      "sha256": "6cd9572ebee8ba431cf92192caf98092634a6648b5e7b0a75149fd114ff08758",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Provider registry; nango-expansion request 3: SPECIALIZED_PROVIDERS + withNangoRecordsProviders (configured generic sources, collisions refused).",
+      "tests": [
+        "tests/source-lane/providers/nango-records/shared-patches.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/README.md",
+      "sha256": "a6a5d329617c107a2d5273b383f1c31bde64b0b58cb65756a2549b947e870e05",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Operator documentation of the lane (config, env, webhook URL, HTTP setup API, capture layout, sync/quotas, coverage, limits).",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/api.ts",
+      "sha256": "a62574a5acfb41cdbe003129e7998f014d438d08c9db902268a54b5a8bbadbd3",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Nango HTTP client for the lane, checked against current nango.dev docs: GET /records (headers identity, cursor/modified_after/limit), POST /connect/sessions (tags, single allowed integration), GET /connections (tags filter, paging, created), DELETE /connections/{id}, GET /integrations/{key}/functions?type=sync. No in-request sleeping: 429/503 raise NangoRateLimitedError with Retry-After/X-RateLimit-Reset; rate headers surfaced; per-account quota key.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/capture.ts",
+      "sha256": "656f44fb3a288a0be2194e402d64e96bc48d455c2d02eb47ce45a30c2f4e297f",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Captures one Nango record version into activity_events with connection-scoped identity; lane redaction of credentials/cookies/pre-authenticated download URLs before the donor buildGenericNangoEventValues (imported, not copied); pruned payloads skipped.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/config.ts",
+      "sha256": "c7a9a2015dc9175f4754ab679673b65bc3971037d22991cbbe0b4d0d44bb56e7",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Operator catalog (NANGO_RECORDS_CONFIG[_FILE]) with strict schema; refuses sources colliding with specialized modules or donor-captured Nango integrations.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/connections.ts",
+      "sha256": "93fc2c91faa5fced33b836b2c6c7eef926a02f5fcc20e046d4a7ee4b379bff05",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Tenant ownership of lane connections (PK pck+connection), donor connections mirror, poll schedule lifecycle, authenticated health check, revoke.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/coverage.ts",
+      "sha256": "a543730e3db2487f670833be243de3827514c428062171bc1d262bba6063b065",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Truthful coverage per connection x model (pending/partial/blocked, never complete) and catalog-level status.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/export.ts",
+      "sha256": "825f9405827f1fb08caa0da13e583461e2e90210f56401d4ca2b496e3b13cb27",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "mapEvent: raw version file (core layout/document) + readable token-preserving JSON projection with tombstone/restore and last_modified_at ordinal; core mapping loaded lazily to avoid a registry import cycle.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/identity.ts",
+      "sha256": "65c873757a06c3d7f1b15d0968b56944bdfa0ecdfb129210655315fec21ddd74",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Connection-scoped source_event_id/namespace/object id and version (last_modified_at + content hash).",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/index.ts",
+      "sha256": "e8c114a35182233f27706e702881d9b88c53028e7f4e388f8b02ee6d298f3192",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Module factory (control module + one per configured source), withNangoRecordsProviders for providers/index.ts, guarded donor webhook delegate registration.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/lane.ts",
+      "sha256": "973fb827b5e4c1bcc1fa1d0b125aeb1ff2b3c3ae759408e25e0e73a98ffa8fe8",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Lane runtime context from env (catalog, API, signing keys, pacing, page budget); invalid webhook override becomes a reported config error.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/quota.ts",
+      "sha256": "c7846e041fde447121650bee09d228f39a73e6a58b35b3ee280121a40ac99cd1",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "DB-backed per-account cooldown (Retry-After / exhausted window), cross-worker pacing, per-integration concurrency leases.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/routes.ts",
+      "sha256": "3a4cac920b79327dc26163cd6223a91b3709b03c51b844b8a3123c15d32e6c38",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Internal setup API (status, connect sessions, session status/reconcile, disconnect, sync now): forwarded-principal scopes, strict bodies, tenant only from core middleware.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/sessions.ts",
+      "sha256": "f0a0ac9b68afe33bff9d9ef0af2af5d4c62047114763621794534508e05adf08",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Tenant-bound Nango connect sessions: random tag, use-once atomic consume, integration-bound, expiry (+grace for webhook, Nango created time for reconcile), reconcile via authenticated tag lookup.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/sync.ts",
+      "sha256": "53bafa011eeef6d82b5cb0dc0ad279e8ca3df6c5e5d39fd716bd49eed671ddca",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Incremental /records sync task (durable cursor checkpoints, cursor-reset fallback, page budget + continuation, deferral on cooldown, slots) and tenant poll/reconcile tasks.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/verify.ts",
+      "sha256": "041116301459ac0c241cd340eae31bdeab7ddd37fdf0e527f0a31e56c6c883c1",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Capability verification from deployed sync functions; available/disabled/not_deployed/missing/unverified; unconfigured deployed models recorded.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/nango-records/webhook.ts",
+      "sha256": "4e7fb971d320b08ec2fe62d8052527d6fbeab25142e23612c80af93b6c2c5c70",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "POST /webhooks/nango-records: strict X-Nango-Hmac-Sha256 with signing key(s), replay window, session-tag binding, API-verified auth status, sync enqueue, delegation of non-lane deliveries.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/stripe/coverage.ts",
+      "sha256": "c82df55b3dfa16bd2033a45c5cc0f9cc5d79e02df0fd667d53c0fca64ba6712e",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Truthful per-connection coverage: events complete only from the 30-day window start, webhook partial without a secret, objects per resource.",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/stripe/index.ts",
+      "sha256": "0221b6bc0a574dbd09e7ce2a927dddfb9f008425050784a45c4b3e37668c6858",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Stripe source provider: raw events via the default layout, object snapshots exported as exact JSON files with tombstones.",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
+      ]
+    },
+    {
       "path": "src/vault/credential-failure.ts",
       "sha256": "cb67db63ebd776973c8444004380d00d2a0b1ac6c92d5c8daf6bcb601295a473",
       "status": "verbatim",
@@ -2962,10 +3381,15 @@
     },
     {
       "path": "tests/integrations/nango/webhook.test.ts",
-      "sha256": "35c9aa283c8cf2e0f51636332bc0aa5369c8cc5ff3e035a3a964eb6c7d6b676f",
-      "status": "verbatim",
+      "sha256": "c63774db4e25545c59d4ccb89fa19720103293394f94841b359a52b0d48a74f0",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "tests/integrations/nango/webhook.test.ts",
-      "donorSha256": "35c9aa283c8cf2e0f51636332bc0aa5369c8cc5ff3e035a3a964eb6c7d6b676f"
+      "donorSha256": "35c9aa283c8cf2e0f51636332bc0aa5369c8cc5ff3e035a3a964eb6c7d6b676f",
+      "reason": "nango-expansion request 2: donor test now asserts the legacy sha256(secret+body) signature and an API-key HMAC are REJECTED and only x-nango-hmac-sha256 is read.",
+      "tests": [
+        "tests/integrations/nango/webhook.test.ts"
+      ]
     },
     {
       "path": "tests/integrations/notion/connect.test.ts",
@@ -3302,6 +3726,16 @@
       "status": "verbatim",
       "donorPath": "tests/setup-env.ts",
       "donorSha256": "fee5f0c912e41f2d6e9ec1ade9cc9a32b48f201734d0aed58571616925569453"
+    },
+    {
+      "path": "tests/source-lane/core/runtime-pg.test.ts",
+      "sha256": "b7ed9d6bcac57103c6367767272f17df44bbdc4a0b2fe746b95503e196b159d9",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Coordinator (nango-expansion request 2): the second signed Nango webhook uses the documented x-nango-hmac-sha256 header.",
+      "tests": [
+        "tests/source-lane/core/runtime-pg.test.ts"
+      ]
     },
     {
       "path": "tests/source-lane/providers/gmail/export.test.ts",
@@ -3680,6 +4114,106 @@
       "reason": "Test of the production iMessage receiver.",
       "tests": [
         "tests/source-lane/providers/imessage/mac-config.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/nango-records/config-registry.test.ts",
+      "sha256": "df5ff6a0938e238257a0ae4ee8856aafa80d43d34696f8aa13ad938eb5286b6e",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Lane test (production code imported; PGlite with real migrations; docs-conformant fake Nango HTTP API)",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/nango-records/export.test.ts",
+      "sha256": "ac5900bc621a1969215f03c2f3ace08e93e89782ccbb76502941eee46fe4f061",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Lane test (production code imported; PGlite with real migrations; docs-conformant fake Nango HTTP API)",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/nango-records/fake-nango.ts",
+      "sha256": "57349554c7e6f8d4043881183136f84a80ecb39577074c9d8abf7b45f5603035",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Lane test support"
+    },
+    {
+      "path": "tests/source-lane/providers/nango-records/harness.ts",
+      "sha256": "292ad79734e4590ce4df70b095c160d99323f261032ca734db9ddaabf793bac7",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Lane test support"
+    },
+    {
+      "path": "tests/source-lane/providers/nango-records/pg.ts",
+      "sha256": "0873a2ef495611b27a8da7c2997cad3c3620abe66ec014ead920f993ce7e3ec5",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Lane test support"
+    },
+    {
+      "path": "tests/source-lane/providers/nango-records/shared-patches.test.ts",
+      "sha256": "0e511aae745e3d1abe4339f0e190458a7af834231f0e2e390decb0e6ab3b7553",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "nango-expansion shared-patch regressions (applied by coordinator).",
+      "tests": [
+        "tests/source-lane/providers/nango-records/shared-patches.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/nango-records/sync.test.ts",
+      "sha256": "735c5baea6bf9033f0c79d9d39e3062de820457654f9ac4b5a26b499530d1b03",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Lane test (production code imported; PGlite with real migrations; docs-conformant fake Nango HTTP API)",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+      "sha256": "1985ddbfe8be1f880bd4ed8396c1ac3c5b17ba91ab8eb83a90ed77c5395bc7dd",
+      "status": "new",
+      "owner": "nango-expansion",
+      "reason": "Lane test (production code imported; PGlite with real migrations; docs-conformant fake Nango HTTP API)",
+      "tests": [
+        "tests/source-lane/providers/nango-records/sync.test.ts",
+        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
+        "tests/source-lane/providers/nango-records/export.test.ts",
+        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/stripe/harness.ts",
+      "sha256": "726c64d64f5dd600a042bd4abe3ad312e7b14e7bb181fa5bbdab90fe3fa06486",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "PGlite + fake read-only Stripe API harness."
+    },
+    {
+      "path": "tests/source-lane/providers/stripe/stripe.test.ts",
+      "sha256": "c28a5a9a128ad31ff80aab1db2d643a96eecb006a9376426793c0dd39ad8337c",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Stripe lane regression suite.",
+      "tests": [
+        "tests/source-lane/providers/stripe/stripe.test.ts"
       ]
     },
     {

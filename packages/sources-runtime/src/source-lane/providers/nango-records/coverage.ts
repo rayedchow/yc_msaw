@@ -15,7 +15,7 @@ import { loadCapabilities, modelsToPoll, type ModelCapability } from "./verify.j
  * when the account, integration, model or API key cannot be read.
  */
 
-const CACHE_LIMITS = "Nango /records keeps only the latest payload per record (no intermediate versions); history depth is set by the Nango sync function";
+const CACHE_LIMITS = "Nango /records keeps only the latest payload per record (no intermediate versions); history depth is set by the Nango sync function; file contents referenced by records are not downloaded (metadata only)";
 
 function capabilityReason(state: ModelCapability, model: string, key: string): string | null {
   switch (state) {

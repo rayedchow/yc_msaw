@@ -7,7 +7,7 @@ import { errorMessage } from "../util.js";
 import { createHash } from "node:crypto";
 import { DEVICE_KEY_PREFIXES, deviceKeyForBindingToken, looksLikeBindingToken, type BindingKind, type VerifiedBinding } from "./bindings.js";
 import { SourceError } from "./paths.js";
-import type { GoogleAuthAction, RuntimeResponse, SourceRuntimeClient } from "./runtime-client.js";
+import type { GoogleAuthAction, NangoRecordsAction, RuntimeResponse, SourceRuntimeClient } from "./runtime-client.js";
 import { COVERAGE_STATES, type SourceService, type StatusReport } from "./service.js";
 import { CHUNK_BYTES, MAX_BATCH_CHANGES, MAX_INLINE_BYTES, parseJsonDict, SOURCE_KINDS, type PublishBatch } from "./store.js";
 
@@ -442,6 +442,33 @@ const GoogleAuthStartSchema = z
   })
   .strict();
 const GoogleDwdMailboxSchema = z.object({ email: z.string().email().max(320) }).strict();
+
+const NangoSourceId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
+const NangoSessionSchema = z.object({ source: NangoSourceId }).strict();
+const NangoSyncSchema = z.object({ source: NangoSourceId.optional() }).strict();
+
+/**
+ * Generic Nango records lane setup forwarded to runtime providers/nango-records: status,
+ * tenant-bound connect sessions, disconnect and sync-now. Strict bodies: the only field is a
+ * configured source id; tenant and user come from the verified principal.
+ */
+export async function nangoRecordsRoute(
+  request: Request,
+  principal: Principal,
+  runtime: SourceRuntimeClient,
+  action: NangoRecordsAction,
+  params: { sessionId?: string; source?: string; connectionId?: string } = {},
+): Promise<Response> {
+  try {
+    const body =
+      action === "session.create" ? NangoSessionSchema.parse(await readOptionalJson(request))
+      : action === "sync" ? NangoSyncSchema.parse((await readOptionalJson(request)) ?? {})
+      : undefined;
+    return relay(await runtime.nangoRecords(principal, action, { ...(body !== undefined ? { body } : {}), ...params }));
+  } catch (e) {
+    return e instanceof SourceError || e instanceof TraceIngestError || e instanceof z.ZodError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
+  }
+}
 
 /** Google provider-grant setup forwarded to runtime providers/google-auth; strict bodies (no tenant/user fields). */
 export async function googleAuthRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: GoogleAuthAction, email?: string): Promise<Response> {

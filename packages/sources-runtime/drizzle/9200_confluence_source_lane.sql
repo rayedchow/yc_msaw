@@ -29,7 +29,19 @@ CREATE TABLE IF NOT EXISTS confluence_source_quota (
   updated_at timestamptz NOT NULL DEFAULT now()
 );
 
--- 2. Sites reachable through a connection, with the granted OAuth scopes.
+-- 2a. Last site-discovery outcome per connection (a grant that cannot list any
+--     site has no site row, but its coverage must still say why).
+CREATE TABLE IF NOT EXISTS confluence_source_connections (
+  tenant_id text NOT NULL,
+  connection_id text NOT NULL,
+  status text NOT NULL,
+  reason text,
+  sites integer NOT NULL DEFAULT 0,
+  checked_at timestamptz NOT NULL DEFAULT now(),
+  PRIMARY KEY (tenant_id, connection_id)
+);
+
+-- 2b. Sites reachable through a connection, with the granted OAuth scopes.
 CREATE TABLE IF NOT EXISTS confluence_source_sites (
   tenant_id text NOT NULL,
   row_key text NOT NULL,

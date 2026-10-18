@@ -1,6 +1,5 @@
 import { DONOR } from "../../core/donor.js";
 import type { ActivityEventRow, JournalInfo, SourceFileChange } from "../../core/types.js";
-import { encodeSegment, eventCapturedAt, rawEventDocument } from "../../export/mapping.js";
 import { EVENT_ID_PREFIX, parseSourceEventId } from "./identity.js";
 import { iso } from "./lane.js";
 
@@ -18,7 +17,14 @@ import { iso } from "./lane.js";
  *
  * Rows whose source_event_id is not a lane identity (e.g. written by older code) keep the
  * core default raw mapping (returning null).
+ *
+ * The core mapping helpers are loaded on first use: export/mapping.ts imports the registry, which
+ * imports providers/index.ts, which builds this lane's modules, so a static import would be a cycle.
  */
+
+type CoreMapping = typeof import("../../export/mapping.js");
+let coreMapping: Promise<CoreMapping> | undefined;
+const mapping = (): Promise<CoreMapping> => (coreMapping ??= import("../../export/mapping.js"));
 
 /** Re-indent JSON text without parsing values (big integers, exact float text and escapes survive). */
 export function prettyJsonText(text: string): string {
@@ -77,13 +83,14 @@ export function prettyJsonText(text: string): string {
   return out;
 }
 
-export function projectionPath(source: string, id: { providerConfigKey: string; connectionId: string; model: string; recordId: string }): string {
-  return ["sources", source, encodeSegment(id.providerConfigKey), encodeSegment(id.connectionId), encodeSegment(id.model), `${encodeSegment(id.recordId)}.json`].join("/");
+function projectionPath(enc: CoreMapping["encodeSegment"], source: string, id: { providerConfigKey: string; connectionId: string; model: string; recordId: string }): string {
+  return ["sources", source, enc(id.providerConfigKey), enc(id.connectionId), enc(id.model), `${enc(id.recordId)}.json`].join("/");
 }
 
-export function rawPath(source: string, row: Pick<ActivityEventRow, "source_namespace" | "source_object_id" | "timestamp" | "source_event_id">): string {
+/** Same layout as the core default raw mapping, under this source's directory. */
+function rawPath(enc: CoreMapping["encodeSegment"], source: string, row: Pick<ActivityEventRow, "source_namespace" | "source_object_id" | "timestamp" | "source_event_id">): string {
   const ts = iso(row.timestamp) ?? "1970-01-01T00:00:00.000Z";
-  return ["sources", source, "_raw", encodeSegment(row.source_namespace ?? "_"), encodeSegment(row.source_object_id ?? "_"), ts.slice(0, 7), `${encodeSegment(row.source_event_id)}.json`].join("/");
+  return ["sources", source, "_raw", enc(row.source_namespace ?? "_"), enc(row.source_object_id ?? "_"), ts.slice(0, 7), `${enc(row.source_event_id)}.json`].join("/");
 }
 
 function nangoMeta(text: string): { lastModifiedAt: string | null; deletedAt: string | null; lastAction: string | null } {
@@ -95,12 +102,13 @@ function nangoMeta(text: string): { lastModifiedAt: string | null; deletedAt: st
   }
 }
 
-export function mapLaneEvent(source: string, row: ActivityEventRow, journal: JournalInfo): SourceFileChange[] | null {
+export async function mapLaneEvent(source: string, row: ActivityEventRow, journal: JournalInfo): Promise<SourceFileChange[] | null> {
   if (!row.source_event_id.startsWith(`${EVENT_ID_PREFIX}:`)) return null;
   const id = parseSourceEventId(row.source_event_id);
   if (!id) return null;
+  const { encodeSegment, eventCapturedAt, rawEventDocument } = await mapping();
   const capturedAt = eventCapturedAt(row, journal);
-  const raw = rawPath(source, row);
+  const raw = rawPath(encodeSegment, source, row);
   const meta = nangoMeta(row.raw_payload_text);
   const identity = { providerConfigKey: id.providerConfigKey, connectionId: id.connectionId, model: id.model, recordId: id.recordId, version: id.version };
   const provenance = { donor: `${DONOR.repo}@${DONOR.commit}`, lane: "nango-records", table: "activity_events", activityEventId: row.id, sourceEventId: row.source_event_id, ...identity };
@@ -116,7 +124,7 @@ export function mapLaneEvent(source: string, row: ActivityEventRow, journal: Jou
       provenance: { ...provenance, recordKind: row.record_kind, eventType: row.event_type },
     },
   ];
-  const projection = projectionPath(source, id);
+  const projection = projectionPath(encodeSegment, source, id);
   if (row.record_kind === "tombstone") {
     changes.push({
       op: "delete",

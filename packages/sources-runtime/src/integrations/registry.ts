@@ -8,6 +8,8 @@ import { confluenceIntegration, jiraIntegration } from "./atlassian/index.js";
 import { bitbucketIntegration } from "./bitbucket/index.js";
 import { githubIntegration } from "./github/index.js";
 import { slackIntegration } from "./slack/index.js";
+// SOURCE-LANE PATCH (coordinator, stripe): Stripe connector ported from gigabrain 5448774 (webhook + backfill).
+import { stripeIntegration } from "./stripe/index.js";
 
 /**
  * Launch catalog: the mirror-ready sources (gmail + calendar + gdocs live under
@@ -24,6 +26,7 @@ export const integrations: AqueductIntegration[] = [
   bitbucketIntegration,
   githubIntegration,
   slackIntegration,
+  stripeIntegration,
 ];
 
 export function registerIntegrationHttpRoutes(app: Hono, list: AqueductIntegration[] = integrations): void {

@@ -97,6 +97,26 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync.",
     test: "tests/source-lane/core/shared-patches.test.ts",
   },
+  "src/integrations/registry.ts": {
+    status: "patched",
+    reason: "Coordinator (stripe): registers the Stripe connector (src/integrations/stripe, ported from gigabrain 5448774) so its connect/disconnect, /webhooks/stripe/:connectionId and stripe.sync/stripe.backfill handlers are live.",
+    test: "tests/source-lane/providers/stripe/stripe.test.ts",
+  },
+  "src/integrations/nango/capture.ts": {
+    status: "patched",
+    reason: "nango-expansion request 1: generic Nango captures keep the Nango connection + integration (providerConfigKey) in source_event_id (and, when the provider identity gives none, in source_namespace/source_object_id), so two accounts of one provider in a tenant no longer collapse into one row; legacy ids unchanged without a connection.",
+    test: "tests/source-lane/providers/nango-records/shared-patches.test.ts",
+  },
+  "src/integrations/nango/types.ts": {
+    status: "patched",
+    reason: "nango-expansion request 1: registerGenericNangoModels and the unregistered-model fallback pass ctx.connectionId / ctx.providerConfigKey to processGenericNangoRecord.",
+    test: "tests/source-lane/providers/nango-records/shared-patches.test.ts",
+  },
+  "src/integrations/nango/webhook.ts": {
+    status: "patched",
+    reason: "nango-expansion request 2: only X-Nango-Hmac-Sha256 (HMAC-SHA256 of the raw body with the webhook signing key, NANGO_WEBHOOK_SECRET) authorizes; the legacy plain-SHA256 X-Nango-Signature and the API-key fallback are refused; verified deliveries claimed by the generic records lane are delegated to it.",
+    test: "tests/integrations/nango/webhook.test.ts",
+  },
   "src/mirror/backfill.ts": {
     status: "patched",
     reason: "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones).",

@@ -28,6 +28,7 @@ import {
   googleAuthRoute,
   imessageDeviceSetupRoute,
   listBindingsRoute,
+  nangoRecordsRoute,
   provisionRuntimeRoute,
   runtimeStatusRoute,
   publishRoute,
@@ -542,6 +543,32 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         const principal = await authenticateHttp(c.req.raw, auth, undefined);
         if (principal instanceof Response) return principal;
         return imessageDeviceSetupRoute(c.req.raw, principal, sources, runtime);
+      });
+      // Generic Nango records lane (operator-configured Nango integrations; runtime providers/nango-records).
+      server.get("/v1/sources/nango-records", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+        if (principal instanceof Response) return principal;
+        return nangoRecordsRoute(c.req.raw, principal, runtime, "status");
+      });
+      server.post("/v1/sources/nango-records/connect-sessions", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return nangoRecordsRoute(c.req.raw, principal, runtime, "session.create");
+      });
+      server.get("/v1/sources/nango-records/connect-sessions/:sessionId", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+        if (principal instanceof Response) return principal;
+        return nangoRecordsRoute(c.req.raw, principal, runtime, "session.get", { sessionId: c.req.param("sessionId") });
+      });
+      server.delete("/v1/sources/nango-records/connections/:source/:connectionId", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return nangoRecordsRoute(c.req.raw, principal, runtime, "connection.delete", { source: c.req.param("source"), connectionId: c.req.param("connectionId") });
+      });
+      server.post("/v1/sources/nango-records/sync", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return nangoRecordsRoute(c.req.raw, principal, runtime, "sync");
       });
       server.post("/v1/sources/devices/:provider", async (c) => {
         // Collection scope (traces:write) or admin; checked in the route.

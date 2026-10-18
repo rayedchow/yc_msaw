@@ -109,6 +109,22 @@ export async function setSiteStatus(db: DbExecutor, scope: SiteScope, status: st
   `);
 }
 
+export async function recordDiscovery(db: DbExecutor, tenantId: string, connectionId: string, status: "ok" | "blocked" | "error", reason: string | null, sites: number): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO confluence_source_connections (tenant_id, connection_id, status, reason, sites, checked_at)
+    VALUES (${tenantId}, ${connectionId}, ${status}, ${reason}, ${sites}, now())
+    ON CONFLICT (tenant_id, connection_id) DO UPDATE SET status = EXCLUDED.status, reason = EXCLUDED.reason, sites = EXCLUDED.sites, checked_at = now()
+  `);
+}
+
+export async function getDiscovery(db: DbExecutor, tenantId: string, connectionId: string): Promise<{ status: string; reason: string | null; sites: number; checked_at: unknown } | null> {
+  return (
+    rowsOf<{ status: string; reason: string | null; sites: number; checked_at: unknown }>(
+      await db.execute(sql`SELECT status, reason, sites, checked_at FROM confluence_source_connections WHERE tenant_id = ${tenantId} AND connection_id = ${connectionId}`),
+    )[0] ?? null
+  );
+}
+
 // ------------------------------------------------------------------ sync state
 
 export interface SyncStateRow {

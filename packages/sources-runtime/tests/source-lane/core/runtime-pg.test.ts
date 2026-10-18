@@ -341,7 +341,7 @@ describe.skipIf(!PG)("source runtime on real PostgreSQL with the real yc_msaw se
     // Provider deletion: tombstone record -> donor removes the mirror file -> store tombstone + history.
     nangoPages = { Page: [{ id: "page-7", spaceId: "ENG", _nango_metadata: { last_action: "DELETED", updated_at: "2026-10-17T01:00:00.000Z" } }] };
     const delBody = JSON.stringify({ type: "sync", success: true, providerConfigKey: "confluence", connectionId: "conn-1", model: "Page", modifiedAfter: "2026-10-17T00:30:00.000Z" });
-    expect((await runtimeApp.request("/webhooks/nango", { method: "POST", headers: { "content-type": "application/json", "x-nango-signature": createHmac("sha256", WEBHOOK_SECRET).update(delBody).digest("hex") }, body: delBody })).status).toBe(204);
+    expect((await runtimeApp.request("/webhooks/nango", { method: "POST", headers: { "content-type": "application/json", "x-nango-hmac-sha256": createHmac("sha256", WEBHOOK_SECRET).update(delBody).digest("hex") }, body: delBody })).status).toBe(204);
     expect(await runQueuedTasks(handlers)).toContain("nango.sync_records");
     expect((await drainExporter(exporter)).dead).toBe(0);
     const gone = await call(reader, "read", { path: "$SOURCES/confluence/ENG/page-7.md" });
