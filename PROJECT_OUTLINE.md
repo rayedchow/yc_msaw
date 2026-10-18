@@ -257,19 +257,15 @@ The $493k / $605k figures come from a real GLM run on the Q4 forecast task.
 The UI is for humans, but it should make clear that agents are the users. The MCPs are the hero; the agent harness
 stays out of sight.
 
-The UI keeps the honeyflow grid style (dark): a ruled center column with four tabs, and a **terminal docked under
-every tab** that shows what agents actually see. The agent view is never hidden behind a toggle.
+The UI keeps the honeyflow grid style (dark, pastel violet accent) and has two views:
 
-- **Connections:** each system's `.md` and its secret (name only). Terminal: host-injected connection checks.
-- **Discovery:** mined rules with evidence, held-out backtest scores and each rule's code, plus the one question for a
-  human. Terminal: the miner's queries and backtests.
-- **MCP:** tools with the rules compiled into each, a **Connect** panel (URL, Claude, Cursor) and versions
-  (preview → tests → live). Terminal: an agent connecting (`initialize`, `tools/list`, `tools/call`) and the
-  structured response with `rules_applied` and `assumptions`.
-- **Live:** wrong vs right answer and the proof chart. Terminal: live MCP traffic from every agent; "Change a rule"
-  shows a backtest breaking and v4 shipping.
+- **MCPs:** every internal MCP the company has, with its systems, status (live, mining, needs an answer), agents
+  connected, calls in the last 24 h and rules compiled.
+- **One MCP:** its status and usage, the **tribal knowledge** mined for it (rules with evidence, held-out backtest
+  scores and each rule's code, plus any open question for a human), its tools and the rules compiled into each, its
+  integrations (`.md` plus secret name), how to connect any agent, and its versions (tests → evals → live).
 
-Every screen is in `mock-ui/index.html` (open it directly; → steps through the 2-minute demo).
+Both views are in `mock-ui/index.html` (open it directly; no build step).
 
 ---
 

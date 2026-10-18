@@ -5,22 +5,22 @@
 <meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>walter</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
-<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;600;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
     --bg: #1A1A1A;
-    --surface: #111111;
-    --raise: #202020;
+    --surface: #141414;
     --border: #2A2A2A;
     --border-strong: #3A3A3A;
-    --text: #EAEAEA;
+    --text: #ECECEC;
     --muted: #B4B4B4;
     --tertiary: #8A8A8A;
     --accent: #C4B5FD;
     --accent-glow: rgba(196, 181, 253, 0.14);
     --grid-line: rgba(255, 255, 255, 0.035);
-    --ok: #4ADE80;
-    --bad: #F87171;
+    --ok: #5BD08A;
+    --warn: #F5C46B;
+    --bad: #FF8A80;
     --maxw: 68rem;
     --sans: "Neue Haas Grotesk", "Helvetica Neue", "Inter Tight", Helvetica, Arial, sans-serif;
     --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
@@ -28,11 +28,14 @@
   * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
   html, body { margin: 0; }
   body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.55; font-size: 15px; }
-  h1 { margin: 0; font-weight: 700; letter-spacing: -0.045em; font-size: 32px; line-height: 1.05; }
-  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
+  h1 { margin: 0; font-weight: 700; letter-spacing: -0.045em; font-size: 32px; line-height: 1.1; }
+  h2 { margin: 0; font-size: 13px; font-weight: 500; color: var(--tertiary); }
+  button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; text-align: left; }
   code, pre, .mono { font-family: var(--mono); }
+  code { font-size: .88em; }
   ::selection { background: var(--accent-glow); }
 
+  /* honeyflow frame: ruled center column, faint grid outside */
   .frame { position: fixed; inset: 0; pointer-events: none; display: flex; justify-content: center; }
   .frame > div { width: 100%; max-width: var(--maxw); border-left: 1px solid var(--border); border-right: 1px solid var(--border); position: relative; }
   .frame > div::before, .frame > div::after { content: ""; position: absolute; top: 0; bottom: 0; width: 50vw; background-size: 32px 32px;
@@ -41,496 +44,331 @@
   .frame > div::after { left: 100%; }
 
   .top { position: sticky; top: 0; z-index: 20; }
-  .strip { max-width: var(--maxw); margin: 0 auto; background: var(--accent); color: #000; text-align: center; font-size: 11px; font-weight: 600; padding: 8px 16px; min-height: 33px; }
+  .strip { max-width: var(--maxw); margin: 0 auto; background: var(--accent); color: #141414; text-align: center; font-size: 12px; font-weight: 600; padding: 8px 16px; }
   nav { max-width: var(--maxw); margin: 0 auto; height: 58px; padding: 0 28px; display: flex; align-items: center; justify-content: space-between;
-    background: rgba(26,26,26,0.92); backdrop-filter: blur(8px); border: 1px solid var(--border); border-top: 0; }
+    background: rgba(26,26,26,0.94); backdrop-filter: blur(8px); border: 1px solid var(--border); border-top: 0; }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.04em; font-size: 17px; }
   .brand i { width: 16px; height: 16px; border: 2px solid var(--text); position: relative; }
   .brand i::after { content: ""; position: absolute; inset: 3px; background: var(--accent); }
-  .tabs { display: flex; gap: 24px; margin-left: 32px; }
-  .tab { font-family: var(--mono); font-size: 11px; font-weight: 600; letter-spacing: 0.12em; text-transform: uppercase; }
-  .label { font-size: 13px; }
-  .tab { color: var(--tertiary); padding: 21px 0; border-bottom: 2px solid transparent; }
-  .tab.on { color: var(--text); border-bottom-color: var(--accent); }
-  .label { color: var(--tertiary); }
-  .pill { padding: 9px 18px; border-radius: 999px; background: var(--text); color: #0A0A0A; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
-  .pill.ghost { background: transparent; color: var(--text); border: 1px solid var(--border-strong); }
-  .pill:hover { opacity: .85; }
+  .crumb { display: flex; align-items: center; gap: 10px; margin-left: 22px; font-size: 14px; color: var(--tertiary); }
+  .crumb button:hover { color: var(--text); }
+  .crumb .cur { color: var(--text); }
+  .org { font-size: 13px; color: var(--tertiary); }
+  .pill { padding: 8px 16px; border-radius: 999px; background: var(--text); color: #141414; font-size: 13px; font-weight: 600; white-space: nowrap; }
+  .pill:hover { opacity: .88; }
 
-  main { position: relative; z-index: 1; max-width: var(--maxw); margin: 0 auto; border-left: 1px solid var(--border); border-right: 1px solid var(--border); min-height: calc(100vh - 91px); }
-  .view { display: none; }
-  .view.on { display: block; }
+  main { position: relative; z-index: 1; max-width: var(--maxw); margin: 0 auto; border-left: 1px solid var(--border); border-right: 1px solid var(--border); min-height: calc(100vh - 92px); }
   section { border-bottom: 1px solid var(--border); }
   .pad { padding: 28px; }
   .head { display: flex; align-items: flex-end; justify-content: space-between; gap: 24px; }
-  .head p { margin: 6px 0 0; color: var(--muted); }
+  .head p { margin: 8px 0 0; color: var(--muted); }
   .muted { color: var(--muted); }
-  .ok { color: var(--ok); }
-  .bad { color: var(--bad); }
-  .badge { white-space: nowrap; padding: 2px 7px; border: 1px solid var(--border-strong); font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--muted); }
-  .badge.y { border-color: var(--accent); color: var(--accent); }
-  .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: var(--ok); margin-right: 8px; vertical-align: middle; }
-  .dot.y { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
-  .dot.g { background: var(--border-strong); }
-
+  .dim { color: var(--tertiary); }
   .row { display: grid; }
   .row > * { border-right: 1px solid var(--border); }
   .row > *:last-child { border-right: 0; }
   .c2 { grid-template-columns: 1fr 1fr; }
-  .c3 { grid-template-columns: repeat(3, 1fr); }
   .c4 { grid-template-columns: repeat(4, 1fr); }
-  .split { grid-template-columns: 1.5fr 1fr; }
-  .cell { padding: 22px 28px; }
-  .hov:hover { background: var(--surface); cursor: pointer; }
-  .sel { background: var(--surface); box-shadow: inset 2px 0 0 var(--accent); }
+  .cell { padding: 20px 28px; }
 
-  pre { margin: 0; font-size: 12.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; color: #CFCFCF; }
-  .code { background: var(--surface); border: 1px solid var(--border); padding: 14px 16px; }
+  .status { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); white-space: nowrap; }
+  .status i { width: 7px; height: 7px; border-radius: 50%; background: var(--ok); }
+  .status.build i { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .status.ask i { background: var(--warn); }
+  .tag { font-family: var(--mono); font-size: 11px; padding: 2px 7px; border: 1px solid var(--border-strong); color: var(--muted); white-space: nowrap; }
+  .tag.v { border-color: transparent; background: var(--accent); color: #141414; }
 
-  /* connections */
-  .conn h3 { margin: 8px 0 2px; font-size: 16px; letter-spacing: -0.03em; }
-  .secret { margin-top: 16px; display: flex; justify-content: space-between; font-family: var(--mono); font-size: 11px; color: var(--muted); }
-  .add { display: flex; align-items: center; justify-content: center; color: var(--tertiary); }
+  /* list */
+  .mcps .card, .mcps .hdr { display: grid; grid-template-columns: 1.6fr 1.2fr .6fr .7fr .6fr 24px; align-items: center; gap: 16px; padding: 22px 28px; width: 100%; }
+  .mcps .card { border-top: 1px solid var(--border); }
+  .mcps .card:hover { background: var(--surface); }
+  .mcps .hdr { padding: 12px 28px; font-size: 13px; color: var(--tertiary); }
+  .mcps .name { font-weight: 600; font-size: 16px; letter-spacing: -0.02em; }
+  .mcps .sys { font-size: 13px; color: var(--tertiary); margin-top: 2px; }
+  .mcps .num { font-family: var(--mono); font-size: 14px; }
+  .mcps .arrow { color: var(--tertiary); }
+  .progress { height: 3px; background: var(--border); margin-top: 8px; width: 120px; }
+  .progress i { display: block; height: 100%; background: var(--accent); }
 
-  /* discovery */
-  .num { font-family: var(--mono); font-size: 24px; font-weight: 700; margin-top: 4px; }
-  .stepc.active { box-shadow: inset 0 -2px 0 var(--accent); }
-  .rules { width: 100%; border-collapse: collapse; }
-  .rules th { text-align: left; padding: 12px 28px; border-bottom: 1px solid var(--border); }
-  .rules td { padding: 14px 28px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 14px; }
-  .rules tr { transition: opacity .35s; }
-  .rules tr.hidden { opacity: 0; }
-  .rules tbody tr:hover { background: var(--surface); cursor: pointer; }
-  .rules tr.sel { box-shadow: inset 2px 0 0 var(--accent); background: var(--surface); }
-  .rid { font-family: var(--mono); font-weight: 700; color: var(--tertiary); margin-right: 10px; }
-  .codeRow td { padding-top: 0; }
-  .q .opt { display: flex; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--border); }
+  /* detail */
+  .url { margin-top: 10px; font-family: var(--mono); font-size: 13px; color: var(--muted); display: flex; align-items: center; gap: 14px; }
+  .url .status { font-family: var(--sans); }
+  .stat .v { font-family: var(--mono); font-size: 24px; font-weight: 600; margin-top: 4px; }
+  .stat .l { font-size: 13px; color: var(--muted); }
+  .sechead { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; padding: 22px 28px 12px; }
+  .list .it { display: grid; gap: 16px; align-items: center; padding: 14px 28px; border-top: 1px solid var(--border); }
+  .list .it.click:hover { background: var(--surface); cursor: pointer; }
+  .list .it.sel { background: var(--surface); box-shadow: inset 2px 0 0 var(--accent); }
+  .integ { grid-template-columns: 1.2fr 1.3fr 1fr auto; }
+  .tool { grid-template-columns: 1.1fr 1.4fr 80px; }
+  .tool .tag { justify-self: end; }
+  .rule { grid-template-columns: 32px 1.4fr 1.3fr 80px; }
+  .ver { grid-template-columns: 32px 1.5fr repeat(3, .8fr); font-size: 13px; }
+  .rid { font-family: var(--mono); font-size: 12px; color: var(--tertiary); }
+  .sig { font-family: var(--mono); font-size: 13.5px; }
+  pre.code { margin: 0; padding: 12px 28px 14px 76px; font-size: 12.5px; line-height: 1.7; color: var(--muted); background: var(--surface); white-space: pre-wrap; border-top: 1px solid var(--border); }
+  pre.box { margin: 0; padding: 14px 16px; font-size: 12.5px; line-height: 1.7; color: var(--muted); background: var(--surface); border: 1px solid var(--border); white-space: pre-wrap; }
+  .q { margin: 20px 28px 24px; border: 1px solid var(--border-strong); }
+  .q .body { padding: 14px 18px; }
+  .q .opt { display: flex; gap: 12px; padding: 11px 18px; border-top: 1px solid var(--border); }
   .q .opt:hover { background: var(--surface); cursor: pointer; }
   .q .opt.picked { background: var(--accent-glow); }
-  .q .opt b { font-family: var(--mono); color: var(--accent); }
-
-  /* mcp */
-  .tool .sig { font-family: var(--mono); font-size: 13px; font-weight: 700; }
-  .tool .rl { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--tertiary); }
-  .ctabs { display: flex; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--border); }
-  .ctab { padding: 12px 0; font-size: 13px; color: var(--tertiary); border-bottom: 2px solid transparent; }
-  .ctab.on { color: var(--text); border-bottom-color: var(--accent); }
-  .ver { display: grid; grid-template-columns: 60px 1fr 1fr 1fr 1.3fr; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 11px; }
-  .ver > div { padding: 12px 28px 12px 0; }
-  .ver > div:first-child { padding-left: 28px; font-weight: 700; }
-  .ver .p { color: var(--tertiary); }
-
-  /* live */
-  .big { font-size: 48px; font-weight: 700; letter-spacing: -0.05em; line-height: 1; margin: 14px 0 12px; }
-  .meta { font-family: var(--mono); font-size: 12px; color: var(--muted); }
-  .dim .big, .dim .meta { opacity: .1; }
-  @keyframes flash { from { background: var(--accent-glow); } to { background: transparent; } }
-  .bar .track { height: 90px; background: var(--surface); position: relative; margin: 14px 0 10px; }
-  .bar .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--text); transition: height 1s cubic-bezier(.2,.7,.2,1); }
-  .bar .fill.t { background: repeating-linear-gradient(45deg, var(--accent) 0 6px, #7C6BC4 6px 12px); }
-  .bar .v { font-family: var(--mono); font-size: 20px; font-weight: 700; }
-
-  .term { position: fixed; left: 0; right: 0; bottom: 0; z-index: 15; display: flex; justify-content: center; pointer-events: none; }
-  .term > div { pointer-events: auto; width: 100%; max-width: var(--maxw); height: 250px; display: grid; grid-template-rows: auto 1fr;
-    background: #0E0E0E; border: 1px solid var(--border); border-bottom: 0; }
-  .thead { display: flex; align-items: center; gap: 14px; padding: 9px 28px; border-bottom: 1px solid var(--border); font-size: 12px; color: var(--tertiary); }
-  .thead b { color: var(--text); font-weight: 500; font-family: var(--mono); }
-  .thead .live { margin-left: auto; display: flex; align-items: center; }
-  .tbody { overflow: auto; padding: 12px 28px; font: 12.5px/1.8 var(--mono); color: var(--muted); }
-  .tl { white-space: pre-wrap; word-break: break-word; }
-  .tl .p { color: var(--text); }
-  .tl .p::before { content: "› "; color: var(--accent); }
-  .tl .o { color: #8AB4FF; }
-  .tl .i { color: var(--tertiary); }
-  .tl .g { color: var(--ok); }
-  .tl .r { color: var(--bad); }
-  .cursor { display: inline-block; width: 7px; height: 14px; background: var(--muted); vertical-align: -2px; animation: blink 1s steps(1) infinite; }
-  @keyframes blink { 50% { opacity: 0; } }
-  main { padding-bottom: 250px; }
-  .demo { display: flex; gap: 6px; align-items: center; margin-left: 16px; font: 600 11px var(--mono); }
-  .demo span { color: var(--tertiary); }
-  .demo button { padding: 2px 8px; border: 1px solid var(--border-strong); color: var(--muted); }
-  .demo button:hover { border-color: var(--accent); }
-  .hl { outline: 1px solid var(--accent); }
+  .q .opt b { font-family: var(--mono); color: var(--tertiary); font-weight: 500; }
+  .tabs { display: flex; gap: 16px; }
+  .tabs button { font-size: 13px; color: var(--tertiary); padding-bottom: 4px; border-bottom: 2px solid transparent; }
+  .tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+  .st { display: inline-flex; align-items: center; gap: 8px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
+  .st i { width: 6px; height: 6px; border-radius: 50%; background: var(--ok); }
+  .st.p { color: var(--tertiary); }
+  .st.p i { background: var(--border-strong); }
+  .empty { padding: 4px 28px 24px; color: var(--tertiary); font-size: 14px; }
 </style>
 </head>
 <body>
 <div class="frame"><div></div></div>
 
 <div class="top">
-  <div class="strip" id="strip">Every company runs HubSpot differently. Its agents should get an MCP that knows how.</div>
+  <div class="strip">Every company runs HubSpot differently. Its agents should get MCPs that know how.</div>
   <nav>
     <div style="display:flex;align-items:center">
       <div class="brand"><i></i>walter</div>
-      <div class="tabs">
-        <button class="tab" data-tab="connections">Connections</button>
-        <button class="tab" data-tab="discovery">Discovery</button>
-        <button class="tab" data-tab="mcp">MCP</button>
-        <button class="tab" data-tab="live">Live</button>
-      </div>
+      <div class="crumb" id="crumb"></div>
     </div>
+    <span class="org">GurtAI</span>
   </nav>
 </div>
 
-<main>
-
-<!-- CONNECTIONS -->
-<div class="view" id="v-connections">
-  <section class="pad head">
-    <div>
-      <h1>Connections</h1>
-      <p>A <code>.md</code> for context. A secret for access. No model ever sees the secret.</p>
-    </div>
-    <button class="pill" data-go="discovery">Discover →</button>
-  </section>
-  <section class="row c3" id="conns">
-    <div class="cell conn hov sel" data-conn="hubspot">
-      <span class="label">hubspot.md</span>
-      <h3>HubSpot CRM</h3>
-      <div class="muted" style="font-size:13px">API · read, write to sandbox</div>
-      <div class="secret"><span>HUBSPOT_TOKEN</span><span>••••••••</span></div>
-    </div>
-    <div class="cell conn hov" data-conn="warehouse">
-      <span class="label">warehouse.md</span>
-      <h3>gurtai_analytics</h3>
-      <div class="muted" style="font-size:13px">Postgres · read only</div>
-      <div class="secret"><span>WAREHOUSE_URL</span><span>••••••••</span></div>
-    </div>
-    <div class="cell add hov"><span class="label">+ Add</span></div>
-  </section>
-  <section class="pad">
-    <pre class="code" id="mdBody"></pre>
-  </section>
-</div>
-
-<!-- DISCOVERY -->
-<div class="view" id="v-discovery">
-  <section class="pad head">
-    <div>
-      <h1>Discovery</h1>
-      <p>History is the answer key. Each rule is code, backtested on what people actually decided.</p>
-    </div>
-  </section>
-  <section class="row c4" id="steps">
-    <div class="cell stepc" data-s="0"><div class="label">Mined</div><div class="num">3,104</div><div class="muted" style="font-size:12px">changes in 2 years</div></div>
-    <div class="cell stepc" data-s="1"><div class="label">Backtested</div><div class="num">6</div><div class="muted" style="font-size:12px">rules hold on Q3</div></div>
-    <div class="cell stepc" data-s="2"><div class="label">Asked</div><div class="num">1</div><div class="muted" style="font-size:12px">question</div></div>
-    <div class="cell stepc" data-s="3"><div class="label">Compiled</div><div class="num">4</div><div class="muted" style="font-size:12px">tools · 11 tests</div></div>
-  </section>
-  <section>
-    <table class="rules">
-      <thead><tr><th class="label">Rule</th><th class="label">Evidence</th><th class="label">Held-out</th></tr></thead>
-      <tbody id="ruleRows"></tbody>
-    </table>
-  </section>
-  <section class="pad">
-    <div class="q code" id="question" style="padding:0">
-      <div style="padding:16px 18px">
-        <div class="label" style="margin-bottom:8px">Question for RevOps</div>
-        5 of 6 territory exceptions are contacts that already existed. Do existing contacts always keep their owner?
-      </div>
-      <div class="opt" data-a="A"><b>A</b>Yes, never reassign them.</div>
-      <div class="opt" data-a="B"><b>B</b>No, always use territory.</div>
-    </div>
-    <p class="muted mono" style="font-size:11px;margin:10px 0 0" id="qNote">Until answered, the tool keeps owners and returns <code>assumptions: ["R5"]</code>.</p>
-  </section>
-</div>
-
-<!-- MCP -->
-<div class="view" id="v-mcp">
-  <section class="pad head">
-    <div>
-      <h1>GurtAI Sales MCP</h1>
-      <p class="mono" style="font-size:12px"><span class="dot y"></span>v3 · gurtai-sales.run.mcp-use.com/mcp</p>
-    </div>
-  </section>
-  <section class="row split">
-    <div>
-      <div class="row c2" id="tools"></div>
-    </div>
-    <div>
-      <div class="ctabs" id="ctabs">
-        <button class="ctab on" data-c="url">URL</button>
-        <button class="ctab" data-c="claude">Claude</button>
-        <button class="ctab" data-c="cursor">Cursor</button>
-      </div>
-      <div class="pad"><pre class="code" id="snippet"></pre>
-        <p class="muted" style="font-size:12px;margin:12px 0 0">Any MCP client. Nothing to install in the agent.</p>
-      </div>
-    </div>
-  </section>
-  <section>
-    <div id="versions"></div>
-  </section>
-</div>
-
-<!-- LIVE -->
-<div class="view" id="v-live">
-  <section class="pad head">
-    <div>
-      <h1>"What's our Q4 commit?"</h1>
-      <p>Same agent, same question.</p>
-    </div>
-    <div style="display:flex;gap:10px"><button class="pill ghost" id="drift">Change a rule</button><button class="pill" id="runGap">Run →</button></div>
-  </section>
-  <section class="row c2" id="gap">
-    <div class="cell" id="gapRaw">
-      <div class="label">Raw HubSpot API</div>
-      <div class="big bad">$493,000</div>
-      <div class="meta">14 calls · 41k tokens</div>
-    </div>
-    <div class="cell" id="gapMcp">
-      <div class="label">GurtAI Sales MCP</div>
-      <div class="big ok">$605,000</div>
-      <div class="meta">1 call · 0.9k tokens</div>
-    </div>
-  </section>
-  <section class="row c3" id="bars">
-    <div class="cell bar"><div class="label">Raw API</div><div class="track"><div class="fill" data-h="0"></div></div><div class="v">0/8</div></div>
-    <div class="cell bar"><div class="label">+ Memory</div><div class="track"><div class="fill" data-h="50"></div></div><div class="v">4/8</div></div>
-    <div class="cell bar"><div class="label">Company MCP</div><div class="track"><div class="fill t" data-h="100"></div></div><div class="v">8/8 <span class="muted" style="font-size:11px;font-weight:400">target</span></div></div>
-  </section>
-</div>
-
-</main>
-
-<div class="term"><div>
-  <div class="thead"><b id="termTitle">agent session</b><span id="termSub"></span><span class="live"><span class="dot"></span>live</span><div class="demo"><span id="demoPos">0/8</span><button id="prev">←</button><button id="next">→</button></div></div>
-  <div class="tbody" id="term"></div>
-</div></div>
-
-
+<main id="app"></main>
 
 <script>
-const $ = (s) => document.querySelector(s);
-const $$ = (s) => [...document.querySelectorAll(s)];
-const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+const $ = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
-const MD = {
-  hubspot: `# HubSpot CRM (GurtAI)
+// ── data ──────────────────────────────────────────────────────────────────
+const MCPS = [
+  {
+    id: "sales", name: "GurtAI Sales MCP", status: "live", version: "v3",
+    url: "https://gurtai-sales.run.mcp-use.com/mcp",
+    systems: ["HubSpot", "gurtai_analytics"],
+    stats: { agents: 4, calls: "1,284", success: "99.2%", rules: 6 },
+    integrations: [
+      ["hubspot.md", "HubSpot CRM", "API · read, write to sandbox", "HUBSPOT_TOKEN"],
+      ["warehouse.md", "gurtai_analytics", "Postgres · read only", "WAREHOUSE_URL"],
+    ],
+    md: `# HubSpot CRM (GurtAI)
 Sales system of record.
 
 ## Notes
 - Enterprise pipeline is ours
-- Ask RevOps before trusting "Closed Won"
+- Ask RevOps before trusting "Closed Won"`,
+    tools: [
+      ["get_commit(quarter)", "Committed revenue for a quarter", "R1 R2 R3"],
+      ["import_leads(leads)", "Lead import, plan then commit", "R4 R5 R6"],
+      ["find_account(domain)", "The one company for a domain", "R6"],
+      ["report_outcome(…)", "Agents report what went wrong", "feedback"],
+    ],
+    mined: "3,104 historical changes · backtested on held-out Q3",
+    rules: [
+      ["R1", "Closed Won counts only when <code>booked</code>", "Set by RevOps on 97% of revenue deals", "98%", `isClosedWon(d) ? d.booked === true : isContractSent(d)`],
+      ["R2", "Value is <code>arr</code>, not <code>amount</code>", "Σarr matches every reported quarter", "100%", `value = (d) => Number(d.arr)   // amount includes one-time services`],
+      ["R3", "Partner Sandbox never counts", "Absent from every reported number", "100%", `eligible = (d) => d.pipeline !== "9900001"`],
+      ["R4", "New leads owned by territory", "1,234 of 1,240 assignments", "100%", `owner = (c) => TERRITORY[c.country]   // EMEA 201 · AMER 202 · APAC 203`],
+      ["R5", "Existing contacts keep their owner", "5 of 6 territory exceptions", "asked", `owner = (c, existing) => existing ? existing.owner : territoryOwner(c)`],
+      ["R6", "Companies match on root domain", "All 41 past merges", "100%", `key = (url) => rootDomain(url)   // lowercase, no scheme, no www.`],
+    ],
+    question: { text: "5 of 6 territory exceptions are contacts that already existed. Do existing contacts always keep their owner?", options: ["Yes, never reassign them.", "No, always use territory."], rule: 4 },
+    versions: [["v1", "First build", 3], ["v2", "R1 added after backtest", 3], ["v3", "R4 · import_leads plan → commit", 3]],
+  },
+  {
+    id: "billing", name: "GurtAI Billing MCP", status: "live", version: "v2",
+    url: "https://gurtai-billing.run.mcp-use.com/mcp",
+    systems: ["Stripe", "gurtai_analytics"],
+    stats: { agents: 2, calls: "412", success: "98.6%", rules: 4 },
+    integrations: [
+      ["stripe.md", "Stripe", "API · read only", "STRIPE_KEY"],
+      ["warehouse.md", "gurtai_analytics", "Postgres · read only", "WAREHOUSE_URL"],
+    ],
+    md: `# Stripe (GurtAI)
+Subscriptions and invoices.
 
-secret: HUBSPOT_TOKEN · scopes: read, write (sandbox)`,
-  warehouse: `# gurtai_analytics (Postgres)
-Read-only replica RevOps reports from.
+## Notes
+- Annual plans are invoiced monthly
+- Test-mode customers are prefixed "qa_"`,
+    tools: [
+      ["get_mrr(month)", "Recurring revenue for a month", "B1 B2"],
+      ["find_overdue(days)", "Invoices overdue past N days", "B3 B4"],
+      ["report_outcome(…)", "Agents report what went wrong", "feedback"],
+    ],
+    mined: "18,920 invoices · backtested on held-out September",
+    rules: [
+      ["B1", "MRR excludes one-time line items", "Matches finance MRR in 12 of 12 months", "100%", `mrr = (sub) => sub.items.filter(isRecurring).reduce(sumMonthly, 0)`],
+      ["B2", "Customers prefixed <code>qa_</code> are test data", "Never billed in live mode", "100%", `real = (c) => !c.id.startsWith("qa_")`],
+      ["B3", "Overdue starts after a 5-day grace period", "Dunning starts on day 6 in 98% of cases", "97%", `overdue = (inv) => daysPastDue(inv) > 5`],
+      ["B4", "Disputed invoices are never chased", "0 of 37 disputed invoices got reminders", "100%", `chase = (inv) => !inv.disputed`],
+    ],
+    question: null,
+    versions: [["v1", "First build", 3], ["v2", "B3 grace period", 3]],
+  },
+  {
+    id: "support", name: "GurtAI Support MCP", status: "build", version: "v1", progress: 62,
+    url: "https://gurtai-support.run.mcp-use.com/mcp",
+    systems: ["Zendesk"],
+    stats: { agents: 0, calls: "—", success: "—", rules: 3 },
+    integrations: [["zendesk.md", "Zendesk", "API · read only", "ZENDESK_TOKEN"]],
+    md: `# Zendesk (GurtAI)
+Customer support tickets.
 
-## Tables
-- forecast_snapshots     reported commit per quarter
-- hubspot_field_history  every property change
-
-secret: WAREHOUSE_URL · read only`,
-};
-
-const RULES = [
-  { id: "R1", text: "Closed Won counts only when <code>booked</code>", ev: "Set by RevOps on 97% of revenue deals", ho: "98%",
-    code: `isClosedWon(d) ? d.booked === true : isContractSent(d)` },
-  { id: "R2", text: "Value is <code>arr</code>, not <code>amount</code>", ev: "Σarr matches every reported quarter", ho: "100%",
-    code: `value = (d) => Number(d.arr)   // amount includes services` },
-  { id: "R3", text: "Partner Sandbox never counts", ev: "Absent from every reported number", ho: "100%",
-    code: `eligible = (d) => d.pipeline !== "9900001"` },
-  { id: "R4", text: "New leads owned by territory", ev: "1,234 of 1,240 assignments", ho: "100%",
-    code: `owner = (c) => TERRITORY[c.country]   // EMEA 201 · AMER 202 · APAC 203` },
-  { id: "R5", text: "Existing contacts keep owner", ev: "5 of 6 territory exceptions", ho: "asked",
-    code: `owner = (c, existing) => existing ? existing.owner : territoryOwner(c)` },
-  { id: "R6", text: "Companies match on root domain", ev: "All 41 past merges", ho: "100%",
-    code: `key = (url) => url.toLowerCase().replace(/^\\w+:\\/\\/(www\\.)?|^www\\./, "").split("/")[0]` },
+## Notes
+- The "priority" tag is set by a bot, not by people`,
+    tools: [],
+    mined: "Mining 41,880 tickets · 62%",
+    rules: [
+      ["S1", "Enterprise tickets escalate after 4 hours", "Matches 211 of 219 escalations", "running", `escalate = (t) => t.plan === "enterprise" && hoursOpen(t) > 4`],
+      ["S2", "Tickets tagged <code>billing</code> go to Finance", "Reassigned in 96% of cases", "running", `queue = (t) => t.tags.includes("billing") ? "finance" : t.queue`],
+      ["S3", "Auto-closed after 7 days without a reply", "Holds on 2,940 of 2,958", "running", `close = (t) => daysSinceReply(t) >= 7`],
+    ],
+    question: null,
+    versions: [["v1", "First build", 0]],
+  },
+  {
+    id: "finance", name: "GurtAI Finance MCP", status: "ask", version: "v1",
+    url: "https://gurtai-finance.run.mcp-use.com/mcp",
+    systems: ["NetSuite"],
+    stats: { agents: 0, calls: "—", success: "—", rules: 2 },
+    integrations: [["netsuite.md", "NetSuite", "API · read only", "NETSUITE_TOKEN"]],
+    md: `# NetSuite (GurtAI)
+General ledger and payables.`,
+    tools: [
+      ["find_payable_bills(period)", "Bills approved and due in a period", "F1 F2"],
+      ["report_outcome(…)", "Agents report what went wrong", "feedback"],
+    ],
+    mined: "9,402 bills · backtested on held-out Q3",
+    rules: [
+      ["F1", "<code>custbody_14</code> is the real approval flag", "Set on 98% of paid bills, rarely on unpaid ones", "asked", `approved = (b) => b.custbody_14 === true`],
+      ["F2", "Closed periods are never edited", "0 edits after period close in 2 years", "100%", `editable = (b) => !periodClosed(b.period)`],
+    ],
+    question: { text: "custbody_14 and custbody_22 agree on 91% of bills but disagree on 37. Which one should gate payment?", options: ["custbody_14", "custbody_22"], rule: 0 },
+    versions: [["v1", "Waiting on one answer", 1]],
+  },
 ];
-let openRule = 0;
 
-const TOOLS = [
-  { sig: "get_commit(quarter)", rules: "R1 R2 R3", kind: "read" },
-  { sig: "import_leads(leads)", rules: "R4 R5 R6", kind: "plan → commit" },
-  { sig: "find_account(domain)", rules: "R6", kind: "read" },
-  { sig: "report_outcome(…)", rules: "agent → MCP", kind: "feedback" },
-];
+const STATUS = { live: ["", "Live"], build: ["build", "Mining"], ask: ["ask", "Needs an answer"] };
+const statusEl = (m) => `<span class="status ${STATUS[m.status][0]}"><i></i>${STATUS[m.status][1]}${m.status === "live" ? " · " + m.version : ""}</span>`;
 
-const SNIP = {
-  url: `https://gurtai-sales.run.mcp-use.com/mcp
-Authorization: Bearer <agent token>`,
-  claude: `{ "mcpServers": { "gurtai-sales": {
-    "url": "https://gurtai-sales.run.mcp-use.com/mcp" } } }`,
-  cursor: `// .cursor/mcp.json
-{ "mcpServers": { "gurtai-sales": {
-    "url": "https://gurtai-sales.run.mcp-use.com/mcp" } } }`,
-};
-
-
-const FEED = [
-  ["02:10:04", "gurtai-ops-bot", "get_commit → $605k"],
-  ["02:10:11", "claude-desktop", "find_account → 30103"],
-  ["02:10:19", "gurtai-sdr-agent", "import_leads → plan · 6 create"],
-  ["02:10:31", "cursor", "get_commit → Q3"],
-];
-
-// ── terminal: what agents actually see ─────────────────────────────────────
-let termRun = 0;
-async function term(title, sub, lines, speed = 1) {
-  const run = ++termRun;
-  $("#termTitle").textContent = title;
-  $("#termSub").textContent = sub;
-  const box = $("#term");
-  box.innerHTML = "";
-  for (const [cls, text, wait = 260] of lines) {
-    if (run !== termRun) return;
-    const el = document.createElement("div");
-    el.className = "tl";
-    const sp = document.createElement("span");
-    if (cls) sp.className = cls;
-    sp.textContent = text;
-    el.appendChild(sp);
-    box.appendChild(el);
-    box.scrollTop = box.scrollHeight;
-    await sleep(wait * speed);
-  }
-  if (run === termRun) { const c = document.createElement("span"); c.className = "cursor"; box.appendChild(c); }
-}
-const T = {
-  mcp: ["agent session", "glm-5p3 · connected over MCP", [
-    ["p", "agent --mcp https://gurtai-sales.run.mcp-use.com/mcp"],
-    ["o", "→ initialize"],
-    ["i", "← serverInfo { name: \"gurtai-sales\", version: \"3\" }"],
-    ["o", "→ tools/list"],
-    ["i", "← get_commit · import_leads · find_account · report_outcome"],
-    ["", "user: what's our Q4 commit?", 500],
-    ["o", "→ tools/call get_commit { \"quarter\": \"2026-Q4\" }", 600],
-    ["i", "← { \"total_usd\": 605000, \"deals\": 7, \"rules_applied\": [\"R1@v3\", \"R2@v3\", \"R3@v3\"], \"assumptions\": [] }"],
-    ["g", "agent: Q4 commit is $605,000 across 7 deals."],
-  ]],
-  discovery: ["miner", "hubspot + gurtai_analytics · read only", [
-    ["p", "sql: select count(*) from hubspot_field_history where changed_at > now() - interval '2 years'"],
-    ["i", "3104"],
-    ["p", "sql: select changed_by_team, count(*) from hubspot_field_history where property = 'booked' group by 1"],
-    ["i", "RevOps · 412   (97% of revenue deals)"],
-    ["p", "hypothesis R1: commit counts Closed Won only when booked = true"],
-    ["o", "backtest R1   train Q1–Q2 96%   held-out Q3 98%   ✓"],
-    ["o", "backtest R2   Σarr = reported commit in 3/3 quarters   ✓"],
-    ["o", "backtest R4   owner = territory explains 1,234 / 1,240"],
-    ["r", "residual: 6 assignments, 5 are pre-existing contacts → ask RevOps"],
-    ["g", "compiled 4 tools · 11 tests · draft v3 verified through an MCP client"],
-  ]],
-  connections: ["connection check", "secrets injected by host", [
-    ["p", "connect hubspot   (HUBSPOT_TOKEN from secrets · never shown to models)"],
-    ["i", "GET /crm/v3/objects/deals?limit=1   → 200"],
-    ["i", "GET /crm/v3/pipelines/deals         → 3 pipelines"],
-    ["p", "connect gurtai_analytics   (WAREHOUSE_URL from secrets · read only)"],
-    ["i", "tables: forecast_snapshots · hubspot_field_history · lead_assignments"],
-    ["g", "2 systems ready for discovery"],
-  ]],
-  live: ["mcp traffic", "all agents · gurtai-sales", [
-    ["i", "02:10:04  gurtai-ops-bot     glm-5p3       get_commit 2026-Q4       → $605,000"],
-    ["i", "02:10:11  claude-desktop   claude-haiku  find_account hooli.com   → 30103"],
-    ["i", "02:10:19  gurtai-sdr-agent   minimax-m3    import_leads 7 leads     → plan: 6 create, 1 skip"],
-    ["i", "02:10:31  cursor                         get_commit 2026-Q3       → ok"],
-  ]],
-};
-
-function showMd(k) {
-  $("#mdBody").textContent = MD[k];
-  $$("#conns .conn").forEach((c) => c.classList.toggle("sel", c.dataset.conn === k));
-}
-$$("#conns .conn").forEach((c) => c.onclick = () => showMd(c.dataset.conn));
-
-function renderRules(visible = RULES.length) {
-  $("#ruleRows").innerHTML = RULES.map((r, i) => `
-    <tr data-i="${i}" class="${i >= visible ? "hidden" : ""} ${i === openRule ? "sel" : ""}">
-      <td><span class="rid">${r.id}</span>${r.text}</td>
-      <td class="muted">${r.ev}</td>
-      <td class="mono" style="font-size:12px">${r.ho === "asked" ? '<span class="badge y">asked</span>' : r.ho}</td>
-    </tr>
-    ${i === openRule && i < visible ? `<tr class="codeRow sel"><td colspan="3"><pre class="code">${r.code}</pre></td></tr>` : ""}`).join("");
-  $$("#ruleRows tr[data-i]").forEach((tr) => tr.onclick = () => { openRule = +tr.dataset.i; renderRules(); });
+// ── list ──────────────────────────────────────────────────────────────────
+function renderList() {
+  $("#crumb").innerHTML = `<span class="cur">MCPs</span>`;
+  $("#app").innerHTML = `
+    <section class="pad head">
+      <div>
+        <h1>MCPs</h1>
+        <p>GurtAI's internal MCP servers. Each one knows how GurtAI actually uses its systems. Any agent can connect.</p>
+      </div>
+      <button class="pill">New MCP</button>
+    </section>
+    <section class="mcps">
+      <div class="hdr"><span>Server</span><span>Status</span><span>Agents</span><span>Calls · 24h</span><span>Rules</span><span></span></div>
+      ${MCPS.map((m) => `
+        <button class="card" data-id="${m.id}">
+          <span><div class="name">${m.name}</div><div class="sys">${m.systems.join(" · ")}</div></span>
+          <span>${statusEl(m)}${m.status === "build" ? `<div class="progress"><i style="width:${m.progress}%"></i></div>` : ""}</span>
+          <span class="num">${m.stats.agents}</span>
+          <span class="num">${m.stats.calls}</span>
+          <span class="num">${m.stats.rules}</span>
+          <span class="arrow">→</span>
+        </button>`).join("")}
+    </section>`;
+  $$(".mcps .card").forEach((c) => c.onclick = () => (location.hash = c.dataset.id));
 }
 
-$$("#question .opt").forEach((o) => o.onclick = () => {
-  $$("#question .opt").forEach((x) => x.classList.toggle("picked", x === o));
-  if (o.dataset.a === "A") {
-    RULES[4].ho = "100%"; openRule = 4; renderRules();
-    $("#qNote").innerHTML = "Saved as a test. Ships in the next version.";
-  }
-});
+// ── detail ────────────────────────────────────────────────────────────────
+function renderDetail(m) {
+  let openRule = 0;
+  $("#crumb").innerHTML = `<button id="back">MCPs</button><span>/</span><span class="cur">${m.name}</span>`;
+  $("#back").onclick = () => (location.hash = "");
 
-$("#tools").innerHTML = TOOLS.map((t) => `
-  <div class="cell tool" style="border-bottom:1px solid var(--border)">
-    <div style="display:flex;justify-content:space-between;gap:8px"><span class="sig">${t.sig}</span><span class="badge">${t.kind}</span></div>
-    <div class="rl">${t.rules}</div>
-  </div>`).join("");
+  const snippets = {
+    url: `${m.url}\nAuthorization: Bearer <agent token>`,
+    claude: `{ "mcpServers": { "gurtai-${m.id}": {\n  "url": "${m.url}" } } }`,
+    cursor: `// .cursor/mcp.json\n{ "mcpServers": { "gurtai-${m.id}": {\n  "url": "${m.url}" } } }`,
+  };
+  const held = (h) => h === "asked" ? '<span class="tag v">asked</span>' : h === "running" ? '<span class="dim">testing</span>' : h;
+  const rulesHtml = () => m.rules.map(([id, t, ev, h, code], i) => `
+    <div class="it rule click ${i === openRule ? "sel" : ""}" data-i="${i}">
+      <span class="rid">${id}</span><span>${t}</span><span class="muted">${ev}</span><span class="mono" style="font-size:13px">${held(h)}</span>
+    </div>${i === openRule ? `<pre class="code">${code}</pre>` : ""}`).join("");
 
-function snip(k) {
-  $$("#ctabs .ctab").forEach((b) => b.classList.toggle("on", b.dataset.c === k));
-  $("#snippet").textContent = SNIP[k];
+  $("#app").innerHTML = `
+    <section class="pad head">
+      <div>
+        <h1>${m.name}</h1>
+        <div class="url">${statusEl(m)}<span>${m.url}</span></div>
+      </div>
+      <button class="pill" id="copy">Copy URL</button>
+    </section>
+
+    <section class="row c4">
+      <div class="cell stat"><div class="l">Agents connected</div><div class="v">${m.stats.agents}</div></div>
+      <div class="cell stat"><div class="l">Calls · 24h</div><div class="v">${m.stats.calls}</div></div>
+      <div class="cell stat"><div class="l">Successful calls</div><div class="v">${m.stats.success}</div></div>
+      <div class="cell stat"><div class="l">Rules compiled</div><div class="v">${m.stats.rules}</div></div>
+    </section>
+
+    <section>
+      <div class="sechead"><h2>Tribal knowledge</h2><span class="dim" style="font-size:13px">${m.mined}</span></div>
+      <div class="list" id="rules">${rulesHtml()}</div>
+      ${m.question ? `
+      <div class="q" id="question">
+        <div class="body"><div class="dim" style="font-size:13px;margin-bottom:6px">Question for a human · history can't settle this</div>${m.question.text}</div>
+        ${m.question.options.map((o, i) => `<div class="opt" data-a="${i}"><b>${"AB"[i]}</b>${o}</div>`).join("")}
+      </div>` : ""}
+    </section>
+
+    <section>
+      <div class="sechead"><h2>Tools</h2><span class="dim" style="font-size:13px">rules are compiled into each tool</span></div>
+      <div class="list">${m.tools.length ? m.tools.map(([s, d, r]) => `<div class="it tool"><span class="sig">${s}</span><span class="muted">${d}</span><span class="tag">${r}</span></div>`).join("") : `<div class="empty">Tools are generated once mining and backtests finish.</div>`}</div>
+    </section>
+
+    <section>
+      <div class="sechead"><h2>Integrations</h2><span class="dim" style="font-size:13px">secrets are injected by the host · no model sees them</span></div>
+      <div class="list">${m.integrations.map(([f, n, d, s]) => `<div class="it integ"><span><span class="mono dim" style="font-size:12px">${f}</span><br>${n}</span><span class="muted">${d}</span><span class="mono dim" style="font-size:12px">${s} ••••••</span><span class="status"><i></i>connected</span></div>`).join("")}</div>
+      <div style="padding:0 28px 24px"><pre class="box">${m.md}</pre></div>
+    </section>
+
+    <section class="row c2">
+      <div>
+        <div class="sechead"><h2>Connect any agent</h2>
+          <div class="tabs" id="tabs"><button class="on" data-c="url">URL</button><button data-c="claude">Claude</button><button data-c="cursor">Cursor</button></div>
+        </div>
+        <div style="padding:0 28px 24px"><pre class="box" id="snippet"></pre></div>
+      </div>
+      <div>
+        <div class="sechead"><h2>Versions</h2><span class="dim" style="font-size:13px">tests → evals → live</span></div>
+        <div class="list">${m.versions.map(([v, why, s]) => `<div class="it ver"><span class="mono dim">${v}</span><span class="muted">${why}</span>${["tests", "evals", "live"].map((l, i) => `<span class="st ${s > i ? "" : "p"}"><i></i>${l}</span>`).join("")}</div>`).join("")}</div>
+      </div>
+    </section>`;
+
+  const bindRules = () => $$("#rules .rule").forEach((r) => r.onclick = () => { openRule = +r.dataset.i; $("#rules").innerHTML = rulesHtml(); bindRules(); });
+  bindRules();
+  $$("#tabs button").forEach((b) => b.onclick = () => { $$("#tabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#snippet").textContent = snippets[b.dataset.c]; });
+  $("#snippet").textContent = snippets.url;
+  $("#copy").onclick = () => navigator.clipboard?.writeText(m.url);
+  $$("#question .opt").forEach((o) => o.onclick = () => {
+    $$("#question .opt").forEach((x) => x.classList.toggle("picked", x === o));
+    const r = m.rules[m.question.rule];
+    if (r[3] === "asked") r[3] = "100%";
+    openRule = m.question.rule;
+    $("#rules").innerHTML = rulesHtml(); bindRules();
+  });
 }
-$$("#ctabs .ctab").forEach((b) => b.onclick = () => snip(b.dataset.c));
 
-const VERS = [["v1", "first build", "6/6"], ["v2", "R1 added", "9/9"]];
-function verRow(v, why, s) {
-  const st = (label, done) => `<div class="${done ? "" : "p"}"><span class="dot ${done ? "" : "g"}"></span>${label}</div>`;
-  return `<div class="ver"><div>${v}</div><div class="muted">${why}</div>${st("preview", s > 0)}${st("tests", s > 1)}${st(s > 3 ? "live" : "evals 3 models", s > 2)}</div>`;
-}
-function renderVersions(cur = 4) {
-  $("#versions").innerHTML = VERS.map(([v, w]) => verRow(v, w, 4)).join("") + verRow("v3", "R4 · plan → commit", cur);
-}
-async function ship() { for (let s = 0; s <= 4; s++) { renderVersions(s); await sleep(600); } }
-
-async function drift() {
-  await term("mcp traffic", "rule change detected", [
-    ["i", "02:14:02  gurtai-ops-bot     get_commit 2026-Q4   → $605,000   R1@v3"],
-    ["r", "02:14:05  backtest         R1 fails on the new forecast snapshot (Contract Sent excluded since Oct 1)"],
-    ["o", "02:14:06  builder          v4 preview · R1′ + 12 tests"],
-    ["o", "02:14:40  manufact         evals: claude ✓  glm ✓  minimax ✓"],
-    ["g", "02:14:48  manufact         v4 live"],
-    ["i", "02:14:55  claude-desktop   get_commit 2026-Q4   → $382,000   R1′@v4"],
-  ], 3);
-}
-$("#drift").onclick = drift;
-
-async function runGap() {
-  $("#gapRaw").classList.add("dim"); $("#gapMcp").classList.add("dim");
-  await sleep(500); $("#gapRaw").classList.remove("dim");
-  await sleep(1100); $("#gapMcp").classList.remove("dim");
-}
-$("#runGap").onclick = runGap;
-const bars = (on) => $$("#bars .fill").forEach((f) => f.style.height = on ? f.dataset.h + "%" : "0");
-
-function go(tab) {
-  $$(".tab").forEach((t) => t.classList.toggle("on", t.dataset.tab === tab));
-  $$(".view").forEach((v) => v.classList.toggle("on", v.id === "v-" + tab));
-  if (tab === "live") setTimeout(() => bars(true), 100);
-  if (T[tab]) term(...T[tab]);
+function route() {
+  const m = MCPS.find((x) => x.id === location.hash.slice(1));
+  m ? renderDetail(m) : renderList();
   window.scrollTo({ top: 0 });
 }
-$$(".tab").forEach((t) => t.onclick = () => go(t.dataset.tab));
-$$("[data-go]").forEach((b) => b.onclick = () => go(b.dataset.go));
-
-const STEPS = [
-  ["Agents can use HubSpot. They don't know GurtAI's HubSpot.", async () => { go("live"); $("#gapMcp").classList.add("dim"); }],
-  ["Point it at the systems. Context in a .md, access in a secret.", async () => { go("connections"); showMd("hubspot"); }],
-  ["It mines the unwritten rules from history and backtests each one.", async () => {
-    go("discovery"); openRule = 0; renderRules(0);
-    for (let s = 0; s < 4; s++) { $$("#steps .stepc").forEach((x) => x.classList.toggle("active", +x.dataset.s === s)); if (s === 1) for (let i = 1; i <= RULES.length; i++) { renderRules(i); await sleep(260); } else await sleep(420); } }],
-  ["One question history can't settle. The answer becomes a test.", async () => { go("discovery"); $("#question").scrollIntoView({ behavior: "smooth", block: "center" }); $("#question").classList.add("hl"); await sleep(1500); $("#question").classList.remove("hl"); }],
-  ["Rules become tools. Preview → tests → evals on every model → live.", async () => { go("mcp"); await ship(); }],
-  ["What an agent sees: one call, rules applied, assumptions explicit.", async () => { go("mcp"); }],
-  ["Same agent, one call: $605,000. Nothing to read. Nothing to skip.", async () => { go("live"); await sleep(400); $("#gapMcp").classList.remove("dim"); }],
-  ["A rule changes. A backtest breaks. v4 ships. Every agent gets it.", async () => { go("live"); await drift(); }],
-];
-let step = -1;
-async function toStep(i) {
-  step = Math.max(0, Math.min(STEPS.length - 1, i));
-  $("#demoPos").textContent = `${step + 1}/${STEPS.length}`;
-  $("#strip").textContent = STEPS[step][0];
-  await STEPS[step][1]();
-}
-$("#next").onclick = () => toStep(step + 1);
-$("#prev").onclick = () => toStep(step - 1);
-document.addEventListener("keydown", (e) => { if (e.key === "ArrowRight") toStep(step + 1); if (e.key === "ArrowLeft") toStep(step - 1); });
-
-showMd("hubspot"); renderRules(); snip("url"); renderVersions(); $("#demoPos").textContent = `0/${STEPS.length}`;
-const [t0, e0] = location.hash.slice(1).split(",");
-go(["connections", "discovery", "mcp", "live"].includes(t0) ? t0 : "connections");
+window.addEventListener("hashchange", route);
+route();
 </script>
 </body>
 </html>
