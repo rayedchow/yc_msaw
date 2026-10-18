@@ -137,9 +137,14 @@ export async function contactNamesByVariant(executor: ImessageExecutor, tenantId
 /** POST /local-status: donor localMessagesSyncStatus stored on the device row. */
 export async function recordImessageLocalStatus(executor: ImessageExecutor, device: DeviceContext, body: unknown, now = new Date()): Promise<Record<string, unknown>> {
   const status = localMessagesSyncStatus(isRecord(body) ? body.status : null, now);
+  // The uploader posts its statuses without awaiting them, so a "running" can arrive after the run's final
+  // "complete". A status older (by the uploader's own updatedAt) than the stored one is not applied.
+  const updatedAt = typeof status.updatedAt === "string" ? status.updatedAt : null;
+  const stale = sql`(${updatedAt}::timestamptz IS NOT NULL AND local_status->>'updatedAt' IS NOT NULL AND (local_status->>'updatedAt')::timestamptz > ${updatedAt}::timestamptz)`;
   await executor.execute(sql`
     UPDATE imessage_devices
-    SET local_status = ${JSON.stringify(status)}::jsonb, local_status_at = ${now.toISOString()}::timestamptz, last_seen_at = now(),
+    SET local_status = CASE WHEN ${stale} THEN local_status ELSE ${JSON.stringify(status)}::jsonb END,
+        local_status_at = CASE WHEN ${stale} THEN local_status_at ELSE ${now.toISOString()}::timestamptz END, last_seen_at = now(),
         last_device_id = COALESCE(${typeof status.deviceId === "string" && status.deviceId ? status.deviceId : null}, last_device_id),
         last_agent_version = COALESCE(${typeof status.agentVersion === "string" ? status.agentVersion : null}, last_agent_version),
         last_agent_channel = COALESCE(${typeof status.agentChannel === "string" ? status.agentChannel : null}, last_agent_channel)

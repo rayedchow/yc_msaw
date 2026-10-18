@@ -123,6 +123,13 @@ describe("source sync receipts and coverage", () => {
     // A device that later reports a backlog is no longer complete.
     await wire("POST", "/local-status", d, { status: { status: "running", queuedMessages: 4 } });
     expect((await coverage()).find((x) => x.scope === `device:${d.bindingId}:messages`).state).toBe("partial");
+    // The uploader does not await its status posts: a run's "running" arriving after its final "complete" is older
+    // (by the uploader's updatedAt) and is not applied, so coverage does not stay partial.
+    await wire("POST", "/local-status", d, { status: { status: "complete", queuedMessages: 0, updatedAt: "2026-09-12T00:00:02.000Z" } });
+    await wire("POST", "/local-status", d, { status: { status: "running", queuedMessages: 2, updatedAt: "2026-09-12T00:00:01.000Z" } });
+    expect((await coverage()).find((x) => x.scope === `device:${d.bindingId}:messages`).state).toBe("complete");
+    await wire("POST", "/local-status", d, { status: { status: "running", queuedMessages: 3, updatedAt: "2026-09-12T00:00:03.000Z" } });
+    expect((await coverage()).find((x) => x.scope === `device:${d.bindingId}:messages`).state).toBe("partial");
   });
 
   it("fails the run for receipts that do not prove coverage", async () => {
