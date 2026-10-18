@@ -35,10 +35,10 @@ export type BindingTransport = "publish" | "runtime-ingest";
  * the same secret as the device binding's `psb_` token; only this family is mapped back to `psb_`
  * (verifyDeviceKey), and only on the device ingest proxy. It never authenticates MCP or admin routes.
  */
-export const DEVICE_KEY_PREFIXES: Readonly<Record<string, string>> = { imessage: "gimsg_" };
+export const DEVICE_KEY_PREFIXES: Readonly<Record<string, string>> = { imessage: "gimsg_", "coding-sessions": "gcs_" };
 
 /** Providers a device (end-user machine) binding may write. */
-export const DEVICE_PROVIDERS: readonly string[] = ["imessage"];
+export const DEVICE_PROVIDERS: readonly string[] = ["imessage", "coding-sessions"];
 
 export interface BindingRecord {
   bindingId: string;

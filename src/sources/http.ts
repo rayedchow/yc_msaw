@@ -370,27 +370,82 @@ export const ImessageDeviceSetupSchema = z
  * on stdin, then installs the agent.
  */
 export async function imessageDeviceSetupRoute(request: Request, principal: Principal, service: SourceService, runtime: SourceRuntimeClient): Promise<Response> {
+  return runtimeDeviceSetup(request, principal, service, runtime, {
+    provider: "imessage",
+    schema: ImessageDeviceSetupSchema,
+    defaultLabel: "Mac iMessage uploader",
+    enrolExtra: (input) => (input.handles ? { handles: input.handles } : {}),
+    config: (input) => ({
+      ...(input.backfillDays !== undefined ? { backfillDays: input.backfillDays } : {}),
+      ...(input.allowedChatIds ? { allowedChatIds: input.allowedChatIds } : {}),
+    }),
+    configKey: "messagesConfig",
+    note: "agentToken is shown once. Pipe messagesConfig (with allowedChatIds chosen on the Mac) to `shepherd-onboard write-messages-config` on stdin; revoke with DELETE /v1/sources/bindings/<bindingId>.",
+  });
+}
+
+export const CodingSessionsDeviceSetupSchema = z
+  .object({
+    label: z.string().min(1).max(200).optional(),
+    /** Echoed into the agent config: poll/upload interval. */
+    intervalSeconds: z.number().int().min(30).max(86_400).optional(),
+  })
+  .strict();
+
+/**
+ * Enrol a Mac coding-sessions agent (Codex / Claude Code transcripts). Same model as iMessage: a server-minted
+ * kind=device, transport=runtime-ingest binding, a `gcs_` key derived from it, only sha256(key) at the runtime,
+ * and the agent config `{apiUrl, userId, agentToken, intervalSeconds?}` returned once.
+ */
+export async function codingSessionsDeviceSetupRoute(request: Request, principal: Principal, service: SourceService, runtime: SourceRuntimeClient): Promise<Response> {
+  return runtimeDeviceSetup(request, principal, service, runtime, {
+    provider: "coding-sessions",
+    schema: CodingSessionsDeviceSetupSchema,
+    defaultLabel: "Mac coding-sessions agent",
+    enrolExtra: () => ({}),
+    config: (input) => (input.intervalSeconds !== undefined ? { intervalSeconds: input.intervalSeconds } : {}),
+    configKey: "codingSessionsConfig",
+    note: "agentToken is shown once. Pipe codingSessionsConfig to `shepherd-onboard write-coding-sessions-config` on stdin; revoke with DELETE /v1/sources/bindings/<bindingId>.",
+  });
+}
+
+/** Shared device setup: mint the binding, enrol sha256(device key) at the runtime, roll back on any runtime failure. */
+async function runtimeDeviceSetup<S extends z.ZodTypeAny>(
+  request: Request,
+  principal: Principal,
+  service: SourceService,
+  runtime: SourceRuntimeClient,
+  spec: {
+    provider: string;
+    schema: S;
+    defaultLabel: string;
+    enrolExtra(input: z.infer<S>): Record<string, unknown>;
+    config(input: z.infer<S>): Record<string, unknown>;
+    configKey: string;
+    note: string;
+  },
+): Promise<Response> {
   if (!principal.scopes.includes(SCOPES.tracesWrite) && !principal.scopes.includes(SCOPES.memoryBuild)) {
     return bearerChallenge({ status: 403, error: "insufficient_scope", description: `Missing required scope: ${SCOPES.tracesWrite}`, scope: SCOPES.tracesWrite });
   }
   try {
-    const input = ImessageDeviceSetupSchema.parse(await readJson(request, MAX_ADMIN_BODY_BYTES));
+    const input = spec.schema.parse(await readJson(request, MAX_ADMIN_BODY_BYTES)) as z.infer<S> & { label?: string };
     const apiUrl = runtime.config.deviceApiUrl;
     if (!apiUrl) return error(503, "device_ingest_not_configured", "SOURCES_DEVICE_API_URL (the source runtime's public device host) is not configured");
-    const label = input.label ?? "Mac iMessage uploader";
+    const label = input.label ?? spec.defaultLabel;
     const { binding, token } = await service.bindings.create(
       principal.tenantNs,
-      { kind: "device", providers: ["imessage"], label, transport: "runtime-ingest" },
+      { kind: "device", providers: [spec.provider], label, transport: "runtime-ingest" },
       { subject: principal.subject, issuer: principal.issuer },
     );
-    const agentToken = deviceKeyForBindingToken("imessage", token);
+    const agentToken = deviceKeyForBindingToken(spec.provider, token);
     let r: RuntimeResponse;
     try {
-      r = await runtime.device(principal, "imessage", {
+      r = await runtime.device(principal, spec.provider, {
         bindingId: binding.bindingId,
         tokenSha256: createHash("sha256").update(agentToken, "utf8").digest("hex"),
         label,
-        ...(input.handles ? { handles: input.handles } : {}),
+        ...spec.enrolExtra(input),
       });
     } catch (e) {
       await service.bindings.revoke(principal.tenantNs, binding.bindingId);
@@ -402,15 +457,9 @@ export async function imessageDeviceSetupRoute(request: Request, principal: Prin
     }
     return json(201, {
       binding,
-      messagesConfig: {
-        apiUrl,
-        userId: principal.tenantNs,
-        agentToken,
-        ...(input.backfillDays !== undefined ? { backfillDays: input.backfillDays } : {}),
-        ...(input.allowedChatIds ? { allowedChatIds: input.allowedChatIds } : {}),
-      },
+      [spec.configKey]: { apiUrl, userId: principal.tenantNs, agentToken, ...spec.config(input) },
       device: (r.body as { device?: unknown } | null)?.device ?? null,
-      note: "agentToken is shown once. Pipe messagesConfig (with allowedChatIds chosen on the Mac) to `shepherd-onboard write-messages-config` on stdin; revoke with DELETE /v1/sources/bindings/<bindingId>.",
+      note: spec.note,
     });
   } catch (e) {
     return sourceErrorResponse(e);

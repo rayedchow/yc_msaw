@@ -26,6 +26,7 @@ import {
   deviceRoute,
   disconnectRoute,
   googleAuthRoute,
+  codingSessionsDeviceSetupRoute,
   imessageDeviceSetupRoute,
   listBindingsRoute,
   nangoRecordsRoute,
@@ -543,6 +544,12 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         const principal = await authenticateHttp(c.req.raw, auth, undefined);
         if (principal instanceof Response) return principal;
         return imessageDeviceSetupRoute(c.req.raw, principal, sources, runtime);
+      });
+      // Mac coding-sessions agent: same server-minted device binding model.
+      server.post("/v1/sources/devices/coding-sessions/setup", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, undefined);
+        if (principal instanceof Response) return principal;
+        return codingSessionsDeviceSetupRoute(c.req.raw, principal, sources, runtime);
       });
       // Generic Nango records lane (operator-configured Nango integrations; runtime providers/nango-records).
       server.get("/v1/sources/nango-records", async (c) => {

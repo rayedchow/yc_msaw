@@ -106,6 +106,10 @@ Revocation limits that stay true:
 
 Attachments arrive as metadata only (name, type, size, transfer state), never bytes, and coverage says so.
 
+The Mac **coding-sessions** agent (Codex / Claude Code transcripts) uses the same model:
+`POST /v1/sources/devices/coding-sessions/setup` with `{"label":"My Mac","intervalSeconds":300}` returns
+`codingSessionsConfig` once (`agentToken` = `gcs_…`), for `shepherd-onboard write-coding-sessions-config`.
+
 ## Tests
 
 ```sh

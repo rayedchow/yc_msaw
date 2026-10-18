@@ -863,6 +863,16 @@
       ]
     },
     {
+      "path": "drizzle/9800_coding_sessions_lane.sql",
+      "sha256": "2e36a090ec753e4fbe2c910b9d4ee03ffb93ddf0039b0df9c5bf79a27e6a045c",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "coding_session_devices, coding_session_commands, coding_sessions + journal trigger.",
+      "tests": [
+        "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9900_stripe_source_lane.sql",
       "sha256": "78d2ed2bff44725ab97f20688ad9dab789eb8e4b8963fca44d91cc6609b798b5",
       "status": "new",
@@ -1056,6 +1066,47 @@
       "status": "verbatim",
       "donorPath": "src/integrations/bitbucket/processors.ts",
       "donorSha256": "62cdb0bb49c8572a48fb62d9b555e69467265f1f182250b277ba2fd746642628"
+    },
+    {
+      "path": "src/integrations/coding-sessions/index.ts",
+      "sha256": "ada0d4ae59ac2aaa38f503351a49269f83ac30dd0631e3296236f1fb861aab7f",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Coding sessions exports.",
+      "tests": [
+        "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/coding-sessions/lane.ts",
+      "sha256": "4319b1b30d715fb616583d01b54da9f44b6be2cc82fde4baaf5f14c56feaba0a",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Coding sessions device lane: donor session normalization/identity, content-hash skip + force, command queue claim/ack and source_sync receipt sanitization; gcs_ keys minted by yc_msaw device bindings with per-request yc_msaw authority (fail closed), no admin body userId override, no text truncation (donor 20k cut), immutable raw versions, artifact-sync LLM excluded.",
+      "tests": [
+        "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",
+        "(yc_msaw) tests/sources-coding-sessions-device.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/coding-sessions/ingest.ts",
+          "use": "ingest normalization, identity, command routes, receipt sanitizer"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/coding-sessions/commands.ts",
+          "use": "command types, claim/ack semantics"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/coding-sessions/auth.ts",
+          "use": "gcs_ key family"
+        }
+      ]
     },
     {
       "path": "src/integrations/cursor-agents/index.ts",
@@ -2481,6 +2532,16 @@
       ]
     },
     {
+      "path": "src/source-lane/providers/coding-sessions/index.ts",
+      "sha256": "59760d0bf10ce9af438e6a60104ad00df2609cab7fce380ab93d8753be0a2717",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Coding sessions provider module (JSON + transcript files, coverage from source_sync receipts).",
+      "tests": [
+        "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts"
+      ]
+    },
+    {
       "path": "src/source-lane/providers/confluence/api.ts",
       "sha256": "d1d07acdacefd4e414a16a6c132e1b417c99a6db6d3aa5caf336793daa318006",
       "status": "new",
@@ -3285,11 +3346,12 @@
     },
     {
       "path": "src/source-lane/providers/index.ts",
-      "sha256": "55cc89510823a1c2b2813896c989f02b114ceada67a126d357e5f9d802ac1347",
+      "sha256": "0a2080d971dc86a86267de01c8fe3d598595b93a899d90178a76fb0ca69e0dbc",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Provider registry (+ stripe, discord, cursor-agents, whatsapp-personal, instagram-personal).",
+      "reason": "Provider registry (+ stripe, discord, cursor-agents, coding-sessions, whatsapp-personal, instagram-personal).",
       "tests": [
+        "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",
         "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
         "tests/source-lane/providers/discord/discord.test.ts",
         "tests/source-lane/providers/nango-records/shared-patches.test.ts",
@@ -4269,6 +4331,23 @@
       "tests": [
         "tests/source-lane/core/shared-patches-confluence.test.ts"
       ]
+    },
+    {
+      "path": "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",
+      "sha256": "e7405fd31c7ae6dcaaa3e1d10d55f4851e1e2748786384a625050d18d4a44f1b",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Coding sessions regression suite.",
+      "tests": [
+        "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/coding-sessions/harness.ts",
+      "sha256": "264555305a2ecd2322e927d5b378795105446b8e01122b320985ad0f3abbb990",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Runtime harness (also served to yc_msaw's end-to-end device test)."
     },
     {
       "path": "tests/source-lane/providers/confluence/deep-lane.test.ts",

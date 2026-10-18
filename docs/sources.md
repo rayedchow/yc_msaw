@@ -74,7 +74,7 @@ The existing auth stays the only authority: WorkOS/OIDC (or static keys on loopb
 | `GET /v1/sources/runtime/status` | `memory:read` | Runtime connections, binding and coverage |
 | `POST /v1/sources/connect/:provider`, `DELETE /v1/sources/connections/:provider` | `memory:build` | Donor connect / disconnect flows in the runtime |
 | `POST /v1/sources/devices/:provider` | `traces:write` | Device enrolment for providers without a dedicated setup route |
-| `POST /v1/sources/devices/imessage/setup` | `traces:write` or `memory:build` | Mac iMessage uploader: server-minted device binding (`transport=runtime-ingest`); returns the uploader config once |
+| `POST /v1/sources/devices/imessage/setup`, `POST /v1/sources/devices/coding-sessions/setup` | `traces:write` or `memory:build` | Mac iMessage uploader / coding-sessions agent: server-minted device binding (`transport=runtime-ingest`); returns the agent config once |
 | `GET /v1/sources/devices/:provider/verify` | device key in `x-api-key` | Runtime asks this on every uploader request; 200 only for an active device binding of that provider |
 | `GET /v1/sources/google/auth` | `memory:read` | Google grants and per-account mode/coverage (no secrets) |
 | `POST /v1/sources/google/auth/oauth/start`, `POST /v1/sources/google/auth/dwd/mailboxes`, `DELETE /v1/sources/google/auth/accounts/:email` | `memory:build` | Start direct OAuth / Composio consent, add an approved DWD mailbox, disconnect one account |

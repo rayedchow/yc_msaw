@@ -1,6 +1,7 @@
 import type { SourceProviderModule } from "../core/types.js";
 import { bitbucketProvider } from "./bitbucket/index.js";
 import { calendarProvider } from "./calendar/index.js";
+import { codingSessionsProvider } from "./coding-sessions/index.js";
 import { confluenceProvider } from "./confluence/index.js";
 import { cursorAgentsProvider } from "./cursor-agents/index.js";
 import { discordProvider } from "./discord/index.js";
@@ -26,6 +27,7 @@ import { whatsappPersonalProvider } from "./whatsapp-personal/index.js";
 const SPECIALIZED_PROVIDERS: readonly SourceProviderModule[] = [
   bitbucketProvider,
   calendarProvider,
+  codingSessionsProvider,
   confluenceProvider,
   cursorAgentsProvider,
   discordProvider,

@@ -28,6 +28,8 @@ Terms used in the tables:
 |---|---|---|
 | iMessage (Mac uploader) | The bundled uploader protocol (`/api/imessage/ingest`, `sync-contacts`, `local-status`, `command`, `command/ack`) on the runtime public host. Canonical, legacy and GUID identity with alias dedupe. Edit and unsend history. Durable command queue. Per-chat projections. | `complete` only after a validated all-history source-sync receipt. Attachments are metadata only (`partial`). yc_msaw confirms every request and revocation is immediate. Nothing was installed or captured. |
 
+| Coding sessions (Codex / Claude Code, Mac agent) | The bundled agent's ingest and command protocol on the runtime host. A server-minted `gcs_` device key, with yc_msaw confirming every request; revocation is immediate and the lane fails closed. Normalized sessions are stored with immutable versions and **no text truncation**, at `sources/coding-sessions/<provider>/<yyyy-mm>/<session>.{json,md}`. `complete` only after a full-inventory source_sync receipt. These are redacted normalized transcripts, not raw JSONL. |
+
 ## Other providers
 
 Each provider's per-integration agent results are recorded here as they are merged. Baseline export (raw ledger
@@ -42,7 +44,7 @@ plus the donor mirror projection) exists for Confluence, Jira, GitHub, Bitbucket
 | Discord | **Implemented (official bot API only; user/selfbot tokens refused).** Explicit per-connection channel allowlist. Full history backfill plus forward polling with durable per-channel cursors. Discord's full `retry_after` is honoured, and a global limit pauses the connection. Messages are stored at `sources/discord/<guild>/<channel>/<yyyy-mm>/<id>.json` with raw versions. Edits and deletions are detected by a 7-day hourly rescan (no gateway), so `edits-deletions` stays partial. Without the Message Content intent, content is partial. A missing permission blocks only that channel. |
 | WhatsApp / Instagram (personal, via Unipile) | **Implemented. Experimental, read-only, and disabled unless the operator sets `UNIPILE_PERSONAL_CONNECTORS_ENABLED=1`.** Unipile automates personal accounts through unofficial clients, which carries Terms of Service risk. Per-connection webhook URL and secret with an account ownership check. Readiness gate, resumable per-chat paging, immutable versions, WhatsApp deletions. Attachment bytes are fetched from the Unipile host only, capped at 25 MiB. Messages are stored at `sources/{whatsapp,instagram}-personal/<account>/<chat>/<yyyy-mm>/<id>.json`. History is **always partial**: WhatsApp gives only what linked-device sync provides, and Instagram only a limited recent slice. |
 | Cursor background agents | **Implemented, read-only** (agents are never launched, followed up or deleted). The full `/v0/agents` listing is paged with a persisted cursor, and each agent's conversation is fetched. Changes become immutable raw versions. Agents gone from a completed listing are tombstoned. Signed webhooks are bound to a connection URL. Files are at `sources/cursor-agents/<conn>/<agent>/{agent,conversation}.json`. |
-| Zoom, Linear, coding sessions, office audio | Queued |
+| Zoom, Linear, office audio | Queued |
 
 ## Account setup that needs a human
 

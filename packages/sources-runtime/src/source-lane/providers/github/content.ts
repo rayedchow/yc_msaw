@@ -409,7 +409,7 @@ async function runQuota(
  * unknown name is left for the next bucket.
  */
 async function refreshRepo(ctx: Ctx, name: string, conns: readonly GithubConnectionRow[], isKnown: boolean): Promise<RepoRow | null> {
-  const known = isKnown ? await findRepoByName(ctx.db, ctx.tenantId, name) : await findRepoByName(ctx.db, ctx.tenantId, name);
+  const known = await findRepoByName(ctx.db, ctx.tenantId, name);
   const ordered = known ? [...conns].sort((a, b) => Number(b.connectionId === known.connection_id) - Number(a.connectionId === known.connection_id)) : conns;
   let lastStatus = 0;
   for (const c of ordered) {
@@ -507,6 +507,8 @@ export async function syncRef(ctx: Ctx, repo: RepoRow, refName: string, requestC
     if (error instanceof Yield) return { ...base, outcome: "in_progress" };
     if (error instanceof GithubRateLimitedError || error instanceof GithubAuthError) throw error;
     await recordRefError(ctx.db, scope, message(error));
+    // 403 without a rate-limit signal: the grant lacks a permission (e.g. the App has no Contents: read).
+    if (error instanceof GithubApiError && error.status === 403) await setRefStatus(ctx.db, scope, "blocked", message(error));
     return { ...base, outcome: "error", error: message(error) };
   }
 }
