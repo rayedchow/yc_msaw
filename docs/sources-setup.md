@@ -30,6 +30,7 @@ existing ObjectStore (a directory locally, a Modal Volume when hosted).
 | `SOURCES_PUBLISH_URL` | Public origin the runtime publishes to. Default: the origin of `MCP_PUBLIC_URL`. Must be https (http only for loopback). The runtime refuses redirects. |
 | `SOURCES_DEVICE_API_URL` | Runtime public origin handed to Mac uploaders as `apiUrl`. When unset, device setup answers 503. |
 | `SOURCES_SHARED_PROVIDERS` | Optional comma-separated `$SOURCES` provider directories every tenant member may read, in addition to the built-in shared workspace providers (e.g. an org-wide Nango records source). Every other non-personal directory is denied (see docs/sources.md, owner-only). |
+| `SOURCES_NODE_CACHE_MB` | Optional $SOURCES metadata cache per yc_msaw process, all tenants together (default 256). A `find`/`grep` that walks more directories than fit re-reads every node: about 72 MiB covers ~38k message directories. |
 
 ## Runtime configuration
 

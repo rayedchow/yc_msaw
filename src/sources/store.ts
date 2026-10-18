@@ -41,8 +41,12 @@ const MAX_CAS_ATTEMPTS = 16;
 const NODE_CACHE_ENTRIES = 250_000;
 /** Keys per batched object-store read (one round trip each on the hosted store; Modal accepts up to 1000). */
 const PREFETCH_KEYS = 256;
-/** Default metadata cache budget for one process (all tenants together). */
-export const DEFAULT_NODE_CACHE_BYTES = 64 * 1024 * 1024;
+/**
+ * Default metadata cache budget for one process (all tenants together; SOURCES_NODE_CACHE_MB overrides). A walk
+ * (find/grep) larger than the LRU budget re-reads every node: ~38k message directories plus their versions need
+ * ~72 MiB, and at 64 MiB a warm find over them took 2.7 s instead of 0.2 s (perf-verification-2 O2).
+ */
+export const DEFAULT_NODE_CACHE_BYTES = 256 * 1024 * 1024;
 
 export const HEAD_REF = "sources/head";
 export const EMPTY_SHA256 = createHash("sha256").digest("hex");

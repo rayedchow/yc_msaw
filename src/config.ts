@@ -25,6 +25,8 @@ export interface ProcmemConfig {
    * e.g. operator-declared Nango records sources of org-wide tools. Every other unknown provider is owner-less: denied.
    */
   sourcesSharedProviders: string[];
+  /** $SOURCES metadata (node/version) cache budget for this process, all tenants together (SOURCES_NODE_CACHE_MB). */
+  sourcesNodeCacheBytes?: number;
 }
 
 export const DEFAULT_BUILD_MODEL = "accounts/fireworks/models/kimi-k3";
@@ -57,6 +59,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ProcmemConfig 
       .split(",")
       .map((s) => s.trim())
       .filter((s) => /^[a-z0-9][a-z0-9-]{0,62}$/.test(s)),
+    ...(env.SOURCES_NODE_CACHE_MB?.trim() ? { sourcesNodeCacheBytes: nodeCacheBytes(env.SOURCES_NODE_CACHE_MB) } : {}),
   };
   if (isPublicBinding(cfg) && (cfg.sandbox !== "modal" || cfg.store !== "modal")) {
     throw new Error(
@@ -65,6 +68,12 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ProcmemConfig 
     );
   }
   return cfg;
+}
+
+function nodeCacheBytes(raw: string): number {
+  const mb = Number(raw.trim());
+  if (!Number.isInteger(mb) || mb < 16 || mb > 16_384) throw new Error("SOURCES_NODE_CACHE_MB must be an integer between 16 and 16384");
+  return mb * 1024 * 1024;
 }
 
 /** True when the listener is reachable beyond this machine. */

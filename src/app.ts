@@ -96,7 +96,7 @@ export async function createApp(opts: AppOptions = {}): Promise<App> {
     dayOffsetMinutes: config.timezoneOffsetMinutes,
     log,
   });
-  const sources = config.sources ? new SourceService(store, undefined, { sharedProviders: config.sourcesSharedProviders }) : null;
+  const sources = config.sources ? new SourceService(store, undefined, { sharedProviders: config.sourcesSharedProviders, ...(config.sourcesNodeCacheBytes ? { nodeCacheBytes: config.sourcesNodeCacheBytes } : {}) }) : null;
   const runtimeConfig = sources ? loadSourceRuntimeConfig(env, config.publicUrl) : null;
   const sourceRuntime = runtimeConfig ? new SourceRuntimeClient(runtimeConfig) : null;
   // Owner-only Docs/Drive/PDF reads: the runtime attributes each mailbox-less Google unit to its mailboxes' owners.
