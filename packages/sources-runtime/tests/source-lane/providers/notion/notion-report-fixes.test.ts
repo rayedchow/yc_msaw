@@ -11,6 +11,7 @@ vi.mock("../../../../src/integrations/notion/poller.js", () => ({
 }));
 
 import { handleNotionWebhook } from "../../../../src/integrations/notion/webhook.js";
+import { notionIntegration } from "../../../../src/integrations/notion/index.js";
 
 /** The Notion handshake token is the webhook's signing secret: logs carry its fingerprint unless the operator opts in. */
 describe("Notion webhook verification token logging", () => {
@@ -30,5 +31,11 @@ describe("Notion webhook verification token logging", () => {
     process.env.NOTION_WEBHOOK_LOG_VERIFICATION_TOKEN = "1";
     await handleNotionWebhook({ body: JSON.stringify({ verification_token: token }) });
     expect(lines.at(-1)).toContain(token);
+  });
+});
+
+describe("Notion disconnect scope", () => {
+  it("lists every scheduled Notion task kind, so disconnect disables the backfill and the deep sweep too", () => {
+    expect(notionIntegration.taskKinds!()).toEqual(expect.arrayContaining(["notion.poll", "notion.render", "notion.reconcile", "notion.backfill", "notion.source_sweep"]));
   });
 });

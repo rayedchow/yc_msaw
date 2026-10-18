@@ -2043,10 +2043,15 @@
     },
     {
       "path": "src/integrations/notion/index.ts",
-      "sha256": "8cf6222ad976779f89d05805264d25b02bcca469b7112942b2721669b2c21d3f",
-      "status": "verbatim",
+      "sha256": "3542f3cc0467b2a651f8c90be4a480fa151f57412e73b5088b46f2b137acd4af",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/integrations/notion/index.ts",
-      "donorSha256": "8cf6222ad976779f89d05805264d25b02bcca469b7112942b2721669b2c21d3f"
+      "donorSha256": "8cf6222ad976779f89d05805264d25b02bcca469b7112942b2721669b2c21d3f",
+      "reason": "notion report: NOTION_TASK_KINDS also lists notion.backfill and the source lane's notion.source_sweep, so disconnect and permanent credential failures disable every Notion schedule.",
+      "tests": [
+        "tests/source-lane/providers/notion/notion-report-fixes.test.ts"
+      ]
     },
     {
       "path": "src/integrations/notion/jobs.ts",
@@ -2122,7 +2127,7 @@
       "tests": [
         "tests/integrations/notion/webhook.test.ts (donor, unchanged, passes)",
         "tests/source-lane/providers/notion/module.test.ts (ledger-first ordering, hints)",
-        "tests/source-lane/providers/notion/webhook-token-log.test.ts"
+        "tests/source-lane/providers/notion/notion-report-fixes.test.ts"
       ]
     },
     {

@@ -137,6 +137,12 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     test: "tests/source-lane/providers/jira/shared-patches.test.ts",
     tests: ["tests/source-lane/providers/jira/donor-selection.test.ts"],
   },
+  "src/integrations/notion/index.ts": {
+    status: "patched",
+    reason: "notion report: NOTION_TASK_KINDS also lists notion.backfill and the source lane's notion.source_sweep, so disconnect and permanent credential failures disable every Notion schedule. notion report: NOTION_TASK_KINDS also lists notion.backfill and the source lane's notion.source_sweep, so disconnect and permanent credential failures disable every Notion schedule.",
+    test: "tests/source-lane/providers/notion/notion-report-fixes.test.ts",
+    tests: ["tests/source-lane/providers/notion/notion-report-fixes.test.ts"],
+  },
   "src/routes/slack-callback.ts": {
     status: "patched",
     reason: "final-audit L3: the HMAC-signed OAuth state is accepted once (sha256 recorded in source_lane_oauth_state_uses, drizzle/10300), not until it expires. final-audit L3: the HMAC-signed OAuth state is accepted once (sha256 recorded in source_lane_oauth_state_uses, drizzle/10300), not until it expires.",
@@ -163,7 +169,7 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   "src/integrations/notion/webhook.ts": {
     status: "patched",
     reason: "notion report: the handshake verification token (the webhook signing secret) is logged as a sha256 fingerprint unless NOTION_WEBHOOK_LOG_VERIFICATION_TOKEN=1",
-    test: "tests/source-lane/providers/notion/webhook-token-log.test.ts",
+    test: "tests/source-lane/providers/notion/notion-report-fixes.test.ts",
   },
   "src/mirror/backfill.ts": {
     status: "patched",

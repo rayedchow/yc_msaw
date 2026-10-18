@@ -6,7 +6,9 @@ import { runNotionBackfill, runNotionPoll, runNotionReconcile, runNotionRenderDi
 import { connectNotion } from "./connect.js";
 import { coverageFromDays, runRecordedSourceSyncTask } from "../source-sync-task.js";
 
-const NOTION_TASK_KINDS = ["notion.poll", "notion.render", "notion.reconcile"];
+// SOURCE-LANE PATCH (notion report): disconnect and permanent credential failures disable every Notion schedule,
+// including the donor backfill and the source lane's deep sweep (scheduled in queue/dispatch.ts).
+const NOTION_TASK_KINDS = ["notion.poll", "notion.render", "notion.reconcile", "notion.backfill", "notion.source_sweep"];
 
 export const notionIntegration: AqueductIntegration = {
   id: "notion",
