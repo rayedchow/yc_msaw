@@ -22,7 +22,7 @@
 import { sql } from "drizzle-orm";
 import type { CoverageReport, CoverageState, ExportContext } from "../../core/types.js";
 import { docsHistoryCapability, googleAuthModeFromMetadata } from "./auth-mode.js";
-import { DRIVE_EXPORT_MAX_BYTES, DRIVE_FILE_MAX_BYTES, DRIVE_NATIVE_JSON_MAX_BYTES, FILES_EXPORT_LIMIT_BYTES, GOOGLE_DOC_MIME } from "./drive-export.js";
+import { DRIVE_EXPORT_MAX_BYTES, DRIVE_FILE_MAX_BYTES, DRIVE_NATIVE_JSON_MAX_BYTES, FILES_EXPORT_LIMIT_BYTES, GOOGLE_DOC_MIME, GOOGLE_FOLDER_MIME, GOOGLE_SHEET_MIME, GOOGLE_SHORTCUT_MIME, GOOGLE_SLIDES_MIME, PDF_MIME } from "./drive-export.js";
 import { GOOGLE_DOCS_PROVIDER_ID, rowsOf, type SqlDatabase } from "./store.js";
 import { inventoryCoverage, listInventory } from "./inventory.js";
 
@@ -166,38 +166,56 @@ export async function googleDocsCoverage(ctx: ExportContext, now: Date = new Dat
     counts: { ...driveCounts, files: drive.length, oldestPendingSeconds: oldestPendingSeconds(drive, "content_state") },
   });
 
-  // Per-account current views of view-only Docs (account-capture.ts): one scope per mailbox, so the owner of that
-  // mailbox sees what of its readable view was captured and what is withheld from it (yc_msaw shows `account:<mb>`
-  // only to that owner). Non-Doc files a mailbox may only view have no account capture: counted as withheld.
-  const accountRows = rowsOf<{ mailbox: string; state: string; n: number | string; last: unknown }>(await ctx.executor.execute(sql`
-    SELECT mailbox, state, count(*)::int AS n, max(captured_at) AS last
-    FROM gdocs_account_captures WHERE tenant_id = ${ctx.tenantId} GROUP BY mailbox, state
+  // Per-account current views (account-capture.ts): one scope per mailbox, covering every native type it may only view
+  // (Docs, Sheets, Slides, other Drive files, Drive PDFs) and the comments Google returns to it, so the owner of that
+  // mailbox sees what of its readable view was captured, blocked or not yet captured (yc_msaw shows `account:<mb>` only
+  // to that owner).
+  const accountRows = rowsOf<{ mailbox: string; state: string; mime_type: string | null; comments_state: string | null; n: number | string; due: number | string; last: unknown }>(await ctx.executor.execute(sql`
+    SELECT mailbox, state, mime_type, comments_state, count(*)::int AS n, count(*) FILTER (WHERE comments_due)::int AS due, max(captured_at) AS last
+    FROM gdocs_account_captures WHERE tenant_id = ${ctx.tenantId} GROUP BY mailbox, state, mime_type, comments_state
   `).catch(() => []));
-  const viewOnlyOther = rowsOf<{ mailbox: string; n: number | string }>(await ctx.executor.execute(sql`
+  // Seen view-only but not yet scheduled (recorded before this lane, or a lost enqueue): the hourly sweep seeds them.
+  const notYet = rowsOf<{ mailbox: string; n: number | string }>(await ctx.executor.execute(sql`
     SELECT v.mailbox, count(*)::int AS n FROM gdocs_file_visibility v
     LEFT JOIN gdocs_file_checkpoints c ON c.tenant_id = v.tenant_id AND c.file_id = v.file_id
+      AND c.lifecycle_state = 'active' AND c.mime_type NOT IN (${GOOGLE_FOLDER_MIME}, ${GOOGLE_SHORTCUT_MIME})
+    LEFT JOIN binary_documents d ON d.tenant_id = v.tenant_id AND d.provider = 'drive-pdf' AND d.external_id = v.file_id AND d.tombstoned_at IS NULL
     WHERE v.tenant_id = ${ctx.tenantId} AND v.visible AND v.can_read_revisions = false
-      AND c.mime_type IS DISTINCT FROM ${GOOGLE_DOC_MIME}
+      AND (c.file_id IS NOT NULL OR d.id IS NOT NULL)
+      AND NOT EXISTS (SELECT 1 FROM gdocs_account_captures a WHERE a.tenant_id = v.tenant_id AND a.file_id = v.file_id AND a.mailbox = v.mailbox)
     GROUP BY v.mailbox
   `).catch(() => []));
-  for (const mailbox of [...new Set([...accountRows.map((r) => r.mailbox), ...viewOnlyOther.map((r) => r.mailbox)])].sort()) {
+  const typeOf = (mime: string | null) => mime === GOOGLE_DOC_MIME ? "docs" : mime === GOOGLE_SHEET_MIME ? "sheets" : mime === GOOGLE_SLIDES_MIME ? "slides" : mime === PDF_MIME ? "pdfs" : "files";
+  for (const mailbox of [...new Set([...accountRows.map((r) => r.mailbox), ...notYet.map((r) => r.mailbox)])].sort()) {
     const counts: Record<string, number> = {};
-    for (const r of accountRows.filter((x) => x.mailbox === mailbox)) counts[r.state] = Number(r.n);
-    const withheld = Number(viewOnlyOther.find((r) => r.mailbox === mailbox)?.n ?? 0);
+    const types: Record<string, number> = { docs: 0, sheets: 0, slides: 0, files: 0, pdfs: 0 };
+    const comments: Record<string, number> = {};
+    let commentsDue = 0;
+    for (const r of accountRows.filter((x) => x.mailbox === mailbox)) {
+      const n = Number(r.n);
+      counts[r.state] = (counts[r.state] ?? 0) + n;
+      if (r.state === "superseded" || r.state === "retired") continue;
+      commentsDue += Number(r.due ?? 0);
+      types[typeOf(r.mime_type)] = (types[typeOf(r.mime_type)] ?? 0) + n;
+      if (r.comments_state) comments[r.comments_state] = (comments[r.comments_state] ?? 0) + n;
+    }
+    const notYetCaptured = Number(notYet.find((r) => r.mailbox === mailbox)?.n ?? 0);
     const active = Object.entries(counts).filter(([s]) => s !== "superseded" && s !== "retired").reduce((n, [, c]) => n + c, 0);
     let state = scopeState(counts, active);
-    // Withheld non-Doc files are a standing gap for this account: never `complete`/`pending` while they exist.
-    if (withheld > 0 && (state === "complete" || state === "pending")) state = "partial";
+    // Files seen but not yet scheduled are a gap for this account until the sweep captures them.
+    // So is comment activity not yet re-read as the account (bounded per sweep; the hourly sweep drains it).
+    if ((notYetCaptured > 0 || commentsDue > 0) && (state === "complete" || state === "pending")) state = "partial";
     reports.push({
       provider: GOOGLE_DOCS_PROVIDER_ID,
       scope: `account:${mailbox}`,
       state,
       reason: [
-        "current view of Docs this account may only read or comment on, captured under its own credential (documents.get as that account; suggestions only if Google shows them to it); writer-only revision history, OT changelog, sessions, comments, suggestion cards and other accounts' copies are not part of it",
-        withheld > 0 ? `${withheld} view-only Sheets/Slides/Drive files/PDFs withheld: viewer_current_content_not_captured` : null,
+        "current view of the Docs, Sheets, Slides, Drive files and PDFs this account may only read or comment on, captured under its own credential (documents.get / files.export / alt=media / spreadsheets.get / presentations.get as that account; suggestions only if Google shows them to it) and the comments Google returns to it (comments.list as that account); download/copy-restricted files keep metadata and comments only (blocked: copy_restricted_for_account); writer-only revision history, OT changelog, sessions, suggestion cards, the shared comment ledger and other accounts' copies are not part of it",
+        notYetCaptured > 0 ? `${notYetCaptured} view-only files not yet captured (scheduled by the hourly sweep)` : null,
+        commentsDue > 0 ? `${commentsDue} files with comment activity not yet re-read as this account` : null,
       ].filter(Boolean).join("; "),
       lastSuccessAt: maxIso(accountRows.filter((x) => x.mailbox === mailbox).map((x) => x.last)),
-      counts: { ...counts, docs: active, viewOnlyOtherFilesWithheld: withheld },
+      counts: { ...counts, ...types, active, notYetCaptured, commentsDue, ...Object.fromEntries(Object.entries(comments).map(([k, v]) => [`comments_${k}`, v])) },
     });
   }
 

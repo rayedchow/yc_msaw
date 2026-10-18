@@ -1607,6 +1607,19 @@
       ]
     },
     {
+      "path": "drizzle/9105_gdocs_account_native_views.sql",
+      "sha256": "7acccac24f022d697fa8869a982b1c176c934ec933323ad860b28853b2ce8285",
+      "status": "new",
+      "owner": "google-native-views",
+      "reason": "google-native-views: gdocs_account_captures gains mime_type and comment bookkeeping (comments_state/reason/due/captured_at) + a partial due index; additive, google-docs range 9100-9149.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts",
+        "tests/source-lane/providers/google-docs/account-view.test.ts",
+        "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
+        "tests/source-lane/core/account-view-e2e-pg.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9150_google_auth_grants.sql",
       "sha256": "15000b443fd5e524be3dc25d5e7779dbed848191c745fa54a850a90668a4cf62",
       "status": "new",
@@ -2530,17 +2543,19 @@
     },
     {
       "path": "src/integrations/google/index.ts",
-      "sha256": "6568fcb3aef123fce33bd0d70b4df1306614394581f0328563756f1630e57011",
+      "sha256": "c57e5c1960cc290bd1cec1b2122845308745e9a215a91bf7e430bf90f44e6287",
       "status": "patched",
-      "owner": "coordinator, google-viewer-content",
+      "owner": "coordinator, google-viewer-content, google-native-views",
       "donorPath": "src/integrations/google/index.ts",
       "donorSha256": "4a23d843a0fec53b25d634fb78fb3b9f4e1cd78a74710dc0733c606d4334bca4",
-      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. Coordinator (gmail patch request 2): gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds; truthful completeness is the gmail module's mailbox:<email> coverage. Coordinator (calendar-contacts patch request 2): calendar.poll passes the webhook channelId (targeted sync of that channel's calendar); calendar.setup/google.contacts_sync honour forceFull. google-viewer-content: task gdocs.account-snapshot (current view of a Doc a mailbox may only read, captured under that mailbox's own credential; account-capture.ts).",
+      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. Coordinator (gmail patch request 2): gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds; truthful completeness is the gmail module's mailbox:<email> coverage. Coordinator (calendar-contacts patch request 2): calendar.poll passes the webhook channelId (targeted sync of that channel's calendar); calendar.setup/google.contacts_sync honour forceFull. google-viewer-content: task gdocs.account-snapshot (current view of a Doc a mailbox may only read, captured under that mailbox's own credential; account-capture.ts). google-native-views: gdocs.account-snapshot runs captureAccountView: the current view of a Doc, Sheet, Slides deck, Drive file or Drive PDF a mailbox may only read or comment on (plus the comments Google returns to it), under that mailbox's own credential.",
       "tests": [
+        "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
         "tests/source-lane/core/account-view-e2e-pg.test.ts",
         "tests/source-lane/core/shared-patches-gmail.test.ts",
         "tests/source-lane/core/shared-patches.test.ts",
         "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts",
         "tests/source-lane/providers/google-docs/account-view.test.ts"
       ]
     },
@@ -3739,17 +3754,21 @@
     },
     {
       "path": "src/polling/_archived-gdocs/gdocs.ts",
-      "sha256": "c562118705a75ce15bf465edda97547d5d09d3c2b2963776b3d4fe7c01ca43c2",
+      "sha256": "94798df56c2dfafc78cc82a15dadbe3a328da42630a49c437e2e220fa80ccd27",
       "status": "patched",
-      "owner": "google-docs, coordinator, owner-runtime-fidelity",
+      "owner": "google-docs, coordinator, owner-runtime-fidelity, google-native-views",
       "donorPath": "src/polling/_archived-gdocs/gdocs.ts",
       "donorSha256": "ac9b327017bb8ddb43a754bad2b318617eac4ed4500617bef215e8097cfbfc31",
-      "reason": "Re-trash/restore tombstone gap: first dead episode keeps the exact donor key gdocs:tombstone:<id>:<kind>, later episodes get :g<generation>; doc_restored events (gdocs:restored:<id>:g<n>); dead transitions tombstone exported source files and the donor mirror directory; per-file source checkpoints recorded for every live non-PDF/non-folder change (writeDocTombstones gains optional mailbox arg; recordSourceLaneLiveChanges added). Coordinator: writeDocTombstones skips tombstone + export retirement when the removal is access loss in one mailbox while another roster mailbox still sees the file (per-mailbox visibility, migration 9102). owner-runtime-fidelity: processDrivePdfChanges takes the polling mailbox: per-mailbox PDF visibility; a removal from one mailbox no longer tombstones a PDF another mailbox still sees.",
+      "reason": "Re-trash/restore tombstone gap: first dead episode keeps the exact donor key gdocs:tombstone:<id>:<kind>, later episodes get :g<generation>; doc_restored events (gdocs:restored:<id>:g<n>); dead transitions tombstone exported source files and the donor mirror directory; per-file source checkpoints recorded for every live non-PDF/non-folder change (writeDocTombstones gains optional mailbox arg; recordSourceLaneLiveChanges added). Coordinator: writeDocTombstones skips tombstone + export retirement when the removal is access loss in one mailbox while another roster mailbox still sees the file (per-mailbox visibility, migration 9102). owner-runtime-fidelity: processDrivePdfChanges takes the polling mailbox: per-mailbox PDF visibility; a removal from one mailbox no longer tombstones a PDF another mailbox still sees. google-native-views: processDrivePdfChanges calls noteAccountView after the per-mailbox visibility write (a view-only PDF schedules that mailbox's own copy; removal/trash retire it through writeDocTombstones as for other files); sweepCommentActivityMailbox passes the files of this mailbox's own comment activity to noteAccountCommentActivity (its account views re-read their comments as this mailbox).",
       "tests": [
         "tests/mirror/gdocs-discovery.test.ts, gdocs-edit-freshness.test.ts (unchanged, pass) + lifecycle.test.ts",
+        "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
+        "tests/source-lane/core/account-view-e2e-pg.test.ts",
         "tests/source-lane/core/owner-attribution-pg.test.ts",
         "tests/source-lane/core/owner-google-e2e-pg.test.ts",
         "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts",
+        "tests/source-lane/providers/google-docs/account-view.test.ts",
         "tests/source-lane/providers/google-docs/lifecycle.test.ts",
         "tests/source-lane/providers/google-docs/owner-attribution.test.ts",
         "tests/source-lane/providers/google-docs/visibility.test.ts"
@@ -4569,13 +4588,15 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/account-capture.ts",
-      "sha256": "21be7148dbbe8d5bcb30a82c3b2e3b140171be3f3e207a184867c4230bb1914a",
+      "sha256": "bec39b88a86c275cdf28b78f2e053d8c5f4f073ab50666871d72058a2b2e23a2",
       "status": "new",
-      "owner": "google-viewer-content",
-      "reason": "google-viewer-content: current view of a Doc for a mailbox without canReadRevisions, fetched under that mailbox's own credential (OAuth/DWD/Composio as resolved), exported under sources/google-docs/_accounts/<mailbox>/; no writer-only artifacts, no writes to donor shared tables; fail closed.",
+      "owner": "google-viewer-content, google-native-views",
+      "reason": "google-viewer-content: current view of a Doc for a mailbox without canReadRevisions, fetched under that mailbox's own credential (OAuth/DWD/Composio as resolved), exported under sources/google-docs/_accounts/<mailbox>/; no writer-only artifacts, no writes to donor shared tables; fail closed. google-native-views: captureAccountView (captureAccountDocView kept as an alias) covers every type the shared lanes export: Docs as before, Sheets/Slides/Drive files/PDFs via account-files.ts; comments.list as the account (first capture of Docs/Sheets/Slides, then on that account's own comment activity, bounded per sweep), 403/404 = not visible (nothing kept); download/copy restricted for the account (canDownload/canCopy false, copyRequiresWriterPermission, effective downloadRestrictions for readers) keeps metadata and comments only, content tombstoned; drive.json written only once the content outcome is settled; seeding covers non-Doc checkpoints and live drive-pdf rows; due list includes comments_due.",
       "tests": [
-        "tests/source-lane/providers/google-docs/account-view.test.ts",
-        "tests/source-lane/core/account-view-e2e-pg.test.ts"
+        "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
+        "tests/source-lane/core/account-view-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts",
+        "tests/source-lane/providers/google-docs/account-view.test.ts"
       ],
       "derivedFrom": [
         {
@@ -4595,6 +4616,33 @@
           "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
           "path": "src/integrations/google/gdocs/content-snapshot.ts",
           "use": "revisionId fallback (content digest) and redact-then-render order"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/polling/_archived-gdocs/gdocs-api.ts",
+          "use": "getFileComments comments.list field set, pageSize 100 and includeDeleted=true, reused for the account's own comments read"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/account-files.ts",
+      "sha256": "790722fbc4f28c71e791dc3d28a8b94543619516f2779356fe97610573fb6c5e",
+      "status": "new",
+      "owner": "google-native-views",
+      "reason": "google-native-views: content of a Sheet/Slides deck/Drive file/PDF for a view-only mailbox under its own credential: files.export in the shared lane's preferred format the account's own about.exportFormats offers (exportLinks over 10 MB), spreadsheets.get/presentations.get (contentUrl redacted), files.get alt=media for binaries/PDFs; exported under _accounts/<mailbox>/_drive/<class>/.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts",
+        "tests/source-lane/providers/google-docs/account-view.test.ts",
+        "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
+        "tests/source-lane/core/account-view-e2e-pg.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/polling/_archived-gdocs/gdocs.ts",
+          "use": "drive-pdf lane semantics (PDFs are Drive binaries fetched with files.get alt=media) for the account's own PDF copy"
         }
       ]
     },
@@ -4684,13 +4732,15 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/coverage.ts",
-      "sha256": "b5197d0361202c7df759f83b3ce074f235c059bf471b386dc07ae1a61957aa0e",
+      "sha256": "c03c5cbc77c91bd83b8ce3ca2bce577c35b0ddf561ae6fe27fb81eb5f3b6ca5a",
       "status": "new",
-      "owner": "google-docs, coordinator, google-viewer-content",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: drive-inventory coverage is computed from the full Drive listing per roster mailbox (complete only after a gap-free listing of every mailbox) instead of a static partial. google-viewer-content: per-mailbox `account:<mailbox>` coverage of account views, with view-only non-Doc files counted as withheld (viewer_current_content_not_captured).",
+      "owner": "google-docs, coordinator, google-viewer-content, google-native-views",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: drive-inventory coverage is computed from the full Drive listing per roster mailbox (complete only after a gap-free listing of every mailbox) instead of a static partial. google-viewer-content: per-mailbox `account:<mailbox>` coverage of account views, with view-only non-Doc files counted as withheld (viewer_current_content_not_captured). google-native-views: `account:<mailbox>` counts every type (docs/sheets/slides/files/pdfs), comment states, notYetCaptured (seen view-only without a capture row) and commentsDue; the former `viewer_current_content_not_captured` withholding of non-Doc files is gone because they are captured.",
       "tests": [
+        "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
         "tests/source-lane/core/account-view-e2e-pg.test.ts",
         "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts",
         "tests/source-lane/providers/google-docs/account-view.test.ts",
         "tests/source-lane/providers/google-docs/coverage-and-jobs.test.ts",
         "tests/source-lane/providers/google-docs/inventory.test.ts"
@@ -4708,13 +4758,15 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/drive-export.ts",
-      "sha256": "8523f816160e7edd324a06e8c0427ef5ae0444f72bd27bc2722beea3575aaf28",
+      "sha256": "56f616c57ba00ea66395af08d4db8e7033f82ab179a185c51ac97fe2b9b53640",
       "status": "new",
-      "owner": "google-docs, google-viewer-content",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) google-viewer-content: DRIVE_FIELDS exported (account captures read files.get with the same fields as that account).",
+      "owner": "google-docs, google-viewer-content, google-native-views",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) google-viewer-content: DRIVE_FIELDS exported (account captures read files.get with the same fields as that account). google-native-views: loadExportFormatsWith (about.exportFormats per account through any transport, same cache) and readTextCapped exported for account captures; shared-lane behaviour unchanged.",
       "tests": [
+        "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
         "tests/source-lane/core/account-view-e2e-pg.test.ts",
         "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts",
         "tests/source-lane/providers/google-docs/account-view.test.ts"
       ]
     },
@@ -6627,13 +6679,26 @@
       "donorSha256": "fee5f0c912e41f2d6e9ec1ade9cc9a32b48f201734d0aed58571616925569453"
     },
     {
-      "path": "tests/source-lane/core/account-view-e2e-pg.test.ts",
-      "sha256": "f05129961398f31a3b0b874700da8d71bf916d933b439c19057dedbf1c5b0be4",
+      "path": "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
+      "sha256": "4424eb1a4d8e90e334b6bd51947ad0a7017265a88a0ea6bba50c81d9603a5822",
       "status": "new",
-      "owner": "google-viewer-content",
-      "reason": "google-viewer-content: regression test.",
+      "owner": "google-native-views",
+      "reason": "google-native-views: regression test.",
       "tests": [
-        "tests/source-lane/core/account-view-e2e-pg.test.ts"
+        "tests/source-lane/core/account-native-views-e2e-pg.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/core/account-view-e2e-pg.test.ts",
+      "sha256": "abd11d98643105408a44e1627e30771295f42fbffd781c14b0d279b51e7e51be",
+      "status": "new",
+      "owner": "google-viewer-content, google-native-views",
+      "reason": "google-viewer-content: regression test. google-native-views: bob's capture now also asks for his comments (3 calls, all as bob; the fake refuses them, nothing kept).",
+      "tests": [
+        "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
+        "tests/source-lane/core/account-view-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts",
+        "tests/source-lane/providers/google-docs/account-view.test.ts"
       ]
     },
     {
@@ -7217,12 +7282,25 @@
       ]
     },
     {
-      "path": "tests/source-lane/providers/google-docs/account-view.test.ts",
-      "sha256": "81a911b705d26a66c0930d9fa72b8083e5bd37d8971800a253eb217b366dc329",
+      "path": "tests/source-lane/providers/google-docs/account-native-views.test.ts",
+      "sha256": "8ff4fab3999048eaa614a7738a8b40ffedccb547c1eb67676ec784ef3a33d23b",
       "status": "new",
-      "owner": "google-viewer-content",
-      "reason": "google-viewer-content: regression test.",
+      "owner": "google-native-views",
+      "reason": "google-native-views: regression test.",
       "tests": [
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/account-view.test.ts",
+      "sha256": "d9c4f58b355ab9a80aee7d1e21f02446361f2c226a4c791d08ceea3c3e538cf8",
+      "status": "new",
+      "owner": "google-viewer-content, google-native-views",
+      "reason": "google-viewer-content: regression test. google-native-views: fake Google answers comments.list per account (writers/commenters see the thread, readers 403); expectations updated for the added comments.list call and for view-only Sheets now being captured as the account instead of withheld.",
+      "tests": [
+        "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
+        "tests/source-lane/core/account-view-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts",
         "tests/source-lane/providers/google-docs/account-view.test.ts"
       ]
     },

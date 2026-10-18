@@ -240,8 +240,9 @@ describe.skipIf(!PG)("view-only Google accounts end to end: real runtime + real 
     googleCalls.length = 0;
     const handler = mods.google.googleIntegration.taskHandlers()["gdocs.account-snapshot"];
     const r = await handler(queued[0].payload, { task: { id: "t-1", queue: "sync", tenantId: tenantNs } });
-    expect(r).toMatchObject({ status: "complete", apiCalls: 2, imageFetches: 1 });
-    expect(googleCalls.filter((c) => c.as !== "contentUri").map((c) => c.as)).toEqual(["bob@corp.example", "bob@corp.example"]);
+    // files.get + documents.get + comments.list (google-native-views: the fake refuses bob's comments, nothing is kept).
+    expect(r).toMatchObject({ status: "complete", apiCalls: 3, imageFetches: 1 });
+    expect(googleCalls.filter((c) => c.as !== "contentUri").map((c) => c.as)).toEqual(["bob@corp.example", "bob@corp.example", "bob@corp.example"]);
     expect(googleCalls.find((c) => c.as === "contentUri")!.url).toBe(URI("bob"));
     expect((await sql`SELECT status FROM source_sync_runs WHERE user_id = ${tenantNs} AND metadata->>'taskKind' = 'gdocs.account-snapshot'`).map((x: Any) => x.status)).toEqual(["completed"]);
     // The donor shared baseline holds only the shared capture's revision rows.

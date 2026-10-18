@@ -123,10 +123,19 @@ const exportFormatsCache = new Map<string, { at: number; formats: Record<string,
 const EXPORT_FORMATS_TTL_MS = 60 * 60 * 1000;
 
 export async function loadExportFormats(ctx: GoogleCallContext): Promise<Record<string, string[]>> {
-  const key = `${ctx.tenantId}\n${ctx.mailbox ?? ""}`;
+  return loadExportFormatsWith(ctx.tenantId, ctx.mailbox, (url) => googleFetch(ctx, url));
+}
+
+/** `about.exportFormats` as one account (cached per tenant and mailbox), through any transport that runs as it. */
+export async function loadExportFormatsWith(
+  tenantId: string,
+  mailbox: string | null,
+  fetcher: (url: string) => Promise<Response>,
+): Promise<Record<string, string[]>> {
+  const key = `${tenantId}\n${mailbox ?? ""}`;
   const cached = exportFormatsCache.get(key);
   if (cached && Date.now() - cached.at < EXPORT_FORMATS_TTL_MS) return cached.formats;
-  const res = await googleFetch(ctx, `${DRIVE_API}/about?fields=exportFormats`);
+  const res = await fetcher(`${DRIVE_API}/about?fields=exportFormats`);
   if (!res.ok) throw new Error(`Drive about.get exportFormats failed (${res.status})`);
   const data = (await res.json()) as { exportFormats?: Record<string, string[]> };
   const formats = data.exportFormats ?? {};
@@ -437,7 +446,7 @@ export async function exportDriveFile(input: DriveExportInput): Promise<DriveExp
   }
 }
 
-async function readTextCapped(res: Response, maxBytes: number): Promise<string | null> {
+export async function readTextCapped(res: Response, maxBytes: number): Promise<string | null> {
   if (!res.body) {
     const text = await res.text();
     return Buffer.byteLength(text, "utf8") > maxBytes ? null : text;

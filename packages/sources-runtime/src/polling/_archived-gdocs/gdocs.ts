@@ -211,6 +211,9 @@ export async function processDrivePdfChanges(
   mailbox: string | null = null,
 ): Promise<DrivePdfChangeResult> {
   const { otherVisibleMailbox, setFileVisibility } = await import("../../source-lane/providers/google-docs/lifecycle.js");
+  // SOURCE-LANE PATCH (google-native-views): a mailbox that may only view a PDF gets its own copy (account-capture.ts).
+  // Its retirement on removal/trash runs through writeDocTombstones (recordDeadChange / retireFileExports), as for Sheets.
+  const { noteAccountView } = await import("../../source-lane/providers/google-docs/account-capture.js");
   const result: DrivePdfChangeResult = {
     stored: 0,
     skipped: 0,
@@ -248,6 +251,7 @@ export async function processDrivePdfChanges(
     }
 
     await setFileVisibility(userId, change.fileId, mailbox, true, undefined, file.capabilities);
+    await noteAccountView(userId, change, mailbox);
     const intake = await intakeBinaryDocument({
       tenantId: userId,
       provider: "drive-pdf",
@@ -307,6 +311,16 @@ async function sweepCommentActivityMailbox(userId: string, userEmail: string): P
   });
 
   await updateGoogleMailboxState(userId, userEmail, { lastCommentPollAt: new Date().toISOString() });
+
+  // SOURCE-LANE PATCH (google-native-views): this mailbox's own comment activity re-reads the comments of the files it
+  // may only view, as this mailbox (account-capture.ts). Files it reads in full are covered by the shared ledger.
+  const commentedFiles = activities
+    .map((a) => a.targets?.find((t) => t.driveItem)?.driveItem?.name?.replace(/^items\//, ""))
+    .filter((id): id is string => Boolean(id));
+  if (commentedFiles.length > 0) {
+    const { noteAccountCommentActivity } = await import("../../source-lane/providers/google-docs/account-capture.js");
+    await noteAccountCommentActivity(userId, userEmail, commentedFiles);
+  }
 
   // Reactive accelerator: for docs that just saw suggestion activity, enqueue a
   // targeted suggestion-sync so authorship/timestamps land in ~60s instead of

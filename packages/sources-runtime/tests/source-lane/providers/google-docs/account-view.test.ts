@@ -108,7 +108,14 @@ interface GoogleState {
   copyRequiresWriterPermission?: boolean;
   docsStatus?: Record<string, number>;
   retryAfter?: string;
+  /**
+   * What comments.list returns to each account (google-native-views). Default: writers and commenters see the
+   * thread, readers get 403. The runtime never assumes either way; it records what Google answers.
+   */
+  comments?: Record<string, "forbidden" | unknown[]>;
 }
+
+const THREAD = [{ id: "c-1", content: "Please check the numbers", author: { displayName: "Alice", emailAddress: "alice@corp.example" }, createdTime: "2026-10-01T09:00:00Z", modifiedTime: "2026-10-01T09:00:00Z", resolved: false, replies: [] }];
 
 function docJson(s: GoogleState, account: string, inline: boolean) {
   const elements: unknown[] = [{ textRun: { content: `${s.body}\n` } }];
@@ -144,6 +151,15 @@ function google(s: GoogleState) {
         // Only a writer sees the full sharing list.
         ...(caps.canReadRevisions ? { permissions: [{ id: "p9", type: "user", role: "writer", emailAddress: "hidden-collaborator@corp.example" }] } : {}),
       });
+    },
+    (url, init) => {
+      if (url.hostname !== "www.googleapis.com" || url.pathname !== `/drive/v3/files/${DOC}/comments`) return undefined;
+      const account = accountOf(init);
+      const caps = s.caps[account];
+      if (!caps || typeof caps === "string") return json({ error: { code: 404 } }, 404);
+      const answer = s.comments?.[account] ?? (caps.canReadRevisions || caps.canComment ? THREAD : "forbidden");
+      if (answer === "forbidden") return json({ error: { code: 403, message: "The user does not have sufficient permissions for this file." } }, 403);
+      return json({ comments: answer });
     },
     (url, init) => {
       if (url.hostname !== "docs.googleapis.com") return undefined;
@@ -238,11 +254,13 @@ describe("view-only accounts read their own current view of a Doc, never the wri
     expect(JSON.stringify(await liveJson(T, A.nativeDocument))).toContain("SUGGESTED-SECRET");
 
     const run = await runAccountTasks(s);
-    expect(run.results).toEqual([{ status: "complete", reason: "suggestions_not_visible_to_account", apiCalls: 2, imageFetches: 1 }]);
+    // google-native-views: the first capture also asks Google for the comments it shows bob (a reader: 403, none kept).
+    expect(run.results).toEqual([{ status: "complete", reason: "suggestions_not_visible_to_account", apiCalls: 3, imageFetches: 1 }]);
     // Every Google call of the account capture ran as bob, never as alice or the tenant default.
     const apiCalls = run.calls.filter((c) => c.url.includes("googleapis.com"));
-    expect(apiCalls.map((c) => c.headers.get("authorization"))).toEqual([`Bearer tok:${BOB}`, `Bearer tok:${BOB}`]);
-    expect(apiCalls.map((c) => new URL(c.url).searchParams.get("suggestionsViewMode"))).toEqual([null, "DEFAULT_FOR_CURRENT_ACCESS"]);
+    expect(apiCalls.map((c) => c.headers.get("authorization"))).toEqual([`Bearer tok:${BOB}`, `Bearer tok:${BOB}`, `Bearer tok:${BOB}`]);
+    expect(apiCalls.map((c) => new URL(c.url).searchParams.get("suggestionsViewMode"))).toEqual([null, "DEFAULT_FOR_CURRENT_ACCESS", null]);
+    expect((await getAccountCapture(T, DOC, BOB, deps))).toMatchObject({ commentsState: "not_visible", commentsDue: false });
     expect(run.calls.map((c) => c.url)).not.toContain(ALICE_URI);
 
     // Bob's current view: what Google returns to a reader, rendered by the donor renderer.
@@ -398,8 +416,10 @@ describe("view-only accounts read their own current view of a Doc, never the wri
     const s: GoogleState = { modifiedTime: "2026-10-01T10:00:00Z", revisionId: "rev-1", body: "Body", caps: { [ALICE]: { canReadRevisions: true }, [BOB]: { canReadRevisions: false, canComment: true } } };
     await poll({ [ALICE]: [change(true)], [BOB]: [change(false)] });
     const run = await runAccountTasks(s);
-    expect(run.results).toEqual([{ status: "complete", reason: null, apiCalls: 2, imageFetches: 1 }]);
+    expect(run.results).toEqual([{ status: "complete", reason: null, apiCalls: 3, imageFetches: 1 }]);
     expect((await liveJson<{ suggestionsViewMode: string }>(T, B.capture)).suggestionsViewMode).toBe("SUGGESTIONS_INLINE");
+    // google-native-views: the comments Google returns to the commenter, read as the commenter.
+    expect(await liveJson(T, B.comments)).toMatchObject({ account: BOB, complete: true, comments: [{ id: "c-1", content: "Please check the numbers" }] });
     expect(JSON.stringify(await liveJson(T, B.tabSuggestions("t.0")))).toContain("SUGGESTED-SECRET");
     expect(await liveJson<{ file: Record<string, unknown> }>(T, B.drive)).not.toHaveProperty("file.permissions");
     expect((await heads(T, `${accountDocDirectory(BOB, DOC, "Plan")}/history/`)).every((h) => h.path.includes("/history/snapshot-diffs/"))).toBe(true);
@@ -440,7 +460,10 @@ describe("view-only accounts read their own current view of a Doc, never the wri
     expect((await liveFile(T, B.tabText("t.0")))!.bytes.toString("utf8")).toContain("Via proxy");
   });
 
-  it("is retried by the hourly sweep and reported per account in coverage, with view-only non-Doc files withheld", async () => {
+  // google-native-views: view-only Sheets/Slides/Drive files/PDFs are no longer withheld; they are captured as the account
+  // (account-native-views.test.ts). Here the fake Google has no route for the sheet, so its capture as bob fails, is
+  // recorded as an error with a retry time, and the account scope is `partial`, never complete.
+  it("is retried by the hourly sweep and reported per account in coverage, other view-only files attempted as the account", async () => {
     const s: GoogleState = { modifiedTime: "2026-10-01T10:00:00Z", revisionId: "rev-1", body: "Body", caps: { [ALICE]: { canReadRevisions: true }, [BOB]: { canReadRevisions: false } } };
     await poll({ [ALICE]: [change(true)], [BOB]: [change(false), change(false, "2026-10-01T10:00:00Z", SHEET_MIME, "sheet-1")] });
     tasks.length = 0; // the queued task is lost and the doc predates this lane (no capture row): the sweep must still capture it
@@ -449,7 +472,13 @@ describe("view-only accounts read their own current view of a Doc, never the wri
     vi.stubGlobal("fetch", f.impl);
     try {
       const sweep = await runGdocsSourceSweep(T, { maxFiles: 5, budgetMs: 60_000, includeDocs: true, deps });
-      expect(sweep.results.filter((r) => r.lane === "doc-account")).toEqual([{ fileId: DOC, lane: "doc-account", state: "complete", reason: "suggestions_not_visible_to_account" }]);
+      expect(sweep.results.filter((r) => r.lane === "doc-account")).toEqual([
+        { fileId: DOC, lane: "doc-account", state: "complete", reason: "suggestions_not_visible_to_account" },
+        { fileId: "sheet-1", lane: "doc-account", state: "error", reason: "files.get_http_599" },
+      ]);
+      expect((await getAccountCapture(T, "sheet-1", BOB, deps))!.retryAt).not.toBeNull();
+      // Both the shared `_drive` export (bob is the only mailbox that sees it) and bob's own capture ran as bob.
+      expect(new Set(f.calls.filter((c) => c.url.includes("sheet-1")).map((c) => c.headers.get("authorization")))).toEqual(new Set([`Bearer tok:${BOB}`]));
       // The 60 s poll sweep (non-Doc files only) never runs account captures.
       await query(`UPDATE gdocs_account_captures SET state = 'pending' WHERE tenant_id = $1`, [T]);
       expect((await runGdocsSourceSweep(T, { maxFiles: 5, budgetMs: 60_000, includeDocs: false, deps })).results.filter((r) => r.lane === "doc-account")).toEqual([]);
@@ -458,8 +487,9 @@ describe("view-only accounts read their own current view of a Doc, never the wri
     }
     const reports = await googleDocsCoverage({ tenantId: T, executor: db } as never);
     const bob = reports.find((r) => r.scope === `account:${BOB}`)!;
-    expect(bob).toMatchObject({ state: "partial", counts: { pending: 1, docs: 1, viewOnlyOtherFilesWithheld: 1 } });
-    expect(bob.reason).toContain("viewer_current_content_not_captured");
+    // Everything was reset to pending above: pending (never complete), with no type left uncaptured or withheld.
+    expect(bob).toMatchObject({ state: "pending", counts: { pending: 2, docs: 1, sheets: 1, notYetCaptured: 0 } });
+    expect(bob.reason).not.toContain("viewer_current_content_not_captured");
     expect(bob.reason).toContain("writer-only revision history");
     expect(reports.find((r) => r.scope === `account:${ALICE}`)).toBeUndefined();
   });

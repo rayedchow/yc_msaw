@@ -27,9 +27,10 @@ import { SourceError } from "./paths.js";
  *   `*` runtime binding may). A domain-wide-delegation mailbox has no such subject and stays
  *   unowned until its owner completes the OAuth grant for the same address.
  *
- * A Doc a proven mailbox may only read or comment on (Drive `canReadRevisions` false) is a view-only unit: its shared
- * directory (captured under another credential, with writer-only history, suggestions and permissions) is withheld,
- * and the runtime captures that mailbox's own current view under its own credential into
+ * A Doc, Sheet, Slides deck, Drive file or Drive PDF a proven mailbox may only read or comment on (Drive
+ * `canReadRevisions` false) is a view-only unit: its shared directory (captured under another credential, with
+ * writer-only history, suggestions, byte versions and permissions) is withheld, and the runtime captures that mailbox's
+ * own current view (and the comments Google returns to it) under its own credential into
  * `google-docs/_accounts/<mailbox>/`, which, like `gmail/<mailbox>/`, belongs to the owner of that mailbox.
  *
  * Anything unowned, owned by more than one principal, or not attributable to one account from its
@@ -71,7 +72,7 @@ export const CONNECT_OWNED_PROVIDERS: readonly string[] = ["granola", "zoom", "c
 const GOOGLE_ACCOUNT_PROVIDERS: Readonly<Record<string, "first" | "accounts">> = { gmail: "first", calendar: "accounts", "google-contacts": "accounts" };
 /** Google providers with no mailbox in the path: readable per unit through runtime attribution. */
 const GOOGLE_WIDE_PROVIDERS: readonly string[] = ["google-docs"];
-/** `google-docs/_accounts/<mailbox>/`: one mailbox's own captures of Docs it may only view (runtime account-capture.ts). */
+/** `google-docs/_accounts/<mailbox>/`: one mailbox's own captures of files it may only view (runtime account-capture.ts). */
 const GOOGLE_ACCOUNT_VIEWS = "_accounts";
 /** Runtime credential lane that reports per-mailbox grant coverage (no files). */
 const GOOGLE_AUTH_STATUS_PROVIDER = "google-auth";
@@ -148,7 +149,7 @@ export class SourceViewer {
   /** Google-wide units (runtime attribution) this principal reads in full, and every directory above one. */
   readonly #units: ReadonlySet<string>;
   readonly #unitParents: ReadonlySet<string>;
-  /** The caller's mailboxes see some Doc view-only: their own current views live under `google-docs/_accounts/`. */
+  /** The caller's mailboxes see some file view-only: their own current views live under `google-docs/_accounts/`. */
   readonly #hasViewOnlyUnits: boolean;
 
   constructor(
@@ -173,7 +174,8 @@ export class SourceViewer {
     this.#personalDirs = new Set(input.personalDirs ?? []);
     const units = new Set<string>();
     const parents = new Set<string>();
-    this.#hasViewOnlyUnits = (input.googleUnits ?? []).some((u) => !u.revisions && /^google-docs\/[^/]/.test(u.path));
+    // Drive PDFs are units of the binary lane; a mailbox's own view of one lives under `google-docs/_accounts/` too.
+    this.#hasViewOnlyUnits = (input.googleUnits ?? []).some((u) => !u.revisions && /^(google-docs|binary\/drive-pdf)\/[^/]/.test(u.path));
     for (const u of input.googleUnits ?? []) {
       if (!u.revisions || !/^(google-docs|binary\/drive-pdf)\/[^/]/.test(u.path)) continue;
       units.add(u.path);
