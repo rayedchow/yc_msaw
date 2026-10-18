@@ -17,7 +17,8 @@ import { makeBench } from "../mine/backtest.js";
 import { settle } from "../mine/settle.js";
 import { buildAndShip, evalsPath, knowledgePath, readJson } from "../pipeline.js";
 import { loadState } from "../state.js";
-import { CONFIG, uiEvals, uiMcp, type Job, type Usage } from "./view.js";
+import { uiEvals, uiMcp, type Job, type Usage } from "./view.js";
+import { DOMAINS, domainOf } from "../domains/index.js";
 
 const UI = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../../mock-ui/index.html");
 const jobs: Job[] = [];
@@ -37,12 +38,12 @@ async function usageOf(id: string): Promise<Usage | null> {
 async function apiState() {
   const st = await loadState();
   const mcps = [], evals: Record<string, unknown> = {};
-  for (const id of Object.keys(CONFIG)) {
+  for (const id of Object.keys(DOMAINS)) {
     const k = await readJson<Knowledge>(knowledgePath(id));
     if (!k) continue;
     const job = [...jobs].reverse().find((j) => j.mcp === id && (j.status === "running" || Date.now() - Date.parse(j.startedAt) < 10 * 60_000)) ?? null;
     mcps.push(uiMcp(id, k, st, await usageOf(id), job));
-    const e = uiEvals(k, await readJson(evalsPath(id)));
+    const e = uiEvals(id, k, await readJson(evalsPath(id)));
     if (e) evals[id] = e;
   }
   return { mcps, evals, system: st.system?.url ?? null };
@@ -62,7 +63,8 @@ async function answer(id: string, qIndex: number, option: number): Promise<Job> 
     try {
       log(`answer: "${choice}"`);
       const st = await loadState();
-      const bench = makeBench(await new SystemClient(st.system!.url!, st.system!.token!).dataset());
+      const domain = domainOf(id);
+      const bench = makeBench(domain, await domain.fetchData(new SystemClient(st.system!.url!, st.system!.token!)));
       const s = await settle(bench, k, qIndex, choice);
       log(`${s.action} ${s.rule.id}: ${s.note}`);
       const version = (k.version ?? 1) + 1;

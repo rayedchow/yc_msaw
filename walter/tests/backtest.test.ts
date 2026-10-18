@@ -1,13 +1,14 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { SystemClient } from "../mine/data.js";
-import { backtestRule, makeBench, replayCommit, type Bench, type Rule } from "../mine/backtest.js";
+import { backtestRule, makeBench, type Bench, type Rule } from "../mine/backtest.js";
+import { sales } from "../domains/sales/index.js";
 import { startSystemServer } from "../system/serve.js";
 
 let s: Awaited<ReturnType<typeof startSystemServer>>;
 let b: Bench;
 beforeAll(async () => {
   s = await startSystemServer("tk");
-  b = makeBench(await new SystemClient(s.url, "tk").dataset());
+  b = makeBench(sales, await sales.fetchData(new SystemClient(s.url, "tk")));
 });
 afterAll(async () => s.close());
 
@@ -21,9 +22,9 @@ const sandbox: Rule = { id: "R3", title: "Partner Sandbox never counts", kind: "
 const arr: Rule = { id: "R2", title: "Value is arr", kind: "commit_total", code: `(deal) => Number(deal.properties.arr)` };
 const amount: Rule = { id: "X", title: "Value is amount", kind: "commit_total", code: `(deal) => Number(deal.properties.amount)` };
 
-describe("backtests against GurtAI's history (over the REST API)", () => {
+describe("sales backtests against GurtAI's history (over the REST API)", () => {
   it("correct commit rules replay every reported month until the October policy change", () => {
-    const r = replayCommit(b, [booked, contract, sandbox, arr]);
+    const r = sales.aggregate!.run(b, [booked, contract, sandbox, arr]);
     expect(r.length).toBe(22);
     expect(r.filter((x) => x.month < "2026-10").every((x) => x.match)).toBe(true);
     expect(r.find((x) => x.month === "2026-10")!.match).toBe(false);

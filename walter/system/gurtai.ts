@@ -14,21 +14,10 @@
  *   dedupe      duplicate companies (www./case variants of a domain) are merged into the oldest one
  */
 
-// ── deterministic helpers ───────────────────────────────────────────────────
-function mulberry32(seed: number): () => number {
-  let a = seed >>> 0;
-  return () => {
-    a = (a + 0x6d2b79f5) >>> 0;
-    let t = a;
-    t = Math.imul(t ^ (t >>> 15), t | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), t | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
-  };
-}
-const DAY = 86_400_000;
-const iso = (t: number) => new Date(t).toISOString();
-export const NOW = Date.UTC(2026, 10, 1) - 1;
-const START = Date.UTC(2025, 0, 1);
+import { DAY, iso, mulberry32, NOW, START, type Req, type Res } from "./common.js";
+import { ErpSystem } from "./erp.js";
+import { MailSystem } from "./mail.js";
+export { NOW, type Req, type Res };
 
 // ── static configuration ────────────────────────────────────────────────────
 export const OWNERS = [
@@ -296,16 +285,19 @@ export const isContractStage = (s: string) => CONTRACT.has(s);
 export const isLostStage = (s: string) => LOST.has(s);
 
 // ── REST API (HubSpot-style CRM + read-only warehouse) ───────────────────────
-export interface Req { method: string; path: string; query: Record<string, string>; body?: unknown; auth?: string | null }
-export interface Res { status: number; body: unknown }
 
 type ObjType = "deals" | "contacts" | "companies";
 const singular: Record<ObjType, Change["object"]> = { deals: "deal", contacts: "contact", companies: "company" };
 
+/** All of GurtAI's simulated systems behind one host: the CRM + warehouse, the ERP (/erp) and the support inbox (/mail). */
 export class GurtaiSystem {
   readonly world: World;
+  readonly erp: ErpSystem;
+  readonly mail: MailSystem;
   constructor(readonly token: string, seed?: number) {
     this.world = generate(seed);
+    this.erp = new ErpSystem();
+    this.mail = new MailSystem();
   }
 
   private table(t: string): Obj[] | null {
@@ -316,6 +308,8 @@ export class GurtaiSystem {
     if (req.path === "/health") return { status: 200, body: { ok: true, system: "gurtai-crm" } };
     if (req.auth !== `Bearer ${this.token}`) return { status: 401, body: { status: "error", category: "INVALID_AUTHENTICATION", message: "Authentication credentials not found." } };
     const p = req.path.replace(/\/+$/, "");
+    if (p.startsWith("/erp/")) return this.erp.handle(req.method, p, req.query);
+    if (p.startsWith("/mail/")) return this.mail.handle(req.method, p, req.query);
     let m: RegExpMatchArray | null;
 
     if (req.method === "GET" && p === "/crm/v3/owners") return { status: 200, body: { results: OWNERS.map((o) => ({ ...o, teams: [{ name: o.team }] })) } };

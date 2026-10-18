@@ -24,8 +24,14 @@ async function check(base: string): Promise<Record<string, unknown>> {
   const deals = await (await fetch(base + "/crm/v3/objects/deals?limit=5", { headers: h })).json();
   const snaps = await (await fetch(base + "/warehouse/forecast_snapshots", { headers: h })).json();
   const fh = await (await fetch(base + "/warehouse/field_history?property=booked&limit=3", { headers: h })).json();
-  const out = { unauthStatus: unauth, owners: owners.results?.length, deals: deals.results?.length, snapshots: snaps.results?.length, bookedChanges: fh.total };
-  const ok = unauth === 401 && owners.results?.length === 5 && deals.results?.length === 5 && snaps.results?.length === 22 && fh.total > 300;
+  const bills = await (await fetch(base + "/erp/services/rest/record/v1/vendorBill?limit=5", { headers: h })).json();
+  const runs = await (await fetch(base + "/erp/payment_runs?limit=200", { headers: h })).json();
+  const threads = await (await fetch(base + "/mail/gmail/v1/users/me/threads?maxResults=5", { headers: h })).json();
+  const events = await (await fetch(base + "/mail/export/events?limit=1", { headers: h })).json();
+  const out = { unauthStatus: unauth, owners: owners.results?.length, deals: deals.results?.length, snapshots: snaps.results?.length, bookedChanges: fh.total,
+    bills: bills.totalResults, paymentRuns: runs.total, threads: threads.resultSizeEstimate, mailEvents: events.total };
+  const ok = unauth === 401 && owners.results?.length === 5 && deals.results?.length === 5 && snaps.results?.length === 22 && fh.total > 300
+    && bills.totalResults > 1000 && runs.total > 90 && threads.resultSizeEstimate > 1000 && events.total > 3000;
   if (!ok) throw new Error(`system checks failed at ${base}: ${JSON.stringify(out)}`);
   return out;
 }

@@ -3,8 +3,7 @@
  * it) in light of the answer and the history; the host backtests the revision and only keeps it if it holds.
  */
 import { chat, MODELS } from "../llm.js";
-import { DECISION_KINDS } from "./data.js";
-import { backtestRule, replayCommit, type Bench, type Rule } from "./backtest.js";
+import { backtestRule, type Bench, type Rule } from "./backtest.js";
 import { summarize } from "./miner.js";
 import type { Knowledge, KnowledgeRule } from "../compile/compile.js";
 
@@ -14,7 +13,7 @@ const PROMPT = `You maintain one company rule that walter mined from a business 
 open question about it. Decide what the answer means for the rule and reply with JSON only:
 {"action": "revise" | "confirm" | "retire", "code": "<new JS arrow function if revise>", "title": "<plain-English title>", "short": "<2-3 words>", "note": "<one sentence for the changelog>"}
 - revise: the rule's behaviour must change (e.g. it only held until a date, or an exception becomes part of the rule).
-  Keep the same function signature. Dates are epoch ms; use Date.UTC(...). Helpers: ctx.stateAt, ctx.quarterOf, ctx.quarterRange, ctx.rootDomain.
+  Keep the same function signature. Dates are epoch ms; use Date.UTC(...). ctx helpers are listed in the input.
 - confirm: the rule is right as is; the cases it misses are exceptions.
 - retire: the rule is wrong and should not ship.`;
 
@@ -28,7 +27,7 @@ export async function settle(bench: Bench, k: Knowledge, qIndex: number, answer:
   for (let attempt = 1; attempt <= 3; attempt++) {
     const reply = await chat(opts.model ?? MODELS.kimi, [
       { role: "system", content: PROMPT },
-      { role: "user", content: JSON.stringify({ rule: { id: rule.id, kind: rule.kind, role: rule.role, title: rule.title, code: rule.code }, decision_kind: DECISION_KINDS[rule.kind], backtest: before, question: q.question, evidence: q.evidence, answer }) + feedback },
+      { role: "user", content: JSON.stringify({ rule: { id: rule.id, kind: rule.kind, role: rule.role, title: rule.title, code: rule.code }, decision_kind: bench.domain.kinds[rule.kind], ctx_helpers: bench.domain.ctxHelp, backtest: before, question: q.question, evidence: q.evidence, answer }) + feedback },
     ], [], { maxTokens: 3000, temperature: 0 });
     const text = String(reply.content ?? "").replace(/^```(json)?|```$/gm, "").trim();
     let j: { action: Settlement["action"]; code?: string; title?: string; short?: string; note?: string };
@@ -39,15 +38,16 @@ export async function settle(bench: Bench, k: Knowledge, qIndex: number, answer:
     const revised: Rule = { ...rule, code: String(j.code ?? ""), title: j.title ?? rule.title, short: j.short && j.short.length <= 18 ? j.short : rule.short };
     const res = backtestRule(bench, revised, others);
     const all = res.train.n + res.heldOut.n, ok = res.train.ok + res.heldOut.ok;
-    const replay = rule.kind === "commit_membership" ? safeReplay(bench, [...others, revised]) : null;
+    const agg = bench.domain.aggregate;
+    const replay = agg && (rule.kind === agg.setKind || rule.kind === agg.valueKind) ? safeReplay(bench, [...others, revised]) : null;
     if (!res.error && all && ok / all >= 0.97 && !res.change && (!replay || replay.every((x) => x.match))) {
       return { action: "revise", rule: { ...rule, ...revised, train: res.train, heldOut: res.heldOut, months: res.months, change: null, status: "confirmed", counterexamples: res.counterexamples.slice(0, 10) } as KnowledgeRule, note: j.note ?? "", attempts: attempt };
     }
-    feedback = `\n\nYour revision did not hold on history: ${JSON.stringify({ ...summarize(res), ...(replay ? { replay: replay.filter((x) => !x.match).map((x) => `${x.month}: recorded ${x.recorded} vs ${x.got}`) } : {}) })}. Fix it.`;
+    feedback = `\n\nYour revision did not hold on history: ${JSON.stringify({ ...summarize(res), ...(replay ? { replay: replay.filter((x) => !x.match).slice(0, 12).map((x) => `${x.label}: recorded ${x.recorded} vs ${Math.round(x.got)}`) } : {}) })}. Fix it.`;
   }
   throw new Error(`could not settle ${rule.id}: no revision held on history`);
 }
 
 function safeReplay(b: Bench, rules: Rule[]) {
-  try { return replayCommit(b, rules); } catch { return null; }
+  try { return b.domain.aggregate!.run(b, rules); } catch { return null; }
 }

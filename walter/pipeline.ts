@@ -9,7 +9,8 @@ import { compile, type Knowledge } from "./compile/compile.js";
 import { deployToManufact, isLinked, runLocal, waitForDeployment } from "./deploy/project.js";
 import { connectMcp } from "./mcp-client.js";
 import { SystemClient } from "./mine/data.js";
-import { replayThroughMcp, summarizeReplays } from "./evals/replay.js";
+import { summarizeReplays } from "./evals/replay.js";
+import { domainOf } from "./domains/index.js";
 import { loadState, saveState, STATE_DIR } from "./state.js";
 
 export const knowledgePath = (mcp: string) => path.join(STATE_DIR, "knowledge", `${mcp}.json`);
@@ -55,9 +56,10 @@ export async function buildAndShip(k: Knowledge, opts: { deploy?: boolean; log?:
   try {
     log("replaying history through the MCP");
     const mcp = await connectMcp(mcpUrl, {}, "walter-evals");
-    const ds = await new SystemClient(state.system.url, state.system.token).dataset();
+    const domain = domainOf(k.mcp);
+    const data = await domain.fetchData(new SystemClient(state.system.url, state.system.token));
     const t0 = Date.now();
-    const cases = await replayThroughMcp(mcp, ds);
+    const cases = await domain.replay(mcp, data);
     const summary = summarizeReplays(cases);
     await mcp.close();
     const out = { mcp: k.mcp, version: k.version ?? 1, hash, mcpUrl, ranAt: new Date().toISOString(), seconds: Math.round((Date.now() - t0) / 1000), summary, cases };

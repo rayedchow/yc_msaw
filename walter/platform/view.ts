@@ -7,28 +7,17 @@ import path from "node:path";
 import type { Knowledge, KnowledgeRule } from "../compile/compile.js";
 import type { ReplayCase } from "../evals/replay.js";
 import type { WalterState } from "../state.js";
+import { domainOf } from "../domains/index.js";
+import type { Domain } from "../domains/types.js";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
 const md = (f: string) => readFileSync(path.join(HERE, "../integrations", f), "utf8");
 
-/** Static per-MCP config: which systems it is built on. Everything else comes from mining and deploys. */
-export const CONFIG: Record<string, { name: string; systems: string[]; integrations: [string, string, string, string][]; md: string }> = {
-  sales: {
-    name: "GurtAI Sales MCP",
-    systems: ["GurtAI CRM", "warehouse"],
-    integrations: [["gurtai-crm.md", "GurtAI CRM", "REST · read only", "GURTAI_TOKEN"], ["gurtai-warehouse.md", "GurtAI warehouse", "field history · snapshots", "GURTAI_TOKEN"]],
-    md: md("gurtai-crm.md"),
-  },
-};
-
-const TOOLS: { name: string; sig: string; d: string; kinds: string[] }[] = [
-  { name: "get_commit", sig: "get_commit(quarter, as_of)", d: "Commit for a quarter, counted the way RevOps reports it", kinds: ["commit_membership", "commit_total"] },
-  { name: "route_contact", sig: "route_contact(email, country)", d: "Who should own a contact", kinds: ["new_contact_owner", "returning_contact_owner"] },
-  { name: "find_account", sig: "find_account(query)", d: "The one company for a domain or name", kinds: ["same_company"] },
-  { name: "company_rules", sig: "company_rules()", d: "The rules this MCP applies, with evidence", kinds: [] },
-  { name: "report_outcome", sig: "report_outcome(…)", d: "Agents report what went wrong", kinds: [] },
+const COMMON_TOOLS = [
+  { name: "company_rules", sig: "company_rules()", d: "The rules this MCP applies, with evidence", kinds: [] as string[] },
+  { name: "report_outcome", sig: "report_outcome(…)", d: "Agents report what went wrong", kinds: [] as string[] },
 ];
-const UNIT: Record<string, string> = { commit_membership: "deal-months", commit_total: "month ends", new_contact_owner: "new contacts", returning_contact_owner: "returning contacts", same_company: "company pairs" };
+const toolsOf = (d: Domain) => [...d.tools, ...COMMON_TOOLS];
 const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
 const pct = (x: { n: number; ok: number }) => (x.n ? `${Math.round((100 * x.ok) / x.n)}%` : "—");
 const html = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
@@ -38,11 +27,11 @@ export interface Usage { usage: { tool: string; client: string | null; at: strin
 export interface Job { id: string; mcp: string; kind: string; status: "running" | "done" | "failed"; steps: { at: string; text: string }[]; startedAt: string; error?: string }
 
 export function uiMcp(id: string, k: Knowledge, st: WalterState, usage: Usage | null, job: Job | null) {
-  const cfg = CONFIG[id]!;
+  const cfg = domainOf(id);
   const dep = st.mcps?.[id];
   const open = k.questions.map((q, i) => ({ ...q, i })).filter((q) => !q.answer);
   const live = k.rules.filter((r) => r.status !== "retired");
-  const tools = TOOLS.filter((t) => !t.kinds.length || t.kinds.some((kd) => live.some((r) => r.kind === kd)));
+  const tools = toolsOf(cfg).filter((t) => !t.kinds.length || t.kinds.some((kd) => live.some((r) => r.kind === kd)));
   const status = job?.status === "running" ? "build" : !dep ? (open.length ? "ask" : "build") : "live";
   const now = Date.now();
   const volume = Array.from({ length: 24 }, () => 0);
@@ -57,7 +46,7 @@ export function uiMcp(id: string, k: Knowledge, st: WalterState, usage: Usage | 
     systems: cfg.systems,
     stats: { agents: new Set((usage?.usage ?? []).map((u) => u.client ?? "unknown").filter((c) => !c.startsWith("walter"))).size, calls: (usage?.usage.length ?? 0).toLocaleString(), success: usage?.usage.length ? `${Math.round((100 * usage.usage.filter((u) => u.ok).length) / usage.usage.length)}%` : "—", rules: live.length },
     volume,
-    integrations: cfg.integrations, md: cfg.md,
+    integrations: cfg.integrations, md: md(cfg.mdFile),
     tools: tools.map((t) => [t.sig, t.d, t.kinds.length ? live.filter((r) => t.kinds.includes(r.kind)).map((r) => r.id).join(" ") : t.name === "report_outcome" ? "feedback" : ""]),
     rules: live.map((r) => [r.id, code(r.title), r.evidence ?? "", open.some((x) => x.rule_id === r.id) ? "asked" : r.change && r.status !== "confirmed" ? "change" : pct(r.heldOut.n ? r.heldOut : r.train), r.code, r.short ?? ""]),
     question: q ? { text: html(q.question), options: q.options, rule: live.findIndex((r) => r.id === q.rule_id), index: q.i, evidence: q.evidence } : null,
@@ -66,15 +55,16 @@ export function uiMcp(id: string, k: Knowledge, st: WalterState, usage: Usage | 
   };
 }
 
-export function uiEvals(k: Knowledge, ev: { cases: ReplayCase[]; ranAt: string; version: number } | null) {
+export function uiEvals(id: string, k: Knowledge, ev: { cases: ReplayCase[]; ranAt: string; version: number } | null) {
   const months = [...new Set(k.rules.flatMap((r) => r.months.map((m) => m.month)))].sort();
   if (!months.length) return null;
   const heldOutFrom = Math.max(0, months.findIndex((m) => m >= "2026-07"));
   const lbl = (m: string) => `${MONTH[Number(m.slice(5)) - 1]}${m.slice(2, 4) !== months.at(-1)!.slice(2, 4) ? " " + m.slice(2, 4) : ""}`;
   const open = new Set(k.questions.filter((q) => !q.answer).map((q) => q.rule_id));
-  const toolOf = (kind: string) => TOOLS.find((t) => t.kinds.includes(kind))?.name;
+  const domain = domainOf(id);
+  const toolOf = (kind: string) => domain.tools.find((t) => t.kinds.includes(kind))?.name;
   const replays: unknown[] = [];
-  const TASK: Record<string, string> = { get_commit: "Month-end commit, as RevOps reported it", route_contact: "Contact owner, as assigned", find_account: "Company merges, as RevOps did them" };
+  const TASK: Record<string, string> = Object.fromEntries(domain.tools.map((t) => [t.name, t.task ?? t.d]));
   for (const tool of [...new Set((ev?.cases ?? []).map((c) => c.tool))]) {
     for (const split of ["learned", "held-out"] as const) {
       const cs = ev!.cases.filter((c) => c.tool === tool && (c.heldOut ? "held-out" : "learned") === split);
@@ -87,13 +77,13 @@ export function uiEvals(k: Knowledge, ev: { cases: ReplayCase[]; ranAt: string; 
   }
   return {
     window: { months: months.map(lbl), heldOutFrom },
-    source: `GurtAI field history and forecast snapshots, ${lbl(months[0]!)} – ${lbl(months.at(-1)!)}. Learned before Jul 26, held out from Jul 26.${ev ? ` Replays ran through the deployed MCP (v${ev.version}).` : ""}`,
+    source: `${domain.systems.join(" and ")} history, ${lbl(months[0]!)} – ${lbl(months.at(-1)!)}. Learned before Jul 26, held out from Jul 26.${ev ? ` Replays ran through the deployed MCP (v${ev.version}).` : ""}`,
     replays,
     rules: k.rules.filter((r) => r.status !== "retired").map((r: KnowledgeRule) => {
       const by = new Map(r.months.map((m) => [m.month, m]));
       const n = r.train.n + r.heldOut.n, ok = r.train.ok + r.heldOut.ok;
       return {
-        id: r.id, text: code(r.title), support: [ok, n], unit: UNIT[r.kind] ?? "decisions",
+        id: r.id, text: code(r.title), support: [ok, n], unit: domain.kinds[r.kind]?.unit ?? "decisions",
         months: open.has(r.id) && n < 40 ? null : months.map((m) => { const x = by.get(m); return x && x.n ? Math.round((100 * x.ok) / x.n) : null; }),
         asked: open.has(r.id),
         drift: r.change && r.status !== "confirmed" ? `Stopped matching history in ${lbl(r.change.month)} (${Math.round(r.change.agreement * 100)}% agreement).` : null,

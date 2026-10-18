@@ -397,7 +397,7 @@ function treeSvg(m, T) {
       <rect width="${r.w}" height="${NH + 6}" rx="3"/>
       <text class="nl mono" x="12" y="20">${r.id}</text>
       <text class="nh" x="${r.w - 12}" y="20" text-anchor="end">${r.h === "asked" ? "asked" : r.h === "running" ? "testing" : r.h}</text>
-      <text class="ns" x="12" y="38">${esc(clip(SHORT[r.id] ?? "", 22))}</text>
+      <text class="ns" x="12" y="38">${esc(clip((SHORT[r.id] ?? "").replace(/->/g, "→"), Math.max(8, Math.floor((r.w - 18) / 6.2))))}</text>
     </g>`;
   };
   return `

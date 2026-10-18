@@ -29,7 +29,7 @@ describe("compiler and platform views", () => {
   });
 
   it("evals: month strip from backtests, held-out boundary at July 2026", () => {
-    const e = uiEvals(k, null)!;
+    const e = uiEvals("sales", k, null)!;
     expect(e.window.months.length).toBe(2);
     expect(e.window.heldOutFrom).toBe(1);
     expect(e.rules.find((r) => r.id === "R2")?.drift).toMatch(/Oct/);

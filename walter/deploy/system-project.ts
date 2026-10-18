@@ -12,9 +12,9 @@ const system = new GurtaiSystem(process.env.GURTAI_TOKEN ?? "");
 
 const server = new MCPServer({
   name: "gurtai-crm",
-  title: "GurtAI CRM (simulated)",
+  title: "GurtAI systems (simulated)",
   version: "1.0.0",
-  description: "Simulated GurtAI HubSpot-style CRM with 22 months of history. REST under /crm/v3 and /warehouse.",
+  description: "Simulated GurtAI systems with 22 months of history: HubSpot-style CRM (/crm/v3, /warehouse), NetSuite-style ERP (/erp) and a Gmail-style support inbox (/mail).",
 });
 
 server.tool(
@@ -33,11 +33,18 @@ server.get("/health", route);
 server.get("/crm/*", route);
 server.post("/crm/*", route);
 server.get("/warehouse/*", route);
+server.get("/erp/*", route);
+server.get("/mail/*", route);
 
 export default server;
 `;
 
 export async function writeSystemProject(dir: string): Promise<void> {
-  const src = await fs.readFile(path.join(path.dirname(new URL(import.meta.url).pathname), "../system/gurtai.ts"), "utf8");
-  await writeProject(dir, "gurtai-crm", "Simulated GurtAI CRM for the walter demo", { "index.ts": INDEX, "src/gurtai.ts": src });
+  const here = path.join(path.dirname(new URL(import.meta.url).pathname), "../system");
+  const files: Record<string, string> = { "index.ts": INDEX };
+  for (const f of ["gurtai", "common", "erp", "mail"]) {
+    // bundle-friendly relative imports inside the project
+    files[`src/${f}.ts`] = (await fs.readFile(path.join(here, `${f}.ts`), "utf8")).replace(/from "\.\/(\w+)\.js"/g, 'from "./$1.ts"');
+  }
+  await writeProject(dir, "gurtai-crm", "Simulated GurtAI systems for the walter demo", files);
 }
