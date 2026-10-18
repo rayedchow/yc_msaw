@@ -5,7 +5,7 @@
  */
 import React, { useEffect, useMemo, useState } from "react";
 import { createRoot } from "react-dom/client";
-import { adaptRun, type DemoEvent, type DemoState, type RunContext } from "./adapter.js";
+import { adaptRun, isGlobalRunEnd, type DemoEvent, type DemoState, type RunContext } from "./adapter.js";
 import { TraceWorkbench } from "./workbench.js";
 
 interface Store {
@@ -73,7 +73,8 @@ function usePoll() {
         const producer = body.producer ?? null;
         if (JSON.stringify(producer) !== JSON.stringify(store.producer)) { store.producer = producer; changed = true; }
         if (changed) setSnapshot({ events: [...store.events], state: store.state, producer: store.producer, version: ++version });
-        const ended = store.events.some((event) => event.kind === "run_end") || (store.state?.status !== undefined && store.state.status !== "running" && store.state.status !== "waiting");
+        // Poll slower only once the whole run ended (the host's run_end or a terminal state), not when one build ends.
+        const ended = store.events.some(isGlobalRunEnd) || (store.state?.status !== undefined && store.state.status !== "running" && store.state.status !== "waiting");
         if (ended && delay > 0) delay = 4_000;
       } catch (caught) {
         failures++;

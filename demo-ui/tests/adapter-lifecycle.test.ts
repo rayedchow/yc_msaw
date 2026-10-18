@@ -283,4 +283,55 @@ const retry = [...build,
   assert.match(shared.receipts.get("x3")?.[0]?.label ?? "", /^Build logger · ls failed \(ENOENT\) \(turn 2\)$/u, "a later single call of the same tool still gets its own outcome");
   assert.equal(sharedRows.find((row) => row.callId === "x3" && row.kind === "tool_result")?.status, "failed");
 }
+// Run ends are scoped (live CRM 4320: build-M-r2:service ended at 01:01:52 while build-adapt-cold-r3:root was active).
+{
+  const crmState: DemoState = { runId: "crm", status: "running", agents: [
+    { id: "host", role: "operator", status: "running", name: "Host orchestrator (CRM bench operator)" },
+    { id: "build-M-r2:service", role: "operator", status: "failed", name: "Memory build M-r2 (operator wrapper)" },
+    { id: "build-M-r2:root", parentId: "build-M-r2:service", role: "build", status: "running", name: "M-r2 root build agent (depth 0, kimi-k3)" },
+    { id: "build-M-r2:root.1", parentId: "build-M-r2:service", role: "build", status: "running", name: "M-r2 root build agent (depth 1, glm-5p3)" },
+    { id: "build-adapt-cold-r3:service", role: "operator", status: "running", name: "Memory build adapt-cold-r3 (operator wrapper)" },
+    { id: "build-adapt-cold-r3:root", parentId: "build-adapt-cold-r3:service", role: "build", status: "running", name: "adapt-cold-r3 root build agent (depth 0, kimi-k3)" },
+    { id: "cust-trM-1", role: "customer", status: "waiting", name: "Train trM-1" },
+  ] };
+  const crm = [
+    ev(1, "build-M-r2:root", "agent_start", "agent_started", { parentId: "build-M-r2:service" }),
+    ev(2, "build-M-r2:root.1", "tool_call", "ls", { parentId: "build-M-r2:root", data: { callId: "m1", args: { path: "inputs" } } }),
+    ev(3, "build-M-r2:service", "run_end", "memory build M-r2: failed rev-1 -> rev-1", { status: "failed" }),
+    ev(4, "build-adapt-cold-r3:root", "agent_start", "agent_started", { parentId: "build-adapt-cold-r3:service" }),
+    ev(5, "build-adapt-cold-r3:root", "message", "assistant", { text: "Creating the Zoho integration." }),
+  ];
+  const run = adaptRun(crm, crmState, alive);
+  assert.equal(run.mode, "live", "a build service's run_end does not end the batch");
+  assert.equal(run.endedBy, null, "no false 'The run ended' line");
+  assert.equal(statusOf(run, "build-adapt-cold-r3:root"), "running", "the other, newer build keeps running");
+  assert.equal(labelOf(run, "build-M-r2:root"), "unknown", "the ended build's root claims no outcome");
+  assert.equal(labelOf(run, "build-M-r2:root.1"), "unknown", "its subagent ends with it (scope by id prefix)");
+  assert.equal(statusOf(run, "cust-trM-1"), "waiting", "customers are untouched by a build's end");
+  assert.ok(!run.agents.some((agent) => agent.id.endsWith(":service")), "build services are operators, not agents");
+  const final = adaptRun([...crm, ev(9, "host", "run_end", "CRM bench finished", { status: "succeeded" })], crmState, alive);
+  assert.equal(final.mode, "ended", "the host's run_end ends the run");
+  assert.equal(labelOf(final, "build-adapt-cold-r3:root"), "unknown");
+}
+{
+  // GitHub demo with build cycles: c1/builder's run_end ends c1's agents only; the customer's retry and c2 go on.
+  const cycles = [
+    phase(0, "Customer attempt 1", "attempt-1"),
+    ev(1, "customer", "message", "user prompt", { text: "Read README.md" }),
+    ev(2, "customer", "message", "assistant", { text: "404." }),
+    phase(3, "Build cycle 1", "build-1"),
+    ev(4, "c1/root", "agent_start", "agent_started", { data: { profile: "kimi-k3" } }),
+    ev(5, "c1/root", "message", "assistant", { text: "Fixing the ref." }),
+    ev(6, "c1/builder", "run_end", "build cycle 1: failed", { status: "failed" }),
+    phase(7, "Customer retry", "attempt-2"),
+    ev(8, "customer", "message", "user prompt", { text: "Retry." }),
+    ev(9, "c2/root", "agent_start", "agent_started"),
+    ev(10, "c2/root", "message", "assistant", { text: "Second cycle." }),
+  ];
+  const run = adaptRun(cycles, state("running", [["customer", "running", null], ["c1/root", "running", null], ["c2/root", "running", null]]), alive);
+  assert.equal(run.mode, "live", "a cycle's builder run_end is not the run's end");
+  assert.equal(labelOf(run, "c1/root"), "unknown", "cycle 1's root ended with its cycle");
+  assert.equal(statusOf(run, "c2/root"), "running", "cycle 2's root is not ended by cycle 1");
+  assert.equal(statusOf(run, "customer"), "running", "the customer's retry is a running turn");
+}
 console.log("adapter lifecycle checks passed");

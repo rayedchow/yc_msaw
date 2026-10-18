@@ -13,7 +13,7 @@
  *   tool_result (same callId)    -> tool_result (exact text, else exact data)
  *   host-side records of a call  -> receipts under that call (integration
  *     provider call/result, build logger outcome, Pi result details)
- * The service ids "host" and "builder" are operators, not model agents: their
+ * The service ids "host" and the build services ("builder", "c<N>/builder", "<prefix>:service") are operators, not model agents: their
  * events go to the Run panel, never into an agent's conversation.
  */
 import {
@@ -95,7 +95,8 @@ export interface DemoAgent extends TraceAgent {
 /**
  * What the page can honestly say about the run as a whole.
  *   live         the run is in progress and its producer is alive
- *   ended        a terminal record (host run_end, or a terminal state status)
+ *   ended        a terminal record (the host's run_end, or a terminal state status); a build
+ *                service's run_end ends only its own build
  *   orphaned     the state still says running but its producer process is gone
  *   disconnected this page lost the trace server; nothing current is known
  *   waiting      nothing has been recorded yet
@@ -227,8 +228,34 @@ function omit(data: unknown, keys: readonly string[]): unknown {
   return Object.keys(out).length ? out : undefined;
 }
 
+/** Build-service wrapper ids: legacy "builder", cycle "c<N>/builder" (GitHub demo), "<prefix>:service" (CRM bench). */
+export function isBuildService(agentId: string): boolean {
+  return agentId === "builder" || agentId.endsWith("/builder") || agentId.endsWith(":service");
+}
+
 export function isOperator(agentId: string): boolean {
-  return OPERATORS.has(agentId);
+  return OPERATORS.has(agentId) || isBuildService(agentId);
+}
+
+/**
+ * A run_end that ends the whole run: the operator's own (agentId "host"). A build service's run_end
+ * ends only its own build (see buildServiceCovers); other run_end records end nothing global.
+ */
+export function isGlobalRunEnd(event: Pick<DemoEvent, "kind" | "agentId">): boolean {
+  return event.kind === "run_end" && event.agentId === "host";
+}
+
+/**
+ * Whether a build service's run_end covers an agent: the agent's recorded parent is that service, or
+ * its id carries the service's scope ("c2/builder" -> "c2/…", "build-M-r2:service" -> "build-M-r2:…",
+ * legacy "builder" -> unscoped ids such as "root", "root.1").
+ */
+export function buildServiceCovers(serviceId: string, agentId: string, listedParent?: string | null): boolean {
+  if (listedParent === serviceId) return true;
+  if (serviceId === "builder") return !agentId.includes("/") && !agentId.includes(":");
+  if (serviceId.endsWith("/builder")) return agentId.startsWith(serviceId.slice(0, -"builder".length));
+  if (serviceId.endsWith(":service")) return agentId.startsWith(serviceId.slice(0, -"service".length));
+  return false;
 }
 
 /** A status as AEye's renderer shows it, and the word the run recorded. */
@@ -449,7 +476,7 @@ const BOUNDARY = new Set(["turn_start", "turn_end"]);
  * One agent's status from what was recorded, strongest evidence first:
  *  1. its own terminal receipt (agent_end with no activity after it);
  *  2. a terminal status its state row gives it (finalized rows);
- *  3. the run's end (operator run_end or terminal state), or for a build
+ *  3. the run's end (the host's run_end or a terminal state), or for a build
  *     agent the build cycle's end, with no receipt of its own: unknown;
  *  4. the run is not live (producer gone, page disconnected): unknown;
  *  5. explicit turn boundaries (turn_start running, turn_end waiting);
@@ -521,9 +548,10 @@ function filesFrom(state: DemoState | null): DemoFile[] {
 const TERMINAL_STATE = new Set(["succeeded", "failed", "partial", "interrupted", "unknown", "aborted", "cancelled", "canceled", "done", "completed"]);
 
 export function adaptRun(events: readonly DemoEvent[], state: DemoState | null, context: RunContext = {}): AdaptedRun {
-  // Only the operator's run_end ends the run; the build service's run_end ends the build cycle.
-  const runEnd = [...events].reverse().find((event) => event.kind === "run_end" && event.agentId !== "builder") ?? null;
-  const buildEnd = [...events].reverse().find((event) => event.kind === "run_end" && event.agentId === "builder") ?? null;
+  // Only the operator's run_end ends the run; a build service's run_end ends its own build only
+  // (parallel builds and later build cycles share one run and keep going).
+  const runEnd = [...events].reverse().find(isGlobalRunEnd) ?? null;
+  const serviceEnds = events.filter((event) => event.kind === "run_end" && isBuildService(event.agentId));
   const stateTerminal = typeof state?.status === "string" && TERMINAL_STATE.has(state.status);
   const ended = runEnd !== null || stateTerminal;
   const orphaned = !ended && context.producer?.alive === false;
@@ -543,7 +571,7 @@ export function adaptRun(events: readonly DemoEvent[], state: DemoState | null, 
   const stateAgents = new Map((state?.agents ?? []).filter((agent) => isObject(agent) && typeof agent.id === "string").map((agent) => [agent.id, agent]));
   // Operators by id, or by the role the state gives them (contract: role "operator").
   const operatorIds = new Set([...OPERATORS, ...[...stateAgents.values()].filter((agent) => agent.role === "operator").map((agent) => agent.id)]);
-  const operatorAgent = (id: string) => operatorIds.has(id);
+  const operatorAgent = (id: string) => operatorIds.has(id) || isBuildService(id);
   const phases = events.filter((event) => event.kind === "phase" && operatorAgent(event.agentId));
   for (const event of events) {
     if ((event.kind === "memory_diff" || event.kind === "source_diff") && event.text) diffs.push({ title: event.title, text: event.text, at: event.at });
@@ -569,6 +597,7 @@ export function adaptRun(events: readonly DemoEvent[], state: DemoState | null, 
     const agentParent = (candidate: string | null | undefined) => (candidate && candidate !== id && !operatorAgent(candidate) ? candidate : null);
     const parentId = agentParent(listed?.parentId) ?? agentParent(start?.parentId) ?? list.map((event) => agentParent(event.parentId)).find(Boolean) ?? null;
     const customer = listed?.role ? listed.role === "customer" : id === "customer";
+    const buildEnd = customer ? null : serviceEnds.filter((event) => buildServiceCovers(event.agentId, id, listed?.parentId)).at(-1) ?? null;
     const { status, label: statusLabel } = lifecycle({ customer, list, listed: listed?.status, end, active, ended, buildEnd, phases });
     const endData = isObject(end?.data) ? end.data : {};
     const ats = list.map((event) => event.at).filter((at): at is string => typeof at === "string");
