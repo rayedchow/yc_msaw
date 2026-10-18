@@ -2148,12 +2148,14 @@
     },
     {
       "path": "src/integrations/cursor-agents/lane.ts",
-      "sha256": "e7dbb3b7b6317fd27375fbba7576709defee8eef017fcc35b56fabd1d4b030c1",
+      "sha256": "76118dc7d3e5bcc1fa31118433f734b1fe135990d08002cdc1fd76ad85bd75a0",
       "status": "new",
-      "owner": "coordinator",
-      "reason": "Read-only port of the Cursor background agents collector: donor parsers, event identities and webhook signature verbatim in semantics; launch/followup/delete not ported; immutable :v:<sha> snapshot versions (donor overwrote one row), connection-bound webhook URL + per-connection secret (donor /:userId), persisted listing cursor with failed-page resume, Retry-After, listing tombstones, bounded conversation fetches.",
+      "owner": "coordinator, quota-final-check",
+      "reason": "Read-only port of the Cursor background agents collector: donor parsers, event identities and webhook signature verbatim in semantics; launch/followup/delete not ported; immutable :v:<sha> snapshot versions (donor overwrote one row), connection-bound webhook URL + per-connection secret (donor /:userId), persisted listing cursor with failed-page resume, Retry-After, listing tombstones, bounded conversation fetches. quota-final-check: Cursor rate-limits the user/team behind a key (cursor.com/docs/api.md#rate-limits), so a 429 Retry-After cooldown is shared by every connection holding the key, across owner scopes and tenants (cursor_agents_quota, migration 10500, keyed by a sha256 prefix of the key). It is checked before every request (sync and connect verification) and recorded with GREATEST; Retry-After is parsed strictly (src/lib/retry-after.ts), so a malformed value takes 60 s instead of producing an Invalid Date that aborted the connection loop.",
       "tests": [
-        "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts"
+        "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
+        "tests/source-lane/providers/cursor-agents/shared-key-quota.test.ts",
+        "tests/source-lane/core/transport-scope-e2e-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
       ],
       "derivedFrom": [
         {
@@ -2348,10 +2350,10 @@
     },
     {
       "path": "src/integrations/gmail/source-quota.ts",
-      "sha256": "5f9403d88622d65fe2feee2bed111ab079d8c4e245413ed1c8f39c4aff9422ad",
+      "sha256": "c148729aa62ac75f4ec8dc9d315beac5ccf9db0666e95c5ab028066091616387",
       "status": "new",
-      "owner": "gmail",
-      "reason": "Durable per-upstream-mailbox cooldown (Retry-After floor, exponential on repeats, 1h cap) and single active sync lease across tenants/workers; opaque tenant-independent quota key; error backoff.",
+      "owner": "gmail, quota-final-check",
+      "reason": "Durable per-upstream-mailbox cooldown (Retry-After floor, exponential on repeats, 1h cap) and single active sync lease across tenants/workers; opaque tenant-independent quota key; error backoff. quota-final-check: the 1 h cap bounds only the exponential repeat backoff; a longer Retry-After is the durable floor.",
       "tests": [
         "tests/source-lane/providers/gmail/quota.test.ts",
         "tests/source-lane/providers/gmail/sync.test.ts",
@@ -2543,12 +2545,12 @@
     },
     {
       "path": "src/integrations/google/index.ts",
-      "sha256": "c57e5c1960cc290bd1cec1b2122845308745e9a215a91bf7e430bf90f44e6287",
+      "sha256": "f77a79c1d8679681785bbbfd5628c4007e32761dad829d8d10b4065696f65dbd",
       "status": "patched",
-      "owner": "coordinator, google-viewer-content, google-native-views",
+      "owner": "coordinator, google-viewer-content, google-native-views, quota-final-check",
       "donorPath": "src/integrations/google/index.ts",
       "donorSha256": "4a23d843a0fec53b25d634fb78fb3b9f4e1cd78a74710dc0733c606d4334bca4",
-      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. Coordinator (gmail patch request 2): gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds; truthful completeness is the gmail module's mailbox:<email> coverage. Coordinator (calendar-contacts patch request 2): calendar.poll passes the webhook channelId (targeted sync of that channel's calendar); calendar.setup/google.contacts_sync honour forceFull. google-viewer-content: task gdocs.account-snapshot (current view of a Doc a mailbox may only read, captured under that mailbox's own credential; account-capture.ts). google-native-views: gdocs.account-snapshot runs captureAccountView: the current view of a Doc, Sheet, Slides deck, Drive file or Drive PDF a mailbox may only read or comment on (plus the comments Google returns to it), under that mailbox's own credential.",
+      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds. quota-final-check: the gmail.backfill rate-limit reschedule keeps a Retry-After longer than its 1 h backoff cap as the floor.",
       "tests": [
         "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
         "tests/source-lane/core/account-view-e2e-pg.test.ts",
@@ -2556,7 +2558,8 @@
         "tests/source-lane/core/shared-patches.test.ts",
         "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
         "tests/source-lane/providers/google-docs/account-native-views.test.ts",
-        "tests/source-lane/providers/google-docs/account-view.test.ts"
+        "tests/source-lane/providers/google-docs/account-view.test.ts",
+        "tests/source-lane/core/google-backfill-reschedule.test.ts"
       ]
     },
     {
@@ -2608,15 +2611,16 @@
     },
     {
       "path": "src/integrations/granola/mcp-client.ts",
-      "sha256": "1b95be67f4e534e91857da90cb4795cde7bf670de4c57fd2a40c3898181b8671",
+      "sha256": "f52e011fdd988e9f3e36e122edb8037d61d932b90e497621952f46a944d48329",
       "status": "patched",
-      "owner": "granola",
+      "owner": "granola, quota-final-check",
       "donorPath": "src/integrations/granola/mcp-client.ts",
       "donorSha256": "4addfc6640b5545d88d7abec5b318948f8bcce6715ea8777788fdd953583683d",
-      "reason": "MCP transport: 429 Retry-After handling with the shared rate gate (none before); transcript segments keep every returned field next to the normalised speaker/text/timing; detail payloads without created_at/updated_at fail the note instead of storing a 1970 shell revision.",
+      "reason": "MCP transport: 429 Retry-After handling with the shared rate gate (none before); transcript segments keep every returned field next to the normalised speaker/text/timing; detail payloads without created_at/updated_at fail the note instead of storing a 1970 shell revision. quota-final-check: the MCP transport likewise surfaces a 429 with the remaining wait instead of sleeping a long rate-gate hold.",
       "tests": [
         "tests/source-lane/providers/granola/oauth-mcp.test.ts",
-        "tests/integrations/granola/mcp-client.test.ts"
+        "tests/integrations/granola/mcp-client.test.ts",
+        "tests/source-lane/providers/granola/shared-key-quota.test.ts"
       ]
     },
     {
@@ -2634,12 +2638,12 @@
     },
     {
       "path": "src/integrations/granola/poller.ts",
-      "sha256": "711afd8fc42842004834f2f5f3ebfd74bfc6a5cb822ccbc3cf397c646a9f20ce",
+      "sha256": "e466b4aff8a9eaed770310125680b62527b6b15cbf5203dda18832d0fd8aa799",
       "status": "patched",
-      "owner": "granola",
+      "owner": "granola, quota-final-check",
       "donorPath": "src/integrations/granola/poller.ts",
       "donorSha256": "796c648c69398419ea22c88f5a78ef06e2a0488574c6279da04615ffa0ac1426",
-      "reason": "Retry-After never cut short (waits > 30 s surfaced for a durable cooldown) + per-credential in-process rate gate; same-updated_at content changes appended as immutable content revisions <id>#<sha16> (donor dropped late transcripts as collisions) with canonical post-redaction comparison and a no-transcript-regression guard; second deletion of a restored note gets its own tombstone and removes the restored mirror; watermark clamped to window start - 60 s; backfill never moves an existing poll watermark; per-page checkpoint hook + per-note failure list + hasMore-without-cursor flag; one OAuth refresh on 401 mid-run; credential identity (hashes only) and refetch-by-id helpers for the lane.",
+      "reason": "Retry-After never cut short (waits > 30 s surfaced for a durable cooldown) + per-credential in-process rate gate; same-updated_at content changes appended as immutable content revisions <id>#<sha16> (donor dropped late transcripts as collisions) with canonical post-redaction comparison and a no-transcript-regression guard; second deletion of a restored note gets its own tombstone and removes the restored mirror; watermark clamped to window start - 60 s; backfill never moves an existing poll watermark; per-page checkpoint hook + per-note failure list + hasMore-without-cursor flag; one OAuth refresh on 401 mid-run; credential identity (hashes only) and refetch-by-id helpers for the lane. quota-final-check: an in-process rate-gate hold longer than the 30 s in-request cap is no longer slept (a worker would idle for the whole Retry-After; setTimeout fires at once past ~24.8 days); nothing is sent and a 429 carrying the remaining wait surfaces, which the lane turns into the durable per-credential cooldown. Comment updated: Granola publishes per-user/workspace limits.",
       "tests": [
         "tests/source-lane/providers/granola/lane.test.ts",
         "tests/source-lane/providers/granola/oauth-mcp.test.ts",
@@ -2649,7 +2653,8 @@
         "tests/integrations/granola/deletion.test.ts",
         "tests/integrations/granola/connect.test.ts",
         "tests/integrations/granola/mcp-client.test.ts",
-        "tests/integrations/granola/tasks.test.ts"
+        "tests/integrations/granola/tasks.test.ts",
+        "tests/source-lane/providers/granola/shared-key-quota.test.ts"
       ]
     },
     {
@@ -3546,6 +3551,18 @@
       "donorSha256": "eda8547428aaf6635107cb6dce21f7389f147e3ed18016873e916768775b557b"
     },
     {
+      "path": "src/lib/retry-after.ts",
+      "sha256": "6b820fa40a456f6987637e92b0ec503b6c8831c35529a403e0e5c41d7bf05beb",
+      "status": "new",
+      "owner": "quota-final-check",
+      "reason": "quota-final-check: RFC 9110 §10.2.3 Retry-After parser shared by Google and Cursor. Strict delay-seconds (1*DIGIT) or HTTP-date (IMF-fixdate / rfc850 / asctime as UTC); a valid value is returned unshortened, only an unrepresentable one is bounded at 2^31 - 1 s (RFC 9111 §1.2.2, also the int4 last_retry_after_seconds columns); malformed values return null so callers use their conservative fallback; an HTTP-date is measured against both the local clock and the response Date, taking the later deadline.",
+      "tests": [
+        "tests/source-lane/core/google-retry-after.test.ts",
+        "tests/source-lane/providers/gmail/quota.test.ts",
+        "tests/source-lane/providers/cursor-agents/shared-key-quota.test.ts"
+      ]
+    },
+    {
       "path": "src/lib/utils.ts",
       "sha256": "f18fb77e4e66a00fde10808b870b3f58f8a6874101b26a5cfef6ff80bf4c3f54",
       "status": "verbatim",
@@ -4029,10 +4046,10 @@
     },
     {
       "path": "src/source-lane/providers/calendar/google-lane.ts",
-      "sha256": "8e7fec0e874cca349181ebb68c8659742548541ebe1383f83ddbc044a0ff700f",
+      "sha256": "6420fd9a0df2a7181ef100838465023b4105e7821bd6bcccb85e2d27ad03b741",
       "status": "new",
-      "owner": "calendar-contacts, coordinator",
-      "reason": "Shared calendar/contacts plumbing: per-account credential via getGoogleApiCredential + fetchGoogleApi, cooldowns keyed by quotaUser, failure classification, persisted backoff, roster (connections + DWD directory), mailbox status, cursor leases, listing membership, raw JSON diff. Coordinator (final-audit M1): explicitly disconnected mailboxes stay out of the directory roster.",
+      "owner": "calendar-contacts, coordinator, quota-final-check",
+      "reason": "Shared calendar/contacts plumbing: per-account credential via getGoogleApiCredential + fetchGoogleApi, cooldowns keyed by quotaUser, failure classification, persisted backoff, roster (connections + DWD directory), mailbox status, cursor leases, listing membership, raw JSON diff. Coordinator (final-audit M1): explicitly disconnected mailboxes stay out of the directory roster. quota-final-check: backoffSeconds keeps a Retry-After longer than the 1 h backoff cap as the floor (calendar/contacts mailbox status and cursors).",
       "tests": [
         "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts",
         "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
@@ -6047,14 +6064,16 @@
     },
     {
       "path": "src/vault/google-rate-limit.ts",
-      "sha256": "c354869b46baace302ca6fd037ba6f3de0bbd7abf52624e0a5671c371c133854",
+      "sha256": "c21ae3599d60c382abc08180f99b3968fbd7e4a3955d5227515fda63f442513b",
       "status": "patched",
-      "owner": "coordinator",
+      "owner": "coordinator, quota-final-check",
       "donorPath": "src/vault/google-rate-limit.ts",
       "donorSha256": "5d795a26438d5980a96e87bdc7a47c245701842c23f26e54940461878313ec1e",
-      "reason": "Valid Retry-After above the donor's 15-minute clamp is honoured (bounded at 24 h); lanes persist it durably. Overflow bound raised to 7 days so any valid Google wait is honoured.",
+      "reason": "Valid Retry-After above the donor's 15-minute clamp is honoured (bounded at 24 h); lanes persist it durably. Overflow bound raised to 7 days so any valid Google wait is honoured. quota-final-check: parsing moved to src/lib/retry-after.ts (RFC 9110 §10.2.3 strict delay-seconds / HTTP-date; a valid value is never shortened, only an unrepresentable one is bounded at 2^31 - 1 s per RFC 9111 §1.2.2; malformed values take the fallback; HTTP-date also measured against the response Date).",
       "tests": [
-        "tests/source-lane/core/google-retry-after.test.ts"
+        "tests/source-lane/core/google-retry-after.test.ts",
+        "tests/source-lane/providers/gmail/quota.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts"
       ]
     },
     {

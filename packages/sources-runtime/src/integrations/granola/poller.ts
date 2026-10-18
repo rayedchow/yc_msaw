@@ -225,9 +225,10 @@ function clampMaxNotes(maxNotes: number | null | undefined): number {
   return maxNotes == null ? Number.POSITIVE_INFINITY : Math.min(Math.max(maxNotes, 1), 100_000);
 }
 
-// Granola's rate limits are unpublished; when it does 429, honor Retry-After
-// (delta-seconds or HTTP-date) with a bounded number of retries instead of
-// failing the whole poll run immediately.
+// Granola publishes per-user/workspace limits (25-request burst per 5 s, 5 rps
+// sustained; docs.granola.ai/introduction#rate-limits) and answers 429; honor
+// Retry-After (delta-seconds or HTTP-date) with a bounded number of retries
+// instead of failing the whole poll run immediately.
 const GRANOLA_RETRY_MAX_ATTEMPTS = 3;
 const GRANOLA_RETRY_MAX_DELAY_MS = 30_000;
 
@@ -263,11 +264,20 @@ export function granolaRateGateKey(token: string): string {
   return createHash("sha256").update(token).digest("hex").slice(0, 24);
 }
 
-export async function waitForGranolaRateGate(token: string): Promise<void> {
+/**
+ * Waits out a short hold on the credential. A hold longer than the in-request
+ * cap is not slept in-process (a worker would idle for the whole Retry-After,
+ * and setTimeout fires at once beyond ~24.8 days): the remaining ms are
+ * returned, the caller sends nothing and surfaces a 429, and the lane turns it
+ * into the durable cooldown. Returns 0 when the request may go out.
+ */
+export async function waitForGranolaRateGate(token: string): Promise<number> {
   const until = granolaRateGates.get(granolaRateGateKey(token));
-  if (until === undefined) return;
+  if (until === undefined) return 0;
   const waitMs = until - Date.now();
+  if (waitMs > GRANOLA_RETRY_MAX_DELAY_MS) return waitMs;
   if (waitMs > 0) await sleep(waitMs);
+  return 0;
 }
 
 export function holdGranolaRateGate(token: string, delayMs: number): void {
@@ -287,7 +297,11 @@ async function granolaRequest(
   }
 
   for (let attempt = 0; ; attempt++) {
-    await waitForGranolaRateGate(token);
+    const heldMs = await waitForGranolaRateGate(token);
+    if (heldMs > 0) {
+      // Nothing is sent: surfaced like Granola's own 429, with the remaining wait.
+      return new Response("credential rate gate held", { status: 429, headers: { "retry-after": String(Math.ceil(heldMs / 1000)) } });
+    }
     const res = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${token}` },
     });

@@ -186,7 +186,8 @@ async function postMcp(session: GranolaMcpClient, body: JsonRecord, expectRespon
   // gate, and surface longer waits with the header so the lane can cool down.
   let res: Response;
   for (let attempt = 0; ; attempt++) {
-    await waitForGranolaRateGate(session.token);
+    const heldMs = await waitForGranolaRateGate(session.token);
+    if (heldMs > 0) throw new Error(`Granola MCP request failed (429); retry-after=${Math.ceil(heldMs / 1000)}: credential rate gate held`);
     res = await fetch(GRANOLA_MCP_URL, {
       method: "POST",
       headers,

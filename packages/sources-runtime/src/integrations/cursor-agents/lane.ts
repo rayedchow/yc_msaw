@@ -15,11 +15,14 @@
  *    signing secret is per connection.
  *  - The listing cursor is persisted per page. Agents missing from a completed listing are tombstoned.
  *  - Conversations are fetched under a bounded budget, and a 429 persists Retry-After.
+ *  - Cursor rate-limits the user/team behind a key, not a connection: the Retry-After cooldown is shared by every
+ *    connection (any owner scope or tenant) holding the same key (cursor_agents_quota, keyed by a key fingerprint).
  */
 import { createHash, createHmac, randomBytes, timingSafeEqual } from "node:crypto";
 import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { db as defaultDb } from "../../db/client.js";
+import { parseRetryAfterSeconds } from "../../lib/retry-after.js";
 import { upsertConnection } from "../../db/connections.js";
 import { enqueueTask } from "../../queue/queue.js";
 import { upsertTaskSchedule } from "../../queue/sweeper.js";
@@ -134,6 +137,9 @@ export class CursorApiError extends Error {
   }
 }
 
+/** A request withheld because the key is cooling down after a 429 seen through another connection; nothing was sent. */
+class CursorCooldownError extends CursorApiError {}
+
 export class CursorAgentsClient {
   constructor(private readonly apiKey: string, private readonly apiBase = DEFAULT_CURSOR_API_BASE_URL, private readonly fetchImpl: FetchImpl = fetch) {}
 
@@ -148,8 +154,7 @@ export class CursorAgentsClient {
     }
     const text = await res.text();
     if (!res.ok) {
-      const ra = res.headers.get("retry-after");
-      const retry = ra == null ? null : Number.isFinite(Number(ra)) ? Math.ceil(Number(ra)) : Math.max(0, Math.ceil((Date.parse(ra) - Date.now()) / 1000));
+      const retry = parseRetryAfterSeconds(res.headers.get("retry-after"), { responseDate: res.headers.get("date") });
       throw new CursorApiError(res.status, `Cursor API GET ${url.pathname} failed (${res.status})`, res.status === 429 ? retry ?? 60 : res.status >= 500 ? 30 : null);
     }
     try {
@@ -205,6 +210,37 @@ function unseal(id: string, tenantId: string, field: string, ct: string): string
   return p.v;
 }
 
+/** Cooldown key of what Cursor rate-limits behind an API key: a sha256 prefix of the key, never the key itself. */
+export function cursorQuotaKey(apiKey: string): string {
+  return `cursor:api_key:${sha256(`cursor_api_key:${apiKey}`).slice(0, 32)}`;
+}
+
+async function cursorCooldownUntil(ex: Executor, quotaKey: string): Promise<Date | null> {
+  const [row] = rowsOf<{ blocked_until: unknown }>(await ex.execute(sql`SELECT blocked_until FROM cursor_agents_quota WHERE quota_key = ${quotaKey}`));
+  const until = iso(row?.blocked_until);
+  return until && Date.parse(until) > Date.now() ? new Date(until) : null;
+}
+
+/** Record a 429 for every connection holding this key; a later, shorter wait never shortens an earlier one. */
+async function recordCursorRateLimit(ex: Executor, quotaKey: string, retryAfterSeconds: number): Promise<Date> {
+  const until = new Date(Date.now() + retryAfterSeconds * 1000);
+  const [row] = rowsOf<{ blocked_until: unknown }>(await ex.execute(sql`
+    INSERT INTO cursor_agents_quota (quota_key, blocked_until, last_status, last_retry_after_seconds, rate_limit_count)
+    VALUES (${quotaKey}, ${until.toISOString()}::timestamptz, 429, ${retryAfterSeconds}, 1)
+    ON CONFLICT (quota_key) DO UPDATE SET
+      blocked_until = GREATEST(COALESCE(cursor_agents_quota.blocked_until, EXCLUDED.blocked_until), EXCLUDED.blocked_until),
+      last_status = 429, last_retry_after_seconds = EXCLUDED.last_retry_after_seconds,
+      rate_limit_count = cursor_agents_quota.rate_limit_count + 1, updated_at = now()
+    RETURNING blocked_until
+  `));
+  return new Date(iso(row?.blocked_until) ?? until.toISOString());
+}
+
+async function throwIfCursorCoolingDown(ex: Executor, quotaKey: string): Promise<void> {
+  const until = await cursorCooldownUntil(ex, quotaKey);
+  if (until) throw new CursorCooldownError(429, `Cursor API key cooling down until ${until.toISOString()}`, Math.max(1, Math.ceil((until.getTime() - Date.now()) / 1000)));
+}
+
 export async function listCursorConnections(tenantId: string, ex: Executor = defaultDb): Promise<CursorConnection[]> {
   return rowsOf<Record<string, unknown>>(await ex.execute(sql`SELECT * FROM cursor_agents_connections WHERE tenant_id = ${tenantId} ORDER BY created_at, id`)).map(toConn);
 }
@@ -231,10 +267,17 @@ export async function connectCursorAgents(input: { tenantId: string; body: unkno
   } catch (err) {
     return bad(err instanceof Error ? err.message : String(err));
   }
+  const quotaKey = cursorQuotaKey(body.apiKey.trim());
   try {
+    await throwIfCursorCoolingDown(ex, quotaKey);
     await new CursorAgentsClient(body.apiKey.trim(), apiBase, deps.fetchImpl).listAgents({ limit: 1 });
   } catch (err) {
     if (err instanceof CursorApiError && (err.status === 401 || err.status === 403)) return bad("Cursor rejected the API key", "invalid_api_key");
+    if (err instanceof CursorApiError && err.status === 429) {
+      const until = err instanceof CursorCooldownError ? null : await recordCursorRateLimit(ex, quotaKey, err.retryAfterSeconds ?? 60);
+      const retryAfterSeconds = until ? Math.max(1, Math.ceil((until.getTime() - Date.now()) / 1000)) : err.retryAfterSeconds;
+      return { status: 429, body: { error: { code: "rate_limited", message: `Cursor is rate limiting this API key; retry after ${retryAfterSeconds}s`, retryAfterSeconds } } };
+    }
     return bad(`Could not verify the key: ${err instanceof Error ? err.message : String(err)}`, "cursor_unreachable", 502);
   }
   const id = `ca_${randomBytes(12).toString("hex")}`;
@@ -333,7 +376,9 @@ export async function runCursorAgentsSync(tenantId: string, deps: CursorDeps = {
       continue;
     }
     const c = toConn(row);
-    const client = new CursorAgentsClient(unseal(c.id, c.tenantId, "api_key", String(row.api_key_ciphertext)), c.apiBase, deps.fetchImpl);
+    const apiKey = unseal(c.id, c.tenantId, "api_key", String(row.api_key_ciphertext));
+    const quotaKey = cursorQuotaKey(apiKey);
+    const client = new CursorAgentsClient(apiKey, c.apiBase, deps.fetchImpl);
     let cursor = (row.list_cursor as string | null) ?? undefined;
     let runId = (row.list_run as string | null) ?? null;
     if (!runId) {
@@ -359,6 +404,7 @@ export async function runCursorAgentsSync(tenantId: string, deps: CursorDeps = {
       let pages = 0;
       let complete = false;
       while (pages < pageBudget) {
+        await throwIfCursorCoolingDown(ex, quotaKey);
         const page = await client.listAgents({ limit: 100, ...(cursor ? { cursor } : {}) });
         pages++;
         for (const agent of page.agents) {
@@ -367,6 +413,7 @@ export async function runCursorAgentsSync(tenantId: string, deps: CursorDeps = {
           if (r.needsConversation && convBudget > 0) {
             convBudget--;
             try {
+              await throwIfCursorCoolingDown(ex, quotaKey);
               await storeConversation(ex, c, agent.id, await client.getConversation(agent.id));
               conversations++;
             } catch (err) {
@@ -400,8 +447,12 @@ export async function runCursorAgentsSync(tenantId: string, deps: CursorDeps = {
         continue;
       }
       const delay = e instanceof CursorApiError && e.retryAfterSeconds != null ? Math.max(e.retryAfterSeconds, e.status === 429 ? 0 : 30) : Math.min(3600, 30 * 2 ** Math.min(attempts, 7));
+      // A 429 holds every connection on this key (other owner scopes included) until the provider's floor.
+      const retryAt = e instanceof CursorApiError && e.status === 429 && !(e instanceof CursorCooldownError)
+        ? await recordCursorRateLimit(ex, quotaKey, delay)
+        : new Date(Date.now() + delay * 1000);
       // The page cursor and run are kept, so the next run resumes at the failed page.
-      await save({ cursor: cursor ?? null, run: runId, retryAt: new Date(Date.now() + delay * 1000), attempts, lastError: `${e instanceof CursorApiError && e.status === 429 ? "rate_limited" : "error"}: ${(err as Error).message}`, release: true });
+      await save({ cursor: cursor ?? null, run: runId, retryAt, attempts, lastError: `${e instanceof CursorApiError && e.status === 429 ? "rate_limited" : "error"}: ${(err as Error).message}`, release: true });
       out.push({ connectionId: c.id, status: e instanceof CursorApiError && e.status === 429 ? "rate_limited" : "error", agents, conversations, reason: (err as Error).message });
     }
   }

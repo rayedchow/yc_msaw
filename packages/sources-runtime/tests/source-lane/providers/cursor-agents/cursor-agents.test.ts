@@ -68,13 +68,14 @@ async function connect(tenant = T) {
   const b = r.body as { connection: { id: string }; webhook: { url: string; secret: string } };
   return { id: b.connection.id, secret: b.webhook.secret, url: b.webhook.url };
 }
-const due = () => pg.exec(`UPDATE cursor_agents_connections SET retry_at = NULL, lease_until = NULL`);
+// Time passes: per-connection retry and the key's shared Retry-After cooldown both elapse.
+const due = () => pg.exec(`UPDATE cursor_agents_connections SET retry_at = NULL, lease_until = NULL; UPDATE cursor_agents_quota SET blocked_until = now() - interval '1 second'`);
 
 beforeAll(async () => {
   await ready;
 });
 beforeEach(async () => {
-  await pg.exec(`DELETE FROM cursor_agents_snapshots; DELETE FROM cursor_agents_connections; DELETE FROM activity_events WHERE source = 'cursor_background_agents'; DELETE FROM task_queue; DELETE FROM task_schedules; DELETE FROM connections; DELETE FROM source_lane_journal;`);
+  await pg.exec(`DELETE FROM cursor_agents_snapshots; DELETE FROM cursor_agents_connections; DELETE FROM cursor_agents_quota; DELETE FROM activity_events WHERE source = 'cursor_background_agents'; DELETE FROM task_queue; DELETE FROM task_schedules; DELETE FROM connections; DELETE FROM source_lane_journal;`);
   fake = new FakeCursor();
 });
 afterEach(() => vi.unstubAllEnvs());

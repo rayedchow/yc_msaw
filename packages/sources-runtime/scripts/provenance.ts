@@ -89,7 +89,7 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/integrations/google/index.ts": {
     status: "patched",
-    reason: "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds.",
+    reason: "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds. quota-final-check: the gmail.backfill rate-limit reschedule keeps a Retry-After longer than its 1 h backoff cap as the floor.",
     test: "tests/source-lane/core/shared-patches.test.ts",
   },
   "src/queue/dispatch.ts": {
@@ -173,7 +173,7 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/vault/google-rate-limit.ts": {
     status: "patched",
-    reason: "Valid Retry-After above the donor's 15-minute clamp is honoured (bounded at 24 h); lanes persist it durably. Overflow bound raised to 7 days so any valid Google wait is honoured.",
+    reason: "Valid Retry-After above the donor's 15-minute clamp is honoured (bounded at 24 h); lanes persist it durably. Overflow bound raised to 7 days so any valid Google wait is honoured. quota-final-check: parsing moved to src/lib/retry-after.ts (RFC 9110 §10.2.3 strict delay-seconds / HTTP-date; a valid value is never shortened, only an unrepresentable one is bounded at 2^31 - 1 s per RFC 9111 §1.2.2; malformed values take the fallback; HTTP-date also measured against the response Date).",
     test: "tests/source-lane/core/google-retry-after.test.ts",
     tests: ["tests/source-lane/core/google-retry-after.test.ts"],
   },

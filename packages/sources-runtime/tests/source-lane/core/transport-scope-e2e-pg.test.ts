@@ -137,6 +137,8 @@ const cursor = {
   keys: { "cur_key_bob_0001": "bob", "cur_key_carol_001": "carol" } as Record<string, string>,
   agents: {} as Record<string, Array<Record<string, unknown>>>,
   calls: [] as Array<{ who: string; path: string; method: string }>,
+  /** Retry-After a key's account answers with a 429 (Cursor limits the user/team behind the key). */
+  throttle: {} as Record<string, string>,
 };
 function cursorAgent(who: string, id: string, status: string, extra: Record<string, unknown> = {}): Record<string, unknown> {
   return { id, name: `${who} agent ${id}`, status, source: { repository: "github.com/acme/app", ref: "main" }, target: { url: `https://cursor.com/agents?id=${id}`, branchName: `cursor/${id}`, autoCreatePr: true }, createdAt: "2026-10-10T10:00:00Z", summary: `${who} work needle-cursor-${who}`, ...extra };
@@ -146,6 +148,7 @@ function cursorFetch(url: URL, init: RequestInit): Response {
   cursor.calls.push({ who: who ?? "?", path: url.pathname, method: (init.method ?? "GET").toUpperCase() });
   if ((init.method ?? "GET").toUpperCase() !== "GET") return Response.json({ error: "read-only lane" }, { status: 405 });
   if (!who) return Response.json({ error: "unauthorized" }, { status: 401 });
+  if (cursor.throttle[who]) return Response.json({ code: "error", message: "Rate limit exceeded" }, { status: 429, headers: { "retry-after": cursor.throttle[who]! } });
   if (url.pathname === "/v0/agents") return Response.json({ agents: cursor.agents[who] ?? [] });
   const m = /^\/v0\/agents\/([^/]+)\/conversation$/.exec(url.pathname);
   if (m) return Response.json({ id: m[1], messages: [{ id: `${m[1]}-u`, type: "user_message", text: `${who} asks needle-cconv-${who}` }, { id: `${m[1]}-a`, type: "assistant_message", text: "done", toolCalls: [{ name: "edit_file", path: "src/a.ts" }] }] });
@@ -594,6 +597,35 @@ describe.skipIf(!PG)("provider callbacks and webhooks into owner scopes: real ru
     expect((await yc_("DELETE", "/v1/sources/connections/whatsapp_personal", "bob")).status).toBe(200);
     expect((await hook(bob.hook.url, bob.hook.secret, flat("bob", "w-bob-2", "acc_bob_wa"))).status).toBe(401);
     expect(await (await hook(carol.hook.url, carol.hook.secret, flat("carol", "w-carol-2", "acc_carol_wa"))).json()).toEqual({ received: true, stored: true });
+  }, 180_000);
+
+  it("Cursor quota: one key reused by two members is ONE Retry-After cooldown across their scopes; another key keeps syncing", async () => {
+    // alice connects the very key carol already uses (two members may share a Cursor key); bob reconnects his own.
+    const a = await yc_("POST", "/v1/sources/connect/cursor_background_agents", "alice", { apiKey: "cur_key_carol_001" });
+    expect(a.status, await a.clone().text()).toBe(201);
+    expect(((await a.json()) as Any).connection.tenantId).toBe(scopeOf("alice"));
+    expect((await yc_("POST", "/v1/sources/connect/cursor_background_agents", "bob", { apiKey: "cur_key_bob_0001" })).status).toBe(201);
+    const onKey = (who: string) => cursor.calls.filter((c) => c.who === who).length;
+
+    // Cursor rate-limits that key; alice's queued sync meets the 429, bob's independent key completes in the same drain.
+    cursor.throttle.carol = "900";
+    const bobBefore = onKey("bob");
+    const t0 = Date.now();
+    expect((await drainTasks()).sort()).toEqual([`cursor_agents.sync@${scopeOf("alice")}`, `cursor_agents.sync@${scopeOf("bob")}`].sort());
+    expect(onKey("bob")).toBeGreaterThan(bobBefore);
+    const [q] = await sql`SELECT quota_key, blocked_until FROM cursor_agents_quota`;
+    expect(Date.parse(q.blocked_until) - t0).toBeGreaterThanOrEqual(899_000);
+    expect(String(q.quota_key)).not.toContain("cur_key_carol_001");
+
+    // Cursor would answer again, but its floor has not passed: carol's own scheduled sync (another scope, same key)
+    // sends nothing and waits for the same floor.
+    delete cursor.throttle.carol;
+    const before = onKey("carol");
+    await mods.queue.enqueueTask({ queue: "sync", tenantId: scopeOf("carol"), kind: "cursor_agents.sync", groupKey: `${scopeOf("carol")}:cursor-agents`, dedupeKey: `${scopeOf("carol")}:cursor_agents.sync:quota-check`, payload: {} }, mods.db.db);
+    expect(await drainTasks()).toEqual([`cursor_agents.sync@${scopeOf("carol")}`]);
+    expect(onKey("carol")).toBe(before);
+    const [carolConn] = await sql`SELECT retry_at FROM cursor_agents_connections WHERE tenant_id = ${scopeOf("carol")} AND status = 'active'`;
+    expect(Date.parse(carolConn.retry_at) - t0).toBeGreaterThanOrEqual(899_000);
   }, 180_000);
 });
 
