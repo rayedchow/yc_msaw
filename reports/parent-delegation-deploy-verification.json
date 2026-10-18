@@ -1,0 +1,88 @@
+{
+  "kind": "parent-delegation-deploy-verification",
+  "at": "2026-10-18T00:58:36.483Z",
+  "baseUrl": "https://wild-zero-kq08i.run.mcp-use.com",
+  "checks": [
+    {
+      "name": "healthz",
+      "ok": true,
+      "detail": {
+        "status": 200
+      }
+    },
+    {
+      "name": "anonymous.rejected",
+      "ok": true,
+      "detail": {
+        "status": 401
+      }
+    },
+    {
+      "name": "invalid.rejected",
+      "ok": true,
+      "detail": {
+        "status": 401
+      }
+    },
+    {
+      "name": "tools.discovered",
+      "ok": true,
+      "detail": {
+        "count": 20
+      }
+    },
+    {
+      "name": "open.thin",
+      "ok": true,
+      "detail": {
+        "bytes": 424,
+        "revision": {
+          "id": "rev-b6c7f4c3c80156f021605d7b",
+          "publishedAt": "2026-10-18T00:47:13.858Z",
+          "pages": 7
+        },
+        "keys": [
+          "status",
+          "workspaceId",
+          "revision",
+          "entrypoint",
+          "knowledge",
+          "scratch",
+          "next"
+        ]
+      }
+    },
+    {
+      "name": "read.index",
+      "ok": true,
+      "detail": {
+        "isError": false
+      }
+    },
+    {
+      "name": "github.repaired",
+      "ok": true,
+      "detail": {
+        "sha": "e43507d88d2e7545f54724fea6509ba00f40f57d",
+        "status": 200,
+        "requestId": "E932:3B1909:A8113A:2204DC8:6AD419BC"
+      }
+    }
+  ],
+  "sourceCommit": "dbaa472",
+  "deployment": {
+    "id": "5fa7a319-c70b-46e1-93a8-fa112742c4f4",
+    "status": "running",
+    "managedGitCommitSha": "80d2408edf830c5e13af8fe06b9baa98e491cbe1",
+    "serverId": "f2352b28-1558-4c0c-9520-738517ab933d"
+  },
+  "manufact": {
+    "email": "ishan@askshepherd.ai",
+    "orgSlug": "org-84350150-jpcs9"
+  },
+  "oauthCli": {
+    "approvedExistingGrant": true,
+    "toolsListSucceeded": true,
+    "tools": 12
+  }
+}
