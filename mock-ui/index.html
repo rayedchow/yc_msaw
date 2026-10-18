@@ -146,15 +146,15 @@
   .tree .cl { fill: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
   .tree .cs { fill: var(--muted); font-size: 12px; }
   .tree .blabel { fill: var(--tertiary); font-size: 12px; }
-  .tip { position: absolute; width: 340px; padding: 14px 16px; background: #111; border: 1px solid var(--border-strong); box-shadow: 0 12px 32px rgba(0,0,0,.45);
-    pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity .15s, transform .15s; z-index: 5; }
-  .tip.on { opacity: 1; transform: none; }
-  .tip .tk { font-size: 11px; color: var(--accent); font-family: var(--mono); margin-bottom: 4px; }
-  .tip .tt { font-size: 14.5px; font-weight: 600; }
-  .tip .td { font-size: 13px; color: var(--muted); margin-top: 4px; }
-  .tip .tm { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
-  .tip .tm b { color: var(--text); font-family: var(--mono); font-weight: 500; }
-  .tip pre { margin: 10px 0 0; padding: 10px 12px; font-size: 11.5px; line-height: 1.6; color: var(--muted); background: var(--surface); border: 1px solid var(--border); white-space: pre-wrap; }
+  .inspect { margin: 4px 28px 22px; padding: 14px 18px; min-height: 92px; border: 1px solid var(--border); background: #151515;
+    display: grid; grid-template-columns: 1fr 1fr; column-gap: 28px; align-items: start; }
+  .inspect > :not(pre) { grid-column: 1; }
+  .inspect pre { grid-column: 2; grid-row: 1 / span 4; margin: 0; padding: 10px 12px; font-size: 12px; line-height: 1.6; color: var(--muted); background: var(--surface); border: 1px solid var(--border); white-space: pre-wrap; }
+  .inspect .tk { font-size: 11px; color: var(--accent); font-family: var(--mono); margin-bottom: 4px; }
+  .inspect .tt { font-size: 15px; font-weight: 600; }
+  .inspect .td { font-size: 13.5px; color: var(--muted); margin-top: 4px; }
+  .inspect .tm { font-size: 13px; color: var(--muted); margin-top: 8px; }
+  .inspect .tm b { color: var(--text); font-family: var(--mono); font-weight: 500; }
   .q { margin: 24px 28px; }
 </style>
 </head>
@@ -354,10 +354,8 @@ function treeSvg(m, T) {
     edges.push(`<path class="edge" data-for="${esc(n.key)}" data-rules="${n.rules.join(" ")}" d="M${right} ${cy} H${mx} V${y} H${n.x}"/>`);
   }
   if (T.rules.length) {
-    const first = T.rules[0], last = T.rules[T.rules.length - 1];
     edges.push(`<path class="edge trunk" d="M${cx} ${cy + CH / 2} V${busY}"/>`);
-    edges.push(`<path class="edge bus" d="M${first.x + first.w / 2} ${busY} H${last.x + last.w / 2}"/>`);
-    for (const r of T.rules) edges.push(`<path class="edge" data-for="${r.key}" d="M${r.x + r.w / 2} ${busY} V${r.y}"/>`);
+    for (const r of T.rules) edges.push(`<path class="edge" data-for="${r.key}" d="M${cx} ${busY} H${r.x + r.w / 2} V${r.y}"/>`);
   }
   const label = (x, y, text, anchor = "start") => `<text class="blabel" x="${x}" y="${y}" text-anchor="${anchor}">${text}</text>`;
   const box = (n, w, extra = "") => `
@@ -437,7 +435,7 @@ function renderDetail(m) {
 
     <section class="treewrap" id="treewrap">
       ${treeSvg(m, T)}
-      <div class="tip" id="tip"></div>
+      <div class="inspect" id="tip"></div>
     </section>
 
     ${m.question ? `
@@ -463,8 +461,9 @@ function renderDetail(m) {
 
   // hover: highlight the node, its branch and related nodes; show the card
   const wrap = $("#treewrap"), tip = $("#tip"), svg = $(".tree", wrap);
-  const clear = () => { $$(".hl", svg).forEach((e) => e.classList.remove("hl")); svg.classList.remove("focus"); tip.classList.remove("on"); };
-  const lightRule = (id) => { $(`.node[data-key="${id}"]`, svg)?.classList.add("hl"); $(`.edge[data-for="${id}"]`, svg)?.classList.add("hl"); $$(".trunk, .bus", svg).forEach((e) => e.classList.add("hl")); };
+  const idle = `<div class="tk">Hover any node</div><div class="td">Integrations feed the MCP, rules are mined from their history, and tools apply those rules in code.</div>`;
+  const clear = () => { $$(".hl", svg).forEach((e) => e.classList.remove("hl")); svg.classList.remove("focus"); tip.innerHTML = idle; };
+  const lightRule = (id) => { $(`.node[data-key="${id}"]`, svg)?.classList.add("hl"); $(`.edge[data-for="${id}"]`, svg)?.classList.add("hl"); $(".trunk", svg)?.classList.add("hl"); };
   $$(".node", svg).forEach((g) => {
     g.addEventListener("mouseenter", () => {
       clear();
@@ -479,18 +478,12 @@ function renderDetail(m) {
       if (rule) { lightRule(rule.id); rule.tools.forEach((k) => { $(`.node[data-key="${CSS.escape(k)}"]`, svg)?.classList.add("hl"); $(`.edge[data-for="${CSS.escape(k)}"]`, svg)?.classList.add("hl"); }); }
       if (key === "__center") $$(".node, .edge", svg).forEach((e) => e.classList.add("hl"));
       tip.innerHTML = tipHtml(m, T, key);
-      const wr = wrap.getBoundingClientRect(), nr = g.getBoundingClientRect();
-      const tw = 340;
-      let x = nr.left - wr.left + nr.width / 2 - tw / 2;
-      x = Math.max(16, Math.min(wr.width - tw - 16, x));
-      const below = nr.top - wr.top < wr.height / 2;
-      tip.style.left = x + "px";
-      tip.style.top = below ? nr.bottom - wr.top + 10 + "px" : "auto";
-      tip.style.bottom = below ? "auto" : wr.bottom - nr.top + 10 + "px";
-      tip.classList.add("on");
+      // lift lit edges above dimmed ones so shared segments read as lit
+      $$(".edge.hl", svg).forEach((e) => e.parentNode.insertBefore(e, $(".node", svg)));
     });
   });
   svg.addEventListener("mouseleave", clear);
+  clear();
 
   $("#snippet").textContent = snippets.url;
   $$("#tabs button").forEach((b) => b.onclick = () => { $$("#tabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#snippet").textContent = snippets[b.dataset.c]; });
