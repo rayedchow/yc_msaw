@@ -38,6 +38,8 @@ export async function resetTenant(tenantId: string): Promise<void> {
   for (const table of ["gdocs_drive_inventory", "gdocs_file_visibility"]) {
     await pg.query(`DELETE FROM ${table} WHERE tenant_id = $1`, [tenantId]);
   }
+  // Durable legacy-Docs Google floors (migration 10550) are process-wide, not per tenant.
+  await pg.query(`DELETE FROM google_rate_limit_cooldowns`);
 }
 
 export interface HeadRow { path: string; seq: number; op: string; sha256: string | null }

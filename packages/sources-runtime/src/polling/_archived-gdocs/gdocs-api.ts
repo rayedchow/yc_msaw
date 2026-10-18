@@ -6,6 +6,7 @@
  */
 import { createHash } from "node:crypto";
 import { googleErrorReasonFromPayload, googleRateLimitErrorFromResponse, throwIfGoogleRateLimited } from "../../vault/google-rate-limit.js";
+import { recordGoogleCooldownDurable, throwIfGoogleCooldownDurable } from "../../source-lane/providers/google-docs/durable-cooldown.js";
 
 // ---------------------------------------------------------------------------
 // Constants
@@ -294,6 +295,9 @@ export async function gFetch(
 ): Promise<Response> {
   throwIfGoogleRateLimited("google-workspace");
   throwIfGoogleRateLimited(credentialCooldownKey(accessToken));
+  // SOURCE-LANE PATCH (legacy Docs durable floor): the in-process map above is lost on restart and not shared with
+  // other workers, so the floor any process recorded is checked durably too (migration 10550).
+  await throwIfGoogleCooldownDurable(["google-workspace", credentialCooldownKey(accessToken)]);
   const headers = {
     Authorization: `Bearer ${accessToken}`,
     ...options?.headers,
@@ -311,6 +315,7 @@ export async function gFetch(
     const rateLimit = googleRateLimitErrorFromResponse(perUser ? credentialCooldownKey(accessToken) : "google-workspace", res, data, 30);
     if (rateLimit) {
       console.log(`Google API rate limited, pausing ${rateLimit.retryAfterSeconds}s`);
+      await recordGoogleCooldownDurable(rateLimit);
       throw rateLimit;
     }
   }

@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { getGoogleAccessToken, GOOGLE_DOCS_DELEGATION_SCOPES } from "../../../vault/google-auth.js";
-import { googleRateLimitErrorFromResponse, throwIfGoogleRateLimited } from "../../../vault/google-rate-limit.js";
+import { googleRateLimitErrorFromResponse, isGoogleRateLimit, throwIfGoogleRateLimited } from "../../../vault/google-rate-limit.js";
+import { recordGoogleCooldownDurable, throwIfGoogleCooldownDurable } from "../../../source-lane/providers/google-docs/durable-cooldown.js";
 
 const DOCS_API = "https://docs.googleapis.com/v1/documents";
 
@@ -241,12 +242,16 @@ export async function fetchDocContent(userId: string, docId: string, overrideAcc
   const inlineUrl = `${DOCS_API}/${docId}?includeTabsContent=true&suggestionsViewMode=SUGGESTIONS_INLINE`;
 
   throwIfGoogleRateLimited("google-docs-api");
+  // SOURCE-LANE PATCH (legacy Docs durable floor): a floor recorded by another process or before a restart holds too.
+  await throwIfGoogleCooldownDurable(["google-docs-api"]);
   let res = await fetch(inlineUrl, {
     headers: { Authorization: `Bearer ${accessToken}` },
   });
 
   let suggestionsAccessible = true;
-  if (res.status === 403) {
+  // SOURCE-LANE PATCH (legacy Docs durable floor): a 403 rate limit is not a missing suggestions permission; it falls
+  // through to the rate-limit error below instead of sending the preview request inside the cooldown.
+  if (res.status === 403 && !isGoogleRateLimit(403, await res.clone().json().catch(() => null))) {
     // SUGGESTIONS_INLINE 403s when the caller lacks "permission to view
     // suggested changes" - reader-only shared docs. Fall back to the preview
     // view (readable at any role); such docs sync without suggestions.
@@ -265,7 +270,10 @@ export async function fetchDocContent(userId: string, docId: string, overrideAcc
       // keep raw text for the normal error below
     }
     const rateLimit = googleRateLimitErrorFromResponse("google-docs-api", res, data);
-    if (rateLimit) throw rateLimit;
+    if (rateLimit) {
+      await recordGoogleCooldownDurable(rateLimit);
+      throw rateLimit;
+    }
     throw new Error(`Docs API error (${res.status}): ${text}`);
   }
 

@@ -7,6 +7,12 @@ vi.mock("../../src/vault/google-auth.js", () => ({
 vi.mock("../../src/vault/google-rate-limit.js", () => ({
   throwIfGoogleRateLimited: vi.fn(),
   googleRateLimitErrorFromResponse: vi.fn(() => null),
+  isGoogleRateLimit: vi.fn(() => false),
+}));
+// SOURCE-LANE PATCH (legacy Docs durable floor): fetchDocContent also consults the durable cooldown table.
+vi.mock("../../src/source-lane/providers/google-docs/durable-cooldown.js", () => ({
+  throwIfGoogleCooldownDurable: vi.fn(async () => {}),
+  recordGoogleCooldownDurable: vi.fn(async () => {}),
 }));
 
 import { fetchDocContent } from "../../src/integrations/google/gdocs/content.js";

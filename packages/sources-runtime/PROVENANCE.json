@@ -2484,10 +2484,15 @@
     },
     {
       "path": "src/integrations/google/gdocs/content.ts",
-      "sha256": "f3239c685a2185c8842915d9710516b372b989fd1972db7c5536e499783f6b1c",
-      "status": "verbatim",
+      "sha256": "6238adcc5e41a7b73df839e5efb4ddf770326ab3edb4625405d3f0d34874d5c8",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/integrations/google/gdocs/content.ts",
-      "donorSha256": "f3239c685a2185c8842915d9710516b372b989fd1972db7c5536e499783f6b1c"
+      "donorSha256": "f3239c685a2185c8842915d9710516b372b989fd1972db7c5536e499783f6b1c",
+      "reason": "Legacy Docs durable floor: fetchDocContent checks and records the google-docs-api floor durably (migration 10550), and a 403 rate limit no longer triggers the PREVIEW_WITHOUT_SUGGESTIONS fallback request inside the cooldown.",
+      "tests": [
+        "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts"
+      ]
     },
     {
       "path": "src/integrations/google/gdocs/images.ts",
@@ -3680,13 +3685,14 @@
     },
     {
       "path": "src/polling/_archived-gdocs/gdocs-api.ts",
-      "sha256": "8015b1662ee09ac927ef3c750fa4968ff2398e0462bdc8ee01c1fb3eba2238bc",
+      "sha256": "98cee3fdf1ae800d3ba45dbed9472a30dedaeea28f26f897c7d2dac0e370f6f7",
       "status": "patched",
       "owner": "coordinator, owner-runtime-fidelity",
       "donorPath": "src/polling/_archived-gdocs/gdocs-api.ts",
       "donorSha256": "f8ae3f0cd5ecef3f4062abd4344b897442640064fdc8c3eabc15dac2cfd2b5ba",
-      "reason": "Coordinator patch: gFetch cools down per credential (sha256-prefix key) for userRateLimitExceeded and keeps the process-wide google-workspace cooldown for project-wide limits, so one mailbox no longer stalls every tenant poll in the process. owner-runtime-fidelity: changes.list fields add file capabilities(canReadRevisions); DriveChange.file.capabilities type. Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1).",
+      "reason": "Coordinator patch: gFetch cools down per credential (sha256-prefix key) for userRateLimitExceeded and keeps the process-wide google-workspace cooldown for project-wide limits, so one mailbox no longer stalls every tenant poll in the process. owner-runtime-fidelity: changes.list fields add file capabilities(canReadRevisions); DriveChange.file.capabilities type. Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1). Legacy Docs durable floor: gFetch also checks and records Google Retry-After floors in google_rate_limit_cooldowns (migration 10550), so a restarted process or second worker never calls Google before a floor another process received.",
       "tests": [
+        "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts",
         "tests/source-lane/core/owner-attribution-pg.test.ts",
         "tests/source-lane/core/owner-google-e2e-pg.test.ts",
         "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
@@ -6557,10 +6563,15 @@
     },
     {
       "path": "tests/mirror/gdocs-content-render.test.ts",
-      "sha256": "6b28d00f052ef54487117cc1456fd5a7f3080613e0c5b755a2b6424050005022",
-      "status": "verbatim",
+      "sha256": "a6f80651d30b14269a4f2320245ec14beb27f02e932c2978485e5a1116b407f8",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "tests/mirror/gdocs-content-render.test.ts",
-      "donorSha256": "6b28d00f052ef54487117cc1456fd5a7f3080613e0c5b755a2b6424050005022"
+      "donorSha256": "6b28d00f052ef54487117cc1456fd5a7f3080613e0c5b755a2b6424050005022",
+      "reason": "Legacy Docs durable floor: the renderer test mocks the new durable-cooldown module (and isGoogleRateLimit) alongside the donor's google-rate-limit mock; assertions unchanged.",
+      "tests": [
+        "tests/mirror/gdocs-content-render.test.ts"
+      ]
     },
     {
       "path": "tests/mirror/gdocs-content-snapshot.test.ts",

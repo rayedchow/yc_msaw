@@ -179,13 +179,24 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/polling/_archived-gdocs/gdocs-api.ts": {
     status: "patched",
-    reason: "Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1).",
+    reason: "Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1). Legacy Docs durable floor: gFetch also checks and records Google Retry-After floors in google_rate_limit_cooldowns (migration 10550), so a restarted process or second worker never calls Google before a floor another process received.",
     test: "tests/source-lane/providers/google-docs/account-native-views.test.ts",
+    tests: ["tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts"],
   },
   "src/polling/_archived-gdocs/gdocs.ts": {
     status: "patched",
     reason: "A view-only mailbox does not download the shared drive-pdf unit nobody could read (final-performance-check).",
     test: "tests/source-lane/providers/google-docs/account-native-views.test.ts",
+  },
+  "src/integrations/google/gdocs/content.ts": {
+    status: "patched",
+    reason: "Legacy Docs durable floor: fetchDocContent checks and records the google-docs-api floor durably (migration 10550), and a 403 rate limit no longer triggers the PREVIEW_WITHOUT_SUGGESTIONS fallback request inside the cooldown.",
+    test: "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts",
+  },
+  "tests/mirror/gdocs-content-render.test.ts": {
+    status: "patched",
+    reason: "Legacy Docs durable floor: the renderer test mocks the new durable-cooldown module (and isGoogleRateLimit) alongside the donor's google-rate-limit mock; assertions unchanged.",
+    test: "tests/mirror/gdocs-content-render.test.ts",
   },
   "src/mirror/backfill.ts": {
     status: "patched",

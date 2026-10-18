@@ -1,4 +1,11 @@
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
+
+vi.mock("../../../../src/db/client.js", async () => {
+  const h = await import("./harness.js");
+  return { db: h.db, pgClient: null };
+});
+
+import { pg, ready } from "./harness.js";
 import { credentialCooldownKey, gFetch } from "../../../../src/polling/_archived-gdocs/gdocs-api.js";
 import { GoogleRateLimitError, resetGoogleRateLimitCooldownsForTests } from "../../../../src/vault/google-rate-limit.js";
 
@@ -6,7 +13,13 @@ import { GoogleRateLimitError, resetGoogleRateLimitCooldownsForTests } from "../
 const userLimit = () => new Response(JSON.stringify({ error: { code: 403, errors: [{ reason: "userRateLimitExceeded" }] } }), { status: 403, headers: { "retry-after": "30" } });
 const projectLimit = () => new Response(JSON.stringify({ error: { code: 429, errors: [{ reason: "rateLimitExceeded" }] } }), { status: 429, headers: { "retry-after": "30" } });
 
-beforeEach(() => resetGoogleRateLimitCooldownsForTests());
+beforeAll(async () => {
+  await ready;
+});
+beforeEach(async () => {
+  resetGoogleRateLimitCooldownsForTests();
+  await pg.query(`DELETE FROM google_rate_limit_cooldowns`);
+});
 afterEach(() => vi.unstubAllGlobals());
 
 describe("gFetch cooldown scope", () => {
