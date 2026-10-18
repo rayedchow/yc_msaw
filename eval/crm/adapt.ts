@@ -38,6 +38,9 @@ export interface AdaptContext {
   stageRoot: string;
   docsDir: string;
   frozenM?: { ns: string; revisionId: string; treeSha256: string; unavailable?: string };
+  /** Distinct id suffix for a declared re-run in a fresh tenant (e.g. "r2"); ids/servers/conversation never collide. */
+  variant?: string;
+  buildBudget?: Partial<Record<"maxSessions" | "maxWallClockMs" | "maxTurns" | "maxToolCalls" | "maxDescendants" | "maxDepth" | "maxConcurrentAgents", number>>;
   log: (m: string) => void;
   progress: (m: string) => Promise<void>;
   checkpoint: (partial: Record<string, unknown>) => Promise<void>;
@@ -148,7 +151,8 @@ export async function runAdaptation(kind: "far" | "cold", ctx: AdaptContext): Pr
   const visible: Vendor[] = kind === "far" ? ["hubspot", "pipedrive", "attio"] : ["zoho", "attio"];
   const task: TaskDef = makeTask(`ad-${kind}`, "exec-review", org, targets, visible, ["hubspot", "pipedrive", "zoho", "attio"], ctx.seedBase);
   const prompt = taskPrompt(task);
-  const agentId = `cust-adapt-${kind}`;
+  const tag = ctx.variant ? `${kind}-${ctx.variant}` : kind;
+  const agentId = `cust-adapt-${tag}`;
   const emit = (title: string, data?: unknown) => ctx.live.emit({ agentId: "host", kind: "message", title: `[adapt-${kind}] ${title}`.slice(0, 280), ...(data !== undefined ? { data } : {}) });
   const res: AdaptResult = {
     kind,
@@ -210,7 +214,7 @@ export async function runAdaptation(kind: "far" | "cold", ctx: AdaptContext): Pr
     for (const v of visible) {
       const spec = datasetSpec(org, v, "exec-review");
       const remote = kind === "cold" || v === "attio";
-      const fx = remote ? await startModalFixture(v, task.seeds[v]!, spec, `crm-${ctx.batch}-${kind}`) : await startFixture(v, task.seeds[v]!, spec);
+      const fx = remote ? await startModalFixture(v, task.seeds[v]!, spec, `crm-${ctx.batch}-${tag}`) : await startFixture(v, task.seeds[v]!, spec);
       fixtures.set(v, fx);
       res.fixtures[v] = remote ? { where: "modal-tunnel", sandboxId: (fx as { sandboxId?: string }).sandboxId! } : { where: "local" };
     }
@@ -228,7 +232,7 @@ export async function runAdaptation(kind: "far" | "cold", ctx: AdaptContext): Pr
       }
       return env;
     };
-    const publisher = new ManufactPublisher({ api, childAuth: storeChildAuth, serverPrefix: `crmb-${ctx.batch}-${kind}`.slice(0, 40), deployEnv });
+    const publisher = new ManufactPublisher({ api, childAuth: storeChildAuth, serverPrefix: `crmb-${ctx.batch}-${tag}`.slice(0, 40), deployEnv });
     const smoke = (vendor: Vendor, tool: string, args: Record<string, unknown>): HostSuite => ({
       id: `crm-${vendor}-regression`,
       version: "v1",
@@ -287,9 +291,9 @@ export async function runAdaptation(kind: "far" | "cold", ctx: AdaptContext): Pr
       traceBaseUrl: ctx.parent.baseUrl,
       traceToken: ctx.key.key,
       agentId,
-      displayName: kind === "far" ? "Adaptation FAR · kimi · M memory + deficient Attio → repair" : "Adaptation COLD · kimi · no CRM MCPs → builder creates Zoho+Attio",
-      conversationId: `crmbench:${ctx.batch}:adapt-${kind}`,
-      runIdBase: `${ctx.batch}.adapt-${kind}`,
+      displayName: `${kind === "far" ? "Adaptation FAR · kimi · M memory + deficient Attio → repair" : "Adaptation COLD · kimi · no CRM MCPs → builder creates Zoho+Attio"}${ctx.variant ? ` (${ctx.variant})` : ""}`,
+      conversationId: `crmbench:${ctx.batch}:adapt-${tag}`,
+      runIdBase: `${ctx.batch}.adapt-${tag}`,
       metadata: { bench: "crm-generalization", batch: ctx.batch, kind: `adapt-${kind}`, targets, label: "real model; synthetic CRM contract fixtures" },
       expectTools,
       pollIntervalMs: 15_000,
@@ -322,7 +326,7 @@ export async function runAdaptation(kind: "far" | "cold", ctx: AdaptContext): Pr
     const prefix1 = cs.messagesPrefixHash();
     res.memory.afterAttempt1 = (await repo.head())?.value.revisionId ?? null;
     await new Promise((r) => setTimeout(r, 3000));
-    res.attempts[0]!.storedTrace = await loadStoredTrace(store, ns, r1.traceSessionId, { conversationId: `crmbench:${ctx.batch}:adapt-${kind}`, runId: r1.runId, systemPromptMarker: SYSTEM_PROMPT.split("\n")[0]!.slice(0, 80), toolNames: expectTools }).catch((e) => {
+    res.attempts[0]!.storedTrace = await loadStoredTrace(store, ns, r1.traceSessionId, { conversationId: `crmbench:${ctx.batch}:adapt-${tag}`, runId: r1.runId, systemPromptMarker: SYSTEM_PROMPT.split("\n")[0]!.slice(0, 80), toolNames: expectTools }).catch((e) => {
       emit(`stored trace read failed: ${String(e)}`);
       return null;
     });
@@ -334,7 +338,8 @@ export async function runAdaptation(kind: "far" | "cold", ctx: AdaptContext): Pr
     res.build = await runBenchBuild({
       store,
       ns,
-      label: `adapt-${kind}`,
+      label: `adapt-${tag}`,
+      ...(ctx.buildBudget ? { budget: ctx.buildBudget } : {}),
       apiKey: ctx.apiKey,
       meter: ctx.builderMeter,
       live: ctx.live,
@@ -413,7 +418,7 @@ export async function runAdaptation(kind: "far" | "cold", ctx: AdaptContext): Pr
     });
     res.attempts[1]!.result = r2;
     await new Promise((r) => setTimeout(r, 3000));
-    res.attempts[1]!.storedTrace = await loadStoredTrace(store, ns, r2.traceSessionId, { conversationId: `crmbench:${ctx.batch}:adapt-${kind}`, runId: r2.runId, previousRunId: r1.runId, systemPromptMarker: SYSTEM_PROMPT.split("\n")[0]!.slice(0, 80), toolNames: cs.registry.getTools().filter((t) => res.readiness.readySlugs.some((sl) => t.source === `integration:${sl}`)).map((t) => t.name) }).catch((e) => {
+    res.attempts[1]!.storedTrace = await loadStoredTrace(store, ns, r2.traceSessionId, { conversationId: `crmbench:${ctx.batch}:adapt-${tag}`, runId: r2.runId, previousRunId: r1.runId, systemPromptMarker: SYSTEM_PROMPT.split("\n")[0]!.slice(0, 80), toolNames: cs.registry.getTools().filter((t) => res.readiness.readySlugs.some((sl) => t.source === `integration:${sl}`)).map((t) => t.name) }).catch((e) => {
       emit(`stored trace read failed: ${String(e)}`);
       return null;
     });

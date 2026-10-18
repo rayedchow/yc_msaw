@@ -1,0 +1,183 @@
+{
+ "kind": "crm-matrix-protocol-amendment",
+ "batch": "crm2",
+ "recordedAt": "2026-10-18T01:10:05Z",
+ "recordedAtNote": "Wall-clock time this amendment file was written. Round declarations below were made earlier (sourced from the batch progress log) and are NOT backdated by this file; this file publishes them before any held-out matrix cell runs.",
+ "status": "exploratory; one sample per cell; no statistical claims",
+ "heldOutMatrixAtRecording": {
+  "predeclaredCells": 36,
+  "cellsRun": 0,
+  "note": "No held-out matrix cell had started when this amendment was written; no held-out data informed any amendment."
+ },
+ "originalManifest": {
+  "file": "reports/crm-matrix-manifest-crm2.json",
+  "sha256": "857994853ec267e99791fc47b4bdd3192706edf7fcb0129452ae8d79187dfd2d",
+  "createdAt": "2026-10-18T00:29:36.798Z",
+  "head": "bf2514f8b80052dddba36f9730b23986723f2a38",
+  "modified": false,
+  "note": "Preserved byte-exact. This file is additive; where they differ, the original manifest records what was predeclared and this file records what was changed afterwards and why."
+ },
+ "sourceHeads": {
+  "preregBaseline": "bf2514f8b80052dddba36f9730b23986723f2a38",
+  "harnessSnapshot": {
+   "commit": "d66b43fd2fe7aa8abc1ef12725250e317bf1c193",
+   "note": "CRM harness/fixtures/adapters/docs committed before any held-out cell; fixed sources are verified at runtime against the original manifest fingerprints"
+  },
+  "guidanceFix": {
+   "commit": "dbaa472a1dcfb08fcb2686cec12e41333cddab2b",
+   "committedAt": "2026-10-18T00:53:50Z",
+   "files": [
+    "src/harness/integration-provider.ts",
+    "tests/build-harness.test.ts"
+   ]
+  },
+  "currentHead": "dbaa472a1dcfb08fcb2686cec12e41333cddab2b",
+  "uncommittedAmendmentSourcesAtRecording": {
+   "note": "Round/variant plumbing used by R2/R3, present in the worktree on top of currentHead; the host commits them together with this file before the matrix. sha256 of working-tree bytes at recordedAt.",
+   "files": {
+    "eval/crm/adapt.ts": "32ad31df2ed1694ba9fe8b661e3c811d566c2bc1d400a8957ccf26591aed48a8",
+    "eval/crm/build.ts": "89741bcfcbe10c63af0872f941be57503a2c15ec36568bf91526e198c2c4c79f",
+    "scripts/crm-run.ts": "4b941d60c871d2504f8436d58654d70bdc216d16df8beaf38c639a87d23e2108",
+    "scripts/crm-report.ts": "3843170b2899c5111bcd11194e816c388c10c0337aafc6e5ee5f71dba4a97ec9"
+   }
+  },
+  "guidanceFileSha256": {
+   "src/harness/integration-provider.ts": "fecb78a0976fba32516b450d5bd35c2cea9eb87c4d4eed28ff166770fc256c7d"
+  }
+ },
+ "unchangedByAmendments": {
+  "customerLimits": {
+   "train": {
+    "maxTurns": 16,
+    "maxToolCalls": 40,
+    "timeoutMs": 300000
+   },
+   "matrix": {
+    "maxTurns": 18,
+    "maxToolCalls": 48,
+    "timeoutMs": 240000
+   },
+   "adapt": {
+    "maxTurns": 24,
+    "maxToolCalls": 70,
+    "timeoutMs": 420000
+   }
+  },
+  "customerTokenCeiling": {
+   "input": 20000000,
+   "output": 1000000
+  },
+  "builderPerSession": {
+   "maxTurns": 40,
+   "maxToolCalls": 160,
+   "maxDescendants": 3,
+   "maxDepth": 2,
+   "maxConcurrentAgents": 3
+  },
+  "other": [
+   "model profiles (Kimi root, GLM/MiniMax children) and customer models",
+   "tasks, seeds, orgs, training curriculum and 36-cell matrix design",
+   "matrix adapters, adaptation adapters (generic-http, attio-deficient), docs corpus, fixtures, CRM contracts",
+   "oracle and scoring",
+   "namespace isolation: builders read only their own training traces (crmtr-h/m-crm2) or their own adaptation namespace; no held-out traces"
+  ],
+  "verification": "git diff d66b43f..HEAD and the working tree touch none of eval/crm/{oracle,session,infra,scenarios,child-main,modal-fixture}.ts, eval/crm/CONTRACTS.md, eval/crm/docs/**, templates/integration/**; the runner refuses train/adapt/matrix phases unless adapter/fixture/doc fingerprints match the original manifest."
+ },
+ "amendments": [
+  {
+   "id": "R2",
+   "declaredAt": "2026-10-18T00:48:46Z",
+   "declaredBefore": "round-2 H/M builds started 2026-10-18T00:49:00.946Z",
+   "trigger": "Round-1 builds failed: H budget_exhausted (root turns limit 40 in the last of 1 allowed session); M aborted at the 15-minute wall clock.",
+   "changes": {
+    "builderBudget.maxSessions": {
+     "from": 1,
+     "to": 2
+    },
+    "builderBudget.maxWallClockMs": {
+     "from": 900000,
+     "to": 1800000
+    },
+    "builderTokenCeiling": {
+     "from": {
+      "input": 20000000,
+      "output": 1000000
+     },
+     "to": {
+      "input": 30000000,
+      "output": 1500000
+     },
+     "scope": "batch-wide builder meter (sum of all persisted builder meter files)"
+    }
+   },
+   "scope": "One additional H build and one additional M build over the SAME own-tenant training traces; adaptation builds after the declaration (cold.r2, and the not-yet-run adapt-far) use the same R2 builder budget. The original cold run (r1) ran under the original budget.",
+   "timestampNote": "Inline source comment and .context/crm-eval-contract.md say ~00:50Z; the progress log entry 00:48:46Z is the authoritative declaration time used here."
+  },
+  {
+   "id": "R3",
+   "declaredAt": "2026-10-18T01:03:38Z",
+   "declaredBefore": "round-3 M build started 2026-10-18T01:04:01.032Z",
+   "trigger": "M.r2 and cold.r2 builds both failed with root 'model_error: fetch failed' (provider network error) in the same minute in two separate processes; recorded as infrastructure failures.",
+   "changes": {},
+   "scope": "Infrastructure retry of ONLY the M build plus a fresh-tenant cold adaptation variant, both under the unchanged R2 budget. H.r2 published and is NOT rerun."
+  }
+ ],
+ "guidanceFix": {
+  "commit": "dbaa472a1dcfb08fcb2686cec12e41333cddab2b",
+  "summary": "Prompt guidance only: integration tools are root-only; children can inspect traces/files, draft proposed source/tests/notes in their own work dir and return a handoff; the root decides and applies MCP changes with its own tools.",
+  "authority": "No authority expansion (availableToChildren stays false); no host-authored repair or memory content.",
+  "syncedBefore": "cold.r2 start 2026-10-18T00:55:11.236Z",
+  "affects": "adaptation builds only (integration providers ON). H/M training-memory builds run with integration providers OFF and are unaffected.",
+  "effectivenessEvidence": "None yet: cold.r2 failed on transport before it could test the fix."
+ },
+ "retainedRecords": {
+  "note": "All failed/infra records are retained and reported; later rounds never overwrite earlier files. Paths are relative to .context/crm-batches/crm2/.",
+  "round1": [
+   {
+    "file": "results/build-H.json",
+    "status": "failed",
+    "failure": "budget_exhausted: turns limit 40, last of 1 allowed session"
+   },
+   {
+    "file": "results/build-M.json",
+    "status": "failed",
+    "failure": "aborted: wall-clock timeout (15 min)"
+   },
+   {
+    "file": "results/adapt-cold.json",
+    "status": "customer task success attempt1+attempt2 (8/8 via generic-http); build failed (wall-clock abort); no MCP created; mechanism gates failed"
+   }
+  ],
+  "round2": [
+   {
+    "file": "results/build-H.r2.json",
+    "status": "published",
+    "revision": "rev-1fd49b38966d4c2dd83687d1"
+   },
+   {
+    "file": "results/build-M.r2.json",
+    "status": "failed",
+    "failure": "model_error: fetch failed (infra)"
+   },
+   {
+    "file": "results/adapt-cold.r2.json",
+    "status": "customer task success attempt1+attempt2 (8/8); build failed model_error: fetch failed (infra); mechanism gates failed"
+   }
+  ],
+  "round3": {
+   "note": "M.r3 build and cold r3 were in progress or pending at recordedAt; no outcomes recorded here."
+  },
+  "aborted": {
+   "batch": "crm1",
+   "manifest": "reports/crm-matrix-manifest-crm1.json",
+   "reason": "stage-symlink race (infra) before most model calls"
+  }
+ },
+ "methodologicalNotes": [
+  "Additive follow-up protocol; the original predeclared limits remain the primary design and are reported alongside.",
+  "Trained matrix arms use the latest published round per curriculum; reports state which round/revision each arm used.",
+  "Extra builder rounds mean more builder compute was spent than predeclared (4 planned builds); all rounds are reported.",
+  "Cold-adaptation task success via generic-http without MCP creation is reported as task success, not as mechanism success.",
+  "Exploratory, one sample per cell; no statistical claims."
+ ]
+}

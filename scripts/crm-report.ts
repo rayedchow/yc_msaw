@@ -86,9 +86,10 @@ function cellRow(id: string, r: Rec | null, matrix: boolean) {
 const training = await Promise.all(trainingSessions(state.seedBase).map(async (t) => ({ curriculum: t.curriculum, model: t.model, family: t.task.family, target: t.task.targets.join("+"), org: t.task.org.name, ...cellRow(t.task.id, await read(`train-${t.task.id}.json`), false) })));
 const cells: MatrixCell[] = matrixCells(state.seedBase);
 const matrix = await Promise.all(cells.map(async (c) => ({ target: c.target, model: c.model, condition: c.condition, ...cellRow(c.cellId, await read(`cell-${c.cellId}.json`), true) })));
-const builds = { H: await read("build-H.json"), M: await read("build-M.json") };
+const builds: Record<string, Rec | null> = { H: await read("build-H.json"), M: await read("build-M.json"), "H.r2": await read("build-H.r2.json"), "M.r2": await read("build-M.r2.json"), "H.r3": await read("build-H.r3.json"), "M.r3": await read("build-M.r3.json") };
 const frozen = await read("frozen.json");
-const adapt = { far: await read("adapt-far.json"), cold: await read("adapt-cold.json") };
+const adapt: Record<string, Rec | null> = { far: await read("adapt-far.json"), cold: await read("adapt-cold.json") };
+for (const f of files.filter((x) => /^adapt-(far|cold)\.r\d+\.json$/.test(x)).sort()) adapt[f.replace(/^adapt-|\.json$/g, "")] = await read(f);
 const meterDir = path.join(BDIR, "meters");
 const meters: Record<string, unknown> = {};
 if (existsSync(meterDir)) for (const f of await fs.readdir(meterDir)) if (f.endsWith(".json") && !f.includes(".tmp-")) meters[f.replace(/\.json$/, "")] = JSON.parse(await fs.readFile(path.join(meterDir, f), "utf8"));
@@ -130,7 +131,7 @@ const report = {
   manifest: { file: `reports/crm-matrix-manifest-${BATCH}.json`, head: manifest.head, createdAt: manifest.createdAt },
   integrity: { matrixIntegrityOk, anyIntegrityFailure: integrityFailed, checks: integrity.map((i) => ({ file: i.file, ok: i.ok, problems: (i.problems ?? []).slice(0, 10) })) },
   training,
-  builds: { H: builds.H && { status: builds.H.status, revisionBefore: builds.H.revisionBefore, revisionAfter: builds.H.revisionAfter, agents: builds.H.agents?.map((a: Rec) => ({ agentId: a.agentId, model: a.model, depth: a.depth, status: a.status, turns: a.turns, toolCalls: a.toolCalls })), tokens: buildTokens(builds.H), traceArchive: builds.H.traceArchive }, M: builds.M && { status: builds.M.status, revisionBefore: builds.M.revisionBefore, revisionAfter: builds.M.revisionAfter, agents: builds.M.agents?.map((a: Rec) => ({ agentId: a.agentId, model: a.model, depth: a.depth, status: a.status, turns: a.turns, toolCalls: a.toolCalls })), tokens: buildTokens(builds.M), traceArchive: builds.M.traceArchive } },
+  builds: Object.fromEntries(Object.entries(builds).map(([k, b]) => [k, b && { status: b.status, budget: b.budget ?? "round-1 declared budget", revisionBefore: b.revisionBefore, revisionAfter: b.revisionAfter, failure: (b.receipts ?? []).map((r: Rec) => r.error ?? null), agents: b.agents?.map((a: Rec) => ({ agentId: a.agentId, model: a.model, depth: a.depth, status: a.status, turns: a.turns, toolCalls: a.toolCalls })), tokens: buildTokens(b), traceArchive: b.traceArchive }])),
   frozen,
   matrix,
   matrixSummary: summary,
@@ -139,7 +140,7 @@ const report = {
     note: "Tokens from provider usage reported to Pi / the builder client. Pi cost = Pi catalog price ESTIMATE; builder calls have no cost field (UNAVAILABLE, not $0).",
     trainingCustomers: sum(training),
     heldoutMatrixCustomers: sum(matrix),
-    builds: { H: buildTokens(builds.H), M: buildTokens(builds.M), far: buildTokens(adapt.far?.build ?? null), cold: buildTokens(adapt.cold?.build ?? null) },
+    builds: { ...Object.fromEntries(Object.entries(builds).map(([k, b]) => [k, buildTokens(b)])), ...Object.fromEntries(Object.entries(adapt).map(([k, a]) => [k, buildTokens(a?.build ?? null)])) },
     meters,
   },
   adaptation: Object.fromEntries(

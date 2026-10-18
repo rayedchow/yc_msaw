@@ -50,9 +50,41 @@ npx tsx scripts/crm-report.ts --batch <id> [--aborted <id>]
 npx tsx scripts/serve-demo-trace.ts --port 4320 --data-dir .context/crm-live   # live viewer
 ```
 
-Limits: customers 18 turns / 48 tool calls / 240 s (training 16/40/300 s, adaptation 24/70/420 s per attempt);
-builders per agent session maxSessions 1, maxTurns 40, maxToolCalls 160, maxDescendants 3, maxDepth 2,
-maxConcurrentAgents 3, 15 min. Two explicit token ceilings (customer, builder: 20M input / 1M output each); a failed
-budget checkpoint or provider auth error stops new paid calls.
+Original predeclared limits (manifest): customers 18 turns / 48 tool calls / 240 s (training 16/40/300 s, adaptation
+24/70/420 s per attempt); builders per agent session maxSessions 1, maxTurns 40, maxToolCalls 160, maxDescendants 3,
+maxDepth 2, maxConcurrentAgents 3, 15 min. Two explicit token ceilings (customer, builder: 20M input / 1M output each);
+a failed budget checkpoint or provider auth error stops new paid calls.
+
+Follow-up limits (crm2 amendment R2, below): builders maxSessions 2 and 30 min wall clock; builder ceiling 30M / 1.5M.
+Per-session builder turns/tool calls/descendants/depth/concurrency and every customer limit and ceiling are unchanged.
 
 Results are exploratory: one sample per cell, no statistical claims.
+
+## Appendix: crm2 protocol amendments
+
+Recorded in [`reports/crm-matrix-amendment-crm2.json`](../reports/crm-matrix-amendment-crm2.json), published before
+any of the 36 held-out matrix cells ran. The original manifest `reports/crm-matrix-manifest-crm2.json` is kept
+byte-exact (its sha256 is in the amendment). Amendments are additive: they add build rounds and never replace or
+hide earlier records.
+
+| Round | Declared (UTC) | Trigger | Change |
+| --- | --- | --- | --- |
+| R1 | manifest, 00:29:36 | — | original protocol |
+| R2 | 00:48:46, before 00:49 builds | R1 H used all 40 root turns in its 1 allowed session; R1 M hit the 15 min wall clock | maxSessions 1→2, wall clock 15→30 min, builder ceiling 20M/1M→30M/1.5M; one more H and one more M build over the same own-tenant training traces. Later adaptation builds (cold.r2, adapt-far) also use this budget |
+| R3 | 01:03:38, before 01:04 M start | M.r2 and cold.r2 both failed with `model_error: fetch failed` (provider network) in the same minute | no budget change; infrastructure retry of the M build only, plus a fresh-tenant cold variant. H.r2 published (`rev-1fd49b38966d4c2dd83687d1`) and is not rerun |
+
+Fixed across rounds: model profiles, customer limits and ceiling, tasks/seeds, adapters, fixtures, docs, contracts,
+oracle, and namespace isolation (builders read only their own training traces, never held-out ones). The training,
+matrix and adaptation phases refuse to start unless adapter/fixture/doc fingerprints match the original manifest (the
+matrix also re-checks afterwards); the build and freeze phases do not run this check.
+
+Retained, not overwritten: R1 H (turn budget) and M (wall-clock abort) failures; R1 cold adaptation, where the
+customer finished the task with the generic HTTP tool but no MCP was created (task success, mechanism failure);
+M.r2 and cold.r2 infra failures; and the aborted batch crm1. Trained matrix arms use the latest published round,
+and the report names the round and revision behind each arm. More builder compute was spent than the four
+predeclared builds.
+
+Guidance fix `dbaa472` (synced before cold.r2 started at 00:55:11) only changes prompt text: integration tools are
+root-only, and children can return proposed source/tests for the root to apply. It does not expand authority
+(`availableToChildren` stays false), and the host wrote no repair. H/M builds run with integration providers off,
+so the fix does not affect them. cold.r2 failed on transport, so it says nothing about whether the fix works.

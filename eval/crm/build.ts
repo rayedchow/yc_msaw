@@ -31,6 +31,7 @@ export interface BenchBuildResult {
   usage: { calls: number; promptTokens: number; completionTokens: number };
   agents: Array<{ agentId: string; parentId: string | null; model: string; depth: number; status: string; turns: number; toolCalls: number; promptTokens: number; completionTokens: number; toolCallLog: Array<{ name: string; ok: boolean; code?: string }> }>;
   traceArchive: unknown[];
+  budget: Record<string, number>;
   wallMs: number;
 }
 
@@ -43,8 +44,11 @@ export async function runBenchBuild(p: {
   live: LiveLog;
   toolProviders?: (ctx: { ns: string; buildId: string; emitAgent: (agentId: string) => string }) => Promise<readonly ToolProviderRegistration[]>;
   instructions?: string;
+  /** Declared override of BUILDER_BUDGET (recorded in the result). */
+  budget?: Partial<Record<keyof typeof BUILDER_BUDGET, number>>;
   log: (m: string) => void;
 }): Promise<BenchBuildResult> {
+  const budget = { ...BUILDER_BUDGET, ...(p.budget ?? {}) };
   const { MemoryRepo } = await import("../../src/store/memory.js");
   const repo = new MemoryRepo(p.store, p.ns);
   const revisionBefore = (await repo.head())?.value.revisionId ?? null;
@@ -107,7 +111,7 @@ export async function runBenchBuild(p: {
       profiles,
       clientFactory: factory,
       workspaceFactory: createModalBuildWorkspaceFactory({ tags: { purpose: "crm-bench-build", tenant: p.ns } }),
-      budget: { ...BUILDER_BUDGET },
+      budget: { ...budget },
       ...(p.toolProviders ? { toolProviders: await p.toolProviders({ ns: p.ns, buildId, emitAgent: uiId }) } : {}),
       ...(p.instructions ? { instructions: p.instructions } : {}),
       signal,
@@ -115,7 +119,7 @@ export async function runBenchBuild(p: {
     });
     return { ...receipt, status: receipt.status, revisionId: receipt.revisionId, ...(receipt.failure ? { error: `${receipt.failure.code}: ${receipt.failure.message}` } : {}) };
   };
-  const service = new DailyBuildService({ store: p.store, builder, buildTimeoutMs: 20 * 60_000, dayOffsetMinutes: -420, log: (m) => p.log(scrub(m)) });
+  const service = new DailyBuildService({ store: p.store, builder, buildTimeoutMs: budget.maxWallClockMs + 5 * 60_000, dayOffsetMinutes: -420, log: (m) => p.log(scrub(m)) });
   const days = [...new Set((await p.store.list(p.ns, "traces/", { limit: 10_000 })).map((k) => k.split("/")[1]!).filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d)))].sort();
   const started = Date.now();
   const receipts: Array<Record<string, unknown>> = [];
@@ -132,5 +136,5 @@ export async function runBenchBuild(p: {
   p.live.setAgent(`${prefix}:service`, { status: receipts.some((r) => r.status === "published") ? "succeeded" : "failed" });
   p.live.emit({ agentId: `${prefix}:service`, kind: "run_end", title: `memory build ${p.label}: ${status} ${revisionBefore} -> ${revisionAfter}`, status: receipts.some((r) => r.status === "published") ? "succeeded" : "failed" });
   const traceArchive = receipts.map((r) => (r as { traceArchive?: unknown }).traceArchive ?? null);
-  return { ns: p.ns, label: p.label, days, receipts, traceArchive, status, revisionBefore, revisionAfter, usage, agents, wallMs: Date.now() - started };
+  return { ns: p.ns, label: p.label, budget, days, receipts, traceArchive, status, revisionBefore, revisionAfter, usage, agents, wallMs: Date.now() - started };
 }

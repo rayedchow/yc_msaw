@@ -24,6 +24,8 @@ import { withFileLock } from "../src/util.js";
 const { values } = parseArgs({
   options: {
     batch: { type: "string" },
+    round: { type: "string", default: "1" },
+    only: { type: "string" },
     phase: { type: "string" },
     concurrency: { type: "string", default: "3" },
   },
@@ -43,7 +45,7 @@ export const LIMITS = {
   matrix: { maxTurns: 18, maxToolCalls: 48, timeoutMs: 240_000 } satisfies AttemptLimits,
   adapt: { maxTurns: 24, maxToolCalls: 70, timeoutMs: 420_000 } satisfies AttemptLimits,
 };
-export const BUDGETS = { customer: { input: 20_000_000, output: 1_000_000 }, builder: { input: 20_000_000, output: 1_000_000 } };
+export const BUDGETS = { customer: { input: 20_000_000, output: 1_000_000 }, builder: { input: 30_000_000, output: 1_500_000 } }; // DEVIATION (declared 2026-10-18T00:50Z after round-1 builds failed on budget): builder ceiling raised from 20M/1M
 
 await loadEnvFile(path.join(REPO, ".env"));
 await loadEnvFile(path.join(REPO, ".context/manufact.env"));
@@ -120,7 +122,7 @@ const METER_DIR = path.join(BDIR, "meters");
 const METER_FIELDS = ["input", "output", "cacheRead", "calls", "costReported", "callsWithoutCost"] as const;
 type MeterRec = Record<(typeof METER_FIELDS)[number], number>;
 const meterBaselines = new Map<UsageMeter, Partial<MeterRec>>();
-async function meterFrom(_st: BatchState, name: "customer" | "builder", phaseKey = PHASE): Promise<UsageMeter> {
+async function meterFrom(_st: BatchState, name: "customer" | "builder", phaseKey = Number(values.round) > 1 ? `${PHASE}.r${values.round}` : PHASE): Promise<UsageMeter> {
   const m = new UsageMeter(name, BUDGETS[name].input, BUDGETS[name].output);
   const mm = m as unknown as MeterRec;
   await fs.mkdir(METER_DIR, { recursive: true });
@@ -469,12 +471,15 @@ async function phaseBuild() {
     const meter = await meterFrom(st, "builder");
     live.state.phase = "build";
     const results = await Promise.all(
-      (["H", "M"] as const).map(async (label) => {
+      (["H", "M"] as const).filter((l) => !values.only || values.only === l).map(async (label) => {
         const ns = label === "H" ? st.namespaces.trainH! : st.namespaces.trainM!;
-        const out = path.join(RESULTS, `build-${label}.json`);
+        const round = Number(values.round);
+        const out = path.join(RESULTS, round === 1 ? `build-${label}.json` : `build-${label}.r${round}.json`);
         if (existsSync(out)) return JSON.parse(await fs.readFile(out, "utf8"));
         await progress(`build ${label} starting over ${ns}`);
-        const r = await runBenchBuild({ store: parent.store, ns, label, apiKey: FIREWORKS, meter, live, log });
+        // Round 2 = DECLARED DEVIATION: round-1 builds failed under maxSessions 1 / 15 min; round 2 allows 2 sessions per
+        // agent and 30 min wall clock (per-session turns/tool calls unchanged), same tenant-only trace cohort.
+        const r = await runBenchBuild({ store: parent.store, ns, label: round === 1 ? label : `${label}-r${round}`, apiKey: FIREWORKS, meter, live, log, ...(round >= 2 ? { budget: { maxSessions: 2, maxWallClockMs: 1_800_000 } } : {}) });
         await writeJson(out, r);
         await progress(`build ${label}: ${r.status} ${r.revisionBefore} -> ${r.revisionAfter}; agents=${r.agents.length}; tokens in/out ${r.usage.promptTokens}/${r.usage.completionTokens}; ${Math.round(r.wallMs / 1000)}s`);
         return r;
@@ -513,7 +518,8 @@ async function phaseFreeze() {
     for (const label of ["H", "M"] as const) {
       // Arm gate: only a completed build whose every receipt is published/no_change becomes a trained arm. A failed
       // or missing build makes the arm UNAVAILABLE (its cells are recorded as unavailable, never run on bootstrap).
-      const bf = path.join(RESULTS, `build-${label}.json`);
+      // Latest round wins (all rounds are preserved and reported).
+      const bf = [path.join(RESULTS, `build-${label}.r3.json`), path.join(RESULTS, `build-${label}.r2.json`), path.join(RESULTS, `build-${label}.json`)].find((f) => existsSync(f))!;
       const b = existsSync(bf) ? (JSON.parse(await fs.readFile(bf, "utf8")) as { receipts: Array<{ status?: string; sessions?: string[] }>; revisionAfter: string | null; revisionBefore: string | null }) : null;
       const statuses = (b?.receipts ?? []).map((r) => String(r.status));
       const sessions = (b?.receipts ?? []).reduce((a, r) => a + (r.sessions?.length ?? 0), 0);
@@ -575,8 +581,19 @@ async function phaseMatrix() {
 }
 
 async function phaseAdapt(kind: "far" | "cold") {
+  const round = Number(values.round);
+  const variant = round > 1 ? `r${round}` : undefined;
+  const keyName = kind === "far" ? (variant ? `adaptFar${variant}` : "adaptFar") : variant ? `adaptCold${variant}` : "adaptCold";
+  if (variant) {
+    // Declared re-run in a FRESH tenant namespace (originals preserved); key registered before the parent starts.
+    await updateState((cur) => {
+      if (!cur.keys[keyName]) Object.assign(cur.keys, makeKeys({ [keyName]: { ns: `crmad-${kind}-${variant}-${BATCH}`, scopes: ["memory:read", "integrations:read", "traces:write"] } }));
+    });
+  }
+  // DECLARED DEVIATION (see contract): adaptation builds use the round-2 builder budget except the original cold run.
+  const buildBudget = kind === "far" || variant ? { maxSessions: 2, maxWallClockMs: 1_800_000 } : undefined;
   await withParent(async (parent, st) => {
-    const out = path.join(RESULTS, `adapt-${kind}.json`);
+    const out = path.join(RESULTS, variant ? `adapt-${kind}.${variant}.json` : `adapt-${kind}.json`);
     if (existsSync(out)) throw new Error(`${out} exists; adaptation demos are never re-run inside a batch`);
     const integrity = await verifySourcesAgainstManifest();
     if (!integrity.ok) throw new Error(`frozen sources differ from the init manifest: ${integrity.problems.slice(0, 5).join("; ")}`);
@@ -592,7 +609,9 @@ async function phaseAdapt(kind: "far" | "cold") {
       batch: BATCH,
       seedBase: st.seedBase,
       parent,
-      key: st.keys[kind === "far" ? "adaptFar" : "adaptCold"]!,
+      key: st.keys[keyName]!,
+      ...(variant ? { variant } : {}),
+      ...(buildBudget ? { buildBudget } : {}),
       apiKey: FIREWORKS,
       customerMeter,
       builderMeter,
@@ -604,7 +623,7 @@ async function phaseAdapt(kind: "far" | "cold") {
       log,
       progress,
       checkpoint: async (partial) => {
-        await writeJson(path.join(RESULTS, `adapt-${kind}.partial.json`), partial);
+        await writeJson(path.join(RESULTS, `adapt-${kind}${variant ? `.${variant}` : ""}.partial.json`), partial);
         await saveMeters(st, [customerMeter, builderMeter]);
       },
     });
