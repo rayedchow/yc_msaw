@@ -273,8 +273,7 @@ The UI keeps the honeyflow grid style (dark, pastel violet accent) and has two v
   history (learned on older months, held out on recent ones). It shows rules confirmed, past work replayed exactly,
   custom fields understood and changes detected; **replays** of past work (recorded vs MCP result, train or held-out,
   with the diff and the rule that explains it); **rule evidence** (decisions each rule explains, month-by-month
-  agreement that exposes when a rule changes, counterexamples); and **system context** (custom fields understood,
-  deprecated or still unknown). It deliberately does not compare models.
+  agreement that exposes when a rule changes, and counterexamples). It deliberately does not compare models.
 
 All views are in `mock-ui/index.html` (open it directly; no build step; `#sales/evals` opens an evals page).
 

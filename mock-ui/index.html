@@ -732,12 +732,6 @@ function renderEvals(m) {
           </div>`).join("")}
       </div>
       <div class="inspect" id="evtip"></div>
-    </section>
-
-    <section>
-      <div class="sechead"><h2>System context</h2><span class="legend"><i class="chip-d understood"></i>understood <i class="chip-d deprecated"></i>deprecated <i class="chip-d unknown"></i>unknown</span></div>
-      <div class="fields">${E.fields.map(([f, st, why]) => `<span class="fchip ${st}" data-why="${why}">${f}</span>`).join("")}</div>
-      <div class="inspect" id="ftip"></div>
     </section>`;
   copy();
 
@@ -763,13 +757,6 @@ function renderEvals(m) {
   });
   $$(".re.click")[0].parentElement.addEventListener("mouseleave", () => { $$(".re.click").forEach((x) => x.classList.remove("sel")); tip.innerHTML = idle; });
 
-  const ftip = $("#ftip");
-  const fidle = `<div class="tk">Hover a field</div><div class="td">Custom fields are where tribal knowledge hides. Unknown fields are what walter will ask about next.</div>`;
-  ftip.innerHTML = fidle;
-  $$(".fchip").forEach((c) => {
-    c.addEventListener("mouseenter", () => { ftip.innerHTML = `<div class="tk">${c.classList[1]}</div><div class="tt mono">${c.textContent}</div><div class="td">${c.dataset.why}</div>`; });
-    c.addEventListener("mouseleave", () => { ftip.innerHTML = fidle; });
-  });
 }
 
 // ── dot matrix: 12 × 12, one column per 2-hour window ───────────────────
