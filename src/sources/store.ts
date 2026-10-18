@@ -518,7 +518,7 @@ export class SourceStore {
 
   async list(
     stored: string,
-    opts: { limit?: number; after?: string; includeDeleted?: boolean } = {},
+    opts: { limit?: number; after?: string; includeDeleted?: boolean; visible?: (name: string) => boolean } = {},
     root?: string,
   ): Promise<{ entries: ListEntry[]; nextAfter: string | null }> {
     const r = await this.resolve(stored, root);
@@ -529,6 +529,8 @@ export class SourceStore {
     let nextAfter: string | null = null;
     for await (const [name, entry] of this.children(r.sha, opts.after)) {
       if (!opts.includeDeleted && !isLive(entry)) continue;
+      // Entries the caller may not see neither count towards `limit` nor become the cursor.
+      if (opts.visible && !opts.visible(name)) continue;
       if (entries.length >= limit) {
         nextAfter = entries[entries.length - 1]!.name;
         break;
@@ -758,6 +760,7 @@ export class SourceStore {
       prepared ??= await this.#prepare(identity, batch.changes, inlineBlobs);
 
       const overlay = new Overlay(this, head.value.root);
+      await overlay.prefetchTombstoneVersions(prepared);
       const results: ChangeResult[] = [];
       const versions: StoredObject[] = [];
       const written: CommitBody["changes"] = [];
@@ -1030,6 +1033,18 @@ class Overlay {
 
   async #get(dir: DirState, name: string): Promise<TreeChild | undefined> {
     return (await this.#pageFor(dir, name)).entries![name];
+  }
+
+  /** Versions of the tombstones these puts land on, in batched reads: apply() checks each for sticky withholding. */
+  async prefetchTombstoneVersions(changes: readonly Prepared[]): Promise<void> {
+    const ids: string[] = [];
+    for (const c of changes) {
+      if (c.op === "delete") continue;
+      const dir = await this.#load(parentOf(c.stored), false).catch(() => null);
+      const existing = dir ? await this.#get(dir, baseName(c.stored)) : undefined;
+      if (existing?.t === "x") ids.push(existing.v);
+    }
+    if (ids.length) await this.src.versions(ids);
   }
 
   async #set(dirPath: string, dir: DirState, name: string, child: TreeChild): Promise<void> {

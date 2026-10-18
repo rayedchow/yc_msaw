@@ -150,9 +150,14 @@ export class SourceFs {
     }
     const cap = Math.min(input.limit, MAX_LIST_LIMIT);
     // Paged directories can be huge: list one window (resume with `after`), never load every page.
-    const page = await store.list(stored, { limit: cap, ...(input.after !== undefined ? { after: input.after } : {}) }, head.root);
     const child = (name: string) => (stored ? `${stored}/${name}` : name);
-    const visible = access === "allow" ? page.entries : page.entries.filter((e) => viewer.access(child(e.name)) !== "deny");
+    // A partly readable directory pages over readable entries only: the cursor must not name another owner's entry.
+    const page = await store.list(
+      stored,
+      { limit: cap, ...(input.after !== undefined ? { after: input.after } : {}), ...(access === "allow" ? {} : { visible: (name: string) => viewer.access(child(name)) !== "deny" }) },
+      head.root,
+    );
+    const visible = page.entries;
     // Totals of a partly readable directory would count other owners' files: only readable children are summed.
     const agg = access === "allow" ? (r.entry ?? (await rootAggregate(store, r.sha))) : stored === "" ? await rootAggregate(store, r.sha, (name) => viewer.access(name) === "allow") : null;
     return {

@@ -16,6 +16,7 @@ const MAX_CACHED_TENANTS = 64;
 const VIEWER_TTL_MS = 5_000;
 /** Mailbox directories scanned per Google container when building owner evidence. */
 const MAX_MAILBOX_SCAN = 2_000;
+const NO_UNITS: readonly GoogleAttributionUnit[] = Object.freeze([]);
 
 export type CoverageState = "complete" | "partial" | "blocked" | "pending";
 export const COVERAGE_STATES: readonly CoverageState[] = ["complete", "partial", "blocked", "pending"];
@@ -91,6 +92,9 @@ export class SourceService {
   #googleAttribution: GoogleAttributionSource | null = null;
   readonly #units = new Map<string, { at: number; epoch: number; value: readonly GoogleAttributionUnit[] }>();
   readonly #personalDirs = new Map<string, { at: number; epoch: number; value: readonly string[] }>();
+  readonly #viewers = new Map<string, { evidence: object; units: readonly GoogleAttributionUnit[]; personalDirs: readonly string[]; viewer: SourceViewer }>();
+  /** Refreshes in progress: concurrent callers at a TTL miss share one load instead of each re-reading. */
+  readonly #inflight = new Map<string, Promise<unknown>>();
 
   /** One byte-bounded metadata cache for every tenant store of this process. */
   readonly nodeCache: SourceNodeCache;
@@ -143,6 +147,14 @@ export class SourceService {
     throw new SourceError("conflict", "Status ref is busy; retry");
   }
 
+  #once<T>(key: string, load: () => Promise<T>): Promise<T> {
+    const running = this.#inflight.get(key) as Promise<T> | undefined;
+    if (running) return running;
+    const p = load().finally(() => this.#inflight.delete(key));
+    this.#inflight.set(key, p);
+    return p;
+  }
+
   /** Latest status report of every active binding (read in parallel). */
   async #reports(ns: string, bindings: readonly PublicBinding[]): Promise<StoredStatus[]> {
     const refs = await Promise.all(bindings.filter((b) => !b.revokedAt).map((b) => this.objects.getRef(ns, statusRef(b.bindingId))));
@@ -157,6 +169,10 @@ export class SourceService {
     const epoch = `${this.reportEpoch(ns)}/${this.bindings.epoch(ns)}`;
     const hit = this.#evidence.get(ns);
     if (hit && hit.epoch === epoch && this.now().getTime() - hit.at < VIEWER_TTL_MS) return hit.value;
+    return this.#once(`evidence\n${ns}\n${epoch}`, () => this.#loadOwnerEvidence(ns, epoch));
+  }
+
+  async #loadOwnerEvidence(ns: string, epoch: string): Promise<{ providerOwners: Map<string, Identity[]>; googleAccounts: GoogleAccountOwner[] }> {
     const bindings = await this.bindings.list(ns);
     // Account owners are trusted only from the provisioned collector binding (its token never left the servers); an
     // admin-minted '*' publish binding cannot vouch for who owns a mailbox.
@@ -216,12 +232,14 @@ export class SourceService {
     const epoch = `${this.reportEpoch(ns)}/${this.bindings.epoch(ns)}`;
     const hit = this.#statusInputCache.get(ns);
     if (hit && hit.epoch === epoch && this.now().getTime() - hit.at < VIEWER_TTL_MS) return hit.value;
-    const bindings = await this.bindings.list(ns);
-    const value = { bindings, reports: await this.#reports(ns, bindings) };
-    this.#statusInputCache.delete(ns);
-    this.#statusInputCache.set(ns, { at: this.now().getTime(), epoch, value });
-    while (this.#statusInputCache.size > MAX_CACHED_TENANTS) this.#statusInputCache.delete(this.#statusInputCache.keys().next().value!);
-    return value;
+    return this.#once(`status\n${ns}\n${epoch}`, async () => {
+      const bindings = await this.bindings.list(ns);
+      const value = { bindings, reports: await this.#reports(ns, bindings) };
+      this.#statusInputCache.delete(ns);
+      this.#statusInputCache.set(ns, { at: this.now().getTime(), epoch, value });
+      while (this.#statusInputCache.size > MAX_CACHED_TENANTS) this.#statusInputCache.delete(this.#statusInputCache.keys().next().value!);
+      return value;
+    });
   }
 
   /** Where Google-wide units (Docs/Drive dirs, Drive PDFs) are attributed to their mailboxes' owners (the runtime). */
@@ -233,13 +251,16 @@ export class SourceService {
   async viewer(ns: string, who: Identity): Promise<SourceViewer> {
     const segment = personalSegment(ns, who);
     const [evidence, personalDirs] = await Promise.all([this.#ownerEvidence(ns), this.#personalDirsOf(ns, segment)]);
-    return new SourceViewer(who, {
-      ...evidence,
-      sharedProviders: this.#sharedProviders,
-      googleUnits: await this.#googleUnits(ns, who, evidence.googleAccounts),
-      personalSegment: segment,
-      personalDirs,
-    });
+    const units = await this.#googleUnits(ns, who, evidence.googleAccounts);
+    // Same cached inputs: reuse the viewer (building it indexes every unit, ~2 ms per 12k units).
+    const key = `${ns}\n${who.issuer}\n${who.subject}`;
+    const hit = this.#viewers.get(key);
+    if (hit && hit.evidence === evidence && hit.units === units && hit.personalDirs === personalDirs) return hit.viewer;
+    const viewer = new SourceViewer(who, { ...evidence, sharedProviders: this.#sharedProviders, googleUnits: units, personalSegment: segment, personalDirs });
+    this.#viewers.delete(key);
+    this.#viewers.set(key, { evidence, units, personalDirs, viewer });
+    while (this.#viewers.size > MAX_CACHED_TENANTS * 16) this.#viewers.delete(this.#viewers.keys().next().value!);
+    return viewer;
   }
 
   /**
@@ -253,16 +274,18 @@ export class SourceService {
     const epoch = store.localCommits;
     const hit = this.#personalDirs.get(key);
     if (hit && hit.epoch === epoch && this.now().getTime() - hit.at < VIEWER_TTL_MS) return hit.value;
-    const root = (await store.head()).value.root;
-    const shared = new Set([...SHARED_PROVIDERS, ...this.#sharedProviders]);
-    const candidates: string[] = [];
-    for await (const [name, e] of store.children(root)) if (e.t === "d" && isOwnerSegmentProvider(name, shared)) candidates.push(name);
-    const found = await Promise.all(candidates.map(async (p) => ((await store.resolve(`${p}/${segment}`, root).catch(() => null))?.type === "dir" ? p : null)));
-    const value = found.filter((p): p is string => p !== null);
-    this.#personalDirs.delete(key);
-    this.#personalDirs.set(key, { at: this.now().getTime(), epoch, value });
-    while (this.#personalDirs.size > MAX_CACHED_TENANTS * 16) this.#personalDirs.delete(this.#personalDirs.keys().next().value!);
-    return value;
+    return this.#once(`dirs\n${key}\n${epoch}`, async () => {
+      const root = (await store.head()).value.root;
+      const shared = new Set([...SHARED_PROVIDERS, ...this.#sharedProviders]);
+      const candidates: string[] = [];
+      for await (const [name, e] of store.children(root)) if (e.t === "d" && isOwnerSegmentProvider(name, shared)) candidates.push(name);
+      const found = await Promise.all(candidates.map(async (p) => ((await store.resolve(`${p}/${segment}`, root).catch(() => null))?.type === "dir" ? p : null)));
+      const value = found.filter((p): p is string => p !== null);
+      this.#personalDirs.delete(key);
+      this.#personalDirs.set(key, { at: this.now().getTime(), epoch, value });
+      while (this.#personalDirs.size > MAX_CACHED_TENANTS * 16) this.#personalDirs.delete(this.#personalDirs.keys().next().value!);
+      return value;
+    });
   }
 
   /**
@@ -271,21 +294,24 @@ export class SourceService {
    * cached like owner evidence. Any failure serves none (fail closed); per-mailbox paths do not depend on it.
    */
   async #googleUnits(ns: string, who: Identity, accounts: readonly GoogleAccountOwner[]): Promise<readonly GoogleAttributionUnit[]> {
-    if (!this.#googleAttribution || !accounts.some((a) => a.subject === who.subject && a.issuer === who.issuer)) return [];
+    if (!this.#googleAttribution || !accounts.some((a) => a.subject === who.subject && a.issuer === who.issuer)) return NO_UNITS;
     const key = `${ns}\n${who.issuer}\n${who.subject}`;
     const epoch = this.reportEpoch(ns);
     const hit = this.#units.get(key);
     if (hit && hit.epoch === epoch && this.now().getTime() - hit.at < VIEWER_TTL_MS) return hit.value;
-    let value: readonly GoogleAttributionUnit[] = [];
-    try {
-      value = (await this.#googleAttribution(ns, who)).units;
-    } catch {
-      value = [];
-    }
-    this.#units.delete(key);
-    this.#units.set(key, { at: this.now().getTime(), epoch, value });
-    while (this.#units.size > MAX_CACHED_TENANTS * 16) this.#units.delete(this.#units.keys().next().value!);
-    return value;
+    const source = this.#googleAttribution;
+    return this.#once(`units\n${key}\n${epoch}`, async () => {
+      let value: readonly GoogleAttributionUnit[] = NO_UNITS;
+      try {
+        value = (await source(ns, who)).units;
+      } catch {
+        value = NO_UNITS;
+      }
+      this.#units.delete(key);
+      this.#units.set(key, { at: this.now().getTime(), epoch, value });
+      while (this.#units.size > MAX_CACHED_TENANTS * 16) this.#units.delete(this.#units.keys().next().value!);
+      return value;
+    });
   }
 
   /**
