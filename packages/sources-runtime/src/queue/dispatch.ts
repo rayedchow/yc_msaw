@@ -214,6 +214,18 @@ export async function startNangoPolling(tenantId: string, provider: string): Pro
       payload: { tenantId },
     });
   }
+  // SOURCE-LANE PATCH (jira request 1): REST deep sweep through the Nango proxy
+  // (src/source-lane/providers/jira/sweep.ts): paged changelogs, comment deletions, attachment
+  // bytes, permission-aware tombstones, project selection. Own group so it never blocks nango.poll.
+  if (provider.trim().toLowerCase() === "jira") {
+    await upsertTaskSchedule({
+      tenantId,
+      kind: "jira.sweep",
+      frequencySeconds: 300,
+      groupKey: `${tenantId}:jira:sweep`,
+      payload: { tenantId },
+    });
+  }
 }
 
 function isNangoProxyIssuesProvider(provider: string): boolean {

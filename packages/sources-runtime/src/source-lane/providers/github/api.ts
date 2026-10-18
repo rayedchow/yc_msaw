@@ -156,11 +156,13 @@ export class GithubClient {
     const status = response.status;
     const limited = rateLimitedOf(status, response.headers, body, rate, this.#now());
     if (limited) throw limited;
-    if (tolerate.includes(status)) return;
+    // Nango's own connection errors outrank tolerated statuses: a 404 `unknown_connection` is a dead
+    // grant, not "this repository does not exist".
     const code = nangoErrorCode(body);
     if (status === 401 || code === "unknown_connection" || code === "invalid_credentials" || code === "connection_not_found") {
       throw new GithubAuthError(`GitHub connection is not authorized (HTTP ${status}${code ? ` ${code}` : ""})`, status, code);
     }
+    if (tolerate.includes(status)) return;
     throw new GithubApiError(`GitHub request failed with HTTP ${status}${body ? `: ${githubMessage(body).slice(0, 300)}` : ""}`, status, code);
   }
 

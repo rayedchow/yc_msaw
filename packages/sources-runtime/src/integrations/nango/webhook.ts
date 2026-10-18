@@ -6,6 +6,7 @@ import { db } from "../../db/client.js";
 import { enqueueTask } from "../../queue/queue.js";
 import { disableNangoPollSchedule, nangoSyncDedupeKey } from "./tasks.js";
 import { activateNangoConnection } from "./sync-enqueue.js";
+import { handleJiraForwardWebhook } from "../../source-lane/providers/jira/webhook.js";
 import type { NangoExecutor } from "./types.js";
 
 export const nangoWebhookRoute = new Hono();
@@ -84,7 +85,11 @@ export async function handleNangoWebhook(input: {
 
   const type = stringValue(payload.type)?.toLowerCase();
   if (type === "forward") {
-    console.info("[nango] forward webhook ignored in v1");
+    // SOURCE-LANE PATCH (jira request 4): Jira provider webhooks relayed by Nango only queue a
+    // refresh BY ID in the Jira deep lane (tenant from the connections table; the body is never
+    // stored). The deep lane's relative-JQL delta still covers any webhook that never arrives.
+    const jira = await handleJiraForwardWebhook(db, payload);
+    if (!jira.handled) console.info("[nango] forward webhook ignored in v1");
     return { status: 204 };
   }
 

@@ -1,3 +1,4 @@
+import { sql } from "drizzle-orm";
 import {
   deleteConfluencePageSourceWiki,
   deleteJiraIssueSourceWiki,
@@ -96,6 +97,18 @@ export async function processJiraIssueRecord(
     return { stored: captured.stored, skipped: !captured.stored };
   }
 
+  // SOURCE-LANE PATCH (jira request 3): the slim sync record has no comments and only accountIds;
+  // when the proxy lane already captured an issue_detail of this issue at the same or a newer
+  // `updated`, rebuild from the ledger (which prefers issue_detail) instead of overwriting the rich
+  // mirror with the slim one (AUDIT agents/jira.md section 5, defect 1).
+  if (await jiraIssueDetailAtLeast(executor, ctx.tenantId, record)) {
+    await rematerializeJiraIssueFromCapturedComments(ctx.tenantId, {
+      issueId: stringValue(record.id) ?? stringValue(record.issueId),
+      issueKey: key,
+    });
+    return { stored: captured.stored, skipped: !captured.stored };
+  }
+
   await materializeJiraIssueSourceWiki(ctx.tenantId, {
     eventId: captured.eventId,
     sourceEventId: captured.sourceEventId,
@@ -103,6 +116,27 @@ export async function processJiraIssueRecord(
     rawPayload: record,
   });
   return { stored: captured.stored, skipped: !captured.stored };
+}
+
+/** SOURCE-LANE PATCH (jira request 3): an issue_detail row of this issue id with fields.updated >= the slim record's. */
+async function jiraIssueDetailAtLeast(executor: NangoExecutor, tenantId: string, record: NangoRecord): Promise<boolean> {
+  const issueId = stringValue(record.id) ?? stringValue(record.issueId);
+  const updated = stringValue(record.updatedAt) ?? stringValue(record.updated_at) ?? stringValue(record.updated);
+  const at = updated ? Date.parse(updated) : Number.NaN;
+  if (!issueId || !Number.isFinite(at)) return false;
+  const result: unknown = await executor.execute(sql`
+    SELECT source_event_id AS detail_event_id
+    FROM activity_events
+    WHERE user_id = ${tenantId}
+      AND source = 'jira'
+      AND event_type = 'issue_detail'
+      AND raw_payload->>'id' = ${issueId}
+      AND source_updated_at >= ${new Date(at).toISOString()}::timestamptz
+    LIMIT 1
+  `);
+  const rows = Array.isArray(result) ? result : (result as { rows?: unknown[] } | null)?.rows ?? [];
+  const first = rows[0] as { detail_event_id?: unknown } | undefined;
+  return typeof first?.detail_event_id === "string" && first.detail_event_id.length > 0;
 }
 
 /**

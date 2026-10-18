@@ -120,6 +120,8 @@ export interface RefRunReport {
   repository: string;
   ref: string;
   outcome: "unchanged" | "committed" | "superseded" | "in_progress" | "gone" | "error";
+  /** in_progress only: true when it stopped on the request cap with more work due now; false while retries back off. */
+  yielded?: boolean;
   generation?: number;
   commitSha?: string | null;
   error?: string;
@@ -363,14 +365,15 @@ async function runQuota(
     }
     // Fair share first (every ref progresses each run), then the rest of the budget in order.
     const share = Math.max(25, Math.floor(budget.maxRequests / Math.max(1, work.length)));
-    let pending = work;
+    let pending: Array<{ repo: RepoRow; ref: string; head?: Head }> = work;
     for (let pass = 0; pending.length && !budget.exhausted; pass++) {
-      const again: typeof work = [];
+      const again: typeof pending = [];
       for (const w of pending) {
         if (budget.exhausted) break;
-        const r = await syncRef(ctx, w.repo, w.ref, pass === 0 ? budget.requests + share : Number.POSITIVE_INFINITY);
+        const { head, ...r } = await syncRef(ctx, w.repo, w.ref, pass === 0 ? budget.requests + share : Number.POSITIVE_INFINITY, w.head ?? null);
         latest.set(`${r.repoId}\n${r.ref}`, r);
-        if (r.outcome === "in_progress") again.push(w);
+        // Only refs stopped by the cap continue this run; refs waiting on a backoff are left for a later run.
+        if (r.outcome === "in_progress" && r.yielded) again.push({ ...w, ...(head ? { head } : {}) });
         await options.heartbeat?.();
         if (!(await renewQuotaLease(db, quotaKey, owner, leaseSeconds))) throw new Error("github content sweep lease lost");
       }
@@ -464,15 +467,17 @@ async function configuredRefs(ctx: Ctx, repo: RepoRow): Promise<string[]> {
 // ------------------------------------------------------------------ ref scan
 
 /** Advance one ref as far as the request cap allows. */
-export async function syncRef(ctx: Ctx, repo: RepoRow, refName: string, requestCap = Number.POSITIVE_INFINITY): Promise<RefRunReport> {
+export async function syncRef(ctx: Ctx, repo: RepoRow, refName: string, requestCap = Number.POSITIVE_INFINITY, knownHead: Head | null = null): Promise<RefRunReport & { head?: Head }> {
   const scope: RefScope = { tenantId: ctx.tenantId, repoId: repo.repo_id, ref: refName };
   const base = { repoId: repo.repo_id, repository: repo.full_name, ref: refName };
   const conn: GithubConnectionRef = { providerConfigKey: repo.provider_config_key, connectionId: repo.connection_id };
   const capped = (): boolean => ctx.budget.exhausted || ctx.budget.requests >= requestCap;
+  let head: Head | null = knownHead;
   try {
     let ref = await ensureRef(ctx.db, scope);
     await pruneStaleStaging(ctx.db, scope);
-    const head = await resolveHead(ctx, conn, repo.full_name, refName);
+    // HEAD is resolved once per ref per run; later passes of the same run reuse it.
+    head ??= await resolveHead(ctx, conn, repo.full_name, refName);
     if (head.kind === "gone") {
       await recordHeadObservation(ctx.db, scope, null);
       if (ref.status !== head.status) {
@@ -488,7 +493,7 @@ export async function syncRef(ctx: Ctx, repo: RepoRow, refName: string, requestC
         await recordRefSuccess(ctx.db, scope);
         return { ...base, outcome: "unchanged", generation: ref.committed_generation ?? undefined, commitSha: head.sha };
       }
-      if (capped()) return { ...base, outcome: "in_progress", commitSha: head.sha };
+      if (capped()) return { ...base, outcome: "in_progress", yielded: true, commitSha: head.sha, head };
       const commit = await ctx.client.get(conn, repoEndpoint(repo.full_name, `/git/commits/${head.sha}`));
       if (!isRecord(commit.data)) throw new GithubApiError(`commit ${head.sha} response is not an object`, commit.status, "bad_commit");
       const treeSha = isRecord(commit.data.tree) ? str(commit.data.tree.sha) : null;
@@ -500,11 +505,11 @@ export async function syncRef(ctx: Ctx, repo: RepoRow, refName: string, requestC
     // A scan in progress always runs to completion (even if HEAD moved again meanwhile), so a busy
     // branch still commits real confirmed states; the next run scans the newer HEAD.
     const outcome = await advanceScan(ctx, conn, repo, ref, capped);
-    if (outcome === null) return { ...base, outcome: "in_progress", generation: ref.scan_generation ?? undefined, commitSha: ref.scan_commit_sha };
+    if (outcome === "yield" || outcome === "wait") return { ...base, outcome: "in_progress", yielded: outcome === "yield", generation: ref.scan_generation ?? undefined, commitSha: ref.scan_commit_sha, head };
     if (outcome.outcome === "superseded") return { ...base, outcome: "superseded", generation: outcome.generation, error: outcome.reason };
     return { ...base, outcome: "committed", generation: outcome.generation, commitSha: ref.scan_commit_sha };
   } catch (error) {
-    if (error instanceof Yield) return { ...base, outcome: "in_progress" };
+    if (error instanceof Yield) return { ...base, outcome: "in_progress", yielded: true, ...(head ? { head } : {}) };
     if (error instanceof GithubRateLimitedError || error instanceof GithubAuthError) throw error;
     await recordRefError(ctx.db, scope, message(error));
     // 403 without a rate-limit signal: the grant lacks a permission (e.g. the App has no Contents: read).
@@ -534,33 +539,38 @@ async function resolveHead(ctx: Ctx, conn: GithubConnectionRef, fullName: string
   return { kind: "sha", sha };
 }
 
-/** Returns the commit outcome, or null when the scan must continue in a later run. */
-async function advanceScan(ctx: Ctx, conn: GithubConnectionRef, repo: RepoRow, ref: RefRow, capped: () => boolean): Promise<CommitOutcome | null> {
+type Step = "done" | "yield" | "wait";
+
+/**
+ * Returns the commit outcome, "yield" when the request cap stopped it with work due now, or
+ * "wait" when only backed-off retries remain (continued by a later run, never spun on).
+ */
+async function advanceScan(ctx: Ctx, conn: GithubConnectionRef, repo: RepoRow, ref: RefRow, capped: () => boolean): Promise<CommitOutcome | "yield" | "wait"> {
   const scope: RefScope = { tenantId: ctx.tenantId, repoId: repo.repo_id, ref: ref.ref_name };
   const g = ref.scan_generation!;
   if (ref.scan_phase === "tree") {
-    const done = await scanTree(ctx, conn, repo, ref, capped);
-    if (!done) return null;
+    const step = await scanTree(ctx, conn, repo, ref, capped);
+    if (step !== "done") return step;
     await setScanPhase(ctx.db, scope, g, "blobs");
   }
   const current = (await getRef(ctx.db, scope))!;
   if (current.scan_generation !== g) return { outcome: "superseded", generation: g, reason: "scan was replaced while it ran" };
   if (current.scan_phase === "blobs") {
-    const done = await fetchBlobs(ctx, conn, repo, scope, g, capped);
-    if (!done) return null;
+    const step = await fetchBlobs(ctx, conn, repo, scope, g, capped);
+    if (step !== "done") return step;
     await setScanPhase(ctx.db, scope, g, "ready");
   }
   return commitScan(ctx.db, scope, g);
 }
 
-/** Tree listing; true when every tree of the generation is listed. */
-async function scanTree(ctx: Ctx, conn: GithubConnectionRef, repo: RepoRow, ref: RefRow, capped: () => boolean): Promise<boolean> {
+/** Tree listing of the generation. */
+async function scanTree(ctx: Ctx, conn: GithubConnectionRef, repo: RepoRow, ref: RefRow, capped: () => boolean): Promise<Step> {
   const scope: RefScope = { tenantId: ctx.tenantId, repoId: repo.repo_id, ref: ref.ref_name };
   const g = ref.scan_generation!;
   const treeSha = ref.scan_tree_sha!;
   const anyTree = rowsOf(await ctx.db.execute(sql`SELECT 1 FROM github_source_scan_trees WHERE tenant_id = ${ctx.tenantId} AND repo_id = ${repo.repo_id} AND ref_name = ${ref.ref_name} AND generation = ${g} LIMIT 1`)).length > 0;
   if (!anyTree) {
-    if (capped()) return false;
+    if (capped()) return "yield";
     const r = await ctx.client.get(conn, repoEndpoint(repo.full_name, `/git/trees/${treeSha}`), { recursive: 1 }, [404, 409, 422]);
     if (r.status !== 200) {
       await abandonScan(ctx.db, scope, g, `tree ${treeSha} is not available (HTTP ${r.status})`);
@@ -574,14 +584,14 @@ async function scanTree(ctx: Ctx, conn: GithubConnectionRef, repo: RepoRow, ref:
       await stageEntries(ctx.db, scope, g, entriesOf(data.tree, ""), ctx.maxBlobBytes);
       await enqueueScanTrees(ctx.db, scope, g, [{ prefix: "", sha: treeSha }]);
       await finishScanTree(ctx.db, scope, g, "", "done");
-      return true;
+      return "done";
     }
   }
   for (;;) {
     const batch = await nextScanTrees(ctx.db, scope, g, 20);
-    if (!batch.length) return (await pendingScanTrees(ctx.db, scope, g)) === 0;
+    if (!batch.length) return (await pendingScanTrees(ctx.db, scope, g)) === 0 ? "done" : "wait";
     for (const t of batch) {
-      if (capped()) return false;
+      if (capped()) return "yield";
       try {
         const r = await ctx.client.get(conn, repoEndpoint(repo.full_name, `/git/trees/${t.tree_sha}`), undefined, [404, 409, 422]);
         if (r.status !== 200) throw new GithubApiError(`tree ${t.tree_sha} is not available (HTTP ${r.status})`, r.status, "tree_gone");
@@ -622,13 +632,13 @@ function entriesOf(tree: unknown, prefix: string): StagedEntry[] {
   return out;
 }
 
-/** Fetch every pending blob; true when none is pending. */
-async function fetchBlobs(ctx: Ctx, conn: GithubConnectionRef, repo: RepoRow, scope: RefScope, g: number, capped: () => boolean): Promise<boolean> {
+/** Fetch every pending blob of the generation. */
+async function fetchBlobs(ctx: Ctx, conn: GithubConnectionRef, repo: RepoRow, scope: RefScope, g: number, capped: () => boolean): Promise<Step> {
   for (;;) {
     const batch = await nextPendingBlobs(ctx.db, scope, g, 50);
-    if (!batch.length) return (await pendingBlobCount(ctx.db, scope, g)) === 0;
+    if (!batch.length) return (await pendingBlobCount(ctx.db, scope, g)) === 0 ? "done" : "wait";
     for (const b of batch) {
-      if (capped()) return false;
+      if (capped()) return "yield";
       try {
         const r = await ctx.client.get(conn, repoEndpoint(repo.full_name, `/git/blobs/${b.blob_sha}`), undefined, [404, 409, 422]);
         if (r.status !== 200) throw new GithubApiError(`blob ${b.blob_sha} is not available (HTTP ${r.status})`, r.status, "blob_unavailable");

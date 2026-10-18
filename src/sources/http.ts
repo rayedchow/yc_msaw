@@ -519,6 +519,30 @@ export async function nangoRecordsRoute(
   }
 }
 
+const JiraProjectRef = z.string().regex(/^[A-Za-z0-9][A-Za-z0-9_.-]{0,63}$/);
+const JiraSelectionSchema = z
+  .object({
+    connectionId: z.string().min(1).max(256).optional(),
+    cloudId: z.string().min(1).max(128).optional(),
+    mode: z.enum(["all", "projects"]),
+    projects: z.array(JiraProjectRef).max(500).optional(),
+  })
+  .strict();
+
+/**
+ * Jira deep-lane project selection forwarded to runtime providers/jira. Strict body: which of the
+ * tenant's own Jira connection/site and which projects; tenant and user come from the verified
+ * principal, and the runtime checks the connection belongs to that tenant.
+ */
+export async function jiraSelectionRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: "get" | "put"): Promise<Response> {
+  try {
+    const body = action === "put" ? JiraSelectionSchema.parse(await readOptionalJson(request)) : undefined;
+    return relay(await runtime.jiraSelection(principal, action, body));
+  } catch (e) {
+    return e instanceof SourceError || e instanceof TraceIngestError || e instanceof z.ZodError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
+  }
+}
+
 /** Google provider-grant setup forwarded to runtime providers/google-auth; strict bodies (no tenant/user fields). */
 export async function googleAuthRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: GoogleAuthAction, email?: string): Promise<Response> {
   try {

@@ -94,19 +94,21 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/queue/dispatch.ts": {
     status: "patched",
-    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync. confluence patch request 1: startNangoPolling schedules confluence.sweep (own group) for Confluence.",
+    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync. confluence patch request 1: startNangoPolling schedules confluence.sweep (own group) for Confluence. jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira.",
     test: "tests/source-lane/core/shared-patches.test.ts",
-    tests: ["tests/source-lane/core/shared-patches-confluence.test.ts"],
+    tests: ["tests/source-lane/providers/jira/shared-patches.test.ts", "tests/source-lane/core/shared-patches-confluence.test.ts"],
   },
   "src/integrations/nango/tasks.ts": {
     status: "patched",
-    reason: "confluence patch request 2: disableNangoPollSchedule also disables the Confluence deep sweep schedule (its own group key).",
+    reason: "confluence patch request 2: disableNangoPollSchedule also disables the Confluence deep sweep schedule (its own group key). jira patch request 2: also disables the Jira deep sweep.",
     test: "tests/source-lane/core/shared-patches-confluence.test.ts",
+    tests: ["tests/source-lane/providers/jira/shared-patches.test.ts"],
   },
   "src/integrations/atlassian/processors.ts": {
     status: "patched",
-    reason: "confluence patch request 3: Confluence page/comment raw ids use the Confluence version number (nango:confluence:<model>:<id>:v<N>, tombstones :deleted:<at>) instead of the per-delivery Nango cursor.",
+    reason: "confluence patch request 3: Confluence page/comment raw ids use the Confluence version number (nango:confluence:<model>:<id>:v<N>, tombstones :deleted:<at>) instead of the per-delivery Nango cursor. jira patch request 3: a slim Jira Issue record no longer overwrites the richer issue_detail mirror of the same or newer update.",
     test: "tests/source-lane/core/shared-patches-confluence.test.ts",
+    tests: ["tests/source-lane/providers/jira/shared-patches.test.ts"],
   },
   "src/integrations/registry.ts": {
     status: "patched",
@@ -125,8 +127,14 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/integrations/nango/webhook.ts": {
     status: "patched",
-    reason: "nango-expansion request 2: only X-Nango-Hmac-Sha256 (HMAC-SHA256 of the raw body with the webhook signing key, NANGO_WEBHOOK_SECRET) authorizes; the legacy plain-SHA256 X-Nango-Signature and the API-key fallback are refused; verified deliveries claimed by the generic records lane are delegated to it.",
+    reason: "nango-expansion request 2: only X-Nango-Hmac-Sha256 (HMAC-SHA256 of the raw body with the webhook signing key, NANGO_WEBHOOK_SECRET) authorizes; the legacy plain-SHA256 X-Nango-Signature and the API-key fallback are refused; verified deliveries claimed by the generic records lane are delegated to it. jira patch request 4: forwarded Jira provider webhooks queue a by-id refresh in the Jira deep lane (tenant from the connections table; body never stored).",
     test: "tests/integrations/nango/webhook.test.ts",
+    tests: ["tests/source-lane/providers/jira/shared-patches.test.ts"],
+  },
+  "src/integrations/nango/proxy-details.ts": {
+    status: "patched",
+    reason: "jira patch request 5: the Jira deletion-reconcile ids listing uses bounded JQL (created >= 1970-01-01) that the enhanced search/jql accepts, and the captured-issue map takes the newest key instead of max(key) so a moved issue's correct mirror path is deleted (query bound unverified against live Atlassian; reconcile stays fail-soft).",
+    test: "tests/source-lane/providers/jira/shared-patches.test.ts",
   },
   "src/mirror/backfill.ts": {
     status: "patched",

@@ -501,7 +501,9 @@ async function reconcileJiraIssueDeletions(
         connectionId: ctx.connectionId,
         endpoint: `/ex/jira/${site.cloudId}/rest/api/3/search/jql`,
         params: {
-          jql: "ORDER BY created ASC",
+          // SOURCE-LANE PATCH (jira request 5): enhanced search rejects unbounded JQL; a created
+          // restriction that matches every issue keeps the listing complete. VERIFY-LIVE.
+          jql: 'created >= "1970-01-01" ORDER BY created ASC',
           fields: "id",
           maxResults: JIRA_DELETION_LISTING_PAGE_SIZE,
           ...(nextPageToken ? { nextPageToken } : {}),
@@ -583,7 +585,9 @@ async function capturedJiraIssues(executor: NangoExecutor, tenantId: string): Pr
     await executor.execute(sql`
       SELECT
         raw_payload->>'id' AS issue_id,
-        max(raw_payload->>'key') AS issue_key,
+        -- SOURCE-LANE PATCH (jira request 5): the newest captured key (a moved issue), not max().
+        (array_agg(raw_payload->>'key' ORDER BY COALESCE(source_updated_at, timestamp) DESC, created_at DESC)
+          FILTER (WHERE raw_payload->>'key' IS NOT NULL))[1] AS issue_key,
         bool_or(event_type LIKE '%.deleted') AS tombstoned
       FROM activity_events
       WHERE user_id = ${tenantId}

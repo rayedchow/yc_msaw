@@ -273,6 +273,16 @@ export async function disableNangoPollSchedule(
         AND group_key = ${`${tenantId}:confluence:sweep`}
     `);
   }
+  // SOURCE-LANE PATCH (jira request 2): the Jira deep sweep has its own group key.
+  if (provider.trim().toLowerCase() === "jira") {
+    await executor.execute(sql`
+      UPDATE task_schedules
+      SET enabled = false, updated_at = now()
+      WHERE tenant_id = ${tenantId}
+        AND kind = 'jira.sweep'
+        AND group_key = ${`${tenantId}:jira:sweep`}
+    `);
+  }
 }
 
 export async function loadStoredCursor(

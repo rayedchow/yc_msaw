@@ -151,6 +151,11 @@ export class SourceRuntimeClient {
     }
   }
 
+  /** Jira deep-lane project selection (runtime providers/jira/routes.ts). Fixed routes; the tenant is the verified principal's. */
+  jiraSelection(p: Principal, action: "get" | "put", body?: unknown): Promise<RuntimeResponse> {
+    return action === "get" ? this.#call(p, "GET", "/jira/selection") : this.#call(p, "PUT", "/jira/selection", body ?? {});
+  }
+
   /** Device enrolment (e.g. the Mac iMessage uploader token), implemented by the provider's internal route. */
   device(p: Principal, provider: string, body: unknown): Promise<RuntimeResponse> {
     assertProvider(provider);

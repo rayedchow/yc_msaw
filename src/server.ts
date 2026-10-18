@@ -28,6 +28,7 @@ import {
   googleAuthRoute,
   codingSessionsDeviceSetupRoute,
   imessageDeviceSetupRoute,
+  jiraSelectionRoute,
   listBindingsRoute,
   nangoRecordsRoute,
   provisionRuntimeRoute,
@@ -576,6 +577,17 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;
         return nangoRecordsRoute(c.req.raw, principal, runtime, "sync");
+      });
+      // Jira deep-lane project selection (runtime providers/jira; jira patch request 6).
+      server.get("/v1/sources/jira/selection", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+        if (principal instanceof Response) return principal;
+        return jiraSelectionRoute(c.req.raw, principal, runtime, "get");
+      });
+      server.put("/v1/sources/jira/selection", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return jiraSelectionRoute(c.req.raw, principal, runtime, "put");
       });
       server.post("/v1/sources/devices/:provider", async (c) => {
         // Collection scope (traces:write) or admin; checked in the route.

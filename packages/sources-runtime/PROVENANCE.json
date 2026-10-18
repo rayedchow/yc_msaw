@@ -827,6 +827,28 @@
       ]
     },
     {
+      "path": "drizzle/9250_jira_source_lane.sql",
+      "sha256": "6d36cefc4270311b2a358dd806f8f4d34c955a6d28297d213a8de3ee34b125a6",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Jira deep-lane tables: quota bucket per OAuth app x site, connection discovery, sites+scopes+selection hash, server-bound project selection, sync generations, restart-safe work queue, current objects keyed by numeric id (key is data), append-only raw records (observations + every changelog history), <=8 MiB byte chunks; journal triggers via source_lane_journal_row with lifecycle columns ignored.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "drizzle/9251_jira_sweep_schedules.sql",
+      "sha256": "99b0822cc1f49baa09e8c62e9d0139d66763de454f82822f9b2b60a19e3e37fc",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Schedules jira.sweep for tenants already connected at install (idempotent); new connections need patch request jira#1.",
+      "tests": [
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
       "path": "drizzle/9550_imessage_device_ingest.sql",
       "sha256": "a90496678f6b14512efca3fceac38d1f7f2804642af7ed9a207d143912fc5349",
       "status": "new",
@@ -1029,14 +1051,15 @@
     },
     {
       "path": "src/integrations/atlassian/processors.ts",
-      "sha256": "414aa6be9598abef6b13eaee5eef732bf23b7180952bf61f7ac970dd0a95a2b4",
+      "sha256": "383d6d83b84da3dea7c5bff767a2a42ed81356ee703bbcac6c0f27fd2e309a7a",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/atlassian/processors.ts",
       "donorSha256": "a814645a8578e03bbc5e3db415455482c5fef17de241b97d205abd99527689aa",
-      "reason": "confluence request 3 (see DECLARED_OVERRIDES).",
+      "reason": "confluence request 3 (see DECLARED_OVERRIDES). jira patch request 3: a slim Jira Issue record no longer overwrites the richer issue_detail mirror of the same or newer update.",
       "tests": [
-        "tests/source-lane/core/shared-patches-confluence.test.ts"
+        "tests/source-lane/core/shared-patches-confluence.test.ts",
+        "tests/source-lane/providers/jira/shared-patches.test.ts"
       ]
     },
     {
@@ -1666,10 +1689,15 @@
     },
     {
       "path": "src/integrations/nango/proxy-details.ts",
-      "sha256": "6331fdda628b2d242d0be3cd0242afd22fad44aa26d849035493e846d2e60687",
-      "status": "verbatim",
+      "sha256": "7def4e8893d0575901f1bda7ffb8a08b2ee1e2ab02c61f153780e267fd4cc50e",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/integrations/nango/proxy-details.ts",
-      "donorSha256": "6331fdda628b2d242d0be3cd0242afd22fad44aa26d849035493e846d2e60687"
+      "donorSha256": "6331fdda628b2d242d0be3cd0242afd22fad44aa26d849035493e846d2e60687",
+      "reason": "jira patch request 5 (see DECLARED_OVERRIDES).",
+      "tests": [
+        "tests/source-lane/providers/jira/shared-patches.test.ts"
+      ]
     },
     {
       "path": "src/integrations/nango/proxy-issues.ts",
@@ -1694,14 +1722,15 @@
     },
     {
       "path": "src/integrations/nango/tasks.ts",
-      "sha256": "7708848fd553c3d251339a570427abbe05f90ada508ac20f412b58a732c1444c",
+      "sha256": "4244a46ca0e7b824de752112b5937d833ae507d57cbf17bdef208fb3671bb437",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/nango/tasks.ts",
       "donorSha256": "91f2cf584be4a011f257429adecc68c4db78c7f912c57e87c9f0dadd3e6ffdea",
-      "reason": "confluence request 2 (see DECLARED_OVERRIDES).",
+      "reason": "confluence request 2 (see DECLARED_OVERRIDES). jira patch request 2: also disables the Jira deep sweep.",
       "tests": [
-        "tests/source-lane/core/shared-patches-confluence.test.ts"
+        "tests/source-lane/core/shared-patches-confluence.test.ts",
+        "tests/source-lane/providers/jira/shared-patches.test.ts"
       ]
     },
     {
@@ -1718,14 +1747,15 @@
     },
     {
       "path": "src/integrations/nango/webhook.ts",
-      "sha256": "feb4624326a9a8c26f694f9ac9a2ea203878d2dcb424e31aca6f0aa27d256602",
+      "sha256": "94e88b27efc85da9242c0c4eb04b4d14f7113d9e20731d8a62c9b8087ce17e1c",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/nango/webhook.ts",
       "donorSha256": "2efde81d06638862e4e79c01424364637d8b138b72e7f3ff7b3796dd804c5402",
-      "reason": "nango-expansion request 2 (see DECLARED_OVERRIDES).",
+      "reason": "nango-expansion request 2 (see DECLARED_OVERRIDES). jira patch request 4: forwarded Jira provider webhooks queue a by-id refresh in the Jira deep lane (tenant from the connections table; body never stored).",
       "tests": [
         "tests/integrations/nango/webhook.test.ts",
+        "tests/source-lane/providers/jira/shared-patches.test.ts",
         "tests/source-lane/providers/nango-records/shared-patches.test.ts"
       ]
     },
@@ -2368,15 +2398,16 @@
     },
     {
       "path": "src/queue/dispatch.ts",
-      "sha256": "12e23c20037f852fca83358590e758f7f14bd7cb8a101f3d914c6ae0f40cd2aa",
+      "sha256": "d97666993c12222df6ae7cecab5e9f34846205907834285afa61187b4ff34b3e",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/queue/dispatch.ts",
       "donorSha256": "3efb36af346a94abf50a50e44472ab50583eef8379193e2cb15befd9f3548bd0",
-      "reason": "calendar-contacts request 4 + confluence request 1 (see DECLARED_OVERRIDES).",
+      "reason": "calendar-contacts request 4 + confluence request 1 (see DECLARED_OVERRIDES). jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira.",
       "tests": [
+        "tests/source-lane/core/shared-patches-confluence.test.ts",
         "tests/source-lane/core/shared-patches.test.ts",
-        "tests/source-lane/core/shared-patches-confluence.test.ts"
+        "tests/source-lane/providers/jira/shared-patches.test.ts"
       ]
     },
     {
@@ -3366,6 +3397,177 @@
       "reason": "Instagram personal provider module.",
       "tests": [
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/api.ts",
+      "sha256": "27373718b36dc1abae9f2b52f75dfdf17f5761d85ec034f637f798b6057ff8d7",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Jira REST v3 client through the authenticated Nango proxy: 429/503 raise with Retry-After / X-RateLimit-Reset (never sleeps), /rest/api/3/ paths only, manual redirects (credential never leaves the proxy; media host gets no credential), streamed exact attachment bytes with size cap.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/nango/proxy-details.ts",
+          "use": "Atlassian routing /ex/jira/<cloudId>/rest/api/3 and accessible-resources"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/coverage.ts",
+      "sha256": "85f264e2d5a469b4485cc9e9cc9323dce2c799697eb32af7a56b380b05b6a690",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Truthful coverage per (connection, site): complete only when the full pass, changelogs, comments, attachment bytes and access are complete and delta/full pass are current; history always partial; donor lanes partial; multi-site donor collision disclosed.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/export-map.ts",
+      "sha256": "9aa055518b09575ba2b1cd3a11748f9953462bce9da96ce4d933ac5995b8c981",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Exporters for jira_source_* tables (raw jsonb text spliced verbatim, chunked binary bytes, moved/tombstoned path deletes with Jira reasons) and export-time donor mirror cleanup keyed by numeric issue id (newest of donor ledger vs deep lane decides current key; disabled for multi-site tenants).",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "donor mirror envelope externalId = numeric issue id"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/identity.ts",
+      "sha256": "e15da554555c99373fb57668dced7fb682b077a51795aaa21d72112ee73717bd",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Per (connection, cloudId) row keys from numeric provider ids; quota key = OAuth app x site.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/index.ts",
+      "sha256": "d5f90e99ca66f11de8f49d62c5a729d0bfb17e6cf8246125daa0b0122013aeee",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Jira module: replaces the core baseline (oldSha256) with mapEvent/mapMirror (donor mirror cleanup), extraTables, coverage, internalRoutes and taskHandlers.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/paths.ts",
+      "sha256": "890495ae771c10a18a97e2f9a626c0bb529a5bc5e341eb0bacf6df781a6294cf",
+      "status": "new",
+      "owner": "jira",
+      "reason": "sources/jira/_sites/<cloud>/<conn>/ layout placed by current issue key (moves re-place, old paths deleted); id-keyed append-only _raw/; donor mirror path parser and donor segment rule.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "donor mirror path sources/jira/<PROJECT>/<KEY>.md and atlassianPathSegment rule"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/render.ts",
+      "sha256": "2ae3ab7e550e3af9529bfdc2ad4449d522ed34d7aa7a890e2f0835924af08606",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Readable issue/changelog/project projections; ADF through the donor adfToMarkdown (imported, unchanged); donor issue layout (metadata list, ## Description, ### Comment <id>) plus identity, access state, attachments and full changelog.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "renderJiraIssue layout and person/named-value rules"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/atlassian/adf.ts",
+          "use": "ADF conversion (imported, not copied)"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/routes.ts",
+      "sha256": "f43a25e2e42f33733f6e1820efcbc7ed588ec913d7ca4a9640145ae2d44eedff",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Internal API GET/PUT /tenants/:tenantId/jira/selection: tenant from core-verified principal, memory:read/memory:build scopes required, strict body, connection must be the tenant's own.",
+      "tests": [
+        "tests/source-lane/providers/jira/selection-donor.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/store.ts",
+      "sha256": "0c0d3104860f6121e5fdccbd36db7245a7be50d0470ee42b3a12ddb22940bd4d",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Durable deep-lane state (tenant+site scoped SQL): sites, selection, generations, work queue with restart/rearm checkpoint semantics, objects, tombstone vs inaccessible, append-only records, chunked blobs, quota cooldown/lease.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/sweep.ts",
+      "sha256": "2b1a34ef687c9e353960436102dfe0883587f28ab444e0a9bf1fe5f70580cb03",
+      "status": "new",
+      "owner": "jira",
+      "reason": "jira.sweep: projects -> bounded per-project JQL (fields=*all, expand=changelog, nextPageToken checkpointed) -> full changelog paging, comment paging + 404-confirmed deletions, attachment bytes; permission-aware confirms (404 is deletion only with BROWSE_PROJECTS and no security level/visibility); relative-JQL delta with watermark advanced only after exhaustion; selection; webhook hints by id; Retry-After cooldown per Atlassian bucket.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/nango/proxy-details.ts",
+          "use": "search/jql fields=*all expand=changelog capture, comment-overflow paging, 404-only deletion confirmation, fail-soft reconcile semantics"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/jira/webhook.ts",
+      "sha256": "ab73502958f94280ccaf60a965b623fdc9729d2765c212ebcfba2915134d0ff9",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Nango forward webhook hint for Jira: tenant from connections table, issue id queued for by-id refresh, body never stored (wired by patch request jira#4).",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts"
       ]
     },
     {
@@ -4866,6 +5068,93 @@
       "reason": "Test of the production iMessage receiver.",
       "tests": [
         "tests/source-lane/providers/imessage/mac-config.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/jira/deep-lane.test.ts",
+      "sha256": "08135948ff190c4ea1eb8597a4ea3f037c2ed0451eb32ad7758afc8b23062522",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Production sweep/exporter/coverage tests: full capture, paged changelog, exact bytes, moved issue, comment edit/delete/restricted, permission loss vs deletion, Retry-After resume, shared bucket, delta watermark, hints.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/jira/fake-jira.ts",
+      "sha256": "3cb47e4c2aa19073bf133e9ed67bba21a995142ff13f3c03192220b2575daa42",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Synthetic Jira Cloud behind a fake Nango proxy (no real data).",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/jira/fixtures.ts",
+      "sha256": "f5aad0ac45c6aafc932a7df2b21c6bb17ad067fa3a0b4870e3a662ac9ae2009d",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Synthetic fixtures and sweep/export helpers.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/jira/harness.ts",
+      "sha256": "389bde17c6f7599cc495f2539c329fd4e4a78db37ff726055540158a66dfe747",
+      "status": "new",
+      "owner": "jira",
+      "reason": "PGlite harness with real donor + lane migrations.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/jira/runtime-pg.test.ts",
+      "sha256": "07cb2f5a6bee24ace49c3c5dfbc58925890d889ae7791ab60bbc70d8a2232757",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Real PostgreSQL (own database, all source-lane migrations): multi-chunk bytea bytes, paged changelog, move and delete through real SQL.",
+      "tests": [
+        "tests/source-lane/providers/jira/runtime-pg.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/jira/selection-donor.test.ts",
+      "sha256": "188b934ce8db874b4a6f834ee5cb1f03530136fb7e169a9fdd3e14beb095a2d8",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Selection routes and effect, donor mirror cleanup through the real donor processor, client transport units, size limits, auth block, trash.",
+      "tests": [
+        "tests/source-lane/providers/jira/selection-donor.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/jira/shared-patches.test.ts",
+      "sha256": "4d8a353c867438fc03e948711dcf99549165cd548e463ade2743fb6d193ceeff",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Jira shared-patch regressions (applied by coordinator).",
+      "tests": [
+        "tests/source-lane/providers/jira/shared-patches.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/jira/yc-store.ts",
+      "sha256": "66d8984047a698edcd345e2bdc4c0258789b70c40d4b688d0266c72d01ddce43",
+      "status": "new",
+      "owner": "jira",
+      "reason": "Publish target applying the wire protocol to the real yc_msaw SourceStore.",
+      "tests": [
+        "tests/source-lane/providers/jira/deep-lane.test.ts",
+        "tests/source-lane/providers/jira/selection-donor.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
       ]
     },
     {
