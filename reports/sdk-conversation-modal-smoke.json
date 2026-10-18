@@ -1,0 +1,177 @@
+{
+  "kind": "sdk-conversation-modal-smoke",
+  "at": "2026-10-18T00:07:13.265Z",
+  "scope": "Separate OS processes and actual Modal object storage; synthetic receipt clocks cross midnight; no vendor/model calls",
+  "namespace": "conv-smoke-mvd2f7dj",
+  "checks": [
+    {
+      "name": "realModal.acceptedBeforeLostAck",
+      "ok": true,
+      "details": {
+        "pid": 93791,
+        "mode": "write",
+        "acks": [
+          {
+            "status": "created",
+            "sessionId": "ses-restart-root",
+            "chunkSeq": 1,
+            "day": "2026-10-16",
+            "key": "traces/2026-10-16/ses-restart-root/chunk-000001.jsonl.gz"
+          }
+        ],
+        "checkpoint": {
+          "seq": 2,
+          "chunkSeq": 1,
+          "pending": 1
+        }
+      }
+    },
+    {
+      "name": "restart.separateOSProcess",
+      "ok": true,
+      "details": {
+        "firstPid": 93791,
+        "secondPid": 93859
+      }
+    },
+    {
+      "name": "restart.sameChunkDeduplicated",
+      "ok": true
+    },
+    {
+      "name": "conversation.stableAcrossRestart",
+      "ok": true
+    },
+    {
+      "name": "child.inheritsIdentityAndParent",
+      "ok": true
+    },
+    {
+      "name": "conversation.membersIndexed",
+      "ok": true,
+      "details": {
+        "members": [
+          {
+            "conversationId": "customer-thread/verification",
+            "conversationSource": "explicit",
+            "day": "2026-10-16",
+            "parentSessionId": null,
+            "parentSpanId": null,
+            "previousRunId": null,
+            "runId": "run-original",
+            "schema": "procmem.conversation-member/v1",
+            "sessionId": "ses-restart-root"
+          },
+          {
+            "conversationId": "customer-thread/verification",
+            "conversationSource": "explicit",
+            "day": "2026-10-17",
+            "parentSessionId": "ses-restart-root",
+            "parentSpanId": "spawn.child",
+            "previousRunId": null,
+            "runId": "run-original",
+            "schema": "procmem.conversation-member/v1",
+            "sessionId": "ses-restart-child"
+          }
+        ]
+      }
+    },
+    {
+      "name": "tenant.isolated",
+      "ok": true
+    },
+    {
+      "name": "daily.onlyNewChunks",
+      "ok": true
+    },
+    {
+      "name": "daily.linksAlreadyProcessedHistory",
+      "ok": true,
+      "details": {
+        "coverage": {
+          "sessionId": "ses-restart-root",
+          "correlation": {
+            "conversationId": "customer-thread/verification",
+            "conversationSource": "explicit",
+            "runId": "run-original"
+          },
+          "cohort": {
+            "chunkSeqs": [
+              2,
+              3
+            ],
+            "firstSeq": 3,
+            "lastSeq": 4,
+            "events": 2
+          },
+          "prior": {
+            "chunks": 1,
+            "firstSeq": 1,
+            "lastSeq": 2,
+            "days": [
+              "2026-10-16"
+            ],
+            "processedChunks": 1,
+            "unprocessedChunkSeqs": [],
+            "interleavedChunkSeqs": [],
+            "chunkSeqs": [
+              1
+            ]
+          },
+          "laterChunks": 0,
+          "startsSession": false
+        }
+      }
+    },
+    {
+      "name": "builder.inputsMaterialized",
+      "ok": true,
+      "details": {
+        "files": 6
+      }
+    },
+    {
+      "name": "builder.archiveContainsBothDays",
+      "ok": true,
+      "details": {
+        "schema": "procmem.trace-archive/v1",
+        "sha256": "b9ce72e3403efb99ffc6d802663865459b36f394523b8215c25c74fcff85c884",
+        "disabled": false,
+        "days": 2,
+        "sessions": 2,
+        "partitions": 3,
+        "chunks": 4,
+        "events": 7,
+        "files": 12,
+        "bytes": 146767,
+        "firstDay": "2026-10-16",
+        "lastDay": "2026-10-17"
+      }
+    },
+    {
+      "name": "builder.fullPayloadPreserved",
+      "ok": true,
+      "details": {
+        "payloadBytes": 132051,
+        "payloadSha256": "054738071fd9466fa0c14e502797299f907cbf6d9aada4f94fa9e4e08ba6998f"
+      }
+    },
+    {
+      "name": "events.noLossOrDuplicate",
+      "ok": true,
+      "details": {
+        "seqs": [
+          1,
+          2,
+          3,
+          4
+        ],
+        "turnIds": [
+          "turn-original",
+          "turn-after-restart"
+        ]
+      }
+    }
+  ],
+  "verificationScript": "scripts/sdk-conversation-modal-smoke.mjs"
+}

@@ -1,11 +1,16 @@
 import { createHash, randomBytes } from "node:crypto";
 import {
+  ConversationIdSchema,
+  CorrelationSchema,
   MAX_BLOB_BYTES,
   MAX_CHUNK_BYTES,
   MAX_CHUNK_EVENTS,
   SESSION_ID_RE,
+  TraceChunkSchema,
   TraceEventSchema,
+  TraceIdSchema,
   type AgentInfo,
+  type TraceCorrelation,
   type BlobRef,
   type OutcomeStatus,
   type TraceChunk,
@@ -15,6 +20,7 @@ import {
   type TraceUsage,
 } from "../traces/schema.js";
 import { TraceTransportError, type ChunkAck, type TraceTransport } from "./transport.js";
+import { blobObjectKeyFor, chunkObjectKeyFor, OUTBOX_FORMAT, parseCheckpoint, TraceOutboxError, type OutboxCheckpoint, type TraceOutboxStore } from "./outbox.js";
 
 /**
  * Customer-side trace capture SDK.
@@ -38,6 +44,17 @@ import { TraceTransportError, type ChunkAck, type TraceTransport } from "./trans
  * chunk stays queued and is retried on the next flush. Permanent 4xx failures
  * are surfaced as TraceDeliveryError (thrown from flush()/finish(), pushed to
  * `session.errors` / `recorder.errors`, and passed to onError).
+ *
+ * Correlation (first-class, on every chunk): conversationId (stable logical conversation: host thread id, native
+ * harness session id, or generated), runId (one execution attempt; retries are new runs of the same conversation),
+ * child sessions (parentSessionId/parentSpanId), and per-event turnId/spanId/parentSpanId. Calendar days never
+ * delimit conversations.
+ *
+ * Durability (opt-in `outbox`): record() is synchronous and IN MEMORY. Events become crash-safe only once a flush()
+ * or checkpoint() has persisted them to the outbox (the background timer flushes every flushIntervalMs). Await
+ * `session.checkpoint()` at harness boundaries (end of a user turn, before a risky step) to make everything recorded
+ * so far durable without waiting for delivery. After a restart, `recorder.resume(sessionId)` continues the session:
+ * unacked chunks are resent with the same chunkSeq/bytes (server-deduplicated) and seq/chunkSeq are never reused.
  */
 
 export const REDACTED = "[REDACTED]";
@@ -61,6 +78,8 @@ export interface TraceRecorderOptions {
   blobThresholdBytes?: number;
   now?: () => Date;
   onError?: (error: TraceDeliveryError) => void;
+  /** Opt-in durable outbox (e.g. new FileTraceOutbox(dir)); see TraceOutboxStore. */
+  outbox?: TraceOutboxStore;
 }
 
 export interface RecordExtra {
@@ -68,12 +87,34 @@ export interface RecordExtra {
   ts?: string | Date;
   /** Per-event agent overrides (e.g. the model actually used for this call). */
   agent?: Partial<AgentInfo>;
+  /** User turn (defaults to the session's current turn from startTurn()). Pass null to record outside any turn. */
+  turnId?: string | null;
+  /** Span this event belongs to (model request, tool call, nested agent) and its parent span. */
+  spanId?: string;
+  parentSpanId?: string;
 }
 
 export interface BeginOptions {
   objective: string;
   sessionId?: string;
   metadata?: Record<string, unknown>;
+  /** Stable logical conversation (host thread id, native harness session id). Default: a generated id. */
+  conversationId?: string;
+  /** How conversationId was obtained (default "explicit" when given, "generated" otherwise). */
+  conversationSource?: "explicit" | "harness";
+  /** This execution attempt (default: generated). Use a NEW runId for a retry; link it with previousRunId. */
+  runId?: string;
+  previousRunId?: string;
+}
+
+export interface ChildOptions {
+  objective: string;
+  sessionId?: string;
+  metadata?: Record<string, unknown>;
+  /** Span of the parent session that spawned the child (e.g. the tool call that started a sub-agent). */
+  parentSpanId?: string;
+  /** Agent overrides for the child session's events. */
+  agent?: Partial<AgentInfo>;
 }
 
 export interface FinishOptions {
@@ -114,6 +155,14 @@ interface PendingEvent {
 interface OutboundChunk {
   chunk: TraceChunk;
   blobs: NonNullable<PendingEvent["blob"]>[];
+  /** Outbox entry once persisted (durable sessions). */
+  entry?: OutboxCheckpoint["pending"][number];
+}
+
+interface SessionInit {
+  parent: TraceSession | null;
+  agent: AgentInfo;
+  resumed?: { checkpoint: OutboxCheckpoint; chunks: OutboundChunk[] };
 }
 
 const CHUNK_ENVELOPE_BYTES = 16 * 1024;
@@ -138,9 +187,20 @@ export function newSessionId(): string {
   return `ses-${Date.now().toString(36)}-${randomBytes(6).toString("hex")}`;
 }
 
+/** Fresh id with a time prefix and 48 random bits (never reused across restarts). */
+export function newTraceId(prefix: string): string {
+  return `${prefix}-${Date.now().toString(36)}-${randomBytes(6).toString("hex")}`;
+}
+
+function checkId(value: string, what: string): string {
+  const r = TraceIdSchema.safeParse(value);
+  if (!r.success) throw new Error(`${what} ${JSON.stringify(value)} is invalid: ${r.error.issues[0]?.message ?? "invalid"}`);
+  return value;
+}
+
 export class TraceRecorder {
   readonly errors: TraceDeliveryError[] = [];
-  readonly opts: Required<Omit<TraceRecorderOptions, "redact" | "redactKeys" | "onError">> & Pick<TraceRecorderOptions, "redact" | "onError">;
+  readonly opts: Required<Omit<TraceRecorderOptions, "redact" | "redactKeys" | "onError" | "outbox">> & Pick<TraceRecorderOptions, "redact" | "onError" | "outbox">;
   readonly redactKeys: Set<string>;
 
   constructor(options: TraceRecorderOptions) {
@@ -161,6 +221,7 @@ export class TraceRecorder {
       now: options.now ?? (() => new Date()),
       redact: options.redact,
       onError: options.onError,
+      outbox: options.outbox,
     };
     this.redactKeys = new Set((options.redactKeys ?? []).map((k) => k.toLowerCase()));
   }
@@ -168,9 +229,93 @@ export class TraceRecorder {
   begin(options: BeginOptions): TraceSession {
     const sessionId = options.sessionId ?? newSessionId();
     if (!SESSION_ID_RE.test(sessionId)) throw new Error(`sessionId must match ${SESSION_ID_RE} (lowercase, 3-96 chars)`);
-    const session = new TraceSession(this, sessionId);
-    session.record("session_start", { objective: options.objective, ...(options.metadata ? { metadata: options.metadata } : {}) });
+    if (options.conversationId !== undefined) {
+      const r = ConversationIdSchema.safeParse(options.conversationId);
+      if (!r.success) throw new Error(`conversationId ${JSON.stringify(options.conversationId)} is invalid: ${r.error.issues[0]?.message ?? "invalid"}`);
+    }
+    const correlation: TraceCorrelation = {
+      conversationId: options.conversationId ?? newTraceId("cv"),
+      runId: checkId(options.runId ?? newTraceId("run"), "runId"),
+      conversationSource: options.conversationId === undefined ? "generated" : (options.conversationSource ?? "explicit"),
+      ...(options.previousRunId ? { previousRunId: checkId(options.previousRunId, "previousRunId") } : {}),
+    };
+    return this.#start(sessionId, correlation, options.objective, options.metadata, null);
+  }
+
+  /** @internal */
+  startChild(parent: TraceSession, options: ChildOptions): TraceSession {
+    const sessionId = options.sessionId ?? newSessionId();
+    if (!SESSION_ID_RE.test(sessionId)) throw new Error(`sessionId must match ${SESSION_ID_RE} (lowercase, 3-96 chars)`);
+    if (sessionId === parent.sessionId) throw new Error("a child session needs its own sessionId");
+    const correlation: TraceCorrelation = {
+      conversationId: parent.correlation.conversationId,
+      runId: parent.correlation.runId,
+      conversationSource: parent.correlation.conversationSource,
+      parentSessionId: parent.sessionId,
+      ...(options.parentSpanId ? { parentSpanId: checkId(options.parentSpanId, "parentSpanId") } : {}),
+    };
+    return this.#start(sessionId, correlation, options.objective, options.metadata, parent, options.agent);
+  }
+
+  #start(sessionId: string, correlation: TraceCorrelation, objective: string, metadata: Record<string, unknown> | undefined, parent: TraceSession | null, agent?: Partial<AgentInfo>): TraceSession {
+    const parsed = CorrelationSchema.safeParse(correlation);
+    if (!parsed.success) throw new Error(`Invalid correlation: ${parsed.error.issues.map((i) => i.message).join("; ")}`);
+    const session = new TraceSession(this, sessionId, parsed.data, { parent, agent: agent ? { ...this.opts.agent, ...stripUndefined(agent) } : { ...this.opts.agent } });
+    session.record("session_start", { objective, ...(metadata ? { metadata } : {}) });
     return session;
+  }
+
+  /** Sessions with a checkpoint in the outbox that still have undelivered chunks or were never finished. */
+  async pendingSessions(): Promise<string[]> {
+    const outbox = this.#requireOutbox();
+    const out: string[] = [];
+    for (const sid of await outbox.listSessions()) {
+      const raw = await outbox.readCheckpoint(sid);
+      if (raw === null) continue;
+      const c = parseCheckpoint(raw, sid);
+      if (!c.finalAcked) out.push(sid);
+    }
+    return out;
+  }
+
+  /**
+   * Continue a session from the durable outbox after a restart. Verifies the checkpoint and every pending chunk/blob
+   * against its digest, takes ownership (a stale writer of the same session then fails closed), and returns a session
+   * that resends unacked chunks on flush() and keeps assigning seq/chunkSeq after the last persisted values.
+   * A session whose finish() was fully delivered is returned finished (nothing to send, nothing more to record).
+   */
+  async resume(sessionId: string): Promise<TraceSession> {
+    const outbox = this.#requireOutbox();
+    const raw = await outbox.readCheckpoint(sessionId);
+    if (raw === null) throw new TraceOutboxError("not_found", `No outbox checkpoint for session ${sessionId}`);
+    const cp = parseCheckpoint(raw, sessionId);
+    const chunks: OutboundChunk[] = [];
+    for (const entry of cp.pending) {
+      const body = await outbox.getObject(chunkObjectKeyFor(sessionId, entry.chunkSeq, entry.sha256));
+      if (!body) throw new TraceOutboxError("corrupt", `Outbox is missing the body of chunk ${entry.chunkSeq} of ${sessionId}`);
+      if (createHash("sha256").update(body).digest("hex") !== entry.sha256) throw new TraceOutboxError("corrupt", `Chunk ${entry.chunkSeq} of ${sessionId} does not match its checkpoint digest`);
+      const parsed = TraceChunkSchema.safeParse(JSON.parse(Buffer.from(body).toString("utf8")));
+      if (!parsed.success || parsed.data.sessionId !== sessionId || parsed.data.chunkSeq !== entry.chunkSeq || JSON.stringify(parsed.data.correlation) !== JSON.stringify(cp.correlation)) {
+        throw new TraceOutboxError("corrupt", `Chunk ${entry.chunkSeq} of ${sessionId} in the outbox is invalid or does not match the session`);
+      }
+      const blobs: OutboundChunk["blobs"] = [];
+      for (const b of entry.blobs) {
+        const bytes = await outbox.getObject(blobObjectKeyFor(sessionId, b.sha256));
+        if (!bytes || createHash("sha256").update(bytes).digest("hex") !== b.sha256) throw new TraceOutboxError("corrupt", `Blob ${b.sha256} of ${sessionId} is missing or corrupt in the outbox`);
+        blobs.push({ sha256: b.sha256, bytes: Buffer.from(bytes), mediaType: b.mediaType });
+      }
+      chunks.push({ chunk: parsed.data, blobs, entry });
+    }
+    const next: OutboxCheckpoint = { ...cp, revision: cp.revision + 1, updatedAt: this.opts.now().toISOString() };
+    if (!(await outbox.casCheckpoint(sessionId, cp.revision, JSON.stringify(next), next.revision))) {
+      throw new TraceOutboxError("ownership_lost", `Session ${sessionId} was changed by another writer while resuming; retry resume()`);
+    }
+    return new TraceSession(this, sessionId, cp.correlation, { parent: null, agent: cp.agent, resumed: { checkpoint: next, chunks } });
+  }
+
+  #requireOutbox(): TraceOutboxStore {
+    if (!this.opts.outbox) throw new Error("This TraceRecorder has no outbox; pass { outbox } to use durable sessions");
+    return this.opts.outbox;
   }
 
   /** @internal */
@@ -186,6 +331,7 @@ export class TraceRecorder {
 
 export class TraceSession {
   readonly errors: TraceDeliveryError[] = [];
+  readonly correlation: TraceCorrelation;
   #seq = 0;
   #chunkSeq = 0;
   #pending: PendingEvent[] = [];
@@ -195,11 +341,38 @@ export class TraceSession {
   #chain: Promise<void> = Promise.resolve();
   #finished = false;
   #finalQueued = false;
+  #finalAcked = false;
   #timer: ReturnType<typeof setInterval> | undefined;
+  #turnId: string | null = null;
+  readonly #agent: AgentInfo;
+  readonly #parent: TraceSession | null;
+  /** Durable state (when the recorder has an outbox). */
+  #checkpoint: OutboxCheckpoint | null = null;
+  #created = false;
+  #fenced: TraceOutboxError | null = null;
+  #rejected: OutboxCheckpoint["rejected"] = [];
+  /** Resolves once the server accepted this session's first chunk (children wait for it). */
+  #bound = false;
 
-  constructor(private readonly recorder: TraceRecorder, readonly sessionId: string) {
+  constructor(private readonly recorder: TraceRecorder, readonly sessionId: string, correlation: TraceCorrelation, init: SessionInit) {
+    this.correlation = correlation;
+    this.#agent = init.agent;
+    this.#parent = init.parent;
+    if (init.resumed) {
+      const cp = init.resumed.checkpoint;
+      this.#checkpoint = cp;
+      this.#created = true;
+      this.#seq = cp.seq;
+      this.#chunkSeq = cp.chunkSeq;
+      this.#finished = cp.finished;
+      this.#finalQueued = cp.finalQueued;
+      this.#finalAcked = cp.finalAcked;
+      this.#rejected = [...cp.rejected];
+      this.#outbox = init.resumed.chunks;
+      this.#bound = cp.chunkSeq > cp.pending.length; // some chunk was acked before
+    }
     const interval = recorder.opts.flushIntervalMs;
-    if (interval > 0) {
+    if (interval > 0 && !this.#finalAcked) {
       this.#timer = setInterval(() => {
         if (this.#pending.length || this.#outbox.length) void this.flush().catch(() => undefined);
       }, interval);
@@ -222,21 +395,52 @@ export class TraceSession {
   get undelivered(): { events: number; chunks: number } {
     return { events: this.#pending.length + this.#outbox.reduce((n, c) => n + c.chunk.events.length, 0), chunks: this.#outbox.length };
   }
+  /** Current user turn (from startTurn), or null. */
+  get turnId(): string | null {
+    return this.#turnId;
+  }
+  /** True once finish() was delivered in full (durable sessions: persisted as a tombstone). */
+  get delivered(): boolean {
+    return this.#finalAcked;
+  }
+
+  /** Begin a user turn; subsequent events carry this turnId until endTurn()/the next startTurn(). Returns the id. */
+  startTurn(turnId?: string): string {
+    this.#turnId = checkId(turnId ?? newTraceId("turn"), "turnId");
+    return this.#turnId;
+  }
+  endTurn(): void {
+    this.#turnId = null;
+  }
+
+  /**
+   * Child agent session in the same conversation and run (parentSessionId = this session). Before the child's first
+   * chunk is sent, this session is flushed so its correlation is bound first; if that is impossible (e.g. offline),
+   * the child is still delivered and its parent link is validated once the parent arrives.
+   */
+  child(options: ChildOptions): TraceSession {
+    return this.recorder.startChild(this, options);
+  }
 
   /** Record one event; returns its seq (usable as evidence ref `<sessionId>#<seq>`). */
   record(type: TraceEventType, data: unknown, extra: RecordExtra = {}, outcome?: TraceOutcome): number {
     if (this.#finished) throw new Error(`Trace session ${this.sessionId} is finished; cannot record ${type}`);
+    if (this.#fenced) throw this.#fenced;
     const o = this.recorder.opts;
     const ts = extra.ts === undefined ? o.now().toISOString() : typeof extra.ts === "string" ? extra.ts : extra.ts.toISOString();
+    const turnId = extra.turnId === undefined ? this.#turnId : extra.turnId;
     let event: TraceEvent = {
       sessionId: this.sessionId,
       seq: this.#seq + 1,
       ts,
       type,
-      agent: { ...o.agent, ...stripUndefined(extra.agent ?? {}) },
+      agent: { ...this.#agent, ...stripUndefined(extra.agent ?? {}) },
       data: jsonSafe(data),
       ...(extra.usage ? { usage: stripUndefined(extra.usage) } : {}),
       ...(outcome ? { outcome: jsonSafe(outcome) as TraceOutcome } : {}),
+      ...(turnId ? { turnId } : {}),
+      ...(extra.spanId ? { spanId: extra.spanId } : {}),
+      ...(extra.parentSpanId ? { parentSpanId: extra.parentSpanId } : {}),
     };
     if (this.recorder.redactKeys.size) {
       event = { ...event, data: redactDeep(event.data, this.recorder.redactKeys) };
@@ -300,16 +504,40 @@ export class TraceSession {
     return { sessionId: this.sessionId, events: this.#seq, chunks: this.#chunkSeq, errors: [...this.errors] };
   }
 
+  /**
+   * Durable sessions: form chunks from everything recorded so far and persist them to the outbox WITHOUT sending.
+   * After it resolves, those events survive a crash (resume() resends them). Without an outbox it only forms chunks.
+   */
+  checkpoint(): Promise<void> {
+    const run = async () => {
+      this.#formChunks();
+      await this.#persistFormed();
+    };
+    const p = this.#chain.then(run, run);
+    this.#chain = p.catch(() => undefined);
+    return p;
+  }
+
   /** Deliver all recorded events. Rejects with TraceDeliveryError if a chunk could not be delivered. */
   flush(): Promise<void> {
     const run = async () => {
+      if (this.#fenced) throw this.#fenced;
       this.#formChunks();
+      await this.#persistFormed();
+      if (this.#parent && !this.#bound && this.#outbox.length) {
+        // Bind the parent first (best effort): its correlation must reach the server before a child's when possible.
+        await this.#parent.flush().catch(() => undefined);
+      }
       while (this.#outbox.length) {
         const out = this.#outbox[0]!;
         try {
           await this.#deliver(out);
           this.#outbox.shift();
+          this.#bound = true;
+          if (out.chunk.final) this.#finalAcked = true;
+          await this.#persistAck(out);
         } catch (cause) {
+          if (cause instanceof TraceOutboxError) throw cause;
           const permanent = cause instanceof TraceTransportError ? !cause.retryable : false;
           const status = cause instanceof TraceTransportError ? cause.status : null;
           const events = out.chunk.events;
@@ -323,7 +551,11 @@ export class TraceSession {
             events[events.length - 1]!.seq,
             cause,
           );
-          if (permanent) this.#outbox.shift();
+          if (permanent) {
+            this.#outbox.shift();
+            this.#rejected.push({ chunkSeq: out.chunk.chunkSeq, status, message: err.message.slice(0, 2000) });
+            await this.#persistAck(out);
+          }
           this.errors.push(err);
           this.recorder.reportError(err);
           throw err;
@@ -353,8 +585,94 @@ export class TraceSession {
       this.#chunkSeq += 1;
       const isFinal = this.#finished && !this.#pending.length && !this.#finalQueued;
       if (isFinal) this.#finalQueued = true;
-      this.#outbox.push({ chunk: { sessionId: this.sessionId, chunkSeq: this.#chunkSeq, events, ...(isFinal ? { final: true } : {}) }, blobs });
+      this.#outbox.push({ chunk: { sessionId: this.sessionId, chunkSeq: this.#chunkSeq, events, ...(isFinal ? { final: true } : {}), correlation: this.correlation }, blobs });
     }
+  }
+
+  // ---------------------------------------------------------------- durable outbox
+
+  #state(): OutboxCheckpoint {
+    return {
+      format: OUTBOX_FORMAT,
+      sessionId: this.sessionId,
+      revision: (this.#checkpoint?.revision ?? 0) + 1,
+      correlation: this.correlation,
+      agent: this.#agent,
+      seq: this.#outbox.reduce((m, c) => (c.entry ? Math.max(m, c.chunk.events[c.chunk.events.length - 1]!.seq) : m), this.#lastPersistedSeq()),
+      chunkSeq: this.#outbox.reduce((m, c) => (c.entry ? Math.max(m, c.chunk.chunkSeq) : m), this.#checkpoint?.chunkSeq ?? 0),
+      finished: this.#finalQueued,
+      finalQueued: this.#finalQueued,
+      finalAcked: this.#finalAcked,
+      pending: this.#outbox.filter((c) => c.entry).map((c) => c.entry!),
+      rejected: this.#rejected,
+      updatedAt: this.recorder.opts.now().toISOString(),
+    };
+  }
+
+  #lastPersistedSeq(): number {
+    return this.#checkpoint?.seq ?? 0;
+  }
+
+  async #cas(next: OutboxCheckpoint): Promise<void> {
+    const outbox = this.recorder.opts.outbox!;
+    const expected = this.#created ? this.#checkpoint!.revision : null;
+    let ok: boolean;
+    try {
+      ok = await outbox.casCheckpoint(this.sessionId, expected, JSON.stringify(next), next.revision);
+    } catch (error) {
+      throw error instanceof TraceOutboxError ? error : new TraceOutboxError("store_error", `Outbox write for ${this.sessionId} failed: ${error instanceof Error ? error.message : String(error)}`, error);
+    }
+    if (!ok) {
+      this.#fenced = expected === null
+        ? new TraceOutboxError("session_exists", `Session ${this.sessionId} already exists in the outbox; use recorder.resume() instead of begin() (session ids are never reused)`)
+        : new TraceOutboxError("ownership_lost", `Session ${this.sessionId} was taken over by another writer (resumed elsewhere); this instance stops writing (fail closed)`);
+      throw this.#fenced;
+    }
+    this.#checkpoint = next;
+    this.#created = true;
+  }
+
+  /** Persist newly formed chunk bodies + blobs, then the checkpoint that references them. */
+  async #persistFormed(): Promise<void> {
+    const outbox = this.recorder.opts.outbox;
+    if (!outbox) return;
+    if (this.#fenced) throw this.#fenced;
+    const fresh = this.#outbox.filter((c) => !c.entry);
+    if (!fresh.length && this.#created) return;
+    for (const c of fresh) {
+      for (const b of c.blobs) await outbox.putObject(blobObjectKeyFor(this.sessionId, b.sha256), b.bytes);
+      const body = Buffer.from(JSON.stringify(c.chunk), "utf8");
+      const bodySha = createHash("sha256").update(body).digest("hex");
+      await outbox.putObject(chunkObjectKeyFor(this.sessionId, c.chunk.chunkSeq, bodySha), body);
+      c.entry = {
+        chunkSeq: c.chunk.chunkSeq,
+        sha256: bodySha,
+        firstSeq: c.chunk.events[0]!.seq,
+        lastSeq: c.chunk.events[c.chunk.events.length - 1]!.seq,
+        events: c.chunk.events.length,
+        final: c.chunk.final === true,
+        blobs: c.blobs.map((b) => ({ sha256: b.sha256, mediaType: b.mediaType, bytes: b.bytes.length })),
+      };
+    }
+    try {
+      await this.#cas(this.#state());
+    } catch (error) {
+      // Not persisted: forget the entries so the next attempt writes them again (bodies are idempotent).
+      for (const c of fresh) delete c.entry;
+      throw error;
+    }
+  }
+
+  /** After the server acked (or permanently rejected) a chunk: drop it from the checkpoint, then delete its body. */
+  async #persistAck(out: OutboundChunk): Promise<void> {
+    const outbox = this.recorder.opts.outbox;
+    if (!outbox || !out.entry) return;
+    await this.#cas(this.#state());
+    await outbox.deleteObject(chunkObjectKeyFor(this.sessionId, out.chunk.chunkSeq, out.entry.sha256)).catch(() => undefined);
+    // Blobs are scoped to this session; delete one only when no pending chunk OF THIS SESSION still references it.
+    const still = new Set(this.#outbox.flatMap((c) => c.blobs.map((b) => b.sha256)));
+    for (const b of out.blobs) if (!still.has(b.sha256)) await outbox.deleteObject(blobObjectKeyFor(this.sessionId, b.sha256)).catch(() => undefined);
+    if (this.#finalAcked && this.#timer) clearInterval(this.#timer);
   }
 
   async #deliver(out: OutboundChunk): Promise<ChunkAck> {

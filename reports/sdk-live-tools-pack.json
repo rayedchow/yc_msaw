@@ -3,7 +3,7 @@
   "labels": {
     "upstream": "SIMULATED child on loopback; real parent app on loopback"
   },
-  "at": "2026-10-17T22:02:18.879Z",
+  "at": "2026-10-18T00:08:34.449Z",
   "ok": true,
   "checks": [
     {
@@ -11,7 +11,7 @@
       "ok": true,
       "detail": {
         "tgz": "procmem-sdk-0.1.0.tgz",
-        "fileCount": 36
+        "fileCount": 40
       }
     },
     {
@@ -19,9 +19,15 @@
       "ok": true
     },
     {
+      "name": "fresh consumer: durable outbox checkpoint+resume and Pi correlation exports",
+      "ok": true
+    },
+    {
       "name": "fresh consumer imports @procmem/sdk, /live, /live/pi, /oauth",
       "ok": true,
       "detail": {
+        "durable": true,
+        "beginPiTrace": "function",
         "oauth": "function",
         "helper": "function",
         "root": "function",

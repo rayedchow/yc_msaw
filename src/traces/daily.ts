@@ -1,7 +1,9 @@
 import { assertNs, type ObjectStore } from "../store/objects.js";
+import { conversationKey } from "./schema.js";
 import { gunzipSync } from "node:zlib";
 import { canonicalJson, sha256 } from "../util.js";
 import { getBatched, listPages, readBlob, type ChunkIndexRecord } from "./ingest.js";
+import { computeCoverage, conversationMembers, parentLinkStatus, processedCache, readBindings, validateCoverageLimits, type CoverageLimits, type SessionCoverage } from "./conversation.js";
 import {
   assertDay,
   chunkIndexKey,
@@ -48,7 +50,7 @@ import {
  * dropping chunks; raise the budget to process it.
  */
 
-export interface CohortBatchOptions {
+export interface CohortBatchOptions extends CoverageLimits {
   /** Keys per list call (default 1000). */
   listPageSize?: number;
   /** Keys per get call (default 64). */
@@ -88,6 +90,11 @@ export interface DailyManifest {
   chunks: ManifestChunk[];
   sessionIds: string[];
   watermark: { createdAt: string; chunkCount: number; lastChunkKey: string | null; totalChunksForDay: number };
+  /**
+   * Per-session coverage (manifests pinned after correlation support; absent on older manifests): which chunks are
+   * NEW here, and which earlier chunks of the same session exist and were already processed. Immutable with the manifest.
+   */
+  coverage?: SessionCoverage[];
 }
 
 export interface DailyRefValue {
@@ -149,7 +156,7 @@ async function listDayChunks(store: ObjectStore, ns: string, day: string, pageSi
 }
 
 /** Describe chunks for a manifest from their (small) index records, batched; falls back to reading the chunk. */
-async function describeChunks(store: ObjectStore, ns: string, keys: string[], batch: Required<CohortBatchOptions>): Promise<ManifestChunk[]> {
+async function describeChunks(store: ObjectStore, ns: string, keys: string[], batch: Required<Pick<CohortBatchOptions, "listPageSize" | "maxGetKeys" | "maxGetBytes" | "maxInputBytes">>): Promise<ManifestChunk[]> {
   const parsed = keys.map((key) => ({ key, ...parseChunkKey(key)! }));
   const indexKeys = parsed.map((p) => chunkIndexKey(p.sessionId, p.chunkSeq));
   const records = await getBatched(store, ns, indexKeys, { maxKeys: batch.maxGetKeys, maxBytes: batch.maxGetBytes, sizeOf: () => 1024 });
@@ -178,7 +185,7 @@ async function describeChunks(store: ObjectStore, ns: string, keys: string[], ba
   return out.sort((a, b) => order.get(a.key)! - order.get(b.key)!);
 }
 
-function batchDefaults(o: CohortBatchOptions): Required<CohortBatchOptions> {
+function batchDefaults(o: CohortBatchOptions): Required<Pick<CohortBatchOptions, "listPageSize" | "maxGetKeys" | "maxGetBytes" | "maxInputBytes">> {
   return {
     listPageSize: o.listPageSize ?? 1000,
     maxGetKeys: Math.min(o.maxGetKeys ?? STORE_GET_KEYS, STORE_GET_KEYS),
@@ -195,6 +202,7 @@ export async function pinDailyManifest(
 ): Promise<PinResult> {
   assertNs(ns);
   assertDay(day);
+  validateCoverageLimits(opts);
   const now = opts.now ?? (() => new Date());
   const batch = batchDefaults(opts);
   for (let attempt = 0; attempt < 8; attempt++) {
@@ -223,6 +231,14 @@ export async function pinDailyManifest(
       throw new Error(`Daily cohort ${day} has ${chunks.length} unprocessed chunks totalling ${totalBytes} stored bytes, over the input budget of ${batch.maxInputBytes} bytes; raise maxInputBytes to process it (no chunks are dropped)`);
     }
     const createdAt = now().toISOString();
+    // Each day's published chunk set is loaded once per pin (this day's is already known).
+    const coverage = await computeCoverage(
+      store,
+      ns,
+      chunks,
+      processedCache(async (d) => (d === day ? processed : processedChunkSet(store, ns, (await getDailyRef(store, ns, d))?.value.publishedManifests ?? []))),
+      opts,
+    );
     const manifest: DailyManifest = {
       version: 1,
       day,
@@ -234,6 +250,7 @@ export async function pinDailyManifest(
       chunks,
       sessionIds: [...new Set(chunks.map((c) => c.sessionId))].sort(),
       watermark: { createdAt, chunkCount: chunks.length, lastChunkKey: candidates[candidates.length - 1] ?? null, totalChunksForDay: all.length },
+      coverage,
     };
     try {
       await store.put(ns, [{ key, bytes: Buffer.from(canonicalJson(manifest), "utf8") }]);
@@ -361,9 +378,13 @@ export async function materializeCohort(
   store: ObjectStore,
   ns: string,
   manifest: DailyManifest | string,
-  opts: CohortBatchOptions = {},
+  opts: CohortBatchOptions & {
+    /** Add correlation, coverage and conversation context to session.json/manifest.json (default true; the archive renders its own). */
+    conversationContext?: boolean;
+  } = {},
 ): Promise<Map<string, string>> {
   assertNs(ns);
+  validateCoverageLimits(opts);
   const batch = batchDefaults(opts);
   const m = typeof manifest === "string" ? await loadManifest(store, ns, manifest) : manifest;
   const files = new Map<string, string>();
@@ -410,6 +431,71 @@ export async function materializeCohort(
     return bytes;
   };
 
+  // Conversation context: bindings (correlation), recorded coverage, other sessions/runs of each conversation.
+  const withContext = opts.conversationContext !== false;
+  const cohortIds = [...bySession.keys()].sort();
+  const bindings = withContext ? await readBindings(store, ns, cohortIds, opts) : new Map();
+  const coverageBySession = new Map((m.coverage ?? []).map((c) => [c.sessionId, c]));
+  const conversations = new Map<string, Awaited<ReturnType<typeof conversationMembers>>>();
+  if (withContext) {
+    for (const b of bindings.values()) {
+      const cid = b?.correlation?.conversationId;
+      if (cid && !conversations.has(cid)) conversations.set(cid, await conversationMembers(store, ns, cid, opts));
+    }
+  }
+  const parentIds = [...new Set([...bindings.values()].map((b) => b?.correlation?.parentSessionId).filter((x): x is string => !!x))];
+  const parents = withContext && parentIds.length ? await readBindings(store, ns, parentIds, opts) : new Map();
+  const contextFor = (sessionId: string) => {
+    if (!withContext) return {};
+    const binding = bindings.get(sessionId) ?? null;
+    const c = binding?.correlation ?? null;
+    const members = c ? conversations.get(c.conversationId) ?? [] : [];
+    return {
+      correlation: c,
+      legacy: !c,
+      parentLink: parentLinkStatus(c, c?.parentSessionId ? parents.get(c.parentSessionId) : undefined),
+      coverage: coverageBySession.get(sessionId) ?? null,
+      // Per-session link only; the member list is ONE shared file per conversation (linear in conversation size).
+      conversation: c
+        ? {
+            conversationId: c.conversationId,
+            index: `inputs/conversations/${conversationKey(c.conversationId)}.json`,
+            sessions: members.length,
+            runs: new Set(members.map((x) => x.runId)).size,
+          }
+        : null,
+    };
+  };
+
+  // Generated metadata (session.json, conversation indexes, manifest.json) is charged against the same input budget
+  // as it is produced: an over-budget cohort fails explicitly instead of returning unbounded context.
+  const setGenerated = (path: string, text: string) => {
+    charge(Buffer.byteLength(text, "utf8"), path);
+    files.set(path, text);
+  };
+  for (const [conversationId, members] of conversations) {
+    setGenerated(
+      `conversations/${conversationKey(conversationId)}.json`,
+      JSON.stringify(
+        {
+          conversationId,
+          note: "Every session of this conversation in this tenant (first-receipt order). inThisCohort sessions are new material under inputs/sessions/; the others are background history, readable under sources/.",
+          sessions: members.map((x) => ({
+            sessionId: x.sessionId,
+            runId: x.runId,
+            parentSessionId: x.parentSessionId,
+            previousRunId: x.previousRunId,
+            firstDay: x.day,
+            inThisCohort: bySession.has(x.sessionId),
+            sources: `sources/traces/${x.day}/${x.sessionId}/`,
+          })),
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+  }
+
   let payloadFiles = 0;
   let totalEvents = 0;
   const summaries: MaterializedSession[] = [];
@@ -444,10 +530,10 @@ export async function materializeCohort(
     const summary = summarizeSession(sessionId, events, entry.chunkSeqs);
     summaries.push(summary);
     totalEvents += events.length;
-    files.set(`${dir}/session.json`, JSON.stringify(summary, null, 2) + "\n");
+    setGenerated(`${dir}/session.json`, JSON.stringify({ ...summary, ...contextFor(sessionId) }, null, 2) + "\n");
   }
 
-  files.set(
+  setGenerated(
     "manifest.json",
     JSON.stringify(
       {
@@ -457,6 +543,18 @@ export async function materializeCohort(
         pinnedAt: m.createdAt,
         catchUp: m.basePublishedManifests.length > 0,
         evidenceRefFormat: "<sessionId>#<seq>",
+        ...(withContext
+          ? {
+              dayConvention: "days only partition receipt storage and daily windows; sessions and conversations continue across days",
+              conversations: [...conversations.entries()].map(([conversationId, members]) => ({
+                conversationId,
+                sessionsInCohort: members.filter((x) => bySession.has(x.sessionId)).map((x) => x.sessionId),
+                totalSessions: members.length,
+                runs: [...new Set(members.map((x) => x.runId))],
+              })),
+              coverageRecorded: m.coverage !== undefined,
+            }
+          : {}),
         counts: { sessions: summaries.length, chunks: m.chunks.length, events: totalEvents, payloadFiles },
         sessions: summaries.map((s) => ({
           sessionId: s.sessionId,
@@ -467,6 +565,19 @@ export async function materializeCohort(
           outcome: s.outcome?.status ?? null,
           events: s.eventCount,
           complete: s.complete,
+          ...(withContext
+            ? (() => {
+                const c = bindings.get(s.sessionId)?.correlation ?? null;
+                const cov = coverageBySession.get(s.sessionId);
+                return {
+                  conversationId: c?.conversationId ?? null,
+                  runId: c?.runId ?? null,
+                  parentSessionId: c?.parentSessionId ?? null,
+                  continuation: cov ? !cov.startsSession : null,
+                  priorChunks: cov?.prior.chunks ?? null,
+                };
+              })()
+            : {}),
         })),
       },
       null,

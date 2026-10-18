@@ -92,3 +92,58 @@ PROCMEM_BASE_URL=https://memory.example.com PROCMEM_API_KEY=pmk_... npx procmem-
 ```
 
 Runtime dependencies are `@modelcontextprotocol/client` and `@modelcontextprotocol/server` (~2.3.1), plus `zod`.
+
+## Conversations, runs, turns and spans
+
+Every session carries a first-class correlation on every chunk:
+
+```ts
+const s = recorder.begin({
+  objective: "refund order o-42",
+  conversationId: "slack:C123/1700000000.42", // your thread/conversation id; default: generated
+  runId: "run-7",                              // one execution attempt; default: generated
+  previousRunId: "run-6",                      // optional: this run retries run-6 (same conversation, new run)
+});
+s.startTurn();                                 // one user turn; later events carry turnId
+s.toolCall("spawn_agent", args, "call-1", { spanId: "tool.call-1", parentSpanId: "req-1" });
+const child = s.child({ objective: "research", parentSpanId: "tool.call-1" }); // same conversation + run, linked to its parent
+```
+
+- **Days are not boundaries.** A conversation can span any number of sessions, runs (retries) and days. Days only
+  partition the server's receipt storage and the daily build windows.
+- **The server binds each session's correlation once.** A chunk that tries to change it, including a resend of an
+  already-stored chunk, is rejected (409).
+- **Child sessions.** A child may arrive before its parent. It is accepted and marked `pending`, then becomes `verified`
+  or `mismatch` once the parent arrives.
+- **Pi.** `beginPiTrace(recorder, piSession, { objective })` derives the conversation from Pi's session id
+  (`pi:<sessionId>`) and attaches capture.
+  - One turnId per user prompt, steer or follow-up. Automatic retry and context-overflow continuation stay in the same
+    turn.
+  - Each model request gets a span, and each tool call gets a span parented by its tool call id.
+
+## Durable delivery (opt-in, restart-safe)
+
+```ts
+import { FileTraceOutbox, TraceRecorder } from "@procmem/sdk";
+const recorder = new TraceRecorder({ transport, agent, outbox: new FileTraceOutbox("/var/lib/my-agent/trace-outbox") });
+
+const s = recorder.begin({ objective: "long task", conversationId: threadId });
+s.note({ step: 1 });
+await s.checkpoint();            // DURABLE from here (persisted, not yet sent)
+
+// after a crash / restart:
+for (const id of await recorder.pendingSessions()) {
+  const resumed = await recorder.resume(id);   // verifies digests, takes ownership
+  await resumed.flush();                       // resends unacked chunks (server deduplicates)
+}
+```
+
+- **Durability boundary.** `record()` is synchronous and in memory. Events become crash-safe only once
+  `await session.checkpoint()` or `flush()` has persisted them. The background flush (`flushIntervalMs`) also persists
+  them. Events recorded after the last checkpoint are lost in a crash, and are never half-delivered.
+- **Restarts.** A resumed session never reuses a seq or chunkSeq. A delivered `finish()` leaves a tombstone, so the id
+  cannot be begun again. A second (stale) writer of the same session fails closed (`TraceOutboxError` `ownership_lost`).
+- **`FileTraceOutbox` keeps raw traces private.** Directories are 0700 and files 0600, symlinks are refused, writes are
+  atomic, and CAS runs under a cross-process lock. Nothing is ever posted anywhere except your transport.
+- **Other storage.** For browsers or custom storage, implement `TraceOutboxStore`, which needs a checkpoint CAS and
+  immutable objects (see `MemoryTraceOutbox`).

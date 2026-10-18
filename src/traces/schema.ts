@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { z } from "zod";
 
 /**
@@ -61,6 +62,47 @@ export type OutcomeStatus = (typeof OUTCOME_STATUSES)[number];
 
 export const SessionIdSchema = z.string().regex(SESSION_ID_RE, "sessionId must match ^[a-z0-9][a-z0-9_-]{2,95}$");
 
+/**
+ * Correlation identity (see .context/sdk-conversation-contract.md):
+ *  - conversationId: stable logical conversation/thread (customer thread id, native harness session id, or generated).
+ *    Never used as a storage path segment (stored under sha256).
+ *  - runId: one execution attempt (a retry is a new run in the same conversation).
+ *  - turnId / spanId / parentSpanId: per event (user turn; model request / tool call / nested agent span).
+ * Calendar days only partition receipt storage and daily windows; they are never conversation boundaries.
+ */
+export const CONVERSATION_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:@/+=-]{0,199}$/;
+export const TRACE_ID_RE = /^[A-Za-z0-9][A-Za-z0-9._:-]{0,127}$/;
+export const ConversationIdSchema = z.string().regex(CONVERSATION_ID_RE, "conversationId must be 1-200 chars of [A-Za-z0-9._:@/+=-], starting alphanumeric");
+export const TraceIdSchema = z.string().regex(TRACE_ID_RE, "ids (runId/turnId/spanId) must be 1-128 chars of [A-Za-z0-9._:-], starting alphanumeric");
+export const CONVERSATION_SOURCES = ["explicit", "harness", "generated"] as const;
+
+/** Session-level correlation: constant for a session, carried on every chunk, bound create-once at first ingest. */
+export const CorrelationSchema = z.strictObject({
+  conversationId: ConversationIdSchema,
+  runId: TraceIdSchema,
+  /** How conversationId was obtained: supplied by the host, derived from the harness's native session, or generated. */
+  conversationSource: z.enum(CONVERSATION_SOURCES),
+  /** Child agent session: the session (same conversation + run) that spawned it, and the span it was spawned from. */
+  parentSessionId: SessionIdSchema.optional(),
+  parentSpanId: TraceIdSchema.optional(),
+  /** A retry/resume attempt: the run it retries. */
+  previousRunId: TraceIdSchema.optional(),
+});
+export type TraceCorrelation = z.infer<typeof CorrelationSchema>;
+
+/** Storage key component for a conversation id (opaque, fixed length, tenant-local). */
+export function conversationKey(conversationId: string): string {
+  return createHash("sha256").update(conversationId, "utf8").digest("hex").slice(0, 32);
+}
+
+export function sessionBindingKey(sessionId: string): string {
+  return `trace-sessions/${sessionId}.json`;
+}
+
+export function conversationMemberKey(conversationId: string, sessionId: string): string {
+  return `conversation-index/${conversationKey(conversationId)}/${sessionId}.json`;
+}
+
 export const AgentInfoSchema = z.strictObject({
   id: z.string().min(1).max(200),
   name: z.string().max(200).optional(),
@@ -109,6 +151,11 @@ export const TraceEventSchema = z
     data: z.unknown(),
     usage: UsageSchema.optional(),
     outcome: OutcomeSchema.optional(),
+    /** User turn this event belongs to. */
+    turnId: TraceIdSchema.optional(),
+    /** Span (model request, tool call, nested agent) this event belongs to, and its parent span. */
+    spanId: TraceIdSchema.optional(),
+    parentSpanId: TraceIdSchema.optional(),
   })
   .superRefine((e, ctx) => {
     if (e.data === undefined) ctx.addIssue({ code: "custom", path: ["data"], message: "data is required (use null for no payload)" });
@@ -125,8 +172,11 @@ export const TraceChunkSchema = z
     chunkSeq: z.number().int().min(1),
     events: z.array(TraceEventSchema).min(1, "chunk must contain at least one event").max(MAX_CHUNK_EVENTS, `chunk exceeds ${MAX_CHUNK_EVENTS} events`),
     final: z.boolean().optional(),
+    /** Session correlation; identical on every chunk of a session (absent = legacy session). */
+    correlation: CorrelationSchema.optional(),
   })
   .superRefine((c, ctx) => {
+    if (c.correlation?.parentSessionId === c.sessionId) ctx.addIssue({ code: "custom", path: ["correlation", "parentSessionId"], message: "a session cannot be its own parent" });
     let prev = 0;
     c.events.forEach((e, i) => {
       if (e.sessionId !== c.sessionId) ctx.addIssue({ code: "custom", path: ["events", i, "sessionId"], message: `event sessionId ${e.sessionId} does not match chunk sessionId ${c.sessionId}` });

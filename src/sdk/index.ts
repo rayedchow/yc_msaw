@@ -2,6 +2,9 @@
 export * from "./client.js";
 export {
   attachPiTraceCapture,
+  beginPiTrace,
+  piTraceCorrelation,
+  toolSpanId,
   piUsageToTraceUsage,
   sanitizePiRequestOptions,
   summarizePiSystem,

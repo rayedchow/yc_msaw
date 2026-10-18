@@ -3,7 +3,9 @@ import { assertNs, type ObjectStore } from "../store/objects.js";
 import { canonicalJson, errorMessage, sha256 } from "../util.js";
 import { materializeCohort, type DailyManifest, type ManifestChunk, type MaterializedSession } from "./daily.js";
 import { getBatched, listPages, type ChunkIndexRecord } from "./ingest.js";
-import { chunkIndexKey, MAX_CHUNK_BYTES, parseChunkKey, STORE_CALL_BYTES, STORE_GET_KEYS } from "./schema.js";
+import { chunkIndexKey, conversationKey, MAX_CHUNK_BYTES, parseChunkKey, STORE_CALL_BYTES, STORE_GET_KEYS } from "./schema.js";
+import { extent, parentLinkStatus, readBindings } from "./conversation.js";
+import type { SessionBinding } from "./ingest.js";
 
 /**
  * Read-only historical trace archive for the BUILD side (`sources/` in every
@@ -248,7 +250,7 @@ const MAX_CHUNK_OBJECT_ESTIMATE = MAX_CHUNK_BYTES + 64 * 1024;
 /** An empty archive (no retained traces, or explicitly disabled by the host). */
 export function emptyTraceArchive(ns: string, opts: { disabled?: boolean; reason?: string; now?: () => Date } = {}): TraceArchiveSnapshot {
   assertNs(ns);
-  return assemble(ns, new Map(), [], { disabled: opts.disabled ?? false, reason: opts.reason, createdAt: (opts.now ?? (() => new Date()))().toISOString(), counters: zeroCounters(), lim: limits({}) });
+  return assemble(ns, new Map(), [], { disabled: opts.disabled ?? false, reason: opts.reason, createdAt: (opts.now ?? (() => new Date()))().toISOString(), counters: zeroCounters(), lim: limits({}), bindings: new Map() });
 }
 
 function zeroCounters() {
@@ -377,7 +379,7 @@ export async function buildTraceArchive(store: ObjectStore, ns: string, opts: Tr
     };
     let out: Map<string, string>;
     try {
-      out = await materializeCohort(store, ns, manifest, { maxGetKeys: lim.maxGetKeys, maxGetBytes: lim.maxGetBytes, maxInputBytes: Math.max(1, lim.maxBytes - bytes) });
+      out = await materializeCohort(store, ns, manifest, { maxGetKeys: lim.maxGetKeys, maxGetBytes: lim.maxGetBytes, maxInputBytes: Math.max(1, lim.maxBytes - bytes), conversationContext: false });
     } catch (error) {
       const msg = errorMessage(error);
       if (/exceeds the input budget/.test(msg)) {
@@ -409,7 +411,9 @@ export async function buildTraceArchive(store: ObjectStore, ns: string, opts: Tr
     const slash = id.indexOf("/");
     return { day: id.slice(0, slash), sessionId: id.slice(slash + 1), r };
   });
-  return assemble(ns, new Map(ordered.map((o) => [`${o.day}/${o.sessionId}`, o])), unrecognized, { disabled: false, createdAt, counters, lim });
+  // Session -> conversation bindings (batched; bounded by the session count already capped above).
+  const bindings = await readBindings(store, ns, [...new Set(ordered.map((o) => o.sessionId))].sort(), { maxGetKeys: lim.maxGetKeys, maxGetBytes: lim.maxGetBytes });
+  return assemble(ns, new Map(ordered.map((o) => [`${o.day}/${o.sessionId}`, o])), unrecognized, { disabled: false, createdAt, counters, lim, bindings });
 }
 
 type Ordered = { day: string; sessionId: string; r: RenderedPartition };
@@ -418,7 +422,7 @@ function assemble(
   ns: string,
   parts: Map<string, Ordered>,
   unrecognized: string[],
-  ctx: { disabled: boolean; reason?: string; createdAt: string; counters: ReturnType<typeof zeroCounters>; lim: ReturnType<typeof limits> },
+  ctx: { disabled: boolean; reason?: string; createdAt: string; counters: ReturnType<typeof zeroCounters>; lim: ReturnType<typeof limits>; bindings: Map<string, SessionBinding | null> },
 ): TraceArchiveSnapshot {
   const files = new Map<string, string>();
   const sessionDays = new Map<string, string[]>();
@@ -430,18 +434,30 @@ function assemble(
   for (const days of sessionDays.values()) days.sort();
   const dayList = [...byDay.keys()].sort();
 
-  // Whole-session view across day partitions; overlapping seq ranges fail closed.
+  // Whole-session view across day partitions. Receipt order can interleave (chunk 2 on an earlier day than chunks 1
+  // and 3), so day partitions may have overlapping seq RANGES while holding disjoint events: check the actual event
+  // seqs, and fail closed only when the same seq appears in two partitions.
   const sessionView = new Map<string, { events: number; firstSeq: number; lastSeq: number; firstTs: string; lastTs: string; start: boolean; end: boolean; complete: boolean; objective: string | null; outcome: string | null; agentId: string | null; model: string | null }>();
   for (const [sessionId, days] of sessionDays) {
     const ps = days.map((d) => parts.get(`${d}/${sessionId}`)!.r.summary).sort((a, b) => a.firstSeq - b.firstSeq);
-    for (let i = 1; i < ps.length; i++) {
-      if (ps[i]!.firstSeq <= ps[i - 1]!.lastSeq) {
-        throw new TraceArchiveError("archive_integrity", `Session ${sessionId} has overlapping event seqs across receipt days (${ps[i - 1]!.firstSeq}-${ps[i - 1]!.lastSeq} and ${ps[i]!.firstSeq}-${ps[i]!.lastSeq})`);
+    let contiguous = true;
+    if (ps.length > 1) {
+      const owner = new Map<number, string>();
+      for (const d of days) {
+        for (const line of parts.get(`${d}/${sessionId}`)!.r.files.get("events.jsonl")!.split("\n")) {
+          if (!line) continue;
+          const seq = (JSON.parse(line) as { seq: number }).seq;
+          const prior = owner.get(seq);
+          if (prior !== undefined) throw new TraceArchiveError("archive_integrity", `Session ${sessionId} has event seq ${seq} in two receipt-day partitions (${prior} and ${d})`);
+          owner.set(seq, d);
+        }
       }
+      const { max } = extent(owner.keys());
+      contiguous = owner.size === max && owner.has(1);
     }
     const events = ps.reduce((n, s) => n + s.eventCount, 0);
     const first = ps[0]!;
-    const last = ps[ps.length - 1]!;
+    const last = [...ps].sort((a, b) => a.lastSeq - b.lastSeq).at(-1)!;
     const start = ps.some((s) => s.hasSessionStart);
     const end = last.hasSessionEnd;
     const withObjective = ps.find((s) => s.objective);
@@ -454,13 +470,40 @@ function assemble(
       lastTs: ps.map((s) => s.lastTs).sort().at(-1)!,
       start,
       end,
-      complete: start && end && first.firstSeq === 1 && last.lastSeq === events,
+      complete: start && end && first.firstSeq === 1 && last.lastSeq === events && contiguous,
       objective: withObjective?.objective ?? null,
       outcome: withOutcome?.outcome?.status ?? null,
       agentId: first.agent?.id ?? null,
       model: [...ps].reverse().find((s) => s.model)?.model ?? null,
     });
   }
+
+  // Conversations: sessions grouped by bound conversationId (legacy sessions have none).
+  const conversations = new Map<string, Array<{ sessionId: string; runId: string; parentSessionId: string | null; parentSpanId: string | null; previousRunId: string | null; days: readonly string[] }>>();
+  for (const [sessionId, days] of [...sessionDays.entries()].sort(([a], [b]) => (a < b ? -1 : 1))) {
+    const c = ctx.bindings.get(sessionId)?.correlation;
+    if (!c) continue;
+    const list = conversations.get(c.conversationId) ?? conversations.set(c.conversationId, []).get(c.conversationId)!;
+    list.push({ sessionId, runId: c.runId, parentSessionId: c.parentSessionId ?? null, parentSpanId: c.parentSpanId ?? null, previousRunId: c.previousRunId ?? null, days });
+  }
+  const conversationView = (sessionId: string) => {
+    const c = ctx.bindings.get(sessionId)?.correlation ?? null;
+    if (!c) return null;
+    const members = conversations.get(c.conversationId) ?? [];
+    return {
+      conversationId: c.conversationId,
+      runId: c.runId,
+      conversationSource: c.conversationSource,
+      parentSessionId: c.parentSessionId ?? null,
+      parentSpanId: c.parentSpanId ?? null,
+      previousRunId: c.previousRunId ?? null,
+      parentLink: parentLinkStatus(c, c.parentSessionId ? ctx.bindings.get(c.parentSessionId) : undefined),
+      // The full member list (every session/run with its day paths) is in ONE shared index file (linear, not per session).
+      index: `sources/conversations/${conversationKey(c.conversationId)}.json`,
+      sessions: members.length,
+      runs: new Set(members.map((m) => m.runId)).size,
+    };
+  };
 
   let events = 0;
   let payloadFiles = 0;
@@ -488,6 +531,7 @@ function assemble(
               otherDays,
               otherPaths: otherDays.map((d) => `sources/traces/${d}/${sessionId}/`),
               session: view,
+              conversation: conversationView(sessionId),
             },
           },
           null,
@@ -508,6 +552,8 @@ function assemble(
         outcome: view.outcome,
         sessionComplete: view.complete,
         otherDays,
+        conversationId: ctx.bindings.get(sessionId)?.correlation?.conversationId ?? null,
+        runId: ctx.bindings.get(sessionId)?.correlation?.runId ?? null,
       });
     }
     files.set(`traces/${day}/index.json`, JSON.stringify({ day, sessions: dayIndex }, null, 2) + "\n");
@@ -521,9 +567,34 @@ function assemble(
     evidenceRefFormat: "<sessionId>#<seq> (seqs are unique per session across all days)",
     counts: { days: dayList.length, sessions: sessionDays.size, partitions: parts.size, chunks: ctx.counters.chunks, events, payloadFiles },
     days: dayList.map((d) => ({ day: d, path: `sources/traces/${d}/`, sessions: byDay.get(d)!.length, events: byDay.get(d)!.reduce((n, o) => n + o.r.summary.eventCount, 0) })),
-    sessions: Object.fromEntries([...sessionDays.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([sid, days]) => [sid, { days, paths: days.map((d) => `sources/traces/${d}/${sid}/`), ...sessionView.get(sid)! }])),
+    sessions: Object.fromEntries(
+      [...sessionDays.entries()].sort(([a], [b]) => (a < b ? -1 : 1)).map(([sid, days]) => {
+        const c = ctx.bindings.get(sid)?.correlation ?? null;
+        return [sid, { days, paths: days.map((d) => `sources/traces/${d}/${sid}/`), ...sessionView.get(sid)!, conversationId: c?.conversationId ?? null, runId: c?.runId ?? null, parentSessionId: c?.parentSessionId ?? null }];
+      }),
+    ),
+    conversationConvention: "conversationId groups every session/run of one logical conversation across days; days only partition receipt storage",
+    conversations: Object.fromEntries(
+      [...conversations.entries()].map(([cid, members]) => [cid, { index: `sources/conversations/${conversationKey(cid)}.json`, sessions: members.map((m) => m.sessionId), runs: [...new Set(members.map((m) => m.runId))], days: [...new Set(members.flatMap((m) => m.days))].sort() }]),
+    ),
     unrecognizedKeys: unrecognized,
   };
+  for (const [cid, members] of conversations) {
+    files.set(
+      `conversations/${conversationKey(cid)}.json`,
+      JSON.stringify(
+        {
+          conversationId: cid,
+          note: "Every session of this conversation in time order of first receipt. Runs are execution attempts (retries are new runs); child agent sessions point at their parent.",
+          sessions: members
+            .map((m) => ({ ...m, paths: m.days.map((d) => `sources/traces/${d}/${m.sessionId}/`), parentLink: parentLinkStatus(ctx.bindings.get(m.sessionId)?.correlation ?? null, m.parentSessionId ? ctx.bindings.get(m.parentSessionId) : undefined) }))
+            .sort((a, b) => (a.days[0]! < b.days[0]! ? -1 : a.days[0]! > b.days[0]! ? 1 : a.sessionId < b.sessionId ? -1 : 1)),
+        },
+        null,
+        2,
+      ) + "\n",
+    );
+  }
   files.set("manifest.json", JSON.stringify(manifest, null, 2) + "\n");
   files.set("README.md", readme(ctx.disabled, ctx.reason, dayList, byDay, sessionDays.size, events));
 
@@ -564,6 +635,7 @@ function readme(disabled: boolean, reason: string | undefined, dayList: string[]
     "- Layout: traces/<YYYY-MM-DD>/<sessionId>/{session.json, events.jsonl, payloads/*}. Day = the day the host RECEIVED a chunk, so one session can span several day directories; session.json `archive.otherDays` and manifest.json `sessions` list them.",
     "- events.jsonl has the same format as inputs/: one JSON event per line in seq order; large payloads are referenced as {\"$payload\": \"payloads/<sha256>.<ext>\"} relative to the session directory.",
     "- Cite as `<sessionId>#<seq>`, exactly like inputs/ (seqs are unique per session across days).",
+    "- Conversations: sessions carrying the same conversationId belong to one logical conversation (several runs/retries, child agents, any number of days). manifest.json `conversations` and conversations/<key>.json list them; session.json `archive.conversation` points to the other sessions. Days are receipt partitions, never conversation boundaries.",
     "- Navigate with ls / find / grep (e.g. grep a tool name or error string under sources/traces/) and read slices; manifest.json and traces/<day>/index.json are the machine-readable indexes.",
     "",
   ];

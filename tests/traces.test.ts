@@ -15,6 +15,7 @@ import {
   markDailyStatus,
   materializeCohort,
   pinDailyManifest,
+  readSessionBinding,
   TraceIngestError,
   TraceIngestor,
   type TraceChunk,
@@ -270,7 +271,11 @@ describe("daily manifests", () => {
     const coldStore = new DirectoryObjectStore(root);
     const cold = new TraceIngestor(coldStore, { now: () => new Date("2026-10-20T00:00:00Z") });
     expect(await cold.listDay(NS, "2026-10-17")).toHaveLength(4);
-    expect((await cold.ingestChunk(NS, (await coldChunk(cold, "traces/2026-10-17/ses-cold/chunk-000001.jsonl.gz")))).status).toBe("duplicate");
+    const resend = await coldChunk(cold, "traces/2026-10-17/ses-cold/chunk-000001.jsonl.gz");
+    // A replay that drops the session's bound correlation is a mutation, not a duplicate.
+    await expect(cold.ingestChunk(NS, resend)).rejects.toMatchObject({ status: 409, code: "correlation_mismatch" });
+    const binding = await readSessionBinding(coldStore, NS, "ses-cold");
+    expect((await cold.ingestChunk(NS, { ...resend, correlation: binding!.correlation! })).status).toBe("duplicate");
     expect(await listUnprocessedDays(coldStore, NS, "2026-10-20")).toEqual(["2026-10-17"]);
     const pin = await pinDailyManifest(coldStore, NS, "2026-10-17");
     const files = await materializeCohort(coldStore, NS, pin.manifest!);
@@ -349,7 +354,8 @@ describe("scale and limits", () => {
     const files = await materializeCohort(budgetStore, NS, pin.manifest!, { maxGetKeys: 16 });
     expect(JSON.parse(files.get("manifest.json")!).counts).toMatchObject({ sessions: 70, chunks: 70, events: 70 });
     const gets = budgetStore.calls.filter((c) => c.op === "get" && c.keys > 1);
-    expect(gets.length).toBe(5);
+    // 70 chunks in batches of <= 16 keys (5 gets) + 70 session-binding records in batches of <= 16 (5 gets).
+    expect(gets.length).toBe(10);
     expect(gets.every((c) => c.keys <= 16)).toBe(true);
 
     await expect(materializeCohort(budgetStore, NS, pin.manifest!, { maxInputBytes: 1000 })).rejects.toThrow(/input budget of 1000/);

@@ -19,7 +19,10 @@ import {
   TRACE_BLOB_GZIP_CONTENT_TYPE,
   TRACE_CHUNK_GZIP_CONTENT_TYPE,
   TraceChunkSchema,
+  conversationMemberKey,
+  sessionBindingKey,
   type TraceChunk,
+  type TraceCorrelation,
   type TraceEvent,
 } from "./schema.js";
 
@@ -69,6 +72,55 @@ export interface ChunkIndexRecord {
   receivedAt: string;
   /** Size of the stored gzip chunk object (used to size batched reads). */
   objectBytes?: number;
+}
+
+/**
+ * Create-once binding of a session to its correlation (`trace-sessions/<sid>.json`), written by the first accepted
+ * chunk. `correlation: null` = legacy session (no correlation; also every session stored before bindings existed).
+ */
+export interface SessionBinding {
+  schema: "procmem.trace-session/v1";
+  sessionId: string;
+  correlation: TraceCorrelation | null;
+  /** True when the session already had chunks stored before it was bound (pre-binding legacy data). */
+  legacy: boolean;
+  day: string;
+  boundAt: string;
+  firstChunkSeq: number;
+}
+
+/** Create-once conversation membership (`conversation-index/<convKey>/<sid>.json`). */
+export interface ConversationMember {
+  schema: "procmem.conversation-member/v1";
+  conversationId: string;
+  sessionId: string;
+  runId: string;
+  conversationSource: TraceCorrelation["conversationSource"];
+  parentSessionId: string | null;
+  parentSpanId: string | null;
+  previousRunId: string | null;
+  day: string;
+}
+
+export function memberFor(binding: SessionBinding): ConversationMember | null {
+  const c = binding.correlation;
+  if (!c) return null;
+  return {
+    schema: "procmem.conversation-member/v1",
+    conversationId: c.conversationId,
+    sessionId: binding.sessionId,
+    runId: c.runId,
+    conversationSource: c.conversationSource,
+    parentSessionId: c.parentSessionId ?? null,
+    parentSpanId: c.parentSpanId ?? null,
+    previousRunId: c.previousRunId ?? null,
+    day: binding.day,
+  };
+}
+
+export async function readSessionBinding(store: ObjectStore, ns: string, sessionId: string): Promise<SessionBinding | null> {
+  const bytes = (await store.get(ns, [sessionBindingKey(sessionId)])).get(sessionBindingKey(sessionId));
+  return bytes ? (JSON.parse(bytes.toString("utf8")) as SessionBinding) : null;
 }
 
 export interface BlobManifest {
@@ -249,12 +301,19 @@ export class TraceIngestor {
     const idxKey = chunkIndexKey(chunk.sessionId, chunk.chunkSeq);
 
     const prior = await this.#readIndex(ns, idxKey);
-    if (prior) return this.#resolveExisting(ns, prior, digest, gz);
+    if (prior) {
+      // The content digest covers events only: a resend must also carry the session's bound correlation. A session
+      // stored before bindings existed has an index but no binding: bind it as legacy now (a resend that tries to add a
+      // correlation is rejected, never acked as a duplicate).
+      await this.#bindSession(ns, chunk, prior.day);
+      return this.#resolveExisting(ns, prior, digest, gz);
+    }
 
     await this.#checkBlobs(ns, chunk.events);
     await this.#checkNeighbours(ns, chunk);
 
     const day = this.currentDay();
+    await this.#bindSession(ns, chunk, day);
     const key = chunkObjectKey(day, chunk.sessionId, chunk.chunkSeq);
     const record: ChunkIndexRecord = {
       sessionId: chunk.sessionId,
@@ -314,6 +373,75 @@ export class TraceIngestor {
     return bytes ? (JSON.parse(bytes.toString("utf8")) as ChunkIndexRecord) : null;
   }
 
+  /** Bound correlation of a session, or undefined if it is not bound yet. */
+  async #checkBinding(ns: string, chunk: TraceChunk): Promise<SessionBinding | undefined> {
+    const existing = await readSessionBinding(this.store, ns, chunk.sessionId);
+    if (!existing) return undefined;
+    const want = chunk.correlation ?? null;
+    if (canonicalJson(existing.correlation) !== canonicalJson(want)) {
+      throw new TraceIngestError(
+        409,
+        "correlation_mismatch",
+        existing.correlation
+          ? `Session ${chunk.sessionId} is bound to conversation correlation ${describeCorrelation(existing.correlation)}; every chunk must carry exactly that correlation (got ${want ? describeCorrelation(want) : "none"})`
+          : `Session ${chunk.sessionId} is a legacy session without correlation; its chunks cannot add or change a correlation (got ${want ? describeCorrelation(want) : "none"})`,
+      );
+    }
+    await this.#ensureMember(ns, existing);
+    return existing;
+  }
+
+  /**
+   * Bind the session to the chunk's correlation create-once (or verify the existing binding). A session that already
+   * has stored chunks but no binding predates bindings: it is bound as legacy (null), so a correlation cannot be
+   * attached to its earlier chunks after the fact.
+   */
+  async #bindSession(ns: string, chunk: TraceChunk, day: string): Promise<void> {
+    if (await this.#checkBinding(ns, chunk)) return;
+    const want = chunk.correlation ?? null;
+    const legacyData = (await this.store.list(ns, `trace-index/${chunk.sessionId}/`, { limit: 1 })).length > 0;
+    if (legacyData && want) {
+      throw new TraceIngestError(409, "correlation_mismatch", `Session ${chunk.sessionId} already has chunks stored without correlation (legacy session); a correlation cannot be attached to it later`);
+    }
+    if (want?.parentSessionId) {
+      // The parent may not have been delivered yet (independent sessions flush independently); if it is bound, it must agree.
+      const parent = await readSessionBinding(this.store, ns, want.parentSessionId);
+      if (parent && (parent.correlation?.conversationId !== want.conversationId || parent.correlation?.runId !== want.runId)) {
+        throw new TraceIngestError(409, "parent_mismatch", `Parent session ${want.parentSessionId} belongs to a different conversation/run than child session ${chunk.sessionId}`);
+      }
+    }
+    const binding: SessionBinding = {
+      schema: "procmem.trace-session/v1",
+      sessionId: chunk.sessionId,
+      correlation: want,
+      legacy: legacyData,
+      day,
+      boundAt: this.#now().toISOString(),
+      firstChunkSeq: chunk.chunkSeq,
+    };
+    try {
+      await this.store.put(ns, [{ key: sessionBindingKey(chunk.sessionId), bytes: Buffer.from(canonicalJson(binding), "utf8") }]);
+    } catch (error) {
+      // A concurrent first chunk won the binding: it must agree with ours.
+      if (await this.#checkBinding(ns, chunk)) return;
+      throw error;
+    }
+    await this.#ensureMember(ns, binding);
+  }
+
+  /** Conversation membership is derived from the binding; written (or repaired after a crash) idempotently. */
+  async #ensureMember(ns: string, binding: SessionBinding): Promise<void> {
+    const member = memberFor(binding);
+    if (!member) return;
+    const key = conversationMemberKey(member.conversationId, member.sessionId);
+    if (await exists(this.store, ns, key)) return;
+    try {
+      await this.store.put(ns, [{ key, bytes: Buffer.from(canonicalJson(member), "utf8") }]);
+    } catch (error) {
+      if (!(await exists(this.store, ns, key))) throw error;
+    }
+  }
+
   async #resolveExisting(ns: string, prior: ChunkIndexRecord, digest: string, gz: Buffer): Promise<IngestResult> {
     if (prior.sha256 !== digest) {
       throw new TraceIngestError(409, "chunk_conflict", `Chunk ${prior.chunkSeq} of session ${prior.sessionId} was already received (day ${prior.day}) with different content; chunkSeq values must not be reused for different events`);
@@ -349,6 +477,10 @@ export class TraceIngestor {
       throw new TraceIngestError(409, "seq_conflict", `Chunk ${chunk.chunkSeq} ends at event seq ${last} but chunk ${chunk.chunkSeq + 1} already starts at seq ${next.firstSeq}`);
     }
   }
+}
+
+function describeCorrelation(c: TraceCorrelation): string {
+  return JSON.stringify({ conversationId: c.conversationId, runId: c.runId, ...(c.parentSessionId ? { parentSessionId: c.parentSessionId } : {}) });
 }
 
 // ---------------------------------------------------------------------------
