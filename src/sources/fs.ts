@@ -289,8 +289,12 @@ export class SourceFs {
     }
     if (input.versionId !== undefined) {
       if (!isVersionId(input.versionId)) throw new SourceError("invalid_input", `Invalid versionId ${JSON.stringify(input.versionId)}`);
-      const v = await store.version(input.versionId);
-      if (v.path !== stored) throw new SourceError("not_found", `Version ${input.versionId} does not belong to ${path}`);
+      // A missing version and another path's version answer alike (no oracle for other owners' version ids).
+      const v = await store.version(input.versionId).catch((e: unknown) => {
+        if (e instanceof SourceError && e.code === "not_found") return null;
+        throw e;
+      });
+      if (!v || v.path !== stored) throw new SourceError("not_found", `Version ${input.versionId} does not belong to ${path}`);
       if (v.kind === "tombstone") return { tool: "sources_history", ok: true, path, version: versionSummary(v), content: null, note: "tombstone: the file was deleted at this version" };
       const slice = await sliceVersion(store, path, v, { byteOffset: input.byteOffset ?? 0, ...(input.byteLimit !== undefined ? { byteLimit: input.byteLimit } : {}) });
       return { tool: "sources_history", ok: true, version: versionSummary(v), source: await this.#freshness(ns, viewer, stored, v), ...slice };

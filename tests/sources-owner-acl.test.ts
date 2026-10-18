@@ -249,6 +249,11 @@ describe("owner-only personal sources for members of one organization", () => {
     expect(theirs.versions).toEqual([]);
     const v = await tool("bob", "sources_history", { path: `$SOURCES/${ALICE_MAIL.slice(8)}`, versionId: own.versions[0].versionId });
     expect(v.code).toBe("not_found");
+    // Probing alice's version id through bob's own path answers exactly like an unknown id.
+    const probe = await tool("bob", "sources_history", { path: `$SOURCES/${BOB_MAIL.slice(8)}`, versionId: own.versions[0].versionId });
+    const unknown = await tool("bob", "sources_history", { path: `$SOURCES/${BOB_MAIL.slice(8)}`, versionId: own.versions[0].versionId.replace(/.$/, (c: string) => (c === "0" ? "1" : "0")) });
+    expect(probe.code).toBe("not_found");
+    expect(probe.error.replace(own.versions[0].versionId, "X")).toBe(unknown.error.replace(/Version \S+ /, "Version X "));
 
     const st = await tool("alice", "sources_status", {});
     const providers = st.providers.map((p: any) => p.provider);
