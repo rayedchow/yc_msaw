@@ -4,7 +4,7 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeAll, beforeEach, describe, expect, it } from "vitest";
 import { MIGRATIONS_DIR, planMigrations } from "../../../../src/source-lane/core/migrations.js";
-import { mapSlackMirror, resetDirectChannelCacheForTests, withheldProjectionsOf } from "../../../../src/source-lane/providers/slack/direct.js";
+import { isDirectChannel, mapSlackMirror, markDirectChannel, resetDirectChannelCacheForTests, withheldProjectionsOf } from "../../../../src/source-lane/providers/slack/direct.js";
 
 /** Slack DM withholding edge cases: unknown conversation (fail closed) and DM metadata that arrives late. */
 const pg = new PGlite();
@@ -35,5 +35,19 @@ describe("Slack direct-message withholding", () => {
     const out = await withheldProjectionsOf(ctx, "G0MPIM123", journal.enqueuedAt);
     expect(out.map((c) => c.path)).toEqual(["sources/slack/mpdm-a--b-channel-9f/threads/t1.md"]);
     expect(out[0]).toMatchObject({ op: "delete", reason: "slack_direct_message_withheld" });
+  });
+
+  it("asks once per export pass about a conversation of unknown type, again in the next pass, and lets a DM found mid-pass win", async () => {
+    let queries = 0;
+    const counting = { execute: (q: unknown) => { queries++; return (db as unknown as { execute(q: unknown): Promise<unknown> }).execute(q); } };
+    const pass1 = { tenantId: T, executor: counting as never };
+    for (let i = 0; i < 50; i++) expect(await isDirectChannel(pass1, "C0NOMETA1")).toBe(false);
+    expect(queries).toBe(1); // unpatched: one query per row
+    markDirectChannel(T, "C0NOMETA1"); // its metadata arrived during the pass
+    expect(await isDirectChannel(pass1, "C0NOMETA1")).toBe(true);
+    resetDirectChannelCacheForTests();
+    const pass2 = { tenantId: T, executor: counting as never };
+    expect(await isDirectChannel(pass2, "C0NOMETA1")).toBe(false);
+    expect(queries).toBe(2); // a new pass asks again: unknown answers never outlive their pass
   });
 });

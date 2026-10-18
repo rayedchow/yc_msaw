@@ -21,6 +21,8 @@ const CACHE_TTL_MS = 10 * 60_000;
 const NEGATIVE_TTL_MS = 60_000;
 const MAX_CACHE = 20_000;
 const cache = new Map<string, { direct: boolean; at: number }>();
+/** Conversations of unknown type already checked in one export pass (keyed by the pass's context object). */
+const unknownInPass = new WeakMap<ExportContext, Set<string>>();
 
 export function isDirectConversationType(type: unknown): boolean {
   return typeof type === "string" && DIRECT_TYPES.has(type);
@@ -32,6 +34,11 @@ export async function isDirectChannel(ctx: ExportContext, channelId: string): Pr
   const key = `${ctx.tenantId}\n${channelId}`;
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < (hit.direct ? CACHE_TTL_MS : NEGATIVE_TTL_MS)) return hit.direct;
+  // A conversation without metadata is not cached across passes (it may turn out to be a DM), but within one export
+  // pass its answer is reused: one query per conversation, not per row (perf-verification-2 O1). markDirectChannel
+  // during the pass still wins, because the cache above is checked first.
+  const unknown = unknownInPass.get(ctx);
+  if (unknown?.has(channelId)) return false;
   const res = (await ctx.executor.execute(sql`
     SELECT (EXISTS (
       SELECT 1 FROM slack_source_conversations
@@ -53,7 +60,8 @@ export async function isDirectChannel(ctx: ExportContext, channelId: string): Pr
   if (direct || rows[0]?.known_channel === true) {
     cache.delete(key);
     cache.set(key, { direct, at: Date.now() });
-  }
+  } else if (unknown) unknown.add(channelId);
+  else unknownInPass.set(ctx, new Set([channelId]));
   while (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value!);
   return direct;
 }
