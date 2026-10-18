@@ -35,6 +35,7 @@ The AEye source comes from `askshepherd/aeye-shepherd`, branch `main` at
 
 | File (under `src/aeye/`) | Status |
 | --- | --- |
+| `web/components/workspace/draft-tree.tsx` | verbatim except the ADAPTED once-per-selection ancestor expansion (`treeHasSelection`) |
 | `web/components/agent-activity/activity-rows.tsx`, `activity-model.ts`, `activity-format.ts`, `activity-file-change.tsx`, `edit-call.ts`, `resumption.ts`, `trace-activity.ts` | verbatim |
 | `web/lib/duration-format.ts`, `src/build/workspace_display.ts`, `src/web/text_diff.ts` | verbatim |
 | `web/components/agent-activity/agent-activity.css`, `web/components/build-trace.css`, `web/components/workspace/live-agent-files.css` | verbatim |
@@ -55,7 +56,7 @@ The following are ports of `web/components/build-trace-workbench.tsx`:
   - Files shows the files the run recorded, not a sandbox snapshot.
   - A Run tab holds the operator's own records (seed, deploy, checks, phases), so these never enter an agent's conversation.
 - The Files tab uses AEye's workspace file picker and preview:
-  - `web/components/workspace/draft-tree.tsx` (`DraftTreeNodes`, verbatim): nested collapsible folders with carets and file-type icons, basename rows. Selecting a file opens its ancestors and closes nothing. Open folders are remembered per run, and the selection is kept in `?file=`, so it survives polls, tab switches and Whole/Diff.
+  - `web/components/workspace/draft-tree.tsx` (`DraftTreeNodes`; verbatim except one adapted effect, marked ADAPTED in the file: a selection opens its ancestors once, when it changes or when the selected file first appears, so live refreshes never reopen a folder the reader collapsed): nested collapsible folders with carets and file-type icons, basename rows. Selecting a file opens its ancestors and closes nothing. Open folders are remembered per run, and the selection is kept in `?file=`, so it survives polls, tab switches and Whole/Diff.
   - `web/components/tree-row-name.tsx` (ported): the same one-line ellipsis row. A cut name shows its full path as a native title, replacing AEye's Radix tooltip.
   - `web/components/file-type-icon.ts` (verbatim).
   - Whole mode follows AEye's `DraftFileBody`:

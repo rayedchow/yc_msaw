@@ -579,7 +579,10 @@ function FilesPanel({ files, diffs, runKey }: { files: readonly DemoFile[]; diff
   const setSelected = useCallback((path: string) => { filesMemory.selected = path; setSelectedState(path); }, []);
   // A selection that is not (or no longer) a recorded file falls back to the first one, and is never invented.
   const file = files.find((candidate) => candidate.path === selected) ?? files[0] ?? null;
-  const tree = useMemo(() => recordedFileTree(files), [files]);
+  // The tree changes only when the set of recorded paths does, not on every live event or content edit.
+  const pathKey = files.map((entry) => entry.path).join("\n");
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  const tree = useMemo(() => recordedFileTree(files), [pathKey]);
   const recorded = useMemo(() => new Set(files.map((entry) => entry.path)), [files]);
   const modes = (
     <div className="workspace-panel-modes" role="tablist" aria-label="Files view">

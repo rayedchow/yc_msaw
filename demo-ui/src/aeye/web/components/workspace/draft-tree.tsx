@@ -1,7 +1,11 @@
-/* Vendored from AEye web/components/workspace/draft-tree.tsx (askshepherd/aeye-shepherd @ a49aae10e219a7b3aa36102099b649340c2d42b0); verbatim apart from this note. */
+/*
+ * Vendored from AEye web/components/workspace/draft-tree.tsx (askshepherd/aeye-shepherd @ a49aae10e219a7b3aa36102099b649340c2d42b0).
+ * Verbatim except the parts marked ADAPTED: the selected-ancestor expansion runs once per selection
+ * (treeHasSelection), so live tree refreshes never reopen a folder the reader collapsed.
+ */
 
 import { Archive, File, FileText, Folder } from "lucide-react";
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { workspaceFolderName } from "../../../src/build/workspace_display.js";
 import type { HandbookTreeNode } from "../../../src/web/repository.js";
@@ -67,6 +71,11 @@ export function treeAncestors(nodes: readonly HandbookTreeNode[], path: string):
     if (inner.length > 0 || containsFile(node.children, path)) return [node.path, ...inner];
   }
   return [];
+}
+
+/** ADAPTED (procmem demo): whether the tree shows the selected path yet (a file can arrive after it is chosen). */
+export function treeHasSelection(nodes: readonly HandbookTreeNode[], selected: string, inPage: boolean): boolean {
+  return containsFile(nodes, selected) || treeAncestors(nodes, selected).length > 0 || (!inPage && containsFile(nodes, `knowledge/${selected}`));
 }
 
 function containsFile(nodes: readonly HandbookTreeNode[], path: string): boolean {
@@ -323,7 +332,15 @@ export function DraftTreeNodes({
   }, [persistKey]);
 
   // A selection expands what leads to it, and nothing else changes.
+  // ADAPTED (procmem demo): once per selection. A live run re-reads its tree on every event, so the
+  // ancestors are opened when the selection changes, or when the selected file first appears in the
+  // tree, and never again on a refreshed tree: a folder the reader collapsed stays collapsed.
+  const expandedForRef = useRef<string | null>(null);
   useEffect(() => {
+    if (selected === null) { expandedForRef.current = null; return; }
+    if (expandedForRef.current === selected) return;
+    if (!treeHasSelection(nodes, selected, inPage)) return;
+    expandedForRef.current = selected;
     setExpanded((current) => {
       const next = expandedForSelection(current, nodes, selected, inPage);
       if (next !== current) writeExpanded(persistKey, next);
