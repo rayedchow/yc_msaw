@@ -110,7 +110,7 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/integrations/registry.ts": {
     status: "patched",
-    reason: "Coordinator (stripe, discord, unipile): registers the Stripe connector (ported from gigabrain 5448774), the Discord official-bot collector and the WhatsApp/Instagram personal Unipile connectors (read-only, operator opt-in) so their connect/disconnect, webhook and sync handlers are live.",
+    reason: "Coordinator (stripe, discord, unipile): registers the Stripe connector (ported from gigabrain 5448774), the Discord official-bot collector, the read-only Cursor background agents collector and the WhatsApp/Instagram personal Unipile connectors (read-only, operator opt-in) so their connect/disconnect, webhook and sync handlers are live.",
     test: "tests/source-lane/providers/stripe/stripe.test.ts",
   },
   "src/integrations/nango/capture.ts": {

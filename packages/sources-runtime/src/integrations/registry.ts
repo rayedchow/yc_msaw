@@ -12,6 +12,8 @@ import { slackIntegration } from "./slack/index.js";
 import { stripeIntegration } from "./stripe/index.js";
 // SOURCE-LANE PATCH (coordinator, discord): official bot API collector (semantic reference gigabrain discord-personal).
 import { discordIntegration } from "./discord/index.js";
+// SOURCE-LANE PATCH (coordinator, cursor-agents): read-only Cursor background agents collector.
+import { cursorAgentsIntegration } from "./cursor-agents/index.js";
 // SOURCE-LANE PATCH (coordinator, unipile): WhatsApp/Instagram personal over Unipile (read-only, operator opt-in).
 import { instagramPersonalIntegration } from "./instagram-personal/index.js";
 import { whatsappPersonalIntegration } from "./whatsapp-personal/index.js";
@@ -33,6 +35,7 @@ export const integrations: AqueductIntegration[] = [
   slackIntegration,
   stripeIntegration,
   discordIntegration,
+  cursorAgentsIntegration,
   instagramPersonalIntegration,
   whatsappPersonalIntegration,
 ];

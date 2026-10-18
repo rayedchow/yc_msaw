@@ -873,6 +873,16 @@
       ]
     },
     {
+      "path": "drizzle/9950_cursor_agents_lane.sql",
+      "sha256": "0b51cf22517237c2a83f5deb2c01f95d54c316c4e23f4ac2512c0c79740a6af9",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "cursor_agents_connections + cursor_agents_snapshots with journal trigger.",
+      "tests": [
+        "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts"
+      ]
+    },
+    {
       "path": "scripts/backfill-calcom-aliases.ts",
       "sha256": "4c329d9c3df1f3409cf427d37dc3db817cc2904cdca4e88c814177d272c8571c",
       "status": "verbatim",
@@ -1046,6 +1056,40 @@
       "status": "verbatim",
       "donorPath": "src/integrations/bitbucket/processors.ts",
       "donorSha256": "62cdb0bb49c8572a48fb62d9b555e69467265f1f182250b277ba2fd746642628"
+    },
+    {
+      "path": "src/integrations/cursor-agents/index.ts",
+      "sha256": "e4c11fccc7d34d540d074d22611985f66937964c9c35bef5eed43f99a0851496",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Cursor agents integration export.",
+      "tests": [
+        "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/cursor-agents/lane.ts",
+      "sha256": "e7dbb3b7b6317fd27375fbba7576709defee8eef017fcc35b56fabd1d4b030c1",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Read-only port of the Cursor background agents collector: donor parsers, event identities and webhook signature verbatim in semantics; launch/followup/delete not ported; immutable :v:<sha> snapshot versions (donor overwrote one row), connection-bound webhook URL + per-connection secret (donor /:userId), persisted listing cursor with failed-page resume, Retry-After, listing tombstones, bounded conversation fetches.",
+      "tests": [
+        "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "9411c1a362fffb7e5a778080d991082810da2510",
+          "path": "brain/src/polling/cursor-background-agents.ts",
+          "use": "client, parsers, snapshot/webhook storage"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "9411c1a362fffb7e5a778080d991082810da2510",
+          "path": "brain/src/webhooks/cursor-background-agents.ts",
+          "use": "X-Webhook-* headers and sha256= HMAC verification"
+        }
+      ]
     },
     {
       "path": "src/integrations/discord/api.ts",
@@ -1748,13 +1792,14 @@
     },
     {
       "path": "src/integrations/registry.ts",
-      "sha256": "7913173dc6a46cc00ab70219856f24d989b8ea79a44fef0a5a09af65df6f9ab3",
+      "sha256": "586bb145a5d94e602ed9e11b03bf33fb46cee579cc3fcc4004c856936cef4685",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/registry.ts",
       "donorSha256": "7d0076b5c7bca8d5155e320455ff5f7d479fd50939eeb4e1b4f7e64027d1c55b",
-      "reason": "Coordinator (stripe, discord, unipile): registers Stripe, Discord and the WhatsApp/Instagram personal connectors.",
+      "reason": "Coordinator: registers Stripe, Discord, Cursor agents and the WhatsApp/Instagram personal connectors.",
       "tests": [
+        "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
         "tests/source-lane/providers/discord/discord.test.ts",
         "tests/source-lane/providers/stripe/stripe.test.ts",
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
@@ -2619,6 +2664,16 @@
       ]
     },
     {
+      "path": "src/source-lane/providers/cursor-agents/index.ts",
+      "sha256": "1a2f9deea29d36f64f1b88e07a7f9cc70b82b19c95447ff90287c49e8fc81bbc",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Cursor agents provider: agent.json/conversation.json files with tombstones, truthful coverage.",
+      "tests": [
+        "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts"
+      ]
+    },
+    {
       "path": "src/source-lane/providers/discord/index.ts",
       "sha256": "cc27a82f45907a6e0208a10f83e4ee6b2612d7fc2f08cded97943eda4aed5fa6",
       "status": "new",
@@ -3230,11 +3285,12 @@
     },
     {
       "path": "src/source-lane/providers/index.ts",
-      "sha256": "c6c4c31abd3ab4931db96b8a592474c528c9cabd09778a09f358fac97d645148",
+      "sha256": "55cc89510823a1c2b2813896c989f02b114ceada67a126d357e5f9d802ac1347",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Provider registry (+ stripe, discord, whatsapp-personal, instagram-personal).",
+      "reason": "Provider registry (+ stripe, discord, cursor-agents, whatsapp-personal, instagram-personal).",
       "tests": [
+        "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
         "tests/source-lane/providers/discord/discord.test.ts",
         "tests/source-lane/providers/nango-records/shared-patches.test.ts",
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
@@ -4335,6 +4391,16 @@
       ]
     },
     {
+      "path": "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
+      "sha256": "1aba07d2ff9f04f8e82ff79f0d26a68c6965df07ffcc79d324e58e9feb1c7719",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Cursor agents regression suite.",
+      "tests": [
+        "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts"
+      ]
+    },
+    {
       "path": "tests/source-lane/providers/discord/discord.test.ts",
       "sha256": "19566ef4380e485a1b7865924cad38e8bcf78da62aef9e3ea582166b56593755",
       "status": "new",
@@ -4725,14 +4791,11 @@
     },
     {
       "path": "tests/source-lane/providers/nango-records/config-registry.test.ts",
-      "sha256": "df5ff6a0938e238257a0ae4ee8856aafa80d43d34696f8aa13ad938eb5286b6e",
+      "sha256": "9ab972a7f9e7981463a5f8041acd6bd771d34ae513308d09eac1f59ca5367be6",
       "status": "new",
-      "owner": "nango-expansion",
-      "reason": "Lane test (production code imported; PGlite with real migrations; docs-conformant fake Nango HTTP API)",
+      "owner": "nango-expansion, coordinator",
+      "reason": "Lane test (production code imported; PGlite with real migrations; docs-conformant fake Nango HTTP API) Coordinator: the alias collision case picks a syntactically valid alias (cursor-agents' event source has underscores).",
       "tests": [
-        "tests/source-lane/providers/nango-records/sync.test.ts",
-        "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
-        "tests/source-lane/providers/nango-records/export.test.ts",
         "tests/source-lane/providers/nango-records/config-registry.test.ts"
       ]
     },

@@ -2,6 +2,7 @@ import type { SourceProviderModule } from "../core/types.js";
 import { bitbucketProvider } from "./bitbucket/index.js";
 import { calendarProvider } from "./calendar/index.js";
 import { confluenceProvider } from "./confluence/index.js";
+import { cursorAgentsProvider } from "./cursor-agents/index.js";
 import { discordProvider } from "./discord/index.js";
 import { githubProvider } from "./github/index.js";
 import { gmailProvider } from "./gmail/index.js";
@@ -26,6 +27,7 @@ const SPECIALIZED_PROVIDERS: readonly SourceProviderModule[] = [
   bitbucketProvider,
   calendarProvider,
   confluenceProvider,
+  cursorAgentsProvider,
   discordProvider,
   githubProvider,
   gmailProvider,

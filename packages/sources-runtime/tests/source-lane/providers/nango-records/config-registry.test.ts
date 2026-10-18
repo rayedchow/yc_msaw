@@ -24,8 +24,10 @@ const SOURCE_PROVIDERS = REGISTERED.filter((m) => !isNangoRecordsModule(m));
 
 describe("generic Nango catalog vs the real provider registry", () => {
   it("refuses sources that collide with specialized modules or donor-captured integrations", () => {
-    const withAlias = SOURCE_PROVIDERS.find((m) => m.eventSources.some((e) => e !== m.id))!;
-    const alias = withAlias.eventSources.find((e) => e !== withAlias.id)!;
+    // An alias that is itself a valid catalog source id (some modules use underscore event sources).
+    const valid = (e: string) => /^[a-z0-9][a-z0-9-]{0,62}$/.test(e);
+    const withAlias = SOURCE_PROVIDERS.find((m) => m.eventSources.some((e) => e !== m.id && valid(e)))!;
+    const alias = withAlias.eventSources.find((e) => e !== withAlias.id && valid(e))!;
     const catalog = buildCatalog(
       cfg([
         { source: "gmail", providerConfigKey: "my-gmail", models: ["Email"] },

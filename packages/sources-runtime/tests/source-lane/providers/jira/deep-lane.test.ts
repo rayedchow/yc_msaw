@@ -7,6 +7,7 @@ vi.mock("../../../../src/db/client.js", async () => {
 
 import { jiraCoverage } from "../../../../src/source-lane/providers/jira/coverage.js";
 import { enqueueJiraIssueHint, runJiraSweep } from "../../../../src/source-lane/providers/jira/sweep.js";
+import { handleJiraForwardWebhook, jiraWebhookIssueId } from "../../../../src/source-lane/providers/jira/webhook.js";
 import { FakeJira, MEDIA_TOKEN, NANGO_KEY } from "./fake-jira.js";
 import { CLOUD, CONN, drain, ENG, issuePath, makeExporter, nowJira, OPS, PDF, PNG, ROOT, seedSite, sweepOptions, sweepUntilQuiet } from "./fixtures.js";
 import { connect, db, query, ready, resetAll } from "./harness.js";
@@ -308,5 +309,23 @@ describe("jira deep lane: rate limits, checkpoints and the delta watermark", () 
     await sweepUntilQuiet(T, fake);
     expect((await query<{ title: string }>(`SELECT title FROM jira_source_objects WHERE tenant_id = $1 AND content_id = '10003'`, [T]))[0]!.title).toBe("Changed without an updated bump");
     expect(fake.callsTo(/\/issue\/10003\?/u)).toHaveLength(1);
+  });
+
+  it("turns a verified Nango forward webhook into a by-id refresh for the mapped tenant only", async () => {
+    await sweepUntilQuiet(T, fake);
+    await connect("tenant-elsewhere", "conn-elsewhere");
+    fake.issue("10003").summary = "Edited (webhook)";
+    const body = { webhookEvent: "jira:issue_updated", issue: { id: "10003", key: "OPS-1", fields: { summary: "FORGED SUMMARY" } } };
+    expect(jiraWebhookIssueId(body)).toBe("10003");
+    expect(jiraWebhookIssueId({ comment: { id: "c1" }, issue: { id: "x1; DROP" } })).toBeNull();
+    expect(await handleJiraForwardWebhook(db as never, { type: "forward", from: "confluence", connectionId: CONN, payload: body })).toMatchObject({ handled: false });
+    expect(await handleJiraForwardWebhook(db as never, { type: "forward", from: "jira", connectionId: "conn-unknown", providerConfigKey: "jira", payload: body })).toMatchObject({ handled: true, queued: 0 });
+    expect(await handleJiraForwardWebhook(db as never, { type: "forward", from: "jira", connectionId: CONN, providerConfigKey: "jira", payload: body })).toMatchObject({ handled: true, queued: 1 });
+    expect((await query(`SELECT 1 FROM jira_source_work WHERE tenant_id = 'tenant-elsewhere'`)).length).toBe(0);
+    await sweepUntilQuiet(T, fake);
+    const row = (await query<{ title: string; raw: any }>(`SELECT title, raw FROM jira_source_objects WHERE tenant_id = $1 AND content_id = '10003'`, [T]))[0]!;
+    // The stored state is what Jira returned for the id, never the forwarded body.
+    expect(row.title).toBe("Edited (webhook)");
+    expect(JSON.stringify(row.raw)).not.toContain("FORGED SUMMARY");
   });
 });
