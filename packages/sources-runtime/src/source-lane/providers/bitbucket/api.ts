@@ -276,7 +276,7 @@ export function branchEndpoint(fullName: string, branch: string): string {
 
 /** Directory listing (trailing slash) or file body at an exact commit. */
 export function srcEndpoint(fullName: string, commit: string, path: string, directory: boolean): string {
-  if (!isCommitSha(commit)) throw new BitbucketApiError(`refusing non-commit ref ${JSON.stringify(commit.slice(0, 60))}`, 0, "bad_commit");
+  if (!isCommitSha(commit)) throw new BitbucketApiError(`refusing non-commit ref ${JSON.stringify(String(commit).slice(0, 60))}`, 0, "bad_commit");
   const rel = path.replace(/\/+$/u, "");
   return repoEndpoint(fullName, `/src/${commit}/${rel ? encodePath(rel) : ""}${directory && rel ? "/" : ""}`);
 }

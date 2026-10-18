@@ -895,6 +895,16 @@
       ]
     },
     {
+      "path": "drizzle/9750_linear_lane.sql",
+      "sha256": "bc6e53b57c2a8d8f751607e8ce020d6b0180541f5b70bbd300a008def3468ffa",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "linear_connections, linear_cursors, linear_objects + journal trigger.",
+      "tests": [
+        "tests/source-lane/providers/linear/linear.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9800_coding_sessions_lane.sql",
       "sha256": "2e36a090ec753e4fbe2c910b9d4ee03ffb93ddf0039b0df9c5bf79a27e6a045c",
       "status": "new",
@@ -1672,6 +1682,46 @@
       ]
     },
     {
+      "path": "src/integrations/linear/index.ts",
+      "sha256": "4facf850e6b3b0ba189633ff91f53ad22a66f8d0b0658dd3aa885daef5723b47",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Linear integration export.",
+      "tests": [
+        "tests/source-lane/providers/linear/linear.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/linear/lane.ts",
+      "sha256": "51603b7491d91659e88dfa30350fafb749f11a95d0dfaa74499ecabf942ee0f6",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Read-only Linear lane: donor GraphQL client/field selections/summary, issue snapshot ids and Linear-Signature verification; mutations/agent tools not ported; per-connection webhook URL+secret with organization check (donor: query routing key); full paginated polling of issues/comments/projects/cycles with durable cursors and post-pass watermark; archive/remove/listing tombstones; RATELIMITED/429 reset persisted per connection.",
+      "tests": [
+        "tests/source-lane/providers/linear/linear.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "f74c62ca8db7911c819c174bab9a2a34a2a52fc1",
+          "path": "brain/src/linear/api.ts",
+          "use": "linearGraphql, ISSUE_*_FIELDS, summarizeLinearIssue"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "f74c62ca8db7911c819c174bab9a2a34a2a52fc1",
+          "path": "brain/src/jobs/linear-poll.ts",
+          "use": "issue snapshot identity"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "f74c62ca8db7911c819c174bab9a2a34a2a52fc1",
+          "path": "brain/src/webhooks/linear.ts",
+          "use": "signature, delivery id, timestamp window, event type"
+        }
+      ]
+    },
+    {
       "path": "src/integrations/nango/capture.ts",
       "sha256": "31b4ea4c678e4ffff2807cb6751e85dfe7efa92fdaba81ba9230ef6d6eb5c1ef",
       "status": "patched",
@@ -1883,15 +1933,16 @@
     },
     {
       "path": "src/integrations/registry.ts",
-      "sha256": "3a0910cc9e3b9b967a88e7d757c4c2cd81feac2b8158d5b1dddb27de41afa30a",
+      "sha256": "0d7a4d023ab09b5bdbf8425373958f5431eb29ca0534ab9a3a25548fb861f94f",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/registry.ts",
       "donorSha256": "7d0076b5c7bca8d5155e320455ff5f7d479fd50939eeb4e1b4f7e64027d1c55b",
-      "reason": "Coordinator: registers Stripe, Discord, Cursor agents, Zoom and the WhatsApp/Instagram personal connectors.",
+      "reason": "Coordinator: registers Stripe, Discord, Cursor agents, Zoom, Linear and the WhatsApp/Instagram personal connectors.",
       "tests": [
         "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
         "tests/source-lane/providers/discord/discord.test.ts",
+        "tests/source-lane/providers/linear/linear.test.ts",
         "tests/source-lane/providers/stripe/stripe.test.ts",
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts",
         "tests/source-lane/providers/zoom/zoom.test.ts"
@@ -3487,14 +3538,15 @@
     },
     {
       "path": "src/source-lane/providers/index.ts",
-      "sha256": "4b96caa1cc0d5122c940565ef52e260973368d989a49dd651f9bfbea80447ebb",
+      "sha256": "65ca20d6a55f3d0493b2b63e664c793a54afe8edac575ff8a47c91ae6a5d0adb",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Provider registry (+ stripe, discord, cursor-agents, coding-sessions, zoom, whatsapp-personal, instagram-personal).",
+      "reason": "Provider registry (+ stripe, discord, cursor-agents, coding-sessions, zoom, linear, whatsapp-personal, instagram-personal).",
       "tests": [
         "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",
         "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
         "tests/source-lane/providers/discord/discord.test.ts",
+        "tests/source-lane/providers/linear/linear.test.ts",
         "tests/source-lane/providers/nango-records/shared-patches.test.ts",
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts",
         "tests/source-lane/providers/zoom/zoom.test.ts"
@@ -3679,6 +3731,16 @@
       "reason": "Nango forward webhook hint for Jira: tenant from connections table, issue id queued for by-id refresh, body never stored (wired by patch request jira#4).",
       "tests": [
         "tests/source-lane/providers/jira/deep-lane.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/linear/index.ts",
+      "sha256": "77d2b5ce4ac1041fa23703fec88915417d9b5bf524547c0937a42d57feddbf66",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Linear provider: issue JSON + markdown, comments/projects/cycles JSON, tombstones, truthful coverage.",
+      "tests": [
+        "tests/source-lane/providers/linear/linear.test.ts"
       ]
     },
     {
@@ -5301,11 +5363,21 @@
       ]
     },
     {
+      "path": "tests/source-lane/providers/linear/linear.test.ts",
+      "sha256": "f2c3fb5897a226b8867a3fbaa0aa84a67f9722fdf6b970ef37a073306526f3fd",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Linear lane regression suite.",
+      "tests": [
+        "tests/source-lane/providers/linear/linear.test.ts"
+      ]
+    },
+    {
       "path": "tests/source-lane/providers/nango-records/config-registry.test.ts",
-      "sha256": "9ab972a7f9e7981463a5f8041acd6bd771d34ae513308d09eac1f59ca5367be6",
+      "sha256": "8c34fe390a3db9d8871ef6718ef75059527d3635b3c2347bdcfe6c7b23256548",
       "status": "new",
       "owner": "nango-expansion, coordinator",
-      "reason": "Lane test (production code imported; PGlite with real migrations; docs-conformant fake Nango HTTP API) Coordinator: the alias collision case picks a syntactically valid alias (cursor-agents' event source has underscores).",
+      "reason": "Lane test (production code imported; PGlite with real migrations; docs-conformant fake Nango HTTP API) Coordinator: the alias collision case picks a syntactically valid alias (cursor-agents' event source has underscores). Coordinator: precedence example uses a still-generic provider (Linear is now specialized).",
       "tests": [
         "tests/source-lane/providers/nango-records/config-registry.test.ts"
       ]

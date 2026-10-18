@@ -71,14 +71,15 @@ describe("generic Nango catalog vs the real provider registry", () => {
   });
 
   it("a later specialized module takes precedence over a configured generic source of the same name", () => {
-    const linear = { id: "linear", eventSources: ["linear"], mirrorRoots: ["sources/linear/"] };
-    const env = { NANGO_RECORDS_CONFIG: JSON.stringify(cfg([{ source: "linear", providerConfigKey: "acme-linear", models: ["LinearIssue"] }])) };
+    // A provider that is still generic-only (Linear gained a specialized module, so it can no longer serve here).
+    const asana = { id: "asana", eventSources: ["asana"], mirrorRoots: ["sources/asana/"] };
+    const env = { NANGO_RECORDS_CONFIG: JSON.stringify(cfg([{ source: "asana", providerConfigKey: "acme-asana", models: ["AsanaTask"] }])) };
     const before = laneFromEnv(env, SOURCE_PROVIDERS, { db, api: null });
-    expect(before.catalog.sources.map((s) => s.source)).toEqual(["linear"]);
-    const after = laneFromEnv(env, [...SOURCE_PROVIDERS, linear], { db, api: null });
+    expect(before.catalog.sources.map((s) => s.source)).toEqual(["asana"]);
+    const after = laneFromEnv(env, [...SOURCE_PROVIDERS, asana], { db, api: null });
     expect(after.catalog.sources).toEqual([]);
     expect(after.catalog.refused[0]!.reason).toMatch(/owned by a specialized provider module/);
-    expect(() => new SourceProviderRegistry([...SOURCE_PROVIDERS, linear, ...createNangoRecordsModules(after)])).not.toThrow();
+    expect(() => new SourceProviderRegistry([...SOURCE_PROVIDERS, asana, ...createNangoRecordsModules(after)])).not.toThrow();
   });
 
   it("captures nothing from an invalid or absent config and says why", async () => {

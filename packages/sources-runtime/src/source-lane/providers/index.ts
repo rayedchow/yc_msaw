@@ -14,6 +14,7 @@ import { granolaProvider } from "./granola/index.js";
 import { imessageProvider } from "./imessage/index.js";
 import { instagramPersonalProvider } from "./instagram-personal/index.js";
 import { jiraProvider } from "./jira/index.js";
+import { linearProvider } from "./linear/index.js";
 import { withNangoRecordsProviders } from "./nango-records/index.js";
 import { notionProvider } from "./notion/index.js";
 import { slackProvider } from "./slack/index.js";
@@ -41,6 +42,7 @@ const SPECIALIZED_PROVIDERS: readonly SourceProviderModule[] = [
   imessageProvider,
   instagramPersonalProvider,
   jiraProvider,
+  linearProvider,
   notionProvider,
   slackProvider,
   stripeProvider,
