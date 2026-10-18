@@ -5,6 +5,9 @@ import { encodeSegment, eventCapturedAt, rawEventDocument } from "../../export/m
 import { IMESSAGE_CONTACTS_PATH, IMESSAGE_PROJECTION_ROOT } from "./render.js";
 import { query } from "./util.js";
 
+/** uuid primary keys are compared as uuid (casting the key column to text cannot use the index). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 /**
  * sources/imessage/ layout:
  *   conversations/<name>-chat-<hash>/<yyyy-mm>.md      projection (mirror_files, rendered by projector.ts)
@@ -123,7 +126,7 @@ export const imessageMutationsTable: ExtraTableExport = {
                    previous_payload::text AS previous_payload_text, next_payload_sha256, uploaded::text AS uploaded_text, event_timestamp, observed_at,
                    'conversation:' || COALESCE(previous_payload ->> '_normalized_conversation_id', previous_payload ->> 'chatId', '_') AS conversation
             FROM imessage_message_mutations
-            WHERE tenant_id = ${ctx.tenantId} AND id::text = ${rowKey}`,
+            WHERE tenant_id = ${ctx.tenantId} AND id = ${UUID_RE.test(rowKey) ? rowKey : null}::uuid`,
       )
     )[0];
     if (!row) return previous.map((path) => ({ op: "delete" as const, path, deletedAt: journal.enqueuedAt, reason: "mutation_row_deleted", capturedAt: journal.enqueuedAt }));
@@ -169,7 +172,7 @@ export const imessageRejectionsTable: ExtraTableExport = {
       await query<RejectionRow>(
         ctx.executor,
         sql`SELECT id::text AS id, binding_id, reason, batch_index, uploaded::text AS uploaded_text, received_at
-            FROM imessage_ingest_rejections WHERE tenant_id = ${ctx.tenantId} AND id::text = ${rowKey}`,
+            FROM imessage_ingest_rejections WHERE tenant_id = ${ctx.tenantId} AND id = ${UUID_RE.test(rowKey) ? rowKey : null}::uuid`,
       )
     )[0];
     if (!row) return previous.map((path) => ({ op: "delete" as const, path, deletedAt: journal.enqueuedAt, reason: "rejection_row_deleted", capturedAt: journal.enqueuedAt }));

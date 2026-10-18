@@ -7,6 +7,10 @@ import { defaultRegistry, type SourceProviderRegistry } from "../registry.js";
 import { boundTenants, getTenantBinding } from "./bindings.js";
 import { defaultEventChanges, defaultMirrorChanges, rawEventDir } from "./mapping.js";
 import { PublishError, sha256, SourcePublishClient, type PublishReceipt, type WireChange } from "./publish-client.js";
+/** activity_events.id is a uuid primary key: lookups must compare as uuid so the index is used. */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+const UUID_SQL_RE = "^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$";
+
 
 /**
  * Source exporter: drains `source_lane_journal` into yc_msaw's sources/ store.
@@ -316,7 +320,7 @@ export class SourceExporter {
           SELECT id::text AS id, user_id, source, source_namespace, source_object_id, record_kind, event_type,
                  timestamp, source_updated_at, raw_payload, raw_payload::text AS raw_payload_text,
                  extracted_entities, extracted_entities::text AS extracted_entities_text, source_event_id, created_at
-          FROM activity_events WHERE user_id = ${ctx.tenantId} AND id::text = ${g.rowKey}
+          FROM activity_events WHERE user_id = ${ctx.tenantId} AND id = ${UUID_RE.test(g.rowKey) ? g.rowKey : null}::uuid
         `),
       )[0];
       if (!row) {
@@ -561,25 +565,33 @@ export class SourceExporter {
         reported.add(m.id);
       }
     }
-    // Journal backlog and dead letters per provider directory.
-    const backlog = rows<{ table_name: string; row_key: string; dead: boolean; last_error: string | null; source: string | null }>(
+    // Journal backlog and dead letters per provider directory, aggregated in SQL. activity_events rows are joined
+    // through the uuid primary key (a text cast of the key would scan the table once per journal row).
+    const backlog = rows<{ table_name: string; mirror_dir: string | null; source: string | null; dead: boolean; n: number; last_error: string | null }>(
       await this.db.execute(sql`
-        SELECT j.table_name, j.row_key, (j.dead_lettered_at IS NOT NULL) AS dead, j.last_error,
-               CASE WHEN j.table_name = 'activity_events' THEN (SELECT a.source FROM activity_events a WHERE a.id::text = j.row_key) END AS source
-        FROM source_lane_journal j WHERE j.tenant_id = ${tenantId}
+        SELECT j.table_name,
+               CASE WHEN j.table_name = 'mirror_files' THEN substring(j.row_key FROM '^sources/([^/]+)/') END AS mirror_dir,
+               a.source, (j.dead_lettered_at IS NOT NULL) AS dead, count(*)::int AS n, max(j.last_error) AS last_error
+        FROM source_lane_journal j
+        LEFT JOIN activity_events a
+          ON j.table_name = 'activity_events' AND a.user_id = j.tenant_id
+         AND a.id = (CASE WHEN j.row_key ~ ${UUID_SQL_RE} THEN j.row_key::uuid END)
+        WHERE j.tenant_id = ${tenantId}
+        GROUP BY 1, 2, 3, 4
       `),
     );
     const perProvider = new Map<string, { backlog: number; dead: number; error: string | null }>();
     for (const b of backlog) {
       const provider =
-        b.table_name === "mirror_files" ? (/^sources\/([^/]+)\//.exec(b.row_key)?.[1] ?? "unknown-source")
+        b.table_name === "mirror_files" ? (b.mirror_dir ?? "unknown-source")
         : b.table_name === "activity_events" ? (b.source ? rawEventDir(this.registry, { source: b.source }) : "unknown-source")
         : (this.registry.extraTable(b.table_name)?.provider.id ?? "unknown-source");
       const p = perProvider.get(provider) ?? { backlog: 0, dead: 0, error: null };
+      const n = Number(b.n);
       if (b.dead) {
-        p.dead += 1;
+        p.dead += n;
         p.error ??= b.last_error;
-      } else p.backlog += 1;
+      } else p.backlog += n;
       perProvider.set(provider, p);
     }
     for (const [provider, p] of perProvider) {

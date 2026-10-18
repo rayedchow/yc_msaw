@@ -198,7 +198,7 @@ async function renderConversation(
     await upsertMirror(tx, tenantId, target, content, meta);
     // Lifecycle collected -> mirrored (not journaled: processing_status is bookkeeping).
     await tx.execute(sql`UPDATE activity_events SET processing_status = 'mirrored'
-                         WHERE user_id = ${tenantId} AND id::text IN (${sql.join(rows.map((r) => sql`${r.id}`), sql`, `)}) AND processing_status <> 'mirrored'`);
+                         WHERE user_id = ${tenantId} AND id IN (${sql.join(rows.map((r) => sql`${r.id}::uuid`), sql`, `)}) AND processing_status <> 'mirrored'`);
     for (const p of stale) await tx.execute(sql`DELETE FROM mirror_files WHERE user_id = ${tenantId} AND path = ${p}`);
     rendered++;
     deleted += stale.length;

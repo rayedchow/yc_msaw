@@ -23,6 +23,9 @@ import {
   type BinaryObjectReader,
 } from "../../../integrations/binary/source-bytes.js";
 
+/** uuid primary keys are compared as uuid (casting the key column to text cannot use the index). */
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export const BINARY_EXPORTED_PROVIDERS: ReadonlySet<string> = new Set(["drive-pdf", "upload", "slack"]);
 const DONOR = "askshepherd/aqueduct@b26d3f46 src/integrations/binary/intake.ts";
 
@@ -125,7 +128,7 @@ export function binaryDocumentsExport(reader: BinaryObjectReader = s3BinaryObjec
                d.created_at, d.updated_at, v.id AS version_id
         FROM binary_documents d
         LEFT JOIN binary_document_versions v ON v.document_id = d.id AND v.sha256 = d.sha256
-        WHERE d.tenant_id = ${ctx.tenantId} AND d.id::text = ${key}
+        WHERE d.tenant_id = ${ctx.tenantId} AND d.id = ${UUID_RE.test(key) ? key : null}::uuid
       `));
       const provenance = { table: "binary_documents", rowKey: key, donor: DONOR, ...(d ? { provider: d.provider, externalId: d.external_id } : {}) };
       if (!d) return deletes(prev, "binary_row_deleted", j.enqueuedAt, provenance);

@@ -2886,11 +2886,12 @@
     },
     {
       "path": "src/source-lane/providers/binary/index.ts",
-      "sha256": "3cf3825ac9618fb2764401c678a76795da5899aa88d6dbec0d17755e26ce1d7f",
+      "sha256": "34c89c882710f26a98173a0d1d64c44a8ed472a78e9e0586624958098c232fe9",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Binary provider module: binary_documents (meta.json + current bytes) and binary_document_versions (immutable history) extraTables, tombstone/restore/purge deletes, gmail-attachment and slack rows left to their own lanes, truthful coverage. Legacy slack rows exported (the slack source lane no longer writes binary_documents).",
+      "reason": "Binary provider module: binary_documents (meta.json + current bytes) and binary_document_versions (immutable history) extraTables, tombstone/restore/purge deletes, gmail-attachment and slack rows left to their own lanes, truthful coverage. Legacy slack rows exported (the slack source lane no longer writes binary_documents). Coordinator (final-audit H1): uuid primary-key lookups compare as uuid.",
       "tests": [
+        "tests/source-lane/core/exporter-backlog.test.ts",
         "tests/source-lane/providers/binary/binary.test.ts"
       ]
     },
@@ -3860,11 +3861,12 @@
     },
     {
       "path": "src/source-lane/providers/imessage/export.ts",
-      "sha256": "5472154e470c9ba77df2bbf8fae8c51f9d6e2b00bd15d40aed9c6e9c89a3851c",
+      "sha256": "d97e4fd17eb487e074c5277bf697013f5f7f497cbc9911d69125c512b40171d2",
       "status": "new",
-      "owner": "imessage",
-      "reason": "Raw/mutation/rejection export mappers for the core exporter; donor month layout not exported.",
+      "owner": "imessage, coordinator",
+      "reason": "Raw/mutation/rejection export mappers for the core exporter; donor month layout not exported. Coordinator (final-audit H1): uuid primary-key lookups compare as uuid.",
       "tests": [
+        "tests/source-lane/core/exporter-backlog.test.ts",
         "tests/source-lane/providers/imessage/export.test.ts"
       ]
     },
@@ -3885,14 +3887,15 @@
     },
     {
       "path": "src/source-lane/providers/imessage/ingest.ts",
-      "sha256": "166c8e31bc32210f6fcd149c4324f3f8ec8f9cf46e2317c03b3a9dfa1624d1f3",
+      "sha256": "cdf74b4a204cf7798b2a5cf1823c2d37bb393e01c412eb4c16e0ffdd2b680c17",
       "status": "new",
-      "owner": "imessage",
-      "reason": "Port of the donor POST /api/imessage/ingest receiver: payload shape, event types, canonical/legacy/GUID identity, aliases, duplicate archiving, watermarks, sync progress; adapted to one transaction per batch under a tenant lock, device-scoped local-row ids, stale-observation guard, normalized first-observation payload (replay = skipped), no fake edit on unsend, mutation and rejection ledgers, projection dirty marks; tenant from the key, body userId ignored.",
+      "owner": "imessage, coordinator",
+      "reason": "Port of the donor POST /api/imessage/ingest receiver: payload shape, event types, canonical/legacy/GUID identity, aliases, duplicate archiving, watermarks, sync progress; adapted to one transaction per batch under a tenant lock, device-scoped local-row ids, stale-observation guard, normalized first-observation payload (replay = skipped), no fake edit on unsend, mutation and rejection ledgers, projection dirty marks; tenant from the key, body userId ignored. Coordinator (final-audit H1): uuid primary-key lookups compare as uuid.",
       "tests": [
-        "tests/source-lane/providers/imessage/ingest-identity.test.ts",
+        "tests/source-lane/core/exporter-backlog.test.ts",
+        "tests/source-lane/providers/imessage/donor-parity.test.ts",
         "tests/source-lane/providers/imessage/history-projection.test.ts",
-        "tests/source-lane/providers/imessage/donor-parity.test.ts"
+        "tests/source-lane/providers/imessage/ingest-identity.test.ts"
       ],
       "derivedFrom": [
         {
@@ -3911,13 +3914,14 @@
     },
     {
       "path": "src/source-lane/providers/imessage/projector.ts",
-      "sha256": "0cdaad50df7d596ce54c5e177ec97184d135f3f854a077227b125e28b178f2f3",
+      "sha256": "e89f58d116985ff07a6209503595d3ef4c6e46eeaf3e115630a04baaba7d161f",
       "status": "new",
-      "owner": "imessage",
-      "reason": "Renders dirty (conversation, month) projections into mirror_files under the tenant lock; moves/deletes stale paths; collected -> mirrored lifecycle.",
+      "owner": "imessage, coordinator",
+      "reason": "Renders dirty (conversation, month) projections into mirror_files under the tenant lock; moves/deletes stale paths; collected -> mirrored lifecycle. Coordinator (final-audit H1): uuid primary-key lookups compare as uuid.",
       "tests": [
-        "tests/source-lane/providers/imessage/history-projection.test.ts",
-        "tests/source-lane/providers/imessage/export.test.ts"
+        "tests/source-lane/core/exporter-backlog.test.ts",
+        "tests/source-lane/providers/imessage/export.test.ts",
+        "tests/source-lane/providers/imessage/history-projection.test.ts"
       ],
       "derivedFrom": [
         {

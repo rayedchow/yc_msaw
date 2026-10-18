@@ -552,8 +552,8 @@ async function prefetch(tx: ImessageExecutor, tenantId: string, prepared: Prepar
     }
   }
   const missing = [...new Set([...byAlias.values()].filter((id) => !byId.has(id)))];
-  for (const chunk of chunks(missing, LOOKUP_CHUNK)) {
-    for (const r of await query<CandidateRow>(tx, sql`SELECT ${CANDIDATE_COLUMNS} FROM activity_events WHERE user_id = ${tenantId} AND id::text IN (${list(chunk)})`)) {
+  for (const chunk of chunks(missing.filter((id) => UUID_RE.test(id)), LOOKUP_CHUNK)) {
+    for (const r of await query<CandidateRow>(tx, sql`SELECT ${CANDIDATE_COLUMNS} FROM activity_events WHERE user_id = ${tenantId} AND id IN (${sql.join(chunk.map((id) => sql`${id}::uuid`), sql`, `)})`)) {
       const c = toCandidate(r);
       byId.set(c.id, c);
     }
