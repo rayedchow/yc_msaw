@@ -5,11 +5,30 @@
  * builder budget is exhausted further model calls throw (an explicit, recorded budget stop).
  */
 import { DailyBuildService, type MemoryBuilder } from "../../src/daily/service.js";
-import { createModalBuildWorkspaceFactory, createProfileRegistry, fireworksClientFactory, runMemoryBuild, type AgentReceipt, type ChatClientFactory, type ToolProviderRegistration } from "../../src/harness/index.js";
+import { createModalBuildWorkspaceFactory, createProfileRegistry, fireworksClientFactory, resolveBudget, runMemoryBuild, type AgentReceipt, type ChatClientFactory, type ToolProviderRegistration } from "../../src/harness/index.js";
 import type { ObjectStore } from "../../src/store/objects.js";
 import { BudgetExceeded, scrub, type LiveLog, type Status, type UsageMeter } from "./infra.js";
 
-export const BUILDER_BUDGET = { maxSessions: 1, maxDescendants: 3, maxDepth: 2, maxConcurrentAgents: 3, maxTurns: 40, maxToolCalls: 160, maxWallClockMs: 900_000 } as const;
+/** HISTORICAL: the builder budget declared in the crm1/crm2 manifests (kept as-emitted; never applied retroactively). */
+export const BUILDER_BUDGET_ORIGINAL = { maxSessions: 1, maxDescendants: 3, maxDepth: 2, maxConcurrentAgents: 3, maxTurns: 40, maxToolCalls: 160, maxWallClockMs: 900_000 } as const;
+/**
+ * AMENDMENT high-limits (reports/crm-budget-amendment-high-limits.json): per-session turns/tool calls x100 for builds
+ * started after the amendment. Sessions, delegation shape, wall clock and token ceilings are UNCHANGED.
+ */
+export const BUILDER_BUDGET_HIGH = { ...BUILDER_BUDGET_ORIGINAL, maxTurns: 4_000, maxToolCalls: 16_000 } as const;
+export type BuilderBudget = Record<keyof typeof BUILDER_BUDGET_ORIGINAL, number>;
+export const BUILDER_BUDGETS = { original: BUILDER_BUDGET_ORIGINAL, high: BUILDER_BUDGET_HIGH } as const;
+/** Default for future builds (an explicit `budget` from the caller still wins field by field). */
+export const BUILDER_BUDGET = BUILDER_BUDGET_HIGH;
+
+/** Fail closed BEFORE any paid call if the harness would reject this budget (resolveBudget enforces hard ceilings). */
+export function assertBuilderBudgetAccepted(budget: Partial<BuilderBudget>): void {
+  try {
+    resolveBudget(budget);
+  } catch (e) {
+    throw new Error(`builder budget ${JSON.stringify(budget)} rejected by the harness (${String((e as Error)?.message ?? e)}); refusing to start a paid build`);
+  }
+}
 
 const harnessStatus = (s: unknown): Status => {
   const v = String(s ?? "");
@@ -45,10 +64,11 @@ export async function runBenchBuild(p: {
   toolProviders?: (ctx: { ns: string; buildId: string; emitAgent: (agentId: string) => string }) => Promise<readonly ToolProviderRegistration[]>;
   instructions?: string;
   /** Declared override of BUILDER_BUDGET (recorded in the result). */
-  budget?: Partial<Record<keyof typeof BUILDER_BUDGET, number>>;
+  budget?: Partial<BuilderBudget>;
   log: (m: string) => void;
 }): Promise<BenchBuildResult> {
   const budget = { ...BUILDER_BUDGET, ...(p.budget ?? {}) };
+  assertBuilderBudgetAccepted(budget);
   const { MemoryRepo } = await import("../../src/store/memory.js");
   const repo = new MemoryRepo(p.store, p.ns);
   const revisionBefore = (await repo.head())?.value.revisionId ?? null;

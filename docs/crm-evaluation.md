@@ -88,3 +88,37 @@ Guidance fix `dbaa472` (synced before cold.r2 started at 00:55:11) only changes 
 root-only, and children can return proposed source/tests for the root to apply. It does not expand authority
 (`availableToChildren` stays false), and the host wrote no repair. H/M builds run with integration providers off,
 so the fix does not affect them. cold.r2 failed on transport, so it says nothing about whether the fix works.
+
+## Appendix: high-limits budget amendment (2026-10-18T01:31Z)
+
+Recorded in [`reports/crm-budget-amendment-high-limits.json`](../reports/crm-budget-amendment-high-limits.json).
+This only affects runs started after the amendment. `scripts/crm-run.ts` now defaults to `--limits high`, and
+`--limits original` reproduces the crm1/crm2 values. Earlier manifests, records, amendments and reports are not
+changed; their limits are the ones they recorded (the crm2 manifest/amendment sha256s are in the amendment file).
+
+| Limit | Historical (crm1/crm2) | High (future) |
+| --- | --- | --- |
+| customer train turns / tool calls / timeout | 16 / 40 / 300 s | 1600 / 4000 / 300 s |
+| customer matrix turns / tool calls / timeout | 18 / 48 / 240 s | 1800 / 4800 / 240 s |
+| customer adapt turns / tool calls / timeout | 24 / 70 / 420 s | 2400 / 7000 / 420 s |
+| builder per-session turns / tool calls | 40 / 160 | 4000 / 16000 |
+| builder sessions, delegation, wall clock | 1 session, 3 descendants, depth 2, 3 concurrent, 15 min (round-2: 2 sessions, 30 min) | unchanged |
+| token ceilings (customer / builder) | 20M/1M, 30M/1.5M | unchanged |
+
+Wall-clock timeouts and token ceilings stay the same, so they will usually stop a run before these turn and
+tool-call limits do. Each new run records the limits it actually used: the init manifest
+(`limits`, `limitsProfile`, `historicalLimits`, `builderBudget`), every train/matrix record (`limits`), build
+results (`budget`), adaptation results (`effectiveLimits`, `build.budget`) and the progress log.
+
+Builder ceiling (resolved): before commit `3fdc7bd`, `src/harness/budget.ts` hard-capped per-session `maxTurns` at
+200 and `maxToolCalls` at 1000, which rejected the high builder budget. The runner stopped before any paid call
+instead of quietly lowering the values. Commit `3fdc7bd` raised the hard caps to 20000 / 100000; the defaults did not
+change. Root verified that `resolveBudget` accepts 4000 / 16000 (resolution recorded 2026-10-18T01:33:34Z). The runner still checks
+the budget before any paid build call.
+
+The operator asked for the increase at about 01:27Z. The amendment file was first written at about 01:31Z and
+updated at 2026-10-18T01:33:34Z; neither time is backdated.
+
+In flight when this was recorded (original limits, unchanged): the crm2 36-cell matrix and adapt-cold.r3. crm2
+adapt-far round 1 and round 2 both failed during seeding with zero model calls (round 2: Manufact
+5-project limit). No far customer attempt has run yet. The Manufact 5-project quota still blocks far.

@@ -2,7 +2,10 @@
  * CRM generalization benchmark orchestrator (real Fireworks customers + real memory builds over synthetic CRM
  * contract fixtures). Phases persist under .context/crm-batches/<batch>/ so each can run in its own invocation:
  *
- *   npx tsx scripts/crm-run.ts --batch <id> --phase init|train|build|freeze|matrix|report [--concurrency 3]
+ *   npx tsx scripts/crm-run.ts --batch <id> --phase init|train|build|freeze|matrix|report [--concurrency 3] [--limits high|original]
+ *
+ * --limits selects the customer limits + builder budget profile (default `high`, see
+ * reports/crm-budget-amendment-high-limits.json). `original` reproduces the crm1/crm2 manifest values.
  *
  * Labels: customers/builders are REAL models; every CRM upstream is a SYNTHETIC CONTRACT FIXTURE; adapter children
  * run on loopback through a LOCAL TEST PUBLISHER (not Manufact). See .context/crm-eval-contract.md.
@@ -13,7 +16,7 @@ import path from "node:path";
 import { parseArgs } from "node:util";
 import { validateFireworksKey } from "../eval/fireworks.js";
 import { runAdaptation } from "../eval/crm/adapt.js";
-import { runBenchBuild } from "../eval/crm/build.js";
+import { assertBuilderBudgetAccepted, BUILDER_BUDGETS, runBenchBuild } from "../eval/crm/build.js";
 import { overlayFingerprintFromDisk, assertNoSecrets, LiveLog, loadEnvFile, makeKeys, REPO, registerSecret, scrub, sha256, stageOverlay, startParent, startSessionWorld, UsageMeter, type Parent, type Scope, type StoredKey } from "../eval/crm/infra.js";
 import { scoreTask, type FixtureState, type TaskScore } from "../eval/crm/oracle.js";
 import { loadStoredTrace, openCustomerSession, type AttemptLimits, type AttemptResult, type StoredTraceSummary } from "../eval/crm/session.js";
@@ -28,6 +31,7 @@ const { values } = parseArgs({
     only: { type: "string" },
     phase: { type: "string" },
     concurrency: { type: "string", default: "3" },
+    limits: { type: "string", default: "high" },
   },
 });
 const BATCH = values.batch ?? "";
@@ -40,11 +44,30 @@ const DOCS_DIR = path.join(REPO, "eval/crm/docs");
 const STAGE_ROOT = path.join(BDIR, "stage");
 const DAY_OFFSET = -420;
 
-export const LIMITS = {
+/** HISTORICAL: customer limits declared in the crm1/crm2 manifests (kept as-emitted; never applied retroactively). */
+export const LIMITS_ORIGINAL = {
   train: { maxTurns: 16, maxToolCalls: 40, timeoutMs: 300_000 } satisfies AttemptLimits,
   matrix: { maxTurns: 18, maxToolCalls: 48, timeoutMs: 240_000 } satisfies AttemptLimits,
   adapt: { maxTurns: 24, maxToolCalls: 70, timeoutMs: 420_000 } satisfies AttemptLimits,
 };
+/** AMENDMENT high-limits: turns and tool calls x100; wall-clock timeouts UNCHANGED. */
+export const LIMITS_HIGH = {
+  train: { maxTurns: 1_600, maxToolCalls: 4_000, timeoutMs: 300_000 } satisfies AttemptLimits,
+  matrix: { maxTurns: 1_800, maxToolCalls: 4_800, timeoutMs: 240_000 } satisfies AttemptLimits,
+  adapt: { maxTurns: 2_400, maxToolCalls: 7_000, timeoutMs: 420_000 } satisfies AttemptLimits,
+};
+const LIMIT_PROFILES = { original: LIMITS_ORIGINAL, high: LIMITS_HIGH } as const;
+type LimitsProfile = keyof typeof LIMIT_PROFILES;
+const LIMITS_PROFILE = (values.limits ?? "high") as LimitsProfile;
+if (!(LIMITS_PROFILE in LIMIT_PROFILES)) throw new Error(`unknown --limits ${String(values.limits)} (expected high|original)`);
+/** Effective customer limits for THIS invocation. */
+export const LIMITS = LIMIT_PROFILES[LIMITS_PROFILE];
+/** Effective base builder budget for THIS invocation (round/adaptation overrides are merged on top and recorded). */
+const BUILDER_BASE = BUILDER_BUDGETS[LIMITS_PROFILE];
+const LIMITS_AMENDMENT = "reports/crm-budget-amendment-high-limits.json";
+/** Round-2 builder deviation (crm2 R2): 2 sessions per agent, 30 min wall clock. Unchanged by the high-limits amendment. */
+const ROUND2_BUILDER = { maxSessions: 2, maxWallClockMs: 1_800_000 } as const;
+const effectiveLimitsRecord = () => ({ profile: LIMITS_PROFILE, amendment: LIMITS_PROFILE === "high" ? LIMITS_AMENDMENT : null, customer: LIMITS, builderBase: BUILDER_BASE, unchanged: "wall-clock timeouts and customer/builder token ceilings are the same in both profiles" });
 export const BUDGETS = { customer: { input: 20_000_000, output: 1_000_000 }, builder: { input: 30_000_000, output: 1_500_000 } }; // DEVIATION (declared 2026-10-18T00:50Z after round-1 builds failed on budget): builder ceiling raised from 20M/1M
 
 await loadEnvFile(path.join(REPO, ".env"));
@@ -213,6 +236,8 @@ interface SessionRecord {
   invalid?: string;
   unavailableArm?: string;
   normalizedToolSchemaSha256?: string;
+  /** Effective limits this session ran under (profile + values). Absent on records written before the high-limits amendment. */
+  limits?: AttemptLimits & { profile: LimitsProfile };
   startedAt: string;
   finishedAt: string;
 }
@@ -229,6 +254,12 @@ async function hashTree(rel: string): Promise<Record<string, string>> {
   await walk(rel);
   return out;
 }
+/**
+ * Declared post-manifest amendments (host seed bugs only; never used by matrix cells). Each records old/new fingerprints.
+ * attio-deficient: its smoke case expected a structured 404 to pass, but the sealed harness fails any isError tool result,
+ * so the host seed could not validate (far demo aborted before any model call). Smoke reduced to integration_info.
+ */
+const AMENDMENTS: Record<string, { oldFingerprint: string; newFingerprint: string; reason: string; at: string }> = existsSync(path.join(BDIR, "amendments.json")) ? JSON.parse(await fs.readFile(path.join(BDIR, "amendments.json"), "utf8")) : {};
 const FROZEN_OVERLAYS = ["hubspot", "pipedrive", "zoho", "attio", "docs", "attio-deficient", "generic-http"] as const;
 /** Gate: frozen adapters (staged source fingerprints), fixtures, docs and contract spec must equal the init manifest. */
 async function verifySourcesAgainstManifest(): Promise<{ ok: boolean; problems: string[] }> {
@@ -236,6 +267,8 @@ async function verifySourcesAgainstManifest(): Promise<{ ok: boolean; problems: 
   const problems: string[] = [];
   for (const o of FROZEN_OVERLAYS) {
     const fp = await overlayFingerprintFromDisk(o);
+    const amended = AMENDMENTS[o];
+    if (amended && fp === amended.newFingerprint && m.sources.adapterFingerprints[o] === amended.oldFingerprint) continue;
     if (fp !== m.sources.adapterFingerprints[o]) problems.push(`adapter ${o} fingerprint ${fp.slice(0, 12)} != manifest ${String(m.sources.adapterFingerprints[o]).slice(0, 12)}`);
   }
   const cmp = (label: string, a: Record<string, string>, b: Record<string, string>) => {
@@ -279,6 +312,7 @@ async function runTaskSession(p: { parent: Parent; kind: "train" | "matrix"; id:
     score: null,
     storedTrace: null,
     fixtureStates: {},
+    limits: { profile: LIMITS_PROFILE, ...p.limits },
     startedAt,
     finishedAt: "",
   };
@@ -402,8 +436,12 @@ async function phaseInit() {
     fireworks: { listed: want.map((m) => ({ model: m, listed: fk.modelIds.includes(m) })) },
     namespaces: ns,
     limits: LIMITS,
+    limitsProfile: LIMITS_PROFILE,
+    limitsAmendment: LIMITS_PROFILE === "high" ? LIMITS_AMENDMENT : null,
+    historicalLimits: { customer: LIMITS_ORIGINAL, builderBudget: BUILDER_BUDGETS.original, note: "crm1/crm2 manifest values, kept for reference; not applied unless --limits original" },
     budgets: { ...BUDGETS, note: "two explicit ceilings: customer Pi usage and builder usage are metered separately; exceeding stops new cells/build calls" },
-    builderBudget: (await import("../eval/crm/build.js")).BUILDER_BUDGET,
+    builderBudget: BUILDER_BASE,
+    builderBudgetRound2Override: ROUND2_BUILDER,
     concurrency: Number(values.concurrency),
     executionOrderSeed: 20261017,
     training: trainingSessions(seedBase).map((t) => ({ id: t.task.id, curriculum: t.curriculum, model: t.model, family: t.task.family, targets: t.task.targets, org: t.task.org.name })),
@@ -441,7 +479,7 @@ async function phaseTrain() {
     await writeJson(path.join(RESULTS, `integrity-train-${Date.now()}.json`), integrity);
     if (!integrity.ok) throw new Error(`frozen sources differ from the init manifest; refusing paid training: ${integrity.problems.slice(0, 5).join("; ")}`);
     live.state.phase = "train";
-    await progress(`train: ${sessions.length} sessions starting`);
+    await progress(`train: ${sessions.length} sessions starting; limits profile ${LIMITS_PROFILE}: ${JSON.stringify(LIMITS.train)}`);
     let stop: string | null = null;
     await pool(sessions, Number(values.concurrency), async (t) => {
       const out = path.join(RESULTS, `train-${t.task.id}.json`);
@@ -479,7 +517,11 @@ async function phaseBuild() {
         await progress(`build ${label} starting over ${ns}`);
         // Round 2 = DECLARED DEVIATION: round-1 builds failed under maxSessions 1 / 15 min; round 2 allows 2 sessions per
         // agent and 30 min wall clock (per-session turns/tool calls unchanged), same tenant-only trace cohort.
-        const r = await runBenchBuild({ store: parent.store, ns, label: round === 1 ? label : `${label}-r${round}`, apiKey: FIREWORKS, meter, live, log, ...(round >= 2 ? { budget: { maxSessions: 2, maxWallClockMs: 1_800_000 } } : {}) });
+        // Effective budget = limits profile base + round-2 override; recorded verbatim in the result's `budget` field.
+        const budget = { ...BUILDER_BASE, ...(round >= 2 ? ROUND2_BUILDER : {}) };
+        assertBuilderBudgetAccepted(budget);
+        await progress(`build ${label} limits profile ${LIMITS_PROFILE}: ${JSON.stringify(budget)}`);
+        const r = await runBenchBuild({ store: parent.store, ns, label: round === 1 ? label : `${label}-r${round}`, apiKey: FIREWORKS, meter, live, log, budget });
         await writeJson(out, r);
         await progress(`build ${label}: ${r.status} ${r.revisionBefore} -> ${r.revisionAfter}; agents=${r.agents.length}; tokens in/out ${r.usage.promptTokens}/${r.usage.completionTokens}; ${Math.round(r.wallMs / 1000)}s`);
         return r;
@@ -549,7 +591,7 @@ async function phaseMatrix() {
     const meter = await meterFrom(st, "customer");
     live.state.phase = "matrix";
     const cells = seededShuffle(matrixCells(st.seedBase), 20261017);
-    await progress(`matrix: ${cells.length} cells, concurrency ${values.concurrency}`);
+    await progress(`matrix: ${cells.length} cells, concurrency ${values.concurrency}; limits profile ${LIMITS_PROFILE}: ${JSON.stringify(LIMITS.matrix)}`);
     let stop: string | null = null;
     await pool(cells, Number(values.concurrency), async (c: MatrixCell) => {
       const out = path.join(RESULTS, `cell-${c.cellId}.json`);
@@ -591,7 +633,10 @@ async function phaseAdapt(kind: "far" | "cold") {
     });
   }
   // DECLARED DEVIATION (see contract): adaptation builds use the round-2 builder budget except the original cold run.
-  const buildBudget = kind === "far" || variant ? { maxSessions: 2, maxWallClockMs: 1_800_000 } : undefined;
+  // Limits profile base is always passed explicitly so the effective budget is recorded in res.build.budget.
+  const buildBudget = { ...BUILDER_BASE, ...(kind === "far" || variant ? ROUND2_BUILDER : {}) };
+  // Checked before attempt 1 so a rejected budget never wastes a paid customer attempt.
+  assertBuilderBudgetAccepted(buildBudget);
   await withParent(async (parent, st) => {
     const out = path.join(RESULTS, variant ? `adapt-${kind}.${variant}.json` : `adapt-${kind}.json`);
     if (existsSync(out)) throw new Error(`${out} exists; adaptation demos are never re-run inside a batch`);
@@ -604,14 +649,14 @@ async function phaseAdapt(kind: "far" | "cold") {
     const customerMeter = await meterFrom(st, "customer");
     const builderMeter = await meterFrom(st, "builder");
     live.state.phase = `adapt-${kind}`;
-    await progress(`adapt-${kind} starting`);
+    await progress(`adapt-${kind} starting; limits profile ${LIMITS_PROFILE}: customer ${JSON.stringify(LIMITS.adapt)} builder ${JSON.stringify(buildBudget)}`);
     const res = await runAdaptation(kind, {
       batch: BATCH,
       seedBase: st.seedBase,
       parent,
       key: st.keys[keyName]!,
       ...(variant ? { variant } : {}),
-      ...(buildBudget ? { buildBudget } : {}),
+      buildBudget,
       apiKey: FIREWORKS,
       customerMeter,
       builderMeter,
@@ -627,7 +672,7 @@ async function phaseAdapt(kind: "far" | "cold") {
         await saveMeters(st, [customerMeter, builderMeter]);
       },
     });
-    await writeJson(out, res);
+    await writeJson(out, { ...res, effectiveLimits: { ...effectiveLimitsRecord(), customerAttempt: LIMITS.adapt, builder: buildBudget } });
     await saveMeters(st, [customerMeter, builderMeter]);
     await progress(`adapt-${kind} done${res.error ? ` with ERROR ${res.error.slice(0, 200)}` : ""}`);
   });

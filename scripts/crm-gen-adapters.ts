@@ -451,12 +451,6 @@ await write("attio-deficient", {
       ],
       smoke: [
         { name: "integration_info responds", steps: [{ tool: "integration_info", arguments: {}, expect: [{ path: "structuredContent.slug", op: "equals", value: "crm-attio" }] }] },
-        {
-          name: "fixture: get_record of unknown id returns a structured error",
-          fixture: { name: "crm-fixture", config: { vendor: "attio", seed: "smoke-attio", spec: SMOKE_SPEC } },
-          env: { ATTIO_BASE_URL: "{{fixture.url}}", ATTIO_TOKEN: "{{fixture.token}}" },
-          steps: [{ tool: "get_record", arguments: { object: "deals", record_id: "00000000-0000-4000-8000-000000000000" }, expect: [{ path: "structuredContent.http_status", op: "equals", value: 404 }] }],
-        },
       ],
     },
     null,

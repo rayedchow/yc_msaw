@@ -1,0 +1,123 @@
+{
+ "kind": "crm-budget-amendment",
+ "id": "high-limits",
+ "recordedAt": "2026-10-18T01:31Z",
+ "recordedAtNote": "When this file was FIRST written: shell clock read 01:30:45Z just before the write and the file mtime after its first edit was 01:32:01Z. Not backdated. The operator asked for the increase at about 01:27Z (operatorDeclaredAt); this file is the public record of that request, not the time it was made.",
+ "operatorDeclaredAt": "~2026-10-18T01:27Z (approximate; user instruction in the operator session)",
+ "updatedAt": "2026-10-18T01:33:34Z",
+ "updateNote": "Updated 2026-10-18T01:33:34Z: harness ceiling blocker resolved by commit 3fdc7bd. No other fields changed in meaning.",
+ "trigger": "Operator instruction: raise per-session turn and tool-call limits x100 for all future customer sessions and builder sessions; new harder round to follow.",
+ "scope": "Applies ONLY to runs started after recordedAt with `scripts/crm-run.ts --limits high` (the default from now on). Does NOT change any record, report, manifest or amendment written before recordedAt.",
+ "notRetroactive": {
+  "preservedByteExact": {
+   "reports/crm-matrix-manifest-crm2.json": "857994853ec267e99791fc47b4bdd3192706edf7fcb0129452ae8d79187dfd2d",
+   "reports/crm-matrix-amendment-crm2.json": "629fb60ca24b173386655d289ad9ffacb984b66403dc8fd98f81bcb8146f9a46"
+  },
+  "inFlightAtRecording": [
+   "crm2 held-out matrix (36 cells): original limits, as declared in its manifest",
+   "crm2 adapt-cold.r3: original limits (results/adapt-cold.r3.json, written before this change)",
+   "crm2 adapt-far (round 1): failed at seed (crm-attio integration_validate) before any customer attempt; original limits",
+   "crm2 adapt-far --round 2: started 2026-10-18T01:30:23Z and loaded the pre-amendment code (its result has no effectiveLimits field). Failed at seed with Manufact 403 'Project limit reached (5)'. Customer and builder meters both 0 calls. No customer attempt ran under any limits."
+  ],
+  "note": "Processes that started before this change keep the limits they loaded. Their result files report those limits. Records written before this amendment have no `limits` field; their limits are the ones in their batch manifest."
+ },
+ "customerLimits": {
+  "historical": {
+   "train": {
+    "maxTurns": 16,
+    "maxToolCalls": 40,
+    "timeoutMs": 300000
+   },
+   "matrix": {
+    "maxTurns": 18,
+    "maxToolCalls": 48,
+    "timeoutMs": 240000
+   },
+   "adapt": {
+    "maxTurns": 24,
+    "maxToolCalls": 70,
+    "timeoutMs": 420000
+   }
+  },
+  "high": {
+   "train": {
+    "maxTurns": 1600,
+    "maxToolCalls": 4000,
+    "timeoutMs": 300000
+   },
+   "matrix": {
+    "maxTurns": 1800,
+    "maxToolCalls": 4800,
+    "timeoutMs": 240000
+   },
+   "adapt": {
+    "maxTurns": 2400,
+    "maxToolCalls": 7000,
+    "timeoutMs": 420000
+   }
+  }
+ },
+ "builderBudget": {
+  "historical": {
+   "maxSessions": 1,
+   "maxDescendants": 3,
+   "maxDepth": 2,
+   "maxConcurrentAgents": 3,
+   "maxTurns": 40,
+   "maxToolCalls": 160,
+   "maxWallClockMs": 900000
+  },
+  "high": {
+   "maxSessions": 1,
+   "maxDescendants": 3,
+   "maxDepth": 2,
+   "maxConcurrentAgents": 3,
+   "maxTurns": 4000,
+   "maxToolCalls": 16000,
+   "maxWallClockMs": 900000
+  },
+  "round2Override": {
+   "maxSessions": 2,
+   "maxWallClockMs": 1800000,
+   "note": "unchanged crm2 R2 deviation; applied on top of the base for build rounds >= 2, adapt-far and adaptation variants"
+  },
+  "harnessCeilingBlocker": {
+   "status": "RESOLVED by commit 3fdc7bd (\"Allow explicitly configured larger agent budgets\")",
+   "detail": "HISTORICAL (before 3fdc7bd): src/harness/budget.ts resolveBudget enforces hard per-session ceilings of maxTurns 200 and maxToolCalls 1000 and throws `Budget maxTurns=4000 exceeds hard ceiling 200`. crm-run calls assertBuilderBudgetAccepted before any paid build call and before adaptation attempt 1, so a rejected budget fails without spending anything. Raising those CEILINGS (maxTurns >= 4000, maxToolCalls >= 16000) is a product-code change and needs its owner's approval; it was not made here.",
+   "resolution": {
+    "commit": "3fdc7bd",
+    "resolvedRecordedAt": "2026-10-18T01:33:34Z",
+    "newHardCeilings": {
+     "maxTurns": 20000,
+     "maxToolCalls": 100000
+    },
+    "defaultsChanged": false,
+    "verification": "root verified that node ESM resolveBudget accepts maxTurns 4000 / maxToolCalls 16000; focused budget tests and typecheck passed (reported by root; not re-run here)"
+   }
+  }
+ },
+ "unchanged": {
+  "wallClockTimeouts": "customer timeoutMs per phase and builder maxWallClockMs (900000 base, 1800000 round-2) are identical to the historical values",
+  "tokenCeilings": {
+   "customer": {
+    "input": 20000000,
+    "output": 1000000
+   },
+   "builder": {
+    "input": 30000000,
+    "output": 1500000
+   }
+  },
+  "concurrency": "--concurrency default stays 3 (configurable per invocation)",
+  "other": "models, tasks/seeds, adapters, fixtures, docs corpus, contracts, oracle, namespace isolation"
+ },
+ "recording": {
+  "manifest": "init writes limits (effective), limitsProfile, limitsAmendment, historicalLimits, builderBudget (effective base), builderBudgetRound2Override",
+  "sessionRecords": "every train/matrix record carries limits {profile, maxTurns, maxToolCalls, timeoutMs}",
+  "buildResults": "build-*.json `budget` = the full effective builder budget passed to the harness",
+  "adaptResults": "adapt-*.json `effectiveLimits` {profile, customerAttempt, builder}; `build.budget` = effective builder budget",
+  "progressLog": "train/build/matrix/adapt start lines print the profile and the effective values"
+ },
+ "expectedEffect": "With 100x turn/tool budgets, wall-clock timeouts and token ceilings will usually be the binding stop (stoppedBy timeout/budget) rather than max-turns/max-tool-calls.",
+ "farDemoStatus": "No far adaptation customer attempt has run yet. Far round 1 and round 2 both failed during setup with zero paid calls; those records are unchanged. The next far launch with default --limits high gets customer adapt 2400/7000/420s and builder 4000/16000 (+ round-2 override). The builder ceiling no longer blocks it (3fdc7bd). The Manufact 5-project quota still blocks it; the original lead handles reusing a temporary CRM project slot."
+}
