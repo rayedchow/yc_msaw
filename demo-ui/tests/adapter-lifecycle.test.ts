@@ -1,7 +1,7 @@
 // Deterministic checks of the event-log adapter's lifecycle and dedup rules.
 // Run: npx tsx demo-ui/tests/adapter-lifecycle.test.ts
 import assert from "node:assert/strict";
-import { adaptRun, type DemoEvent, type DemoState } from "../src/adapter.js";
+import { adaptRun, isLegacyHarnessOutcome, type DemoEvent, type DemoState } from "../src/adapter.js";
 
 let seq = 0;
 const t = (s: number) => new Date(Date.parse("2026-10-17T23:30:00Z") + s * 1000).toISOString();
@@ -239,5 +239,48 @@ const retry = [...build,
   const notice = ambiguous.parts.find((part) => part.type === "notice");
   assert.ok(notice && notice.type === "notice" && /several calls of this tool were open/u.test(notice.text), "the unpaired result says why");
   assert.equal(ambiguous.receipts.size, 0, "no receipt is attached to a guessed call");
+}
+// Legacy harness outcome (CRM producer, crm2-001352/001353): { tool, ok, turn, session }, no source or call id.
+// It annotates the one spawn_agents call; it is not a second spawn block.
+{
+  const spawnArgs = { agents: [{ objective: "Build a NEW integration MCP server named zoho-crm" }, { objective: "Build attio" }] };
+  const legacy = [
+    ev(1, "build-adapt-cold:root", "agent_start", "agent_started"),
+    ev(2, "build-adapt-cold:root", "tool_call", "spawn_agents", { status: "running", data: { callId: "call_7ffef32dae774ffcaf4d6282", args: spawnArgs } }),
+    ev(3, "build-adapt-cold:root", "tool_result", "spawn_agents ok", { status: "succeeded", data: { tool: "spawn_agents", ok: true, turn: 19, session: 1 } }),
+    ev(3, "build-adapt-cold:root", "tool_result", "tool result (as seen by the model)", { text: '{"ok":true,"spawned":[{"agentId":"root.1"}]}', data: { callId: "call_7ffef32dae774ffcaf4d6282" } }),
+  ];
+  assert.equal(isLegacyHarnessOutcome(legacy[2]!), true);
+  assert.equal(isLegacyHarnessOutcome(legacy[3]!), false, "the model-seen result is a real result");
+  assert.equal(isLegacyHarnessOutcome({ ...legacy[2]!, data: { tool: "spawn_agents", ok: true, turn: 19, args: {} } }), false, "anything with arguments is not the narrow shape");
+  const run = adaptRun(legacy, state("running", []), alive);
+  const thread = run.threads.get("build-adapt-cold:root")!;
+  const rows = thread.parts.flatMap((part) => (part.type === "events" ? part.events : []));
+  assert.equal(rows.filter((row) => row.kind === "tool_start").length, 1, "one spawn call");
+  assert.equal(rows.filter((row) => row.kind === "tool_result").length, 1, "its one model-seen result; no phantom result row");
+  assert.equal(rows.find((row) => row.kind === "tool_result")?.status, "succeeded", "the harness outcome gives the result its status");
+  assert.match(thread.receipts.get("call_7ffef32dae774ffcaf4d6282")?.[0]?.label ?? "", /^Build logger · spawn_agents ok \(turn 19\)$/u);
+  // Parallel same-name calls of one model reply (CRM build-H:root.1 turn 1): outcomes are not paired by guess;
+  // each call gets one shared receipt with the batch's outcomes, and no tool block or note splits the thread.
+  const parallel = [
+    ev(1, "b", "tool_call", "ls", { data: { callId: "x1", args: { path: "a" } } }),
+    ev(1, "b", "tool_call", "ls", { data: { callId: "x2", args: { path: "b" } } }),
+    ev(2, "b", "tool_result", "ls ok", { status: "succeeded", data: { tool: "ls", ok: true, turn: 1, session: 1 } }),
+    ev(2, "b", "tool_result", "ls ok", { status: "succeeded", data: { tool: "ls", ok: true, turn: 1, session: 1 } }),
+    ev(3, "b", "tool_result", "tool result (as seen by the model)", { text: "a/", data: { callId: "x1" } }),
+    ev(3, "b", "tool_result", "tool result (as seen by the model)", { text: "b/", data: { callId: "x2" } }),
+    ev(4, "b", "tool_call", "ls", { data: { callId: "x3", args: { path: "c" } } }),
+    ev(5, "b", "tool_result", "ls failed (ENOENT)", { status: "failed", data: { tool: "ls", ok: false, turn: 2, session: 1, code: "ENOENT" } }),
+    ev(5, "b", "tool_result", "tool result (as seen by the model)", { text: "no such dir", data: { callId: "x3" } }),
+  ];
+  const shared = adaptRun(parallel, state("running", []), alive).threads.get("b")!;
+  const sharedRows = shared.parts.flatMap((part) => (part.type === "events" ? part.events : []));
+  assert.equal(shared.parts.length, 1, "no notes split the thread");
+  assert.equal(sharedRows.filter((row) => row.kind === "tool_result").length, 3, "only the three model-seen results");
+  assert.match(shared.receipts.get("x1")?.[0]?.label ?? "", /2 outcomes for 2 parallel ls calls \(not matched one-to-one\)/u);
+  assert.equal(shared.receipts.get("x2")?.[0]?.label, shared.receipts.get("x1")?.[0]?.label);
+  assert.equal(sharedRows.find((row) => row.callId === "x1" && row.kind === "tool_result")?.status, "succeeded", "all outcomes ok: succeeded");
+  assert.match(shared.receipts.get("x3")?.[0]?.label ?? "", /^Build logger · ls failed \(ENOENT\) \(turn 2\)$/u, "a later single call of the same tool still gets its own outcome");
+  assert.equal(sharedRows.find((row) => row.callId === "x3" && row.kind === "tool_result")?.status, "failed");
 }
 console.log("adapter lifecycle checks passed");

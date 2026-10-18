@@ -175,8 +175,8 @@ function resultToolName(event: DemoEvent): string {
  * clipped result, the one open call of the same tool (never a guess between
  * several). Null when no call can be named.
  */
-function resolveResultCalls(events: readonly DemoEvent[]): Map<string, { callId: string | null; how: "id" | "preview" | "only-open" | "ambiguous" | "none" }> {
-  const out = new Map<string, { callId: string | null; how: "id" | "preview" | "only-open" | "ambiguous" | "none" }>();
+function resolveResultCalls(events: readonly DemoEvent[]): Map<number, { callId: string | null; how: "id" | "preview" | "only-open" | "ambiguous" | "none" }> {
+  const out = new Map<number, { callId: string | null; how: "id" | "preview" | "only-open" | "ambiguous" | "none" }>();
   const open: Array<{ callId: string; tool: string }> = [];
   for (const event of events) {
     if (event.kind === "tool_call") {
@@ -196,9 +196,25 @@ function resolveResultCalls(events: readonly DemoEvent[]): Map<string, { callId:
       else if (candidates.length > 1) how = "ambiguous";
     }
     if (callId) { const index = open.findIndex((call) => call.callId === callId); if (index >= 0) open.splice(index, 1); }
-    out.set(event.id, { callId, how });
+    out.set(event.seq, { callId, how });
   }
   return out;
+}
+
+/**
+ * The harness outcome an older producer recorded without a source label: exactly
+ * `{ tool, ok, turn?, session?, code? }` with no call id, arguments or result, titled
+ * "<tool> ok" / "<tool> failed…". It annotates a call; it is not a tool result of its own.
+ */
+export function isLegacyHarnessOutcome(event: DemoEvent): boolean {
+  if (event.kind !== "tool_result" || !isObject(event.data) || event.text) return false;
+  const data = event.data;
+  const allowed = new Set(["tool", "ok", "turn", "session", "code"]);
+  if (!Object.keys(data).every((key) => allowed.has(key))) return false;
+  if (typeof data.tool !== "string" || data.tool === "" || typeof data.ok !== "boolean") return false;
+  for (const key of ["turn", "session"] as const) if (key in data && !(typeof data[key] === "number" && Number.isFinite(data[key]))) return false;
+  if ("code" in data && typeof data.code !== "string" && typeof data.code !== "number") return false;
+  return event.title === `${data.tool} ok` || event.title.startsWith(`${data.tool} failed`);
 }
 
 function sameTool(a: string, b: string): boolean {
@@ -244,7 +260,8 @@ function terminal(word: string | undefined): Lifecycle | null {
   return word ? TERMINAL[word] ?? null : null;
 }
 
-interface PrimaryCall { callId: string; toolName: string; provider: boolean; logger: boolean }
+/** A model call; `batch` numbers the model reply that made it (calls of one reply run in parallel). */
+interface PrimaryCall { callId: string; toolName: string; provider: boolean; logger: boolean; batch: number }
 
 function buildThread(events: readonly DemoEvent[]): { thread: AgentThreadModel; objective: string | null } {
   const parts: ThreadPart[] = [];
@@ -256,7 +273,13 @@ function buildThread(events: readonly DemoEvent[]): { thread: AgentThreadModel; 
   let objective: string | null = null;
   let current: TraceThreadEvent[] | null = null;
   let count = 0;
+  // Model batches: a run of tool_calls with nothing else of the agent's between them is one reply's calls.
+  let batch = 0;
+  let lastWasCall = false;
+  // Harness outcomes for parallel same-name calls of one batch, by `${batch}\u0000${tool}`.
+  const sharedOutcomes = new Map<string, { calls: PrimaryCall[]; outcomes: Array<{ event: DemoEvent; data: Record<string, unknown> }> }>();
   const push = (row: EventRow) => {
+    if (row.kind === "tool_start") { if (!lastWasCall) batch++; lastWasCall = true; } else lastWasCall = false;
     if (current === null) { current = []; parts.push({ type: "events", events: current }); }
     const event = traceThreadEvent(row);
     if (DESCRIBE_AS[String(row.tool_name)] && row.kind === "tool_start") {
@@ -294,11 +317,11 @@ function buildThread(events: readonly DemoEvent[]): { thread: AgentThreadModel; 
       if (!prompt) continue;
       taskPrompts.add(prompt.trim());
       if (objective === null && count === 0 && parts.length === 0) objective = prompt;
-      else { parts.push({ type: "prompt", key: event.id, at: event.at, text: prompt, title: event.title }); current = null; }
+      else { parts.push({ type: "prompt", key: `${event.id}@${event.seq}`, at: event.at, text: prompt, title: event.title }); current = null; }
       continue;
     }
     if (event.kind === "task_end") {
-      parts.push({ type: "notice", key: event.id, at: event.at, text: event.title || `Task ${event.status ?? "ended"}`, failed: event.status === "failed" });
+      parts.push({ type: "notice", key: `${event.id}@${event.seq}`, at: event.at, text: event.title || `Task ${event.status ?? "ended"}`, failed: event.status === "failed" });
       current = null;
       continue;
     }
@@ -306,16 +329,16 @@ function buildThread(events: readonly DemoEvent[]): { thread: AgentThreadModel; 
       const role = typeof data.role === "string" ? data.role : null;
       const text = event.text ?? "";
       if (event.status === "failed" || event.title === "prompt error") {
-        parts.push({ type: "notice", key: event.id, at: event.at, text: text || event.title, failed: true });
+        parts.push({ type: "notice", key: `${event.id}@${event.seq}`, at: event.at, text: text || event.title, failed: true });
         current = null;
       } else if (role === "user" || USER_TITLES.has(event.title)) {
         if (taskPrompts.has(text.trim())) { taskPrompts.delete(text.trim()); continue; }
         if (objective === null && count === 0 && parts.length === 0) objective = text;
-        else { parts.push({ type: "prompt", key: event.id, at: event.at, text, title: event.title }); current = null; }
+        else { parts.push({ type: "prompt", key: `${event.id}@${event.seq}`, at: event.at, text, title: event.title }); current = null; }
       } else if (text.trim()) {
         push({ id: event.seq, kind: "assistant_text", call_id: null, tool_name: null, status: null, detail: text, created_at: at });
       } else if (event.title) {
-        parts.push({ type: "notice", key: event.id, at: event.at, text: event.title, failed: false });
+        parts.push({ type: "notice", key: `${event.id}@${event.seq}`, at: event.at, text: event.title, failed: false });
         current = null;
       }
       continue;
@@ -334,11 +357,11 @@ function buildThread(events: readonly DemoEvent[]): { thread: AgentThreadModel; 
       }
       const args = data.args ?? data.input ?? data.arguments ?? omit(event.data, ["callId", "toolCallId", "tool", "source"]) ?? {};
       push({ id: event.seq, kind: "tool_start", call_id: callId, tool_name: toolName, status: null, detail: json(args), created_at: at });
-      if (callId) calls.push({ callId, toolName, provider: false, logger: false });
+      if (callId) calls.push({ callId, toolName, provider: false, logger: false, batch });
       continue;
     }
     if (event.kind === "tool_result") {
-      const resolution = resolved.get(event.id);
+      const resolution = resolved.get(event.seq);
       const callId = resolution?.callId ?? null;
       const cut = clipped(event);
       const failed = event.status === "failed" || data.isError === true;
@@ -346,15 +369,29 @@ function buildThread(events: readonly DemoEvent[]): { thread: AgentThreadModel; 
         receipt(providerCalls.get(callId)!, { label: `Integration provider result · ${event.title}`, text: pretty(data.result ?? data.error ?? omit(event.data, ["callId", "source"]) ?? event.text ?? ""), failed, at: event.at });
         continue;
       }
-      if (!callId && source.startsWith("build logger")) {
+      if (!callId && (source.startsWith("build logger") || isLegacyHarnessOutcome(event))) {
+        // The harness's outcome for a call it ran, matched within the latest model batch only: a receipt
+        // under that call when the batch has exactly one call of the tool; for parallel same-name calls one
+        // shared receipt under each listing the batch's outcomes (never paired by guess); with no call of
+        // the tool, a quiet note. Never a tool block of its own.
         const tool = typeof data.tool === "string" ? data.tool : event.title.split(" ")[0] ?? "";
-        const owner = latestCall(tool, (call) => !call.logger);
-        if (owner) {
+        const free = calls.filter((call) => call.batch === batch && sameTool(call.toolName, tool) && !call.logger);
+        const outcome = typeof data.turn === "number" ? `${event.title} (turn ${data.turn})` : event.title;
+        const groupKey = `${batch}\u0000${tool}`;
+        const group = sharedOutcomes.get(groupKey);
+        if (group) { group.outcomes.push({ event, data }); continue; }
+        if (free.length > 1) { sharedOutcomes.set(groupKey, { calls: free, outcomes: [{ event, data }] }); continue; }
+        if (free.length === 1) {
+          const owner = free[0]!;
           owner.logger = true;
           if (typeof data.ok === "boolean") loggerOutcome.set(owner.callId, data.ok);
-          receipt(owner.callId, { label: `Build logger · ${event.title}`, text: pretty(omit(event.data, ["source"]) ?? {}), failed: data.ok === false, at: event.at });
-          continue;
+          receipt(owner.callId, { label: `Build logger · ${outcome}`, text: pretty(omit(event.data, ["source"]) ?? {}), failed: data.ok === false, at: event.at });
+        } else {
+          parts.push({ type: "notice", key: `${event.id}@${event.seq}`, at: event.at, failed: data.ok === false,
+            text: `Build logger: ${outcome}. No ${tool} call of this agent's latest model reply matches it.` });
+          current = null;
         }
+        continue;
       }
       const details = cut ? undefined : data.details ?? data.result ?? data.error;
       const body = event.text && event.text.length > 0 ? event.text : pretty(cut ? cut.preview : details ?? omit(event.data, ["callId", "toolCallId", "source"]) ?? "");
@@ -376,6 +413,20 @@ function buildThread(events: readonly DemoEvent[]): { thread: AgentThreadModel; 
         receipt(callId, { label: "Result details", text: pretty(details), failed: false, at: event.at });
       }
       continue;
+    }
+  }
+  // Parallel same-name calls: each gets the batch's outcomes, not one guessed outcome.
+  for (const { calls: group, outcomes } of sharedOutcomes.values()) {
+    const tool = group[0]!.toolName;
+    const label = `Build logger · ${outcomes.length} outcome${outcomes.length === 1 ? "" : "s"} for ${group.length} parallel ${tool} calls (not matched one-to-one)`;
+    const text = pretty(outcomes.map(({ event, data }) => ({ at: event.at, title: event.title, ...(omit(data, ["source"]) as object) })));
+    const allOk = outcomes.length === group.length && outcomes.every(({ data }) => data.ok === true);
+    const allFailed = outcomes.length === group.length && outcomes.every(({ data }) => data.ok === false);
+    for (const call of group) {
+      call.logger = true;
+      if (allOk) loggerOutcome.set(call.callId, true);
+      else if (allFailed) loggerOutcome.set(call.callId, false);
+      receipt(call.callId, { label, text, failed: outcomes.some(({ data }) => data.ok === false), at: outcomes[0]!.event.at });
     }
   }
   // A result the model saw carries no status; the build logger's outcome for that call does.
@@ -438,7 +489,7 @@ function lifecycle({ customer, list, listed, end, active, ended, buildEnd, phase
     const open = new Set<string>();
     const resolved = resolveResultCalls(convo);
     for (const event of convo) {
-      const callId = event.kind === "tool_result" ? resolved.get(event.id)?.callId ?? null : callIdOf(event);
+      const callId = event.kind === "tool_result" ? resolved.get(event.seq)?.callId ?? null : callIdOf(event);
       if (!callId) continue;
       if (event.kind === "tool_call") open.add(callId);
       else if (event.kind === "tool_result") open.delete(callId);

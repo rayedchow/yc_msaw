@@ -57,8 +57,10 @@ function usePoll() {
           if (runId !== null) store.runId = runId;
           for (const event of body.events ?? []) {
             if (!event || typeof event.id !== "string") continue;
-            const at = store.index.get(event.id);
-            if (at === undefined) { store.index.set(event.id, store.events.length); store.events.push(event); }
+            // Keyed by the line's byte offset (unique per line): producers can reuse an id for different events.
+            const key = typeof event.seq === "number" ? `@${event.seq}` : event.id;
+            const at = store.index.get(key);
+            if (at === undefined) { store.index.set(key, store.events.length); store.events.push(event); }
             else store.events[at] = event;
             changed = true;
           }
