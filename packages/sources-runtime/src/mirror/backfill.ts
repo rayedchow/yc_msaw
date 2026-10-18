@@ -627,17 +627,37 @@ function materializeNotionStoredSummarySourceWiki(userId: string, row: NotionPag
 }
 
 async function backfillGranola(userId: string, limitPerSource: number | null): Promise<SourceWikiBackfillCount> {
+  // SOURCE-LANE PATCH (granola request 1): render each note's current state
+  // only - its latest snapshot (provider updated_at, then capture order; the
+  // rule of granola_source_notes, drizzle/9500) - and skip notes whose newest
+  // observation is a deletion tombstone. Rendering every revision concurrently
+  // left an arbitrary revision as the projection and resurrected deleted notes.
   const rows = rowsFromExecute<GranolaEventRow>(await db.execute(sql`
-    SELECT id, source_event_id, "timestamp", raw_payload
-    FROM activity_events
-    WHERE user_id = ${userId}
-      AND source = 'granola'
+    WITH latest AS (
+      SELECT DISTINCT ON (source_object_id) id, source_object_id, source_event_id, "timestamp", raw_payload, created_at
+      FROM activity_events
+      WHERE user_id = ${userId}
+        AND source = 'granola'
+        AND event_type = 'meeting_note'
+      ORDER BY source_object_id, source_updated_at DESC NULLS LAST, created_at DESC, id DESC
+    ), deleted AS (
+      SELECT source_object_id, max(created_at) AS deleted_at
+      FROM activity_events
+      WHERE user_id = ${userId}
+        AND source = 'granola'
+        AND event_type = 'meeting_note.deleted'
+      GROUP BY source_object_id
+    )
+    SELECT l.id, l.source_event_id, l."timestamp", l.raw_payload
+    FROM latest l
+    LEFT JOIN deleted d ON d.source_object_id = l.source_object_id
+    WHERE (d.deleted_at IS NULL OR d.deleted_at < l.created_at)
       AND (
-        COALESCE(raw_payload->>'summaryMarkdown', '') <> ''
-        OR COALESCE(raw_payload->>'summaryText', '') <> ''
-        OR jsonb_typeof(raw_payload->'transcript') = 'array'
+        COALESCE(l.raw_payload->>'summaryMarkdown', '') <> ''
+        OR COALESCE(l.raw_payload->>'summaryText', '') <> ''
+        OR jsonb_typeof(l.raw_payload->'transcript') = 'array'
       )
-    ORDER BY "timestamp" DESC, id ASC
+    ORDER BY l."timestamp" DESC, l.id ASC
     ${limitSql(limitPerSource)}
   `));
 

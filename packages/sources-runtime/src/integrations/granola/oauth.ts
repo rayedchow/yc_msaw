@@ -152,6 +152,7 @@ export async function refreshGranolaOAuthToken(
       tokenEndpointAuthMethod: authMethod,
     },
     ingestionStartRequestedAt: stringMetadata(metadata.ingestionStartRequestedAt) ?? null,
+    grant: "refresh",
   });
 
   await storeToken(userId, "granola", tokenData.access_token!, nextMetadata, nextRefreshToken);
@@ -166,6 +167,8 @@ export function granolaOAuthTokenMetadata(input: {
   folderId?: string | null;
   previewHasMore?: boolean | null;
   ingestionStartRequestedAt?: string | null;
+  /** SOURCE-LANE PATCH (granola): "refresh" keeps the grant's account identity; anything else is a new grant. */
+  grant?: "new" | "refresh";
 }): Record<string, unknown> {
   if (!input.client.clientId.trim()) {
     throw new Error("Granola OAuth token metadata requires a client id.");
@@ -189,7 +192,41 @@ export function granolaOAuthTokenMetadata(input: {
     token_endpoint_auth_method: input.client.tokenEndpointAuthMethod,
     mcp_resource: GRANOLA_MCP_RESOURCE,
     ingestionStartRequestedAt: input.ingestionStartRequestedAt ?? input.existing?.ingestionStartRequestedAt ?? null,
+    // SOURCE-LANE PATCH (granola): account identity from the id_token Granola
+    // returned to us directly over TLS (openid scope), so the source lane can
+    // tell a reconnect of the same account from a different account. Only the
+    // subject and e-mail claims are kept; the id_token itself is not stored.
+    ...granolaIdTokenAccount(input.tokenData.id_token, input.grant === "refresh" ? input.existing : null),
+    oauth_granted_at: input.grant === "refresh"
+      ? stringMetadata(input.existing?.oauth_granted_at) ?? stringMetadata(input.existing?.connectedAt) ?? now
+      : now,
   };
+}
+
+function granolaIdTokenAccount(
+  idToken: string | undefined,
+  carriedFrom: Record<string, unknown> | null | undefined,
+): { account_subject: string | null; account_email: string | null } {
+  const claims = decodeJwtClaims(idToken);
+  const subject = typeof claims?.sub === "string" && claims.sub ? claims.sub : null;
+  const email = typeof claims?.email === "string" && claims.email ? claims.email : null;
+  if (subject) return { account_subject: subject, account_email: email };
+  return {
+    account_subject: stringMetadata(carriedFrom?.account_subject),
+    account_email: stringMetadata(carriedFrom?.account_email),
+  };
+}
+
+function decodeJwtClaims(token: string | undefined): Record<string, unknown> | null {
+  if (!token) return null;
+  const payload = token.split(".")[1];
+  if (!payload) return null;
+  try {
+    const claims = JSON.parse(Buffer.from(payload, "base64url").toString("utf8")) as unknown;
+    return claims && typeof claims === "object" && !Array.isArray(claims) ? claims as Record<string, unknown> : null;
+  } catch {
+    return null;
+  }
 }
 
 export function isGranolaOAuthTokenMetadata(metadata: Record<string, unknown> | null | undefined): boolean {

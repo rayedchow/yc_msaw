@@ -4,9 +4,14 @@ import type {
   GranolaNoteListItem,
   GranolaTranscriptItem,
 } from "./poller.js";
+// SOURCE-LANE PATCH (granola): the MCP transport shares the REST Retry-After
+// handling and the per-credential rate gate.
+import { holdGranolaRateGate, parseGranolaRetryAfter, waitForGranolaRateGate } from "./poller.js";
 
 const GRANOLA_MCP_URL = "https://mcp.granola.ai/mcp";
 const MCP_PROTOCOL_VERSION = "2025-06-18";
+const MCP_RETRY_MAX_ATTEMPTS = 3;
+const MCP_RETRY_MAX_DELAY_MS = 30_000;
 
 type JsonRecord = Record<string, unknown>;
 
@@ -81,6 +86,11 @@ export async function fetchGranolaNoteWithMcpClient(
   const tools = await listMcpTools(client);
   const detail = selectNoteTool(tools, includeTranscript);
   const notePayload = await callMcpTool(client, detail.tool.name, { [detail.idArg]: noteId });
+  // SOURCE-LANE PATCH (granola): a detail payload without any timestamp is
+  // not a note we recognise (e.g. free-text tool output); storing it would
+  // write a shell revision dated 1970. Fail the note instead (counted, retried,
+  // watermark held).
+  assertMcpNoteHasTimestamps(notePayload, detail.tool.name);
   const note = normalizeNoteResponse(notePayload, noteId, null);
   if (includeTranscript && (!Array.isArray(note.transcript) || note.transcript.length === 0)) {
     note.transcript = await maybeFetchTranscript(client, tools, noteId);
@@ -171,11 +181,27 @@ async function postMcp(session: GranolaMcpClient, body: JsonRecord, expectRespon
   };
   if (session.sessionId) headers["MCP-Session-Id"] = session.sessionId;
 
-  const res = await fetch(GRANOLA_MCP_URL, {
-    method: "POST",
-    headers,
-    body: JSON.stringify(body),
-  });
+  // SOURCE-LANE PATCH (granola): 429 handling on the MCP transport (it had
+  // none): honour Retry-After with bounded retries, hold the credential's rate
+  // gate, and surface longer waits with the header so the lane can cool down.
+  let res: Response;
+  for (let attempt = 0; ; attempt++) {
+    await waitForGranolaRateGate(session.token);
+    res = await fetch(GRANOLA_MCP_URL, {
+      method: "POST",
+      headers,
+      body: JSON.stringify(body),
+    });
+    if (res.status !== 429) break;
+    const delayMs = parseGranolaRetryAfter(res.headers.get("retry-after")) ?? 1000 * (attempt + 1);
+    holdGranolaRateGate(session.token, delayMs);
+    if (attempt >= MCP_RETRY_MAX_ATTEMPTS || delayMs > MCP_RETRY_MAX_DELAY_MS) {
+      const retryAfter = res.headers.get("retry-after");
+      const text = await res.text();
+      throw new Error(`Granola MCP request failed (429)${retryAfter ? `; retry-after=${retryAfter}` : ""}: ${text.slice(0, 500)}`);
+    }
+    await new Promise((resolve) => setTimeout(resolve, delayMs));
+  }
   const nextSessionId = res.headers.get("mcp-session-id");
   if (nextSessionId) session.sessionId = nextSessionId;
 
@@ -399,8 +425,13 @@ function normalizeTranscript(value: unknown): GranolaTranscriptItem[] {
     const source = stringValue(speakerRecord.source ?? record.source ?? speakerRecord.name);
     const text = stringValue(record.text) ?? "";
     if (!text) return [];
+    // SOURCE-LANE PATCH (granola): keep every field the tool returned for a
+    // segment (ids, confidence, speaker names/emails, provider timing keys) next
+    // to the normalised speaker/text/timing, as the REST transport does.
     const transcriptItem: GranolaTranscriptItem = {
+      ...record,
       speaker: {
+        ...speakerRecord,
         source: source ?? undefined,
         diarization_label: diarization ?? undefined,
       },
@@ -465,6 +496,15 @@ function normalizeFolderMembership(value: unknown): NonNullable<GranolaNote["fol
     });
   }
   return folders;
+}
+
+function assertMcpNoteHasTimestamps(payload: unknown, toolName: string): void {
+  const record = asRecord(payload);
+  const noteRecord = asRecord(record.note ?? record.result ?? record.data ?? record);
+  const stamp = stringValue(noteRecord.updated_at ?? noteRecord.updatedAt ?? noteRecord.created_at ?? noteRecord.createdAt);
+  if (!stamp) {
+    throw new Error(`Granola MCP tool ${toolName} returned a note payload without created_at/updated_at; not stored`);
+  }
 }
 
 function extractMcpToolPayload(result: unknown): unknown {

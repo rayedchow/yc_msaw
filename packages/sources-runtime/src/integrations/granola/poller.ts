@@ -102,7 +102,21 @@ export interface GranolaIngestionResult {
   capHit: boolean;
   /** Present when this run also performed a deletion-reconciliation sweep. */
   deletionSweep?: GranolaDeletionSweepResult | null;
+  // SOURCE-LANE PATCH (granola): which notes failed (retried by id by the
+  // lane), whether a page said hasMore without a cursor (window can never
+  // drain), and the run's start (watermark safety bound).
+  failures?: GranolaNoteFailure[];
+  listingTruncated?: boolean;
 }
+
+export type GranolaNoteFailure = { id: string; error: string };
+
+/** Per-page checkpoint of a run: `nextCursor` is where a restarted run resumes (null = listing finished). */
+export type GranolaPageCheckpoint = {
+  nextCursor: string | null;
+  listed: number;
+  pageFailures: GranolaNoteFailure[];
+};
 
 export type GranolaDeletionSweepResult = {
   tracked: number;
@@ -117,10 +131,33 @@ export interface GranolaIngestOptions {
   includeTranscript?: boolean;
   folderId?: string;
   maxNotes?: number | null;
+  // SOURCE-LANE PATCH (granola): start of the earliest run that listed the
+  // current (possibly resumed) window; the watermark never passes it.
+  watermarkCeiling?: string | null;
 }
 
 export interface GranolaBackfillOptions extends GranolaIngestOptions {
   days?: number | null;
+  // SOURCE-LANE PATCH (granola): resumable inventory pass (page checkpoint).
+  cursor?: string | null;
+  onPage?: (checkpoint: GranolaPageCheckpoint) => Promise<void>;
+}
+
+// SOURCE-LANE PATCH (granola): Granola's clock and ours may disagree, and a
+// note can be edited while a run is listing; the watermark therefore never
+// passes (run start - safety). The overlap costs a re-fetch that dedupes.
+export const GRANOLA_WATERMARK_SAFETY_MS = 60_000;
+
+export function clampGranolaWatermark(
+  candidate: string | null | undefined,
+  ceiling: string | Date,
+  floor: string | null | undefined,
+): string | null {
+  const valid = validIsoDate(candidate);
+  if (!valid) return null;
+  const ceilingIso = new Date(new Date(ceiling).getTime() - GRANOLA_WATERMARK_SAFETY_MS).toISOString();
+  const bounded = valid < ceilingIso ? valid : ceilingIso;
+  return maxIsoDate(bounded, floor) ?? bounded;
 }
 
 type FetchedGranolaNote = {
@@ -161,6 +198,8 @@ type GranolaResumeMetadata = {
 type GranolaIngestRunResult = GranolaIngestionResult & {
   resumeCursor: string | null;
   maxProcessedUpdatedAt: string | null;
+  failures: GranolaNoteFailure[];
+  listingTruncated: boolean;
 };
 
 type GranolaCredential =
@@ -193,12 +232,48 @@ const GRANOLA_RETRY_MAX_ATTEMPTS = 3;
 const GRANOLA_RETRY_MAX_DELAY_MS = 30_000;
 
 function granolaRetryAfterMs(res: Response): number | null {
-  const header = res.headers.get("retry-after");
+  return parseGranolaRetryAfter(res.headers.get("retry-after"));
+}
+
+// SOURCE-LANE PATCH (granola): shared Retry-After parsing for REST, MCP and the
+// durable cooldown (src/source-lane/providers/granola/lane.ts).
+export function parseGranolaRetryAfter(header: string | null | undefined, now = Date.now()): number | null {
   if (!header) return null;
   const seconds = Number(header);
   if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000);
   const when = Date.parse(header);
-  return Number.isFinite(when) ? Math.max(0, when - Date.now()) : null;
+  return Number.isFinite(when) ? Math.max(0, when - now) : null;
+}
+
+/** Retry-After carried by a surfaced Granola 429 error message (`retry-after=<value>`), in ms. */
+export function granolaRetryAfterFromError(err: unknown, now = Date.now()): number | null {
+  const message = err instanceof Error ? err.message : String(err);
+  if (!/\(429\)/.test(message)) return null;
+  // HTTP-dates contain ':' but never ': ', which separates the response body.
+  const match = /retry-after=(.+?)(?:: |$)/.exec(message);
+  return parseGranolaRetryAfter(match?.[1]?.trim(), now) ?? 0;
+}
+
+// SOURCE-LANE PATCH (granola): one in-process gate per credential so the
+// concurrent note fetchers of a run all pause when any of them sees a 429
+// (Granola rate-limits the credential, not the request). Keyed by a token hash.
+const granolaRateGates = new Map<string, number>();
+
+export function granolaRateGateKey(token: string): string {
+  return createHash("sha256").update(token).digest("hex").slice(0, 24);
+}
+
+export async function waitForGranolaRateGate(token: string): Promise<void> {
+  const until = granolaRateGates.get(granolaRateGateKey(token));
+  if (until === undefined) return;
+  const waitMs = until - Date.now();
+  if (waitMs > 0) await sleep(waitMs);
+}
+
+export function holdGranolaRateGate(token: string, delayMs: number): void {
+  const key = granolaRateGateKey(token);
+  const until = Date.now() + Math.max(0, delayMs);
+  if ((granolaRateGates.get(key) ?? 0) < until) granolaRateGates.set(key, until);
 }
 
 async function granolaRequest(
@@ -212,14 +287,17 @@ async function granolaRequest(
   }
 
   for (let attempt = 0; ; attempt++) {
+    await waitForGranolaRateGate(token);
     const res = await fetch(url.toString(), {
       headers: { Authorization: `Bearer ${token}` },
     });
-    if (res.status !== 429 || attempt >= GRANOLA_RETRY_MAX_ATTEMPTS) return res;
-    const delayMs = Math.min(
-      granolaRetryAfterMs(res) ?? 1000 * (attempt + 1),
-      GRANOLA_RETRY_MAX_DELAY_MS,
-    );
+    if (res.status !== 429) return res;
+    const delayMs = granolaRetryAfterMs(res) ?? 1000 * (attempt + 1);
+    holdGranolaRateGate(token, delayMs);
+    // SOURCE-LANE PATCH (granola): never retry before Retry-After elapses. A
+    // wait longer than the in-request cap is surfaced instead of being cut
+    // short; the lane turns it into a durable cooldown for the credential.
+    if (attempt >= GRANOLA_RETRY_MAX_ATTEMPTS || delayMs > GRANOLA_RETRY_MAX_DELAY_MS) return res;
     await sleep(delayMs);
   }
 }
@@ -352,6 +430,53 @@ function hashGranolaNote(note: GranolaNote): string {
   return createHash("sha256").update(JSON.stringify(note)).digest("hex");
 }
 
+// SOURCE-LANE PATCH (granola): content identity of a stored observation. The
+// redacted provider payload minus fetch metadata (`api`, `_content_hash`), as
+// canonical JSON (sorted keys), so a re-fetch of unchanged content compares equal
+// even when per-request signed asset URLs or key order differ.
+const GRANOLA_NON_CONTENT_KEYS = new Set(["api", "_content_hash"]);
+
+function canonicalJson(value: unknown): string {
+  if (Array.isArray(value)) return `[${value.map(canonicalJson).join(",")}]`;
+  if (value && typeof value === "object") {
+    const record = value as Record<string, unknown>;
+    return `{${Object.keys(record).filter((key) => record[key] !== undefined).sort()
+      .map((key) => `${JSON.stringify(key)}:${canonicalJson(record[key])}`).join(",")}}`;
+  }
+  return JSON.stringify(value) ?? "null";
+}
+
+export function granolaComparableHash(rawPayload: Record<string, unknown>): string {
+  const content: Record<string, unknown> = {};
+  for (const [key, value] of Object.entries(rawPayload)) {
+    if (!GRANOLA_NON_CONTENT_KEYS.has(key)) content[key] = value;
+  }
+  return createHash("sha256").update(canonicalJson(content)).digest("hex");
+}
+
+function granolaLosesTranscript(previous: Record<string, unknown>, fetched: FetchedGranolaNote): boolean {
+  if (fetched.transcriptIncluded) return false;
+  const next = fetched.note.transcript;
+  if (Array.isArray(next) && next.length > 0) return false;
+  return Array.isArray(previous.transcript) && previous.transcript.length > 0;
+}
+
+async function latestGranolaObservation(
+  userId: string,
+  baseSourceEventId: string,
+): Promise<{ id: string; sourceEventId: string; rawPayload: unknown } | null> {
+  const result = await db.execute(sql`
+    SELECT id::text AS id, source_event_id, raw_payload FROM activity_events
+     WHERE user_id = ${userId} AND source = 'granola'
+       AND (source_event_id = ${baseSourceEventId} OR starts_with(source_event_id, ${`${baseSourceEventId}#`}))
+     ORDER BY created_at DESC, id DESC
+     LIMIT 1
+  `);
+  const rows = (Array.isArray(result) ? result : (result as { rows?: unknown[] }).rows ?? []) as Array<{ id: string; source_event_id: string; raw_payload: unknown }>;
+  const row = rows[0];
+  return row ? { id: row.id, sourceEventId: row.source_event_id, rawPayload: row.raw_payload } : null;
+}
+
 function granolaSourceEventId(note: GranolaNote): string {
   return `granola:${note.id}:${noteUpdatedAt(note) ?? note.updated_at}`;
 }
@@ -419,23 +544,48 @@ export async function tombstoneGranolaMissingNote(
     lastSeenUpdatedAt: watermark.lastSeenTs ?? null,
   }) as Record<string, unknown>;
 
-  const [inserted] = await db
+  const tombstoneValues = {
+    userId,
+    source: "granola",
+    ...deriveActivityEventSourceContract({ source: "granola", eventType: "meeting_note.deleted", rawPayload }),
+    eventType: "meeting_note.deleted",
+    timestamp: times.timestamp,
+    sourceUpdatedAt: times.sourceUpdatedAt,
+    wikiEligibilityAt: times.wikiEligibilityAt,
+    rawPayload,
+    sourceEventId: granolaDeletionSourceEventId(noteId),
+    processingStatus: "received",
+    extractedEntities: null,
+  };
+  let [inserted] = await db
     .insert(activityEvents)
-    .values({
-      userId,
-      source: "granola",
-      ...deriveActivityEventSourceContract({ source: "granola", eventType: "meeting_note.deleted", rawPayload }),
-      eventType: "meeting_note.deleted",
-      timestamp: times.timestamp,
-      sourceUpdatedAt: times.sourceUpdatedAt,
-      wikiEligibilityAt: times.wikiEligibilityAt,
-      rawPayload,
-      sourceEventId: granolaDeletionSourceEventId(noteId),
-      processingStatus: "received",
-      extractedEntities: null,
-    })
+    .values(tombstoneValues)
     .onConflictDoNothing()
     .returning({ id: activityEvents.id });
+
+  // SOURCE-LANE PATCH (granola): the stable deletion key made a second deletion
+  // of a restored note (re-captured after its tombstone with a newer updated_at)
+  // a silent no-op that left the restored mirror in place. When the existing
+  // tombstone recorded an older last-seen version than the note's current one,
+  // this is a new deletion: append it keyed by the version it deleted.
+  if (!inserted && watermark.lastSeenTs) {
+    const [prior] = await db
+      .select({ rawPayload: activityEvents.rawPayload })
+      .from(activityEvents)
+      .where(and(
+        eq(activityEvents.userId, userId),
+        eq(activityEvents.sourceEventId, granolaDeletionSourceEventId(noteId)),
+      ))
+      .limit(1);
+    const priorSeen = stringOrNull(objectOrNull(prior?.rawPayload)?.lastSeenUpdatedAt);
+    if (prior && priorSeen !== watermark.lastSeenTs) {
+      [inserted] = await db
+        .insert(activityEvents)
+        .values({ ...tombstoneValues, sourceEventId: `${granolaDeletionSourceEventId(noteId)}:${watermark.lastSeenTs}` })
+        .onConflictDoNothing()
+        .returning({ id: activityEvents.id });
+    }
+  }
 
   await db
     .update(conversationWatermarks)
@@ -618,21 +768,47 @@ async function storeGranolaNoteEvent(
     .limit(1);
 
   if (existing) {
-    const existingPayload = existing.rawPayload as Record<string, unknown>;
-    if (existingPayload._content_hash === nextPayload._content_hash) {
-      await trackGranolaNote(userId, fetched.note);
+    // SOURCE-LANE PATCH (granola): the same updated_at with different content
+    // (a transcript or summary that arrived later without an updated_at bump)
+    // used to be dropped as a collision. Compare the observation that is latest
+    // for this updated_at (base row or a later content revision) with the new
+    // one on their redacted provider content (fetch metadata excluded, key order
+    // ignored); a real change is appended as an immutable content revision
+    // `<source_event_id>#<sha16>`. Prior raw rows are never rewritten.
+    await trackGranolaNote(userId, fetched.note);
+    const latest = await latestGranolaObservation(userId, values.sourceEventId)
+      ?? { ...existing, sourceEventId: values.sourceEventId };
+    const latestPayload = latest.rawPayload as Record<string, unknown>;
+    const nextComparable = granolaComparableHash(nextPayload);
+    if (latestPayload._content_hash === nextPayload._content_hash || granolaComparableHash(latestPayload) === nextComparable) {
       await materializeGranolaMeetingSourceWiki(userId, {
-        eventId: existing.id,
-        sourceEventId: values.sourceEventId,
+        eventId: latest.id,
+        sourceEventId: latest.sourceEventId,
         timestamp: values.timestamp,
         rawPayload: nextPayload,
       });
       return "skipped";
     }
-
-    await trackGranolaNote(userId, fetched.note);
-    console.warn(`[granola] source_event_id collision with changed payload for ${values.sourceEventId}; leaving prior raw row unchanged`);
-    return "skipped";
+    if (granolaLosesTranscript(latestPayload, fetched)) {
+      // A transcript fallback (400/403 on include=transcript) must not replace a
+      // captured transcript with an observation that has none.
+      return "skipped";
+    }
+    const revision = { ...values, sourceEventId: `${values.sourceEventId}#${nextComparable.slice(0, 16)}` };
+    const [insertedRevision] = await db
+      .insert(activityEvents)
+      .values(revision)
+      .onConflictDoNothing()
+      .returning({ id: activityEvents.id });
+    if (!insertedRevision) return "skipped";
+    await enqueueCollectedEventForProcessing(insertedRevision.id, userId);
+    await materializeGranolaMeetingSourceWiki(userId, {
+      eventId: insertedRevision.id,
+      sourceEventId: revision.sourceEventId,
+      timestamp: revision.timestamp,
+      rawPayload: nextPayload,
+    });
+    return "stored";
   }
 
   const [inserted] = await db
@@ -661,6 +837,7 @@ async function ingestGranolaNotes(
     updatedAfter?: string;
     cursor?: string;
     initialMaxSeenUpdatedAt?: string | null;
+    onPage?: (checkpoint: GranolaPageCheckpoint) => Promise<void>;
   },
 ): Promise<GranolaIngestRunResult> {
   const runCredential: GranolaCredential = credential.mode === "oauth_mcp"
@@ -681,6 +858,8 @@ async function ingestGranolaNotes(
   let resumeCursor: string | null = null;
   let lastPageHasMore = false;
   let capHit = false;
+  const failures: GranolaNoteFailure[] = [];
+  let listingTruncated = false;
 
   do {
     const pageSize = Number.isFinite(maxNotes)
@@ -760,9 +939,11 @@ async function ingestGranolaNotes(
       }
     });
 
+    const pageFailures: GranolaNoteFailure[] = [];
     for (const result of noteResults) {
       if (result.failure) {
         failed++;
+        pageFailures.push({ id: result.id, error: result.failure.slice(0, 500) });
         console.warn(`[granola] note fetch failed for ${result.id}: ${result.failure}`);
         continue;
       }
@@ -787,7 +968,10 @@ async function ingestGranolaNotes(
     lastPageHasMore = page.hasMore || capHitThisPage;
     const nextCursor = page.hasMore && !capHitThisPage && page.cursor ? page.cursor : undefined;
     capHit ||= capHitThisPage || (page.hasMore && !nextCursor);
+    if (page.hasMore && !page.cursor) listingTruncated = true;
     cursor = nextCursor;
+    failures.push(...pageFailures);
+    await opts.onPage?.({ nextCursor: nextCursor ?? (capHitThisPage ? page.cursor ?? null : null), listed, pageFailures });
   } while (cursor);
 
   return {
@@ -804,6 +988,8 @@ async function ingestGranolaNotes(
     capHit,
     resumeCursor,
     maxProcessedUpdatedAt,
+    failures,
+    listingTruncated,
   };
 }
 
@@ -824,16 +1010,16 @@ export async function pollGranola(
 
   const resume = granolaResumeFromMetadata(metadata);
   const updatedAfter = resume?.updatedAfter ?? lastUpdatedAt;
-  const credential = granolaCredential(userId, stored);
   const folderId = opts.folderId ?? (typeof metadata.folderId === "string" ? metadata.folderId : undefined);
-  const run = await ingestGranolaNotes(userId, credential, {
+  const runStartedAt = new Date();
+  const { result: run, credential } = await withGranolaAuthRecovery(userId, stored, (runCredential) => ingestGranolaNotes(userId, runCredential, {
     updatedAfter,
     includeTranscript: opts.includeTranscript ?? (metadata.includeTranscript !== false),
     folderId,
     maxNotes: opts.maxNotes ?? 200,
     cursor: resume?.cursor,
     initialMaxSeenUpdatedAt: resume?.maxSeenUpdatedAt,
-  });
+  }));
 
   if (run.failed > 0) {
     await mergeTokenMetadata(userId, "granola", { granolaResume: null });
@@ -856,7 +1042,9 @@ export async function pollGranola(
     return publicGranolaIngestionResult(run, null);
   }
 
-  const nextWatermark = run.maxProcessedUpdatedAt ?? run.newestUpdatedAt;
+  const windowStart = validIsoDate(opts.watermarkCeiling);
+  const ceiling = windowStart && windowStart < runStartedAt.toISOString() ? windowStart : runStartedAt;
+  const nextWatermark = clampGranolaWatermark(run.maxProcessedUpdatedAt ?? run.newestUpdatedAt, ceiling, updatedAfter);
   let watermarkAdvancedTo: string | null = null;
   if (nextWatermark) {
     await mergeTokenMetadata(userId, "granola", {
@@ -995,18 +1183,28 @@ export async function backfillGranola(
     ? undefined
     : new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString();
   const metadata = stored.metadata ?? {};
+  const runStartedAt = new Date();
 
-  const run = await ingestGranolaNotes(userId, granolaCredential(userId, stored), {
+  const { result: run } = await withGranolaAuthRecovery(userId, stored, (credential) => ingestGranolaNotes(userId, credential, {
     createdAfter,
     includeTranscript: opts.includeTranscript ?? (metadata.includeTranscript !== false),
     folderId: opts.folderId ?? (typeof metadata.folderId === "string" ? metadata.folderId : undefined),
     maxNotes: opts.maxNotes,
-  });
-  if (run.failed === 0 && !run.capHit) {
-    const nextWatermark = run.maxProcessedUpdatedAt ?? run.newestUpdatedAt;
-    if (nextWatermark) {
-      await mergeTokenMetadata(userId, "granola", { lastUpdatedAt: nextWatermark });
-      return publicGranolaIngestionResult(run, nextWatermark);
+    cursor: opts.cursor ?? undefined,
+    onPage: opts.onPage,
+  }));
+  // SOURCE-LANE PATCH (granola): a backfill never moves an existing poll
+  // watermark. Polls (serialized with it in the same task group) own the
+  // watermark; advancing it to the newest note the backfill saw would skip
+  // edits made to earlier-listed notes while the backfill ran, and moving it
+  // back only re-lists. A missing watermark is seeded at the backfill start.
+  const existingWatermark = validIsoDate(stringOrNull(metadata.lastUpdatedAt));
+  const newest = run.maxProcessedUpdatedAt ?? run.newestUpdatedAt;
+  if (run.failed === 0 && !run.capHit && !existingWatermark && newest) {
+    const seeded = clampGranolaWatermark(newest, runStartedAt, null);
+    if (seeded) {
+      await mergeTokenMetadata(userId, "granola", { lastUpdatedAt: seeded });
+      return publicGranolaIngestionResult(run, seeded);
     }
   }
   return publicGranolaIngestionResult(run, null);
@@ -1043,6 +1241,8 @@ function publicGranolaIngestionResult(
     watermarkAdvancedTo,
     exhausted: result.exhausted,
     capHit: result.capHit,
+    ...(result.failures.length > 0 ? { failures: result.failures } : {}),
+    ...(result.listingTruncated ? { listingTruncated: true } : {}),
   };
 }
 
@@ -1070,6 +1270,27 @@ async function getUsableGranolaToken(userId: string): Promise<StoredGranolaToken
   return stored;
 }
 
+// SOURCE-LANE PATCH (granola): reactive OAuth refresh. The proactive refresh
+// above only covers tokens whose expiry we know; a 401 mid-run (revoked or
+// early-expired access token) refreshes once and re-runs (stores dedupe).
+// Only a failed refresh or a second 401 reaches the credential teardown.
+async function withGranolaAuthRecovery<T>(
+  userId: string,
+  stored: StoredGranolaToken,
+  run: (credential: GranolaCredential) => Promise<T>,
+): Promise<{ result: T; credential: GranolaCredential }> {
+  const credential = granolaCredential(userId, stored);
+  try {
+    return { result: await run(credential), credential };
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    if (!isGranolaOAuthTokenMetadata(stored.metadata) || !stored.refreshToken || !/\(401\)/.test(message)) throw err;
+    const refreshed = await refreshGranolaOAuthToken(userId, stored);
+    const next = granolaCredential(userId, refreshed);
+    return { result: await run(next), credential: next };
+  }
+}
+
 function granolaCredential(userId: string, stored: StoredGranolaToken): GranolaCredential {
   if (isGranolaOAuthTokenMetadata(stored.metadata)) {
     return {
@@ -1081,4 +1302,106 @@ function granolaCredential(userId: string, stored: StoredGranolaToken): GranolaC
     };
   }
   return { mode: "api_key", token: stored.token };
+}
+
+// SOURCE-LANE PATCH (granola): lane helpers (src/source-lane/providers/granola/lane.ts).
+
+/** Credential identity without secrets: what Granola rate-limits and which notes it can see. */
+export type GranolaCredentialIdentity = {
+  authMode: "api_key" | "oauth_mcp";
+  /** sha256 over the identity Granola scopes access by; never the token itself. */
+  accountFingerprint: string;
+  /** Account e-mail/subject from the OAuth id_token when known; never an API key. */
+  accountLabel: string | null;
+  folderId: string | null;
+  includeTranscript: boolean;
+  quotaKey: string;
+};
+
+export async function granolaCredentialIdentity(userId: string): Promise<GranolaCredentialIdentity | null> {
+  const stored = await getTokenFull(userId, "granola");
+  if (!stored) return null;
+  const metadata = stored.metadata ?? {};
+  const folderId = stringOrNull(metadata.folderId);
+  const includeTranscript = metadata.includeTranscript !== false;
+  if (isGranolaOAuthTokenMetadata(metadata)) {
+    // Access tokens rotate on refresh; the account is the id_token subject when
+    // Granola returned one, else this tenant's OAuth grant (each reconnect is a
+    // new grant, so an unidentifiable reconnect gets a fresh inventory pass).
+    const subject = stringOrNull(metadata.account_subject);
+    const identity = subject
+      ? `oauth:sub:${subject}`
+      : `oauth:grant:${userId}:${stringOrNull(metadata.client_id) ?? ""}:${stringOrNull(metadata.oauth_granted_at) ?? stringOrNull(metadata.connectedAt) ?? ""}`;
+    const fingerprint = createHash("sha256").update(identity).digest("hex").slice(0, 32);
+    return {
+      authMode: "oauth_mcp",
+      accountFingerprint: fingerprint,
+      accountLabel: stringOrNull(metadata.account_email) ?? (subject ? `oauth subject ${subject}` : null),
+      folderId,
+      includeTranscript,
+      quotaKey: `granola:oauth:${fingerprint}`,
+    };
+  }
+  const fingerprint = createHash("sha256").update(`api_key:${stored.token}`).digest("hex").slice(0, 32);
+  return {
+    authMode: "api_key",
+    accountFingerprint: fingerprint,
+    accountLabel: null,
+    folderId,
+    includeTranscript,
+    quotaKey: `granola:api_key:${fingerprint}`,
+  };
+}
+
+export type GranolaRefetchOutcome = {
+  id: string;
+  outcome: "stored" | "unchanged" | "tombstoned" | "deleted_uncaptured" | "failed";
+  transcriptIncluded?: boolean;
+  error?: string;
+};
+
+/**
+ * Re-fetch specific notes by id (notes whose fetch failed in an earlier run,
+ * or whose transcript was missing): the same fetch/store/tombstone taxonomy as
+ * a poll. 401/403 propagate (credential teardown); 429 stops the batch.
+ */
+export async function refetchGranolaNotes(
+  userId: string,
+  noteIds: readonly string[],
+  opts: { includeTranscript?: boolean } = {},
+): Promise<GranolaRefetchOutcome[]> {
+  const stored = await getUsableGranolaToken(userId);
+  if (!stored || noteIds.length === 0) return [];
+  const includeTranscript = opts.includeTranscript ?? ((stored.metadata ?? {}).includeTranscript !== false);
+  const { result } = await withGranolaAuthRecovery(userId, stored, async (credential) => {
+    const runCredential: GranolaCredential = credential.mode === "oauth_mcp"
+      ? { ...credential, mcpClient: await createGranolaMcpClient(credential.token) }
+      : credential;
+    const outcomes: GranolaRefetchOutcome[] = [];
+    for (const id of noteIds) {
+      try {
+        const fetched = await fetchGranolaNoteWithCredential(runCredential, id, includeTranscript);
+        const storedAs = await storeGranolaNoteEvent(userId, fetched);
+        outcomes.push({ id, outcome: storedAs === "stored" ? "stored" : "unchanged", transcriptIncluded: fetched.transcriptIncluded });
+      } catch (err) {
+        const failure = classifyGranolaNoteFetchFailure(err);
+        if (failure === "permanent") throw err;
+        if (failure === "not_found") {
+          const outcome = await tombstoneGranolaMissingNote(userId, id, "fetch_404");
+          outcomes.push({ id, outcome: outcome === "uncaptured" ? "deleted_uncaptured" : "tombstoned" });
+          continue;
+        }
+        const message = err instanceof Error ? err.message : String(err);
+        outcomes.push({ id, outcome: "failed", error: message.slice(0, 500) });
+        if (/\(429\)/.test(message)) break;
+      }
+      await sleep(RATE_LIMIT_DELAY_MS);
+    }
+    return outcomes;
+  });
+  return result;
+}
+
+export function resetGranolaRateGatesForTests(): void {
+  granolaRateGates.clear();
 }

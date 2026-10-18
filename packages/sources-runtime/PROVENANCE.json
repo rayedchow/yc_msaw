@@ -933,6 +933,26 @@
       ]
     },
     {
+      "path": "drizzle/9500_granola_source_lane.sql",
+      "sha256": "c721c530da454717f014fa116e0fe174c46f7384f445502d979c829deb06df71",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Granola lane tables: per-tenant sync state (inventory key/phase/cursor checkpoint, poll + sweep outcomes, failed notes), Retry-After cooldowns keyed by credential fingerprint, and the granola_source_notes catalog maintained by an activity_events trigger (per-note advisory lock, legacy backfill, idempotent); journal trigger source_lane_journal_row('tenant_id','note_id', recheck bookkeeping ignored).",
+      "tests": [
+        "tests/source-lane/providers/granola/lane.test.ts",
+        "tests/source-lane/providers/granola/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)",
+        "tests/source-lane/providers/granola/module.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/granola/poller.ts",
+          "use": "wraps and extends the donor poll/backfill/deletion semantics"
+        }
+      ]
+    },
+    {
       "path": "drizzle/9550_imessage_device_ingest.sql",
       "sha256": "a90496678f6b14512efca3fceac38d1f7f2804642af7ed9a207d143912fc5349",
       "status": "new",
@@ -1687,43 +1707,81 @@
       "path": "src/integrations/granola/connect.ts",
       "sha256": "c17db2a6c9b731e39585e447bebc8a278fda84ee365c8440c3cff2a57f17ae75",
       "status": "verbatim",
+      "owner": "granola",
       "donorPath": "src/integrations/granola/connect.ts",
       "donorSha256": "c17db2a6c9b731e39585e447bebc8a278fda84ee365c8440c3cff2a57f17ae75"
     },
     {
       "path": "src/integrations/granola/index.ts",
-      "sha256": "16888ced89aa24e8f58bba6b4f0a51765a3b4dfbf9f3dade78360e66fc8c0cd5",
-      "status": "verbatim",
+      "sha256": "ed37f62dc8c3a50f93f08aeb000d7f5dfd84b791919846cbff0872f516a24057",
+      "status": "patched",
+      "owner": "granola",
       "donorPath": "src/integrations/granola/index.ts",
-      "donorSha256": "16888ced89aa24e8f58bba6b4f0a51765a3b4dfbf9f3dade78360e66fc8c0cd5"
+      "donorSha256": "16888ced89aa24e8f58bba6b4f0a51765a3b4dfbf9f3dade78360e66fc8c0cd5",
+      "reason": "Task tenant taken from the server-written task row (payload naming another tenant refused); poll arms a deduped inventory backfill when no pass completed for the current credential/folder scope; capped follow-up skipped while a cooldown is active; deferred/inventory fields in task output.",
+      "tests": [
+        "tests/source-lane/providers/granola/lane.test.ts",
+        "tests/integrations/granola/tasks.test.ts"
+      ]
     },
     {
       "path": "src/integrations/granola/jobs.ts",
-      "sha256": "12e9a0cdd2bf87f767ccd84a47588f86860f0b41bcdee01af01d285c9227907f",
-      "status": "verbatim",
+      "sha256": "331c80ed1572cb01a3009a8020e901bb8b14dba5726a8284e9c46fac33433f91",
+      "status": "patched",
+      "owner": "granola",
       "donorPath": "src/integrations/granola/jobs.ts",
-      "donorSha256": "12e9a0cdd2bf87f767ccd84a47588f86860f0b41bcdee01af01d285c9227907f"
+      "donorSha256": "12e9a0cdd2bf87f767ccd84a47588f86860f0b41bcdee01af01d285c9227907f",
+      "reason": "granola.poll/granola.backfill run through src/source-lane/providers/granola/lane.ts (durable state, inventory checkpoints, cooldowns, retries by id, transcript re-checks).",
+      "tests": [
+        "tests/source-lane/providers/granola/lane.test.ts",
+        "tests/integrations/granola/tasks.test.ts"
+      ]
     },
     {
       "path": "src/integrations/granola/mcp-client.ts",
-      "sha256": "4addfc6640b5545d88d7abec5b318948f8bcce6715ea8777788fdd953583683d",
-      "status": "verbatim",
+      "sha256": "1b95be67f4e534e91857da90cb4795cde7bf670de4c57fd2a40c3898181b8671",
+      "status": "patched",
+      "owner": "granola",
       "donorPath": "src/integrations/granola/mcp-client.ts",
-      "donorSha256": "4addfc6640b5545d88d7abec5b318948f8bcce6715ea8777788fdd953583683d"
+      "donorSha256": "4addfc6640b5545d88d7abec5b318948f8bcce6715ea8777788fdd953583683d",
+      "reason": "MCP transport: 429 Retry-After handling with the shared rate gate (none before); transcript segments keep every returned field next to the normalised speaker/text/timing; detail payloads without created_at/updated_at fail the note instead of storing a 1970 shell revision.",
+      "tests": [
+        "tests/source-lane/providers/granola/oauth-mcp.test.ts",
+        "tests/integrations/granola/mcp-client.test.ts"
+      ]
     },
     {
       "path": "src/integrations/granola/oauth.ts",
-      "sha256": "c113f8fc323846356190e85243be7073c74dde5f75708f2302581f2b8ea2c672",
-      "status": "verbatim",
+      "sha256": "4165653e5eed90beb8de3e8d185149fc5978161c5a00ee0070cf2524cd1e464d",
+      "status": "patched",
+      "owner": "granola",
       "donorPath": "src/integrations/granola/oauth.ts",
-      "donorSha256": "c113f8fc323846356190e85243be7073c74dde5f75708f2302581f2b8ea2c672"
+      "donorSha256": "c113f8fc323846356190e85243be7073c74dde5f75708f2302581f2b8ea2c672",
+      "reason": "Token metadata records the account sub/email claims from Granola's id_token (id_token itself not stored) and an oauth_granted_at grant marker; refreshes keep the identity, new grants never inherit a previous account's, so the lane can detect account changes.",
+      "tests": [
+        "tests/source-lane/providers/granola/oauth-mcp.test.ts",
+        "tests/integrations/granola/connect.test.ts"
+      ]
     },
     {
       "path": "src/integrations/granola/poller.ts",
-      "sha256": "796c648c69398419ea22c88f5a78ef06e2a0488574c6279da04615ffa0ac1426",
-      "status": "verbatim",
+      "sha256": "711afd8fc42842004834f2f5f3ebfd74bfc6a5cb822ccbc3cf397c646a9f20ce",
+      "status": "patched",
+      "owner": "granola",
       "donorPath": "src/integrations/granola/poller.ts",
-      "donorSha256": "796c648c69398419ea22c88f5a78ef06e2a0488574c6279da04615ffa0ac1426"
+      "donorSha256": "796c648c69398419ea22c88f5a78ef06e2a0488574c6279da04615ffa0ac1426",
+      "reason": "Retry-After never cut short (waits > 30 s surfaced for a durable cooldown) + per-credential in-process rate gate; same-updated_at content changes appended as immutable content revisions <id>#<sha16> (donor dropped late transcripts as collisions) with canonical post-redaction comparison and a no-transcript-regression guard; second deletion of a restored note gets its own tombstone and removes the restored mirror; watermark clamped to window start - 60 s; backfill never moves an existing poll watermark; per-page checkpoint hook + per-note failure list + hasMore-without-cursor flag; one OAuth refresh on 401 mid-run; credential identity (hashes only) and refetch-by-id helpers for the lane.",
+      "tests": [
+        "tests/source-lane/providers/granola/lane.test.ts",
+        "tests/source-lane/providers/granola/oauth-mcp.test.ts",
+        "tests/source-lane/providers/granola/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)",
+        "tests/source-lane/providers/granola/helpers.test.ts",
+        "tests/integrations/granola/poller.test.ts",
+        "tests/integrations/granola/deletion.test.ts",
+        "tests/integrations/granola/connect.test.ts",
+        "tests/integrations/granola/mcp-client.test.ts",
+        "tests/integrations/granola/tasks.test.ts"
+      ]
     },
     {
       "path": "src/integrations/imessage/auth.ts",
@@ -2622,14 +2680,15 @@
     },
     {
       "path": "src/mirror/backfill.ts",
-      "sha256": "9d132a33646b5136dbd269662de0a0459a5ba05cb265382be4efa412d063161e",
+      "sha256": "4ab31eb8be35ed662ea37dfdc2225e75654aec1f50303f071f297257c6ef274f",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/mirror/backfill.ts",
       "donorSha256": "e391aa01ddc5c6ad0d4faf4b1aef5fd02ee6d3e2de011a3cc6c40c8d2977cfc2",
-      "reason": "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones). slack request 1: fold the append-only Slack ledger into window files.",
+      "reason": "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones). slack request 1: fold the append-only Slack ledger into window files. granola request 1: render each Granola note's latest snapshot only and skip notes whose newest observation is a tombstone.",
       "tests": [
         "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts",
+        "tests/source-lane/providers/granola/mirror-backfill.test.ts",
         "tests/source-lane/providers/slack/fold.test.ts"
       ]
     },
@@ -3751,6 +3810,72 @@
       "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
       "tests": [
         "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/granola/coverage.ts",
+      "sha256": "114ee46f16e452de2765c1ccb9ac3464d5dbff1acdfcc5846402d81362757e61",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Truthful coverage from durable state: blocked/pending/partial/complete for current state, history always partial.",
+      "tests": [
+        "tests/source-lane/providers/granola/lane.test.ts",
+        "tests/source-lane/providers/granola/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/granola/export-map.ts",
+      "sha256": "aba89b439823dbf9a71f08dbf44f8d72c0a3deda86d52e98d1427b89775e4102",
+      "status": "new",
+      "owner": "granola, coordinator",
+      "reason": "granola_source_notes -> note.json (people, calendar, folders, revision index with raw paths) and transcript.json (exact stored segments) in the donor meeting directory; deletes on tombstone. Coordinator (final-audit H1): uuid lookup.",
+      "tests": [
+        "tests/source-lane/providers/granola/lane.test.ts",
+        "tests/source-lane/providers/granola/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)",
+        "tests/source-lane/providers/granola/helpers.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/granola/index.ts",
+      "sha256": "d71da515d8bb13271f4f53d7ef11b44f18076a04e90c67919c515d58f6077343",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Granola provider module (replaces the core baseline): default raw + mirror mappings, granola_source_notes extra table, coverage.",
+      "tests": [
+        "tests/source-lane/providers/granola/module.test.ts",
+        "tests/source-lane/providers/granola/lane.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/granola/lane.ts",
+      "sha256": "7875ed72e75ff10f6385f4c351a8696cb761fc1a851b05c4fad64abb8f8df4de",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Source-lane orchestration around the donor poller: resumable inventory passes tied to credential/folder scope, durable Retry-After cooldowns, retries by id, transcript re-checks, state recording.",
+      "tests": [
+        "tests/source-lane/providers/granola/lane.test.ts",
+        "tests/source-lane/providers/granola/oauth-mcp.test.ts",
+        "tests/source-lane/providers/granola/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/granola/poller.ts",
+          "use": "wraps and extends the donor poll/backfill/deletion semantics"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/granola/state.ts",
+      "sha256": "3e3853be450df805f3f65f2c58496d897206978c825f2b5f93206ee44c88e085",
+      "status": "new",
+      "owner": "granola",
+      "reason": "SQL access to granola_source_state / granola_source_quota / granola_source_notes, tenant-scoped.",
+      "tests": [
+        "tests/source-lane/providers/granola/lane.test.ts",
+        "tests/source-lane/providers/granola/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)",
+        "tests/source-lane/providers/granola/helpers.test.ts"
       ]
     },
     {
@@ -4994,6 +5119,7 @@
       "path": "tests/integrations/granola/connect.test.ts",
       "sha256": "d2a73821df5c7c68cf5d53e7dcd6953fcd46a2e563795687ae801095f93ae1dc",
       "status": "verbatim",
+      "owner": "granola",
       "donorPath": "tests/integrations/granola/connect.test.ts",
       "donorSha256": "d2a73821df5c7c68cf5d53e7dcd6953fcd46a2e563795687ae801095f93ae1dc"
     },
@@ -5001,6 +5127,7 @@
       "path": "tests/integrations/granola/deletion.test.ts",
       "sha256": "840016baddcfe3b1f800b6c2052789737668ffc0bc9d6d2aa0d14a8b99ae2ff8",
       "status": "verbatim",
+      "owner": "granola",
       "donorPath": "tests/integrations/granola/deletion.test.ts",
       "donorSha256": "840016baddcfe3b1f800b6c2052789737668ffc0bc9d6d2aa0d14a8b99ae2ff8"
     },
@@ -5008,6 +5135,7 @@
       "path": "tests/integrations/granola/mcp-client.test.ts",
       "sha256": "53c654c886d14005ae04d5dc529e7a86a6fd3257bcd1eccddc4d1538e601c1d5",
       "status": "verbatim",
+      "owner": "granola",
       "donorPath": "tests/integrations/granola/mcp-client.test.ts",
       "donorSha256": "53c654c886d14005ae04d5dc529e7a86a6fd3257bcd1eccddc4d1538e601c1d5"
     },
@@ -5015,6 +5143,7 @@
       "path": "tests/integrations/granola/poller.test.ts",
       "sha256": "0c73bd3b4d3b7d2a003cc633aa8c583a93ab6b681ec17ecf8adf377681b5c6d6",
       "status": "verbatim",
+      "owner": "granola",
       "donorPath": "tests/integrations/granola/poller.test.ts",
       "donorSha256": "0c73bd3b4d3b7d2a003cc633aa8c583a93ab6b681ec17ecf8adf377681b5c6d6"
     },
@@ -5022,6 +5151,7 @@
       "path": "tests/integrations/granola/tasks.test.ts",
       "sha256": "5af5a4de3785c71ab12e052a4b0cf75bd19ba8f2f23f38df6fc85307e10d2e2c",
       "status": "verbatim",
+      "owner": "granola",
       "donorPath": "tests/integrations/granola/tasks.test.ts",
       "donorSha256": "5af5a4de3785c71ab12e052a4b0cf75bd19ba8f2f23f38df6fc85307e10d2e2c"
     },
@@ -6061,6 +6191,69 @@
       "tests": [
         "tests/source-lane/providers/google-docs/visibility.test.ts"
       ]
+    },
+    {
+      "path": "tests/source-lane/providers/granola/fake-granola.ts",
+      "sha256": "7f9ae14919e324bd01c4ed008a3f3406983dced61b5e15b1b5ef4bd5877fa452",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Local fake of the Granola public REST API (per-key accounts, pagination, scripted failures/429/403)."
+    },
+    {
+      "path": "tests/source-lane/providers/granola/harness.ts",
+      "sha256": "6d6e9752eb126de6062558b657f66baef9106f2eaf3a606a30465e443c3314e0",
+      "status": "new",
+      "owner": "granola",
+      "reason": "PGlite harness with real migrations and in-memory token vault."
+    },
+    {
+      "path": "tests/source-lane/providers/granola/helpers.test.ts",
+      "sha256": "0f8d474b19d8ee373222f7b3ae85641ea8435a6476e74d1c20cd1ee9efc562cc",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Unit tests of production helpers."
+    },
+    {
+      "path": "tests/source-lane/providers/granola/lane.test.ts",
+      "sha256": "38980b80145b727077d6aa22597d937ff2d10ee2d525675295d09c605fd15c72",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Lane + donor poller + exporter tests."
+    },
+    {
+      "path": "tests/source-lane/providers/granola/mirror-backfill.test.ts",
+      "sha256": "6d8e6104e9d76b4f0517f7dab1c2f315d5ff0eb59aa4c4a48481ec2d7afb5ebe",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Regression for patch request granola#1 (src/mirror/backfill.ts)."
+    },
+    {
+      "path": "tests/source-lane/providers/granola/module.test.ts",
+      "sha256": "19d3c43cddbd54969afb8c1fef98dabc2a5d04d2a97cbc3e7e129312cad19947",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Registry/migration/worker registration test."
+    },
+    {
+      "path": "tests/source-lane/providers/granola/oauth-mcp.test.ts",
+      "sha256": "690b018d36f02a00ee116cba549e081c81d4100de5b5a125307919dc25afa152",
+      "status": "new",
+      "owner": "granola",
+      "reason": "OAuth refresh-on-401 and MCP transport tests (local fake MCP server)."
+    },
+    {
+      "path": "tests/source-lane/providers/granola/publish.ts",
+      "sha256": "e048487a8f734d0873794b79c18725ba7145f4315bb847cfd43c1811478fdf90",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Minimal yc_msaw publish endpoint double."
+    },
+    {
+      "path": "tests/source-lane/providers/granola/real-pg.test.ts",
+      "sha256": "e78133cb073a4291066c8080086bee800e844a43d90c5a459cc5db4ccd158ee2",
+      "status": "new",
+      "owner": "granola",
+      "reason": "Real PostgreSQL tests (own database)."
     },
     {
       "path": "tests/source-lane/providers/imessage/auth-revocation.test.ts",

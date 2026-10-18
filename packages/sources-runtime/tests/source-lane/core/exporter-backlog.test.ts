@@ -55,6 +55,6 @@ describe("exporter backlog coverage", () => {
       }
     };
     walk(join(__dirname, "../../../src/source-lane"));
-    expect(offenders.filter((p) => !p.includes("/granola/"))).toEqual([]);
+    expect(offenders).toEqual([]);
   });
 });
