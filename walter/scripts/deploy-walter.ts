@@ -10,6 +10,7 @@ import { writeWalterProject } from "../control/project.js";
 import { deployToManufact, isLinked, run, waitForDeployment } from "../deploy/project.js";
 import { connectMcp } from "../mcp-client.js";
 import { ORG } from "../pipeline.js";
+import { SystemClient } from "../mine/data.js";
 import { loadState, saveState, STATE_DIR } from "../state.js";
 import "../env.js";
 
@@ -37,7 +38,32 @@ async function smoke(url: string) {
   console.log("open_questions:", (await mcp.call("open_questions")).data.questions.length);
   console.log("playbook chars:", (await mcp.call("get_playbook", { mcp: "sales" })).text.length);
   console.log("bad input →", (await mcp.call("connect_system", { template: "nope" })).text);
+  if (process.argv.includes("--agent")) await agentTest(mcp);
   await mcp.close();
+}
+
+/** The demo: an ops agent that logs new orders into the CRM, then a check of what it wrote against RevOps' habits. */
+async function agentTest(mcp: Awaited<ReturnType<typeof connectMcp>>) {
+  const sys = new SystemClient(st.system!.url!, st.system!.token!);
+  const pending = (await sys.get("/mail/gmail/v1/users/orders@gurtai.example/threads?q=-label:logged")).body.resultSizeEstimate;
+  console.log("pending orders before:", pending);
+  const goal = "Every day, read the sales orders inbox and keep the CRM up to date: log each new order (company, contact, deal) the way GurtAI's RevOps does.";
+  const c = await mcp.call("create_agent", { goal, run_now: true });
+  console.log("create_agent:", c.text.slice(0, 600));
+  const runId = c.data?.run_id;
+  if (!runId) throw new Error("no run started");
+  let r = c.data;
+  for (let i = 0; i < 120; i++) { await new Promise((res) => setTimeout(res, 4000)); r = (await mcp.call("agent_status", { run_id: runId })).data; if (r.status !== "running") break; }
+  console.log("run:", r.status, "tool calls:", r.tool_calls); for (const s of r.steps ?? []) console.log("  ·", String(s).slice(0, 200));
+  console.log("report:", String(r.report ?? r.error).slice(0, 1500));
+  // what did it write?
+  const orders = (await sys.get("/mail/export/orders")).body.results;
+  const newly = orders.filter((o: any) => o.received_at >= "2026-10-29");
+  console.log("orders labelled Logged:", newly.filter((o: any) => o.labels.includes("Logged")).length, "/", newly.length);
+  const hist = (await sys.get(`/warehouse/field_history?since=${new Date(Date.now() - 3_600_000).toISOString()}&limit=500`)).body.results.filter((h: any) => String(h.changed_by).startsWith("api:"));
+  const ids = [...new Set(hist.filter((h: any) => h.object === "deal").map((h: any) => h.id))];
+  for (const id of ids) console.log("  deal", id, JSON.stringify((await sys.get(`/crm/v3/objects/deals/${id}`)).body.properties));
+  console.log("CRM field changes by the agent:", hist.length);
 }
 
 if (process.argv.includes("--local")) {

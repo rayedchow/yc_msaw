@@ -199,14 +199,14 @@ export class Fleet {
       { role: "user", content: JSON.stringify({ goal: input.goal, requested_mcps: input.mcps ?? null, requested_schedule: input.schedule ?? null, available: catalog }) },
     ], [], { maxTokens: 4000, temperature: 0 });
     const text = String(reply.content ?? "");
-    let design: { name?: string; mcps?: string[]; instructions?: string; schedule?: string | null };
+    let design: { name?: string; mcps?: string[]; instructions?: string | string[]; schedule?: string | null };
     try { design = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)); } catch { throw new Error("could not design the agent (model did not return JSON); try again"); }
     const want = (input.mcps?.length ? input.mcps : design.mcps ?? []).filter((id) => this.mcps.has(id));
     if (!want.length) throw new Error("no company MCP fits this goal. Call list_templates and connect_system first.");
     const missing = want.filter((id) => !w.connected.has(id)).map((id) => ({ template: this.mcps.get(id)!.template?.id ?? id, why: `${this.mcps.get(id)!.name} is needed for this goal` }));
     const agent: AgentSpec = {
       id: `a_${randomUUID().slice(0, 8)}`, name: input.name ?? design.name ?? "ops agent", goal: input.goal,
-      instructions: String(design.instructions ?? input.goal), schedule: input.schedule === undefined ? design.schedule ?? null : input.schedule,
+      instructions: Array.isArray(design.instructions) ? design.instructions.map((s: unknown, i: number) => `${i + 1}. ${String(s).replace(/^\d+[.)]\s*/, "")}`).join("\n") : String(design.instructions ?? input.goal), schedule: input.schedule === undefined ? design.schedule ?? null : input.schedule,
       mcps: want.map((id) => ({ id, name: this.mcps.get(id)!.name, url: this.mcps.get(id)!.mcpUrl })), createdAt: new Date().toISOString(),
     };
     if (!missing.length) {

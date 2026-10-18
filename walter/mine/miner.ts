@@ -103,11 +103,16 @@ export function coverage(b: Bench, rules: Rule[]): Record<string, string> {
   return out;
 }
 
-export async function mine(domain: Domain, client: SystemClient, opts: { model?: string; maxSteps?: number; log?: (s: string) => void } = {}): Promise<MineResult & { bench: Bench }> {
+export async function mine(domain: Domain, client: SystemClient, opts: { model?: string; maxSteps?: number; log?: (s: string) => void; focus?: string[]; known?: Rule[] } = {}): Promise<MineResult & { bench: Bench }> {
   const log = opts.log ?? (() => {});
   const data = await domain.fetchData(client);
   const bench = makeBench(domain, data);
   const saved = new Map<string, Rule>();
+  // a focused pass learns only some decision kinds; rules already known are context (and combine in backtests)
+  const focus = opts.focus?.length ? new Set(opts.focus) : null;
+  const known = opts.known ?? [];
+  const inFocus = (kind: string) => !focus || focus.has(kind);
+  const tries = new Map<string, number>(); // backtests per kind since its last save
   const questions: Question[] = [];
   const policies: MineResult["policies"] = [];
   let summary = "";
@@ -124,10 +129,17 @@ export async function mine(domain: Domain, client: SystemClient, opts: { model?:
       return { status: r.status, body: r.body };
     },
     analyze: (a) => new vm.Script(`(() => { ${a.code} })()`).runInContext(sandbox, { timeout: 5000 }),
-    list_decisions: () => Object.entries(domain.kinds).map(([k, v]) => ({ kind: k, count: counts[k] ?? 0, description: v.description, signature: v.signature, returns: v.returns, ...(v.combine ? { combine: v.combine } : {}) })),
+    list_decisions: () => ({
+      ...(focus ? { focus: `This pass learns only: ${[...focus].join(", ")}. Other kinds already have rules (known_rules).` } : {}),
+      kinds: Object.entries(domain.kinds).filter(([k]) => inFocus(k)).map(([k, v]) => ({ kind: k, count: counts[k] ?? 0, description: v.description, signature: v.signature, returns: v.returns, ...(v.combine ? { combine: v.combine } : {}) })),
+      ...(known.length ? { known_rules: known.map((r) => ({ id: r.id, kind: r.kind, title: r.title })) } : {}),
+    }),
     backtest_rule: (a) => {
+      if (!inFocus(a.kind)) return { error: `this pass only learns ${[...focus!].join(", ")}` };
       const rule: Rule = { id: a.id, title: a.title, kind: a.kind, ...(a.role ? { role: a.role } : {}), code: a.code };
-      const out: Record<string, unknown> = summarize(backtestRule(bench, rule, [...saved.values()]));
+      tries.set(rule.kind, (tries.get(rule.kind) ?? 0) + 1);
+      const out: Record<string, unknown> = summarize(backtestRule(bench, rule, [...known, ...saved.values()]));
+      if ((tries.get(rule.kind) ?? 0) >= 8) out.walter = `You have backtested ${rule.kind} ${tries.get(rule.kind)} times without saving. Save the rules that already hold (>=97% on learned history), ask_question about what history can't settle, and move on to the other decision kinds.`;
       if (aggKinds.has(rule.kind)) {
         const replay = aggregateReplay(bench, [...[...saved.values()].filter((r) => r.id !== rule.id), rule]);
         if (replay) out.replay = Array.isArray(replay) && replay.length > 40 ? [`${replay.filter((x) => x.endsWith("exact")).length}/${replay.length} exact`, ...replay.filter((x) => !x.endsWith("exact")).slice(0, 12)] : replay;
@@ -135,11 +147,13 @@ export async function mine(domain: Domain, client: SystemClient, opts: { model?:
       return out;
     },
     save_rule: (a) => {
+      if (!inFocus(a.kind)) return { saved: false, error: `this pass only learns ${[...focus!].join(", ")}` };
       const rule: Rule = { id: a.id, title: a.title, short: a.short, evidence: a.evidence, kind: a.kind, ...(a.role ? { role: a.role } : {}), code: a.code };
-      const res = backtestRule(bench, rule, [...saved.values()]);
+      tries.set(rule.kind, 0);
+      const res = backtestRule(bench, rule, [...known, ...saved.values()]);
       if (res.error) return { saved: false, error: res.error };
       saved.set(rule.id, { ...rule, fallback: res.applies.n === res.applies.of });
-      return { saved: true, ...summarize(res), together: coverage(bench, [...saved.values()]) };
+      return { saved: true, ...summarize(res), together: coverage(bench, [...known, ...saved.values()]) };
     },
     record_policy: (a) => {
       policies.push({ text: String(a.text), evidence: String(a.evidence ?? ""), source: "observed" });
@@ -155,11 +169,14 @@ export async function mine(domain: Domain, client: SystemClient, opts: { model?:
     },
   };
 
-  const messages: Msg[] = [{ role: "system", content: system(domain) }, { role: "user", content: "Mine this system. Start with describe_system and list_decisions." }];
+  const messages: Msg[] = [{ role: "system", content: system(domain) }, { role: "user", content: focus
+    ? `Mine this system, but only these decision kinds: ${[...focus].join(", ")}. Rules for the other kinds are already known. Start with describe_system and list_decisions.`
+    : "Mine this system. Start with describe_system and list_decisions." }];
   const maxSteps = opts.maxSteps ?? 60;
   let steps = 0;
   const specs = tools(domain);
   for (; steps < maxSteps && !summary; steps++) {
+    if (steps === maxSteps - 6) messages.push({ role: "user", content: "You are almost out of steps. Save every rule that holds now, ask_question for anything unsettled, then call finish." });
     const reply = await chat(opts.model ?? MODELS.kimi, messages, specs, { maxTokens: 8000 });
     messages.push(reply);
     if (!reply.tool_calls?.length) {

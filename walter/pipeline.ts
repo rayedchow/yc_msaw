@@ -34,9 +34,13 @@ export function connectionFor(state: WalterState, id: string): { url: string; to
 }
 
 /** Mine one system with the Fireworks miner and write .walter/knowledge/<id>.json. */
-export async function mineToKnowledge(domain: Domain, id: string, opts: { name?: string; client: SystemClient; model?: string; maxSteps?: number; log?: (s: string) => void; onStep?: (step: number) => void }) {
+export async function mineToKnowledge(domain: Domain, id: string, opts: { name?: string; client: SystemClient; model?: string; maxSteps?: number; log?: (s: string) => void; onStep?: (step: number) => void; focus?: string[]; merge?: Knowledge }) {
   const started = Date.now();
-  const r = await mine(domain, opts.client, { model: opts.model ?? MODELS.kimi, maxSteps: opts.maxSteps ?? 60, log: (s) => { opts.log?.(s); const n = /^step (\d+)/.exec(s); if (n) opts.onStep?.(Number(n[1])); } });
+  const known = (opts.merge?.rules ?? []).filter((r) => r.status !== "retired" && !(opts.focus ?? []).includes(r.kind));
+  const r = await mine(domain, opts.client, { model: opts.model ?? MODELS.kimi, maxSteps: opts.maxSteps ?? 60, focus: opts.focus, known,
+    log: (s) => { opts.log?.(s); const n = /^step (\d+)/.exec(s); if (n) opts.onStep?.(Number(n[1])); } });
+  if (!r.rules.length) throw new Error(`the miner finished ${r.steps} steps without a rule that holds on history; nothing was saved`);
+  if (opts.merge) return { knowledge: await mergeKnowledge(domain, id, opts.merge, r, known), steps: r.steps };
   const all = r.rules;
   const results = all.map((rule) => ({ rule, result: backtestRule(r.bench, rule, all) }));
   const replay = aggregateReplay(r.bench, all);
@@ -106,4 +110,26 @@ export async function buildAndShip(k: Knowledge, opts: { deploy?: boolean; log?:
   } finally {
     stop();
   }
+}
+
+/** Add a focused pass's rules and questions to existing knowledge as a new version (earlier answers are kept). */
+async function mergeKnowledge(domain: Domain, id: string, base: Knowledge, r: Awaited<ReturnType<typeof mine>>, known: Knowledge["rules"]) {
+  const all = [...known, ...r.rules];
+  const prefix = { sales: "R", erp: "F", mail: "M" }[domain.id] ?? "R";
+  let n = Math.max(0, ...base.rules.map((x) => Number(x.id.replace(/\D/g, "")) || 0));
+  const ids = new Map(r.rules.map((rule) => [rule.id, `${prefix}${++n}`]));
+  const added = r.rules.map((rule) => {
+    const res = backtestRule(r.bench, rule, all);
+    return { ...rule, id: ids.get(rule.id)!, slug: rule.id, short: (rule.short ?? "").slice(0, 22), train: res.train, heldOut: res.heldOut, months: res.months, change: res.change ?? null,
+      counterexamples: res.counterexamples.slice(0, 10), error: res.error ?? null, applies: res.applies, fallback: domain.kinds[rule.kind]?.combine !== "set" && res.applies.n === res.applies.of };
+  });
+  const version = (base.version ?? 1) + 1;
+  const k: Knowledge = { ...base, version, rules: [...base.rules, ...(added as any)],
+    questions: [...base.questions, ...r.questions.map((q) => ({ ...q, rule_id: ids.get(q.rule_id) ?? q.rule_id }))],
+    policies: [...(base.policies ?? []), ...r.policies.map((p) => ({ ...p, at: new Date().toISOString() }))],
+    changelog: [...(base.changelog ?? []), { version, note: `learned ${added.length} rules for ${[...new Set(added.map((a) => a.kind))].join(", ")}`, at: new Date().toISOString() }] };
+  (k as any).summary = [(base as any).summary, r.summary].filter(Boolean).join("\n\n");
+  await fs.writeFile(knowledgePath(id), JSON.stringify(k, null, 2));
+  await fs.writeFile(knowledgePath(id).replace(/\.json$/, `.v${version}.transcript.json`), JSON.stringify(r.transcript, null, 2));
+  return k;
 }

@@ -7,7 +7,8 @@
 import { MODELS, usage } from "../llm.js";
 import { SystemClient } from "../mine/data.js";
 import { domainOf } from "../domains/index.js";
-import { mineToKnowledge } from "../pipeline.js";
+import { knowledgePath, mineToKnowledge, readJson } from "../pipeline.js";
+import type { Knowledge } from "../compile/compile.js";
 import { startSystemServer } from "../system/serve.js";
 import { loadState } from "../state.js";
 
@@ -22,8 +23,12 @@ if (process.argv.includes("--local") || !base || !token) {
   close = s.close;
 }
 console.log(`mining ${domain.id} at`, base, process.argv.includes("--local") ? "(local)" : "(Manufact)");
+// --kinds a,b,c mines only those decision kinds and merges them into the existing knowledge as a new version
+const focus = arg("--kinds")?.split(",").filter(Boolean);
+const merge = focus ? await readJson<Knowledge>(knowledgePath(domain.id)) ?? undefined : undefined;
 const { knowledge: k, steps } = await mineToKnowledge(domain, domain.id, {
   client: new SystemClient(base!, token!), model: MODELS[(arg("--model") ?? "kimi") as keyof typeof MODELS], maxSteps: Number(arg("--steps") ?? 60), log: (s) => console.log(s),
+  ...(focus ? { focus, merge } : {}),
 });
 await close?.();
 
@@ -31,5 +36,5 @@ console.log(`\n${steps} steps, ${usage.calls} calls, ${usage.input} in / ${usage
 for (const x of k.rules) console.log(`${x.id.padEnd(4)} ${x.kind.padEnd(24)} ${(x.role ?? "").padEnd(8)} learned ${x.train.ok}/${x.train.n} held-out ${x.heldOut.ok}/${x.heldOut.n}${x.change ? ` CHANGE ${x.change.month}` : ""}  ${x.title}`);
 for (const q of k.questions) console.log(`? [${q.rule_id}] ${q.question} (${q.options.join(" | ")})`);
 const replay = (k as any).replay;
-if (Array.isArray(replay)) console.log("replay:", `${replay.filter((x: string) => x.endsWith("exact")).length}/${replay.length} exact`);
+if (Array.isArray(replay)) console.log("replay:", `${replay.filter((x: unknown) => String(x).endsWith("exact")).length}/${replay.length} exact`);
 console.log("summary:", (k as any).summary);

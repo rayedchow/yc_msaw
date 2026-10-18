@@ -21,7 +21,7 @@ function planOrder(d, order, t) {
   };
   const company = val("order_company"), target = val("order_target");
   const arr = val("order_arr"), amount = val("order_amount");
-  const plan = { order: { order_id: order.id, from: order.from, subject: order.subject, ...p }, company: null, contact: null, deal: null, rules: [], missing,
+  const plan = { order: { order_id: order.id, from: order.from, subject: order.subject, ...p }, currency: "USD (all GurtAI order forms and CRM amounts are in US dollars)", company: null, contact: null, deal: null, rules: [], missing,
     caveats: caveatsFor([...ORDER_KINDS, "new_contact_owner"]) };
 
   // company: reuse or create
@@ -65,7 +65,7 @@ if (META.tools.includes("list_new_orders")) server.tool({
 }, tracked("list_new_orders", async () => {
   const d = await load();
   const pending = d.orders.filter((o) => !o.labels.includes("Logged"));
-  return ok({ count: pending.length, orders: pending.map((o) => ({ order_id: o.id, from: o.from, subject: o.subject, ...parseOrder(o) })),
+  return ok({ count: pending.length, currency: "USD", orders: pending.map((o) => ({ order_id: o.id, from: o.from, subject: o.subject, ...parseOrder(o) })),
     next: pending.length ? "Call plan_order_sync for each order to see the CRM changes, then apply_order_sync to write them." : "Nothing to log." });
 }));
 
@@ -118,6 +118,6 @@ if (META.tools.includes("apply_order_sync")) server.tool({
   }
   must(await sys.post(`/mail/gmail/v1/users/orders@gurtai.example/threads/${order.id}/modify`, { addLabelIds: ["Logged"] }), "label email");
   cache = null; // the CRM changed
-  return ok({ order_id, written, deal: { id: dealId, ...plan.deal.properties }, rules: plan.rules,
+  return ok({ order_id, written, currency: "USD", deal: { id: dealId, ...plan.deal.properties }, rules: plan.rules,
     note: "Deals go in Closed Won with booked=false; RevOps books them, which is when they start counting toward commit." });
 }));
