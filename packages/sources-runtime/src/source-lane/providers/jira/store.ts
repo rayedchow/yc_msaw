@@ -955,3 +955,18 @@ export async function renewQuotaLease(db: DbExecutor, quotaKey: string, owner: s
 export async function releaseQuotaLease(db: DbExecutor, quotaKey: string, owner: string): Promise<void> {
   await db.execute(sql`UPDATE jira_source_quota SET lease_owner = NULL, lease_until = NULL, updated_at = now() WHERE quota_key = ${quotaKey} AND lease_owner = ${owner}`);
 }
+
+/** After a selection change, re-export the tenant's donor Jira rows so they leave (or return to) $SOURCES. */
+export async function rejournalDonorJiraRows(db: DbExecutor, tenantId: string): Promise<void> {
+  await db.execute(sql`
+    INSERT INTO source_lane_journal (tenant_id, table_name, row_key, op)
+    SELECT user_id, 'activity_events', id::text, 'UPDATE' FROM activity_events
+    WHERE user_id = ${tenantId} AND source = 'jira'
+      AND event_type IN ('issue', 'issue_detail', 'issue.deleted', 'issue_detail.deleted', 'issue_comment', 'issue_comment.deleted')
+  `);
+  await db.execute(sql`
+    INSERT INTO source_lane_journal (tenant_id, table_name, row_key, op)
+    SELECT user_id, 'mirror_files', path, 'UPDATE' FROM mirror_files
+    WHERE user_id = ${tenantId} AND starts_with(path, 'sources/jira/') AND NOT starts_with(path, 'sources/jira/_')
+  `);
+}

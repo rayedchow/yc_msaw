@@ -25,7 +25,7 @@ import {
   siteFilePath,
 } from "./paths.js";
 import { person, renderChangelog, renderIssue, renderProject, str, type AttachmentView, type SiteView } from "./render.js";
-import { getBlob, getObject, getRecord, getSelection, isoOrNull, listChangelog, listObjects, loadChunk, rowsOf, type ObjectRow, type SiteRow } from "./store.js";
+import { getBlob, getObject, getRecord, getSelection, isoOrNull, listChangelog, listObjects, loadChunk, projectSelected, rowsOf, type ObjectRow, type Selection, type SiteRow } from "./store.js";
 
 /**
  * Exporters for the Jira deep-lane tables (drizzle/9250) and the export-time
@@ -398,13 +398,21 @@ const JIRA_RAW_DIR = { forEventSource: () => ({ id: PROVIDER }) } as unknown as 
 export async function mapJiraMirror(path: string, row: MirrorFileRow | null, ctx: ExportContext, journal: JournalInfo): Promise<SourceFileChange[] | null> {
   const parsed = parseDonorMirrorPath(path);
   if (!parsed || !row) return null;
+  const sels = await donorSelections(ctx);
+  if (sels && !donorProjectIncluded(sels, null, parsed.projectSegment)) {
+    return [{ op: "delete", path, deletedAt: journal.enqueuedAt, reason: "jira_outside_selection", capturedAt: journal.enqueuedAt, provenance: { provider: PROVIDER, table: "mirror_files", donorSelection: true } }];
+  }
   const issueId = typeof row.meta?.externalId === "string" && /^\d+$/u.test(row.meta.externalId) ? row.meta.externalId : null;
   if (!issueId) return null;
   const fate = await donorMirrorFate(ctx, issueId, parsed.projectSegment, parsed.keySegment, isoOrNull(row.updated_at));
   if (fate) {
     return [{ op: "delete", path, deletedAt: fate.at < journal.enqueuedAt ? fate.at : journal.enqueuedAt, reason: fate.reason, capturedAt: journal.op === "INSERT" ? (isoOrNull(row.updated_at) ?? journal.enqueuedAt) : journal.enqueuedAt, provenance: { provider: PROVIDER, table: "mirror_files", donorMirrorCleanup: true, issueId } }];
   }
-  return defaultMirrorChanges(path, row, journal.enqueuedAt);
+  const changes = defaultMirrorChanges(path, row, journal.enqueuedAt);
+  // A re-export (UPDATE journal, e.g. after a selection change) must out-rank the jira_outside_selection tombstone it
+  // reverses: same capture-time rule as eventCapturedAt for raw rows.
+  if (journal.op !== "UPDATE") return changes;
+  return changes.map((c) => (c.op === "put" && new Date(c.capturedAt).getTime() < new Date(journal.enqueuedAt).getTime() ? { ...c, capturedAt: journal.enqueuedAt } : c));
 }
 
 /**
@@ -413,10 +421,81 @@ export async function mapJiraMirror(path: string, row: MirrorFileRow | null, ctx
  * that issue id, so the old-key file of a moved issue is removed at export.
  */
 export async function mapJiraEvent(row: ActivityEventRow, ctx: ExportContext, journal: JournalInfo): Promise<SourceFileChange[] | null> {
-  if (!["issue", "issue_detail", "issue.deleted", "issue_detail.deleted"].includes(row.event_type)) return null;
+  const isIssue = DONOR_ISSUE_EVENTS.includes(row.event_type);
+  if (!isIssue && !DONOR_COMMENT_EVENTS.includes(row.event_type)) return null;
   const base = defaultEventChanges(JIRA_RAW_DIR, row, journal);
   const payload = payloadOf(row.raw_payload);
+  const sels = await donorSelections(ctx);
+  if (sels && !(await donorRowIncluded(ctx, sels, payload, isIssue))) {
+    return base.map((c) => ({ op: "delete" as const, path: c.path, deletedAt: journal.enqueuedAt, reason: "jira_outside_selection", capturedAt: journal.enqueuedAt, provenance: { provider: PROVIDER, table: "activity_events", donorSelection: true } }));
+  }
+  if (!isIssue) return base;
   const id = payload ? str(payload.id) ?? str(payload.issueId) : null;
   if (!id || !/^\d+$/u.test(id)) return base;
   return [...base, ...(await donorMirrorCleanupForIssue(ctx, id, journal.enqueuedAt))];
+}
+
+// ------------------------------------------------------------------ donor rows and project selection
+
+const DONOR_ISSUE_EVENTS = ["issue", "issue_detail", "issue.deleted", "issue_detail.deleted"];
+const DONOR_COMMENT_EVENTS = ["issue_comment", "issue_comment.deleted"];
+
+/**
+ * Coordinator patch: the project selections that apply to this tenant's donor Jira rows, or null when every
+ * project is in scope. Only selections of the tenant's active Jira connections count, and any active connection
+ * without a selection row (the deep lane's default "all") keeps every project. Donor rows carry no site, so a row is
+ * hidden only when no applicable selection (site or connection-wide) includes its project.
+ */
+async function donorSelections(ctx: ExportContext): Promise<Selection[] | null> {
+  const rs = rowsOf<{ cid: string; mode: string | null; projects: unknown }>(
+    await ctx.executor.execute(sql`
+      SELECT c.cid, s.mode, s.projects
+      FROM (
+        SELECT DISTINCT COALESCE(external_account_id, metadata->>'nangoConnectionId') AS cid
+        FROM connections WHERE tenant_id = ${ctx.tenantId} AND provider = 'jira' AND status = 'active'
+      ) c
+      LEFT JOIN jira_source_selection s ON s.tenant_id = ${ctx.tenantId} AND s.connection_id = c.cid
+    `),
+  );
+  if (!rs.length || rs.some((r) => r.mode !== "projects")) return null;
+  return rs.map((r) => {
+    const projects = (typeof r.projects === "string" ? JSON.parse(r.projects) : r.projects) as unknown;
+    return { mode: "projects", projects: Array.isArray(projects) ? projects.filter((p): p is string => typeof p === "string") : [], source: "connection", updatedBy: null, updatedAt: null };
+  });
+}
+
+function donorProjectIncluded(sels: readonly Selection[], projectId: string | null, projectKey: string | null): boolean {
+  return sels.some((sel) => projectSelected(sel, projectId, projectKey));
+}
+
+/**
+ * Project of a donor issue or comment row: the issue's own project fields, else the issue key's prefix, else the
+ * captured donor issue row for the comment's issue id. A row whose project cannot be established is hidden while
+ * a project selection is in force (it is not provably selected).
+ */
+async function donorRowIncluded(ctx: ExportContext, sels: readonly Selection[], p: Record<string, unknown> | null, isIssue: boolean): Promise<boolean> {
+  if (!p) return false;
+  if (isIssue) {
+    const key = str(p.key) ?? str(p.issueKey) ?? str(p.issue_key);
+    const fields = payloadOf(p.fields);
+    const project = payloadOf(p.project) ?? payloadOf(fields?.project);
+    const projectId = str(project?.id) ?? str(p.projectId) ?? str(p.project_id);
+    const projectKey = key ? donorProjectKey(p, key) : str(project?.key) ?? str(p.projectKey) ?? str(p.project_key);
+    return donorProjectIncluded(sels, projectId, projectKey);
+  }
+  const issueKey = str(p.issueKey) ?? str(p.issue_key);
+  if (issueKey && issueKey.includes("-")) return donorProjectIncluded(sels, null, issueKey.slice(0, issueKey.lastIndexOf("-")));
+  const issueId = str(p.issueId) ?? str(p.issue_id);
+  if (!issueId) return false;
+  const [issue] = rowsOf<{ raw_payload: unknown }>(
+    await ctx.executor.execute(sql`
+      SELECT raw_payload FROM activity_events
+      WHERE user_id = ${ctx.tenantId} AND source = 'jira' AND event_type IN ('issue', 'issue_detail')
+        AND (raw_payload->>'id' = ${issueId} OR raw_payload->>'issueId' = ${issueId})
+      ORDER BY COALESCE(source_updated_at, timestamp) DESC, created_at DESC
+      LIMIT 1
+    `),
+  );
+  const ip = issue ? payloadOf(issue.raw_payload) : null;
+  return ip ? donorRowIncluded(ctx, sels, ip, true) : false;
 }

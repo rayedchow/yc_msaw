@@ -4036,14 +4036,15 @@
     },
     {
       "path": "src/source-lane/providers/jira/export-map.ts",
-      "sha256": "9aa055518b09575ba2b1cd3a11748f9953462bce9da96ce4d933ac5995b8c981",
+      "sha256": "35530c39142dff16d54809eed27e30ff32cd0914b8c9f0603701631015148464",
       "status": "new",
-      "owner": "jira",
-      "reason": "Exporters for jira_source_* tables (raw jsonb text spliced verbatim, chunked binary bytes, moved/tombstoned path deletes with Jira reasons) and export-time donor mirror cleanup keyed by numeric issue id (newest of donor ledger vs deep lane decides current key; disabled for multi-site tenants).",
+      "owner": "jira, coordinator",
+      "reason": "Exporters for jira_source_* tables (raw jsonb text spliced verbatim, chunked binary bytes, moved/tombstoned path deletes with Jira reasons) and export-time donor mirror cleanup keyed by numeric issue id (newest of donor ledger vs deep lane decides current key; disabled for multi-site tenants). Coordinator: donor raw issue/comment rows and donor projections follow the tenant's project selection at export (jira_outside_selection); UPDATE re-exports out-rank that tombstone.",
       "tests": [
         "tests/source-lane/providers/jira/deep-lane.test.ts",
-        "tests/source-lane/providers/jira/selection-donor.test.ts",
-        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+        "tests/source-lane/providers/jira/donor-export-selection.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)",
+        "tests/source-lane/providers/jira/selection-donor.test.ts"
       ],
       "derivedFrom": [
         {
@@ -4124,24 +4125,26 @@
     },
     {
       "path": "src/source-lane/providers/jira/routes.ts",
-      "sha256": "f43a25e2e42f33733f6e1820efcbc7ed588ec913d7ca4a9640145ae2d44eedff",
+      "sha256": "9b8ddecfdcd265189360c4f18287c24e01d11a93dfc85d67e6ceb66829190fe3",
       "status": "new",
-      "owner": "jira",
-      "reason": "Internal API GET/PUT /tenants/:tenantId/jira/selection: tenant from core-verified principal, memory:read/memory:build scopes required, strict body, connection must be the tenant's own.",
+      "owner": "jira, coordinator",
+      "reason": "Internal API GET/PUT /tenants/:tenantId/jira/selection: tenant from core-verified principal, memory:read/memory:build scopes required, strict body, connection must be the tenant's own. Coordinator: re-export donor rows after a selection change.",
       "tests": [
+        "tests/source-lane/providers/jira/donor-export-selection.test.ts",
         "tests/source-lane/providers/jira/selection-donor.test.ts"
       ]
     },
     {
       "path": "src/source-lane/providers/jira/store.ts",
-      "sha256": "0c0d3104860f6121e5fdccbd36db7245a7be50d0470ee42b3a12ddb22940bd4d",
+      "sha256": "f483c2da9287ad1d286215e0b4f0e3a892b1f60d0eb05b4e91fec64e8c3806d0",
       "status": "new",
-      "owner": "jira",
-      "reason": "Durable deep-lane state (tenant+site scoped SQL): sites, selection, generations, work queue with restart/rearm checkpoint semantics, objects, tombstone vs inaccessible, append-only records, chunked blobs, quota cooldown/lease.",
+      "owner": "jira, coordinator",
+      "reason": "Durable deep-lane state (tenant+site scoped SQL): sites, selection, generations, work queue with restart/rearm checkpoint semantics, objects, tombstone vs inaccessible, append-only records, chunked blobs, quota cooldown/lease. Coordinator: rejournalDonorJiraRows.",
       "tests": [
         "tests/source-lane/providers/jira/deep-lane.test.ts",
-        "tests/source-lane/providers/jira/selection-donor.test.ts",
-        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+        "tests/source-lane/providers/jira/donor-export-selection.test.ts",
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)",
+        "tests/source-lane/providers/jira/selection-donor.test.ts"
       ]
     },
     {

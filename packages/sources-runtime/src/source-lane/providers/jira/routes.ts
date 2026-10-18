@@ -1,7 +1,7 @@
 import type { Context, Hono } from "hono";
 import type { DbExecutor, InternalRouteDeps } from "../../core/types.js";
 import type { ForwardedPrincipal } from "../../internal/app.js";
-import { getSelection, listObjects, listSites, putSelection, syncSiteSelection } from "./store.js";
+import { getSelection, listObjects, listSites, putSelection, rejournalDonorJiraRows, syncSiteSelection } from "./store.js";
 import { jiraConnections } from "./sweep.js";
 
 /**
@@ -99,6 +99,8 @@ export function registerJiraInternalRoutes(app: Hono, deps: InternalRouteDeps, d
     if (cloudId !== "*" && !(await listSites(db, tenantId, conn.connectionId)).some((s) => s.cloud_id === cloudId)) return err(c, 404, "unknown_site", "this Jira connection does not reach that site");
     await putSelection(db, tenantId, conn.connectionId, cloudId, parsed.mode, parsed.projects, `${principal.issuer}#${principal.subject}`);
     await syncSiteSelection(db, tenantId, conn.connectionId);
+    // Donor rows (Nango record sync + detail sweep) are filtered by the selection at export: re-export them now.
+    await rejournalDonorJiraRows(db, tenantId);
     // The next sweep sees the changed selection hash and starts a new full pass (new projects captured, removed ones leave the mirror).
     return c.json(await selectionView(db, tenantId));
   });
