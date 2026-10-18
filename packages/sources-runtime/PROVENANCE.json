@@ -1244,11 +1244,12 @@
     },
     {
       "path": "src/integrations/coding-sessions/lane.ts",
-      "sha256": "1ba82bce4be15502e7afa5675cadb77eccd958c95eefc2a8ed024f8f4756fba3",
+      "sha256": "53c20647717daf23445ff432de9ed3f104aaa4c713372333b9126d9f22b56b6f",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Coding sessions device lane; createYcDeviceAuthority generalized for office-audio.",
+      "reason": "Coding sessions device lane; createYcDeviceAuthority generalized for office-audio. Coordinator (final-audit L1): only yc_msaw's 401 revokes; 403/404 fail closed as unavailable.",
       "tests": [
+        "tests/source-lane/providers/coding-sessions/authority.test.ts",
         "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",
         "tests/source-lane/providers/office-audio/office-audio.test.ts"
       ]
@@ -3755,13 +3756,13 @@
     },
     {
       "path": "src/source-lane/providers/imessage/authority.ts",
-      "sha256": "44d6301577a76908333e5c5f643e6c6c5a3d209f23a98441e23f57c41b118d01",
+      "sha256": "db3e07953ec3afc071e3be4146f150bbfb446b79081035d09997453a48bce819",
       "status": "new",
-      "owner": "imessage",
-      "reason": "Per-request yc_msaw device-key authority (GET /v1/sources/devices/imessage/verify at the tenant binding publish URL); fail closed (503) when unavailable.",
+      "owner": "imessage, coordinator",
+      "reason": "Per-request yc_msaw device-key authority (GET /v1/sources/devices/imessage/verify at the tenant binding publish URL); fail closed (503) when unavailable. Coordinator (final-audit L1): only yc_msaw's 401 revokes; 403/404 fail closed as unavailable.",
       "tests": [
-        "tests/source-lane/providers/imessage/authority.test.ts",
-        "tests/source-lane/providers/imessage/auth-revocation.test.ts"
+        "tests/source-lane/providers/imessage/auth-revocation.test.ts",
+        "tests/source-lane/providers/imessage/authority.test.ts"
       ]
     },
     {

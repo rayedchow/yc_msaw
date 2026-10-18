@@ -45,7 +45,9 @@ export function createBindingAuthority(db: DbExecutor, fetchImpl: typeof fetch =
       } catch (e) {
         return { state: "unavailable", reason: `yc_msaw unreachable: ${e instanceof Error ? e.message : String(e)}` };
       }
-      if (res.status === 401 || res.status === 403 || res.status === 404) {
+      // Only yc_msaw's verify refusal (401) revokes. A 403/404 can come from a WAF, a misrouted deploy or a replica
+      // with sources disabled; treating it as revocation would permanently revoke every device that checks in.
+      if (res.status === 401) {
         await res.body?.cancel().catch(() => undefined);
         return { state: "revoked", reason: `yc_msaw refused the device key (${res.status})` };
       }

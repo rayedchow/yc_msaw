@@ -66,11 +66,10 @@ describe("createBindingAuthority", () => {
 
     answer = () => ({ status: 200, body: { tenantNs: "rival", bindingId: device.bindingId, provider: "imessage" } });
     expect(await authority.verify(key, device)).toMatchObject({ state: "revoked" });
-    for (const status of [401, 403, 404]) {
-      answer = () => ({ status, body: { error: "Unauthorized" } });
-      expect(await authority.verify(key, device)).toMatchObject({ state: "revoked" });
-    }
-    for (const status of [500, 502, 429]) {
+    answer = () => ({ status: 401, body: { error: "Unauthorized" } });
+    expect(await authority.verify(key, device)).toMatchObject({ state: "revoked" });
+    // 403/404 are not yc_msaw's refusal (WAF, misroute, sources disabled on a replica): fail closed, never revoke (final-audit L1).
+    for (const status of [403, 404, 500, 502, 429]) {
       answer = () => ({ status });
       expect(await authority.verify(key, device)).toMatchObject({ state: "unavailable" });
     }
