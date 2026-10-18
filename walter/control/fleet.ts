@@ -98,12 +98,12 @@ export class Fleet {
     const b: Build = { id: `b_${randomUUID().slice(0, 8)}`, kind: "template", mcp: m.id, status: "running", stage: "connecting", progress: 3, log: [], startedAt: new Date().toISOString() };
     w.builds.set(b.id, b);
     const steps: [string, string, number][] = [
-      ["connecting", `connected to ${m.systems.join(" and ")} (template credentials)`, 900],
-      ["reading history", "reading 22 months of records and change history", 1600],
-      ...m.build.log.map((l): [string, string, number] => ["mining", `found ${l}`, 1100]),
-      ["compiling", `compiling ${m.rules.length} rules into ${m.tools.length} tools and a playbook`, 1200],
-      ["deploying", "deploying to Manufact", 1500],
-      ["evals", `replaying history through the MCP: ${m.evals.map((e) => `${e.tool} ${e.ok}/${e.n}`).join(", ")}`, 1200],
+      ["connecting", `connected to ${m.systems.join(" and ")} (template credentials)`, 600],
+      ["reading history", "reading 22 months of records and change history", 900],
+      ...m.build.log.map((l): [string, string, number] => ["mining", `found ${l}`, 420]),
+      ["compiling", `compiling ${m.rules.length} rules into ${m.tools.length} tools and a playbook`, 700],
+      ["deploying", "deploying to Manufact", 900],
+      ["evals", `replaying history through the MCP: ${m.evals.map((e) => `${e.tool} ${e.ok}/${e.n}`).join(", ")}`, 700],
     ];
     (async () => {
       for (let i = 0; i < steps.length; i++) {
@@ -195,7 +195,7 @@ export class Fleet {
     const w = this.space(user);
     const catalog = [...this.mcps.values()].map((m) => ({ id: m.id, name: m.name, connected: w.connected.has(m.id), template: m.template?.id ?? null, systems: m.systems, tools: m.tools.map((t) => `${t.name}: ${t.description}`) }));
     const reply = await chat(MODELS.glm, [
-      { role: "system", content: "You design operations agents for a company. Given a goal and the company MCPs available, reply with JSON only: {\"name\": short agent name, \"mcps\": [ids of MCPs the agent needs], \"instructions\": numbered steps the agent should follow each run, using the MCP tools by name, \"schedule\": \"daily 08:00 UTC\" style text or null}. Pick only MCPs whose tools are needed." },
+      { role: "system", content: "You design operations agents for a company. Given a goal and the company MCPs available, reply with JSON only: {\"name\": short agent name, \"mcps\": [ids of MCPs the agent needs], \"instructions\": an array of short steps the agent follows each run, using the MCP tools by name, \"schedule\": \"daily 08:00 UTC\" style text or null}. Pick only MCPs whose tools are needed. Keep runs lean: use the fewest tool calls, prefer end-to-end tools (plan_*/apply_*) over lookups they already cover (read each tool's description), and do not load playbooks or company_rules unless a result needs explaining. The company rules are already applied inside the tools. End with a check that nothing is left, and report_outcome only if a result looks wrong." },
       { role: "user", content: JSON.stringify({ goal: input.goal, requested_mcps: input.mcps ?? null, requested_schedule: input.schedule ?? null, available: catalog }) },
     ], [], { maxTokens: 4000, temperature: 0 });
     const text = String(reply.content ?? "");

@@ -17,7 +17,7 @@ export default function QuestionCard() {
   useEffect(() => { if (poll.data?.structuredContent) setBuild(poll.data.structuredContent); }, [poll.data]);
   useEffect(() => {
     if (!build?.build_id || build.status !== "running") return;
-    const t = setTimeout(() => void poll.callTool({ build_id: build.build_id }), 3000);
+    const t = setTimeout(() => void poll.callTool({ build_id: build.build_id, wait_seconds: 0 }), 3000);
     return () => clearTimeout(t);
   }, [build]);
 

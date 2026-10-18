@@ -15,7 +15,7 @@ export default function BuildProgress() {
   useEffect(() => { if (poll.data?.structuredContent) setB(poll.data.structuredContent as Build); }, [poll.data]);
   useEffect(() => {
     if (!b || b.status !== "running") return;
-    const t = setTimeout(() => void poll.callTool({ build_id: b.build_id }), 1800);
+    const t = setTimeout(() => void poll.callTool({ build_id: b.build_id, wait_seconds: 0 }), 1800);
     return () => clearTimeout(t);
   }, [b]);
 

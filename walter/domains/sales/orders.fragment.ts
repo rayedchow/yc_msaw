@@ -59,19 +59,19 @@ function planOrder(d, order, t) {
 
 if (META.tools.includes("list_new_orders")) server.tool({
   name: "list_new_orders",
-  description: "Order emails in GurtAI's orders@ inbox that are not logged in the CRM yet (no Logged label), with the fields from each order form. Start here when keeping the CRM in sync with orders.",
+  description: "Order emails in GurtAI's orders@ inbox that are not logged in the CRM yet (no Logged label), with the fields from each order form. Start here when keeping the CRM in sync with orders; then plan_order_sync and apply_order_sync each order.",
   inputSchema: z.object({}),
   annotations: { readOnlyHint: true },
 }, tracked("list_new_orders", async () => {
   const d = await load();
   const pending = d.orders.filter((o) => !o.labels.includes("Logged"));
   return ok({ count: pending.length, currency: "USD", orders: pending.map((o) => ({ order_id: o.id, from: o.from, subject: o.subject, ...parseOrder(o) })),
-    next: pending.length ? "Call plan_order_sync for each order to see the CRM changes, then apply_order_sync to write them." : "Nothing to log." });
+    next: pending.length ? "For each order: plan_order_sync (it resolves company, contact and owners itself), then apply_order_sync to write it." : "Nothing to log." });
 }));
 
 if (META.tools.includes("plan_order_sync")) server.tool({
   name: "plan_order_sync",
-  description: "Dry run: the exact CRM changes GurtAI's RevOps would make for an order email (company, contact, deal and every field value), each with the company rule that decided it. Writes nothing." + ctxDesc(ORDER_KINDS),
+  description: "Dry run: the exact CRM changes GurtAI's RevOps would make for an order email (company, contact, deal and every field value), each with the company rule that decided it. It already resolves the company (no need for find_account) and the contact and deal owners (no need for route_contact). Writes nothing." + ctxDesc(ORDER_KINDS),
   inputSchema: z.object({ order_id: z.string().describe("order_id from list_new_orders"), as_of: z.string().optional().describe("ISO time to plan as of; defaults to now (used to replay past orders)") }),
   annotations: { readOnlyHint: true },
 }, tracked("plan_order_sync", async ({ order_id, as_of }) => {

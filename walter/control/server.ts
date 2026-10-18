@@ -18,6 +18,11 @@ const QuestionsOut = z.looseObject({ questions: z.array(z.looseObject({ mcp: z.s
 const ok = (data: unknown, text?: string) => ({ content: [{ type: "text" as const, text: text ?? JSON.stringify(data, null, 2) }], structuredContent: data as Record<string, unknown> });
 const fail = (message: string) => ({ content: [{ type: "text" as const, text: `error: ${message}` }], isError: true });
 const userOf = (ctx: any): string => ctx?.auth?.user?.id ?? "local";
+/** Wait (server-side) until `done()` or the time runs out, so agents don't have to poll. */
+async function waitFor(done: () => boolean, seconds: number) {
+  const end = Date.now() + Math.max(0, Math.min(seconds, 50)) * 1000;
+  while (!done() && Date.now() < end) await new Promise((r) => setTimeout(r, 500));
+}
 
 function clientConfig(m: FleetMcp) {
   const key = `gurtai-${m.id}`;
@@ -79,7 +84,7 @@ export function createWalterServer(fleet: Fleet, opts: { auth?: boolean; hash?: 
       const user = userOf(ctx);
       if (a.template) {
         const b = fleet.connectTemplate(user, a.template);
-        return ok({ build_id: b.id, mcp: b.mcp, status: b.status, stage: b.stage, progress: b.progress, log: b.log, next: "Call build_status with this build_id until status is live (about 20 seconds)." });
+        return ok({ build_id: b.id, mcp: b.mcp, status: b.status, stage: b.stage, progress: b.progress, log: b.log, next: "Call build_status with this build_id; it waits for the build to go live (about 10 seconds)." });
       }
       if (!a.kind || !a.name || !a.url || !a.credential) return fail("pass either template, or kind + name + url + credential for your own system. Call list_templates to see templates.");
       const token = /^[A-Z0-9_]+\s*=/m.test(a.credential) ? (/(?:TOKEN|API_KEY|KEY|SECRET)\s*=\s*["']?([^"'\n]+)/i.exec(a.credential)?.[1] ?? "").trim() : a.credential.trim();
@@ -92,13 +97,14 @@ export function createWalterServer(fleet: Fleet, opts: { auth?: boolean; hash?: 
   server.tool({
     name: "build_status",
     title: "Build status",
-    description: "Progress of a build started by connect_system or answer_question: stage, what walter has found so far, and once live the MCP's URL, tools and client setup. Call again until status is live or failed.",
-    inputSchema: z.object({ build_id: z.string().describe("build_id from connect_system or answer_question") }),
+    description: "Progress of a build started by connect_system or answer_question: stage, what walter has found so far, and once live the MCP's URL, tools and client setup. Waits up to wait_seconds (default 20) for the build to finish before answering, so one call is usually enough for a template.",
+    inputSchema: z.object({ build_id: z.string().describe("build_id from connect_system or answer_question"), wait_seconds: z.number().min(0).max(50).optional().describe("how long to wait for the build to finish (default 20, 0 = answer now)") }),
     annotations: { readOnlyHint: true },
     outputSchema: BuildOut,
   } as any, async (a: any, ctx: any) => {
     const b = fleet.getBuild(userOf(ctx), a.build_id);
     if (!b) return fail(`no build "${a.build_id}" in your workspace`);
+    await waitFor(() => b.status !== "running", a.wait_seconds ?? 20);
     const m = fleet.get(b.mcp);
     return ok({ build_id: b.id, mcp: b.mcp, status: b.status, stage: b.stage, progress: b.progress, log: b.log, error: b.error ?? null,
       ...(b.status === "live" && m ? { result: { ...summary(m), connect: clientConfig(m) }, next: "Use create_agent to put this MCP to work, or connect it to any MCP client with the config above." } : {}) });
@@ -157,7 +163,7 @@ export function createWalterServer(fleet: Fleet, opts: { auth?: boolean; hash?: 
   server.tool({
     name: "create_agent",
     title: "Create an ops agent",
-    description: "Create an operations agent from a goal (e.g. \"every day, log new orders from the orders inbox into the CRM\"). walter picks the company MCPs it needs, writes its instructions, and schedules it. If a needed system is not connected yet, the reply says which template to connect first. Set run_now to start a run immediately.",
+    description: "Create an operations agent from a goal (e.g. \"every day, log new orders from the orders inbox into the CRM\"). walter picks the company MCPs it needs, writes its instructions, and schedules it. If a needed system is not connected yet, the reply says which template to connect first. Set run_now to run it immediately: the reply waits for the run (up to about a minute) and includes its report.",
     inputSchema: z.object({
       goal: z.string().describe("what the agent should do, in plain words"),
       name: z.string().optional(),
@@ -172,23 +178,28 @@ export function createWalterServer(fleet: Fleet, opts: { auth?: boolean; hash?: 
       const { agent, missing } = await fleet.createAgent(user, a);
       if (missing.length) return ok({ created: false, needs: missing, next: `Connect ${missing.map((m) => m.template).join(", ")} with connect_system first, then call create_agent again.` });
       const run = a.run_now ? fleet.run(user, agent.id) : null;
+      if (run) await waitFor(() => run.status !== "running", 50);
       return ok({ created: true, agent_id: agent.id, name: agent.name, mcps: agent.mcps.map((m) => m.name), schedule: agent.schedule ?? "on demand", instructions: agent.instructions,
-        ...(run ? { run_id: run.id, next: "Call agent_status with this run_id to follow the run." } : { next: "Call create_agent with run_now, or wait for the schedule." }) });
+        ...(run ? { run_id: run.id, run_status: run.status, tool_calls: run.toolCalls, report: run.answer ?? null, ...(run.error ? { error: run.error } : {}),
+          next: run.status === "running" ? "The run is still going; call agent_status with this run_id (it waits for the result)." : "Done. agent_status with this run_id and detail: true shows every tool call it made." }
+          : { next: "Call create_agent with run_now, or wait for the schedule." }) });
     } catch (e) { return fail((e as Error).message); }
   });
 
   server.tool({
     name: "agent_status",
     title: "Agent status",
-    description: "Follow an ops agent: pass run_id for one run (each tool call it made and its final report), or agent_id for its recent runs.",
-    inputSchema: z.object({ run_id: z.string().optional(), agent_id: z.string().optional() }),
+    description: "Follow an ops agent: pass run_id for one run (each tool call it made and its final report), or agent_id for its recent runs. Set detail to also see what each tool call returned (to audit a run).",
+    inputSchema: z.object({ run_id: z.string().optional(), agent_id: z.string().optional(), detail: z.boolean().optional().describe("include each tool call's result (trimmed)"), wait_seconds: z.number().min(0).max(50).optional().describe("for a running run: how long to wait for it to finish (default 20, 0 = answer now)") }),
     annotations: { readOnlyHint: true },
   }, async (a: any, ctx: any) => {
     const user = userOf(ctx);
     if (a.run_id) {
       const r = fleet.getRun(user, a.run_id);
       if (!r) return fail(`no run "${a.run_id}" in your workspace`);
-      return ok({ run_id: r.id, status: r.status, tool_calls: r.toolCalls, steps: r.steps.filter((s) => s.kind !== "result").map((s) => (s.kind === "call" ? `${s.mcp ? s.mcp + " · " : ""}${s.tool}(${s.text})` : s.text)), report: r.answer ?? null, error: r.error ?? null,
+      await waitFor(() => r.status !== "running", a.wait_seconds ?? 20);
+      const steps = r.steps.filter((s) => a.detail || s.kind !== "result").map((s) => (s.kind === "call" ? `${s.mcp ? s.mcp + " · " : ""}${s.tool}(${s.text})` : s.kind === "result" ? `   → ${s.text}` : s.text));
+      return ok({ run_id: r.id, agent: r.agent, status: r.status, tool_calls: r.toolCalls, started: r.startedAt, finished: r.finishedAt ?? null, steps, report: r.answer ?? null, error: r.error ?? null,
         ...(r.status === "running" ? { next: "Still running; call agent_status again in a few seconds." } : {}) });
     }
     const agents = fleet.agents(user).filter((x) => !a.agent_id || x.id === a.agent_id);
