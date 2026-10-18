@@ -1816,13 +1816,14 @@
     },
     {
       "path": "src/integrations/nango/proxy-details.ts",
-      "sha256": "7def4e8893d0575901f1bda7ffb8a08b2ee1e2ab02c61f153780e267fd4cc50e",
+      "sha256": "43b4707ef7dbd9693730ed141869df969053dfbe411b40054ca6733216a65d87",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/nango/proxy-details.ts",
       "donorSha256": "6331fdda628b2d242d0be3cd0242afd22fad44aa26d849035493e846d2e60687",
-      "reason": "jira patch request 5 (see DECLARED_OVERRIDES).",
+      "reason": "jira patch request 5 (see DECLARED_OVERRIDES). coordinator: donor Jira detail sweep honors jira_source_selection (project-filtered JQL, selection-keyed cursor, nothing selected = nothing captured).",
       "tests": [
+        "tests/source-lane/providers/jira/donor-selection.test.ts",
         "tests/source-lane/providers/jira/shared-patches.test.ts"
       ]
     },

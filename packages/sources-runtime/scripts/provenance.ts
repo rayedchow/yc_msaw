@@ -133,8 +133,9 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/integrations/nango/proxy-details.ts": {
     status: "patched",
-    reason: "jira patch request 5: the Jira deletion-reconcile ids listing uses bounded JQL (created >= 1970-01-01) that the enhanced search/jql accepts, and the captured-issue map takes the newest key instead of max(key) so a moved issue's correct mirror path is deleted (query bound unverified against live Atlassian; reconcile stays fail-soft).",
+    reason: "jira patch request 5: the Jira deletion-reconcile ids listing uses bounded JQL (created >= 1970-01-01) that the enhanced search/jql accepts, and the captured-issue map takes the newest key instead of max(key) so a moved issue's correct mirror path is deleted (query bound unverified against live Atlassian; reconcile stays fail-soft). coordinator: donor Jira detail sweep honors jira_source_selection (project-filtered JQL, selection-keyed cursor, nothing selected = nothing captured).",
     test: "tests/source-lane/providers/jira/shared-patches.test.ts",
+    tests: ["tests/source-lane/providers/jira/donor-selection.test.ts"],
   },
   "src/mirror/backfill.ts": {
     status: "patched",

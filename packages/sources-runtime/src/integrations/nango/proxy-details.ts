@@ -16,6 +16,7 @@ import { NangoClient } from "./client.js";
 import { activeConnections, discoverRepos, splitRepoFullName } from "./proxy-issues.js";
 import { loadStoredCursor, saveStoredCursor } from "./tasks.js";
 import type { NangoExecutor, NangoRecord } from "./types.js";
+import { getSelection, selectionSha, type Selection } from "../../source-lane/providers/jira/store.js";
 
 /**
  * Deep-content capture via the Nango PROXY API - fills what the sync
@@ -181,16 +182,23 @@ async function sweepJiraIssueDetails(
   let materialized = 0;
 
   for (const site of sites) {
+    // SOURCE-LANE PATCH (jira selection): honor the tenant's jira_source_selection (the deep lane's
+    // per-connection/site project selection). "projects" mode restricts the JQL to the selected projects
+    // (nothing selected = nothing captured) and keys the cursor by the selection, so a newly selected
+    // project is backfilled from the beginning; "all" (the default) keeps the donor query and cursor.
+    const selection = await getSelection(executor as never, { tenantId: ctx.tenantId, connectionId: ctx.connectionId, cloudId: site.cloudId });
+    const projectFilter = jiraSelectionJql(selection);
+    if (projectFilter === null) continue;
     const cursorKey = {
       tenantId: ctx.tenantId,
       provider: "jira",
       connectionId: ctx.connectionId,
-      model: `issue_details:${site.cloudId}`,
+      model: selection.mode === "all" ? `issue_details:${site.cloudId}` : `issue_details:${site.cloudId}:sel:${selectionSha(selection).slice(0, 16)}`,
     };
     const since = await loadStoredCursor(executor, cursorKey);
     // First run: no cursor → backfill from the beginning of time (the same
     // initial-backfill filter the Nango issues sync template uses).
-    const jql = `updated >= "${since ? jqlTimestamp(since) : "1970-01-01"}" ORDER BY updated ASC`;
+    const jql = `${projectFilter}updated >= "${since ? jqlTimestamp(since) : "1970-01-01"}" ORDER BY updated ASC`;
     let nextPageToken: string | null = null;
     let maxUpdated = since;
 
@@ -232,6 +240,18 @@ async function sweepJiraIssueDetails(
   const deletionReconcile = await maybeReconcileJiraIssueDeletions(executor, client, ctx, sites);
 
   return { sites: sites.length, pages, issues, captured, comments, materialized, deletionReconcile };
+}
+
+/**
+ * SOURCE-LANE PATCH (jira selection): JQL prefix for a project selection. "" for all projects, null when the
+ * selection names no usable project (capture nothing). Keys are quoted, numeric ids bare; anything else is
+ * dropped rather than spliced into JQL.
+ */
+export function jiraSelectionJql(selection: Selection): string | null {
+  if (selection.mode === "all") return "";
+  const projects = [...new Set(selection.projects.filter((p) => /^[A-Za-z0-9_]{1,64}$/u.test(p)))].sort();
+  if (projects.length === 0) return null;
+  return `project in (${projects.map((p) => (/^\d+$/u.test(p) ? p : `"${p.toUpperCase()}"`)).join(", ")}) AND `;
 }
 
 async function jiraAccessibleSites(
