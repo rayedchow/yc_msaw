@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { getBlob, isoOrNull, loadChunk, rowsOf, type SlackConversationRow, type SlackFileRow } from "../../../integrations/slack/source-store.js";
 import type { ExportContext, ExtraTableExport, JournalInfo, SourceFileChange } from "../../core/types.js";
-import { DIRECT_MESSAGE_WITHHELD, isDirectChannel, isDirectConversationType, markDirectChannel, withheldProjectionsOf } from "./direct.js";
+import { DIRECT_MESSAGE_WITHHELD, isDirectChannel, isDirectConversationType, markDirectChannel, withheldProjectionsOf, withheldRawEventsOf } from "./direct.js";
 import { conversationLabelPath, fileBytesPath, fileMetadataPath, PROVIDER, splitSourceKey } from "./paths.js";
 
 /**
@@ -45,6 +45,7 @@ export async function mapConversationRow(ctx: ExportContext, rowKey: string, jou
     return [
       ...deletesFor([...new Set([...previousPaths, path])], new Set(), DIRECT_MESSAGE_WITHHELD, journal.enqueuedAt, provenance),
       ...(await withheldProjectionsOf(ctx, row.channel_id, journal.enqueuedAt)),
+      ...(await withheldRawEventsOf(ctx, row.channel_id, journal.enqueuedAt)),
     ];
   }
   const completeAt = isoOrNull(row.history_complete_at);

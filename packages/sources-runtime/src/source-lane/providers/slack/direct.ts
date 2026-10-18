@@ -137,6 +137,24 @@ export async function withheldProjectionsOf(ctx: ExportContext, channelId: strin
     .map((r) => withheld(r.path, at));
 }
 
+/**
+ * Raw ledger rows of a conversation that turned out to be a DM after they were exported (rows that carry no
+ * conversation type, e.g. a group DM's realtime reactions before discovery listed it): withheld with the
+ * conversation row, like its projections. Runs only when a DM conversation row is exported (label changes).
+ */
+export async function withheldRawEventsOf(ctx: ExportContext, channelId: string, at: string): Promise<SourceFileChange[]> {
+  const res = (await ctx.executor.execute(sql`
+    SELECT x.path FROM source_lane_exported x
+    JOIN activity_events a ON a.id = (CASE WHEN x.row_key ~* '^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$' THEN x.row_key::uuid END)
+      AND a.user_id = ${ctx.tenantId} AND a.source = 'slack'
+    WHERE x.tenant_id = ${ctx.tenantId} AND x.table_name = 'activity_events'
+      AND starts_with(x.path, ${`sources/${PROVIDER}/_raw/`}) AND strpos(x.path, ${channelId}) > 0
+      AND COALESCE(a.raw_payload->>'_channel', a.raw_payload->>'channel') = ${channelId}
+  `)) as unknown as { rows?: Array<{ path: string }> } | Array<{ path: string }>;
+  const rows = Array.isArray(res) ? res : (res.rows ?? []);
+  return rows.map((r) => withheld(r.path, at));
+}
+
 export const mapSlackEvent: NonNullable<SourceProviderModule["mapEvent"]> = async (row: ActivityEventRow, ctx: ExportContext, journal: JournalInfo) => {
   const payload = (typeof row.raw_payload === "string" ? JSON.parse(row.raw_payload) : row.raw_payload) as Record<string, unknown> | null;
   const channelId = typeof payload?._channel === "string" ? payload._channel : typeof payload?.channel === "string" ? payload.channel : null;
