@@ -12,8 +12,10 @@
  *    against the HOSTED parent (wild-zero-kq08i), and traces captured by the SDK and sent to the hosted parent.
  *  - OPERATOR-TRIGGERED DAILY CYCLE (now): the real DailyBuildService -> runMemoryBuild (createConfiguredBuilder's
  *    profiles/workspaces/integration providers + an observing model-I/O wrapper for the live UI) over the SAME
- *    Modal store/namespace as the hosted parent, cohort = the fresh trace only (earlier traces of the day were
- *    already published). The build agents (Fireworks Kimi/GLM) choose every integration and wiki tool call.
+ *    Modal store/namespace as the hosted parent. The cohort is the day's real daily manifest: every unprocessed
+ *    session of the tenant that day (this run's failure trace plus any other same-day traces, e.g. hosted SDK
+ *    smokes), plus read-only historical trace sources; the report records the actual manifest session ids.
+ *    The build agents (Fireworks Kimi/GLM) choose every integration and wiki tool call.
  *  - SEALED VALIDATION uses a FAKE-data GitHub fixture offline (network-blocked sandbox). Every proof call to
  *    GitHub goes to the real API.
  * Live UI contract: .context/real-demo-events.jsonl (append-only, sanitized) + .context/real-demo-state.json.
@@ -257,9 +259,9 @@ const report: Record<string, unknown> = {
   runId: RUN_ID,
   labels: {
     seededDefect: "HOST-SEEDED DEFECT (yesterday's state): github-read always sends ?ref=master and exposes no ref parameter (templates/integration/demo/github-read/seeded). Not model-authored.",
-    upstream: "LIVE: real public api.github.com REST contents API (unauthenticated, read-only) called by the Manufact-hosted child MCP",
+    upstream: "LIVE: real public api.github.com REST contents API (the child calls it unauthenticated, read-only); host cross-checks use the authenticated gh CLI when available (phases.githubTruth.via / githubAfter.via)",
     customer: "LIVE: one Pi 1.3 session (Fireworks) with procmem SDK LiveToolRegistry tools against the hosted parent; SDK trace capture to the hosted parent",
-    dailyCycle: "OPERATOR-TRIGGERED NOW: real DailyBuildService -> runMemoryBuild (createConfiguredBuilder inputs + observing model-I/O wrapper, requests/responses unaltered) on the same Modal store/namespace as the hosted parent; cohort = this run's fresh customer trace",
+    dailyCycle: "OPERATOR-TRIGGERED NOW: real DailyBuildService -> runMemoryBuild (createConfiguredBuilder inputs + observing model-I/O wrapper, requests/responses unaltered) on the same Modal store/namespace as the hosted parent; cohort = the day's real daily manifest (this run's failure trace plus any other unprocessed same-day tenant sessions; actual session ids in phases.buildCycles[].cohort)",
     repair: "MODEL-AUTHORED: every integration/wiki tool call in the build is chosen by the Fireworks build agents; the host gives no repaired source",
     validation: "Sealed validation runs offline with a FAKE-data GitHub fixture; all proof calls to GitHub are real",
     lifecycle: "Agent rows/events follow .context/demo-lifecycle-contract.md: customer running only during real Pi agent runs (waiting between attempts, task_start/task_end carry per-attempt outcome); build agents from the live logger then authoritative receipts (harnessStatusToDemo for state AND events); operator rows (host, builder wrapper) separate; finalizeAgentRows leaves no running/waiting/pending row",
@@ -383,7 +385,7 @@ try {
   if (values["preflight-only"]) throw new PreflightDone();
 
   // ---------------------------------------------------------------- independent GitHub check
-  await phase("github-check", "Independent GitHub REST checks (host, unauthenticated)");
+  await phase("github-check", `Independent GitHub REST checks (host, ${ghCliAvailable() ? "authenticated gh CLI" : "unauthenticated REST"})`);
   const ghRepo = await gh(`/repos/${OWNER}/${REPO}`);
   const ghMaster = await gh(`/repos/${OWNER}/${REPO}/contents/${FILE}?ref=master`);
   const ghRef = await gh(`/repos/${OWNER}/${REPO}/contents/${FILE}?ref=${REF}`);
@@ -678,7 +680,7 @@ try {
       memoryReopenedNewestRevision: reopened.some((t) => String(t.text).includes(String(memHead)) || JSON.stringify(t.details ?? "").includes(String(memHead))),
       readMemoryAfterReopenBeforeTool: memoryReadBetween,
     };
-    const rec = { attempt: n, runId, previousRunId: n === 1 ? null : `${RUN_ID.toLowerCase()}-a${n - 1}`, conversationId: (trace as unknown as { conversationId?: string }).conversationId ?? null, prompt, toolAvailable, promptError, calls, proofs, integrationToolErrors, answer, classification: cls, attemptChecks, memHeadAtEnd: memHead, toolSequence: seq, history: mark, trace: { sessionId: fin.sessionId, events: fin.events, chunks: fin.chunks, deliveryErrors: fin.errors.length } };
+    const rec = { attempt: n, runId, previousRunId: n === 1 ? null : `${RUN_ID.toLowerCase()}-a${n - 1}`, conversationId: trace.correlation.conversationId ?? null, correlation: { ...trace.correlation }, prompt, toolAvailable, promptError, calls, proofs, integrationToolErrors, answer, classification: cls, attemptChecks, memHeadAtEnd: memHead, toolSequence: seq, history: mark, trace: { sessionId: fin.sessionId, events: fin.events, chunks: fin.chunks, deliveryErrors: fin.errors.length } };
     attempts.push(rec);
     taskEnd(n, cls.outcome === "succeeded" ? "succeeded" : "failed", { classification: cls, proofOk, traceSessionId: fin.sessionId });
     emit({ agentId: "host", kind: "check", title: `attempt ${n}: ${cls.outcome}${cls.failureClass ? ` (${cls.failureClass})` : ""}: ${cls.reason}`.slice(0, 290), status: cls.outcome === "succeeded" ? "succeeded" : "failed", data: { attempt: n, classification: cls, proofs: proofs.map((p) => ({ callId: p.callId, ok: p.ok, evidence: p.evidence })) } });
@@ -808,7 +810,8 @@ try {
     knownSchema = newSchema;
     if (expectedDeployment) knownDeploymentId = expectedDeployment;
     cycleProofs.push({ cycle, buildOk: lastBuild.ok, memoryChanged: !!memAfter && memAfter !== memBefore, sourceChanged: srcChanged.length > 0, newDeployment, sdkAutomatic, piAutomatic });
-    cycles.push({ cycle, afterAttempt: n, day: traceDay, traceKeys, buildMs, status: bStatus, error: buildError ?? buildReceipt?.error ?? null, revisionId: buildReceipt?.revisionId ?? null, receipt: bounded({ ...(buildReceipt ?? {}), attempts: undefined }, 20_000), classification: lastBuild, memory: { before: memBefore, after: memAfter, changed: memChanged, diff: memDiff, pagesAfter: Object.fromEntries([...memFilesAfter].filter(([p]) => memChanged.includes(p)).map(([p, c]) => [p, c.slice(0, 20_000)])) }, source: { beforeCommit: intBefore.promoted?.commit, afterCommit: intAfter.promoted?.commit, afterValidation: intAfter.promoted?.validationReceiptId, changed: srcChanged, diff: srcDiff }, deployment: { before: intBefore.manufact?.active, after: intAfter.manufact?.active, newDeployment, serverId: intAfter.manufact?.serverId, mcpUrl: intAfter.manufact?.mcpUrl, dashboardUrl: intAfter.manufact?.dashboardUrl }, sdk });
+    const cohortSessions = (buildReceipt?.sessions as string[] | undefined) ?? [];
+    cycles.push({ cycle, afterAttempt: n, day: traceDay, traceKeys, buildMs, cohort: { manifestKey: buildReceipt?.manifestKey ?? null, sessions: cohortSessions, includesThisAttempt: cohortSessions.includes(fin.sessionId), otherSessions: cohortSessions.filter((x) => x !== fin.sessionId), traceArchive: buildReceipt?.traceArchive ?? null }, status: bStatus, error: buildError ?? buildReceipt?.error ?? null, revisionId: buildReceipt?.revisionId ?? null, receipt: bounded({ ...(buildReceipt ?? {}), attempts: undefined }, 20_000), classification: lastBuild, memory: { before: memBefore, after: memAfter, changed: memChanged, diff: memDiff, pagesAfter: Object.fromEntries([...memFilesAfter].filter(([p]) => memChanged.includes(p)).map(([p, c]) => [p, c.slice(0, 20_000)])) }, source: { beforeCommit: intBefore.promoted?.commit, afterCommit: intAfter.promoted?.commit, afterValidation: intAfter.promoted?.validationReceiptId, changed: srcChanged, diff: srcDiff }, deployment: { before: intBefore.manufact?.active, after: intAfter.manufact?.active, newDeployment, serverId: intAfter.manufact?.serverId, mcpUrl: intAfter.manufact?.mcpUrl, dashboardUrl: intAfter.manufact?.dashboardUrl }, sdk });
     emit({ agentId: `${cyclePrefix}/builder`, kind: "run_end", title: `build cycle ${cycle}: ${bStatus ?? "error"} ${String(buildReceipt?.revisionId ?? "")} (${lastBuild.reason})`.slice(0, 290), status: lastBuild.ok ? "succeeded" : "failed", data: { cycle, status: bStatus, revisionId: buildReceipt?.revisionId ?? null, newDeployment, memoryChanged: memChanged.length, sourceChanged: srcChanged.length } });
     await progress(`build cycle ${cycle}: ${lastBuild.reason}; SDK ${sdk.kind} automatic=${sdk.sdkAutomatic} pi=${String(sdk.piAutomatic)}`);
     if (!lastBuild.ok || !lastBuild.changed) {

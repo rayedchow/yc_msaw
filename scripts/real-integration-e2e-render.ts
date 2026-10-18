@@ -33,7 +33,10 @@ export function renderMarkdown(r: Json): string {
     ["tenant namespace", get(r, "config.ns")],
     ["customer model", get(r, "config.customerModel")],
     ["Pi session id", get(p, "sameSession.piSessionId") ?? get(p, "customerSession.piSessionId")],
-    ["process pid", get(p, "customerSession.pid")],
+    ["process pid", get(p, "sameSession.pid") ?? get(p, "customerSession.pid")],
+    ["Pi constructions / same object", `${String(get(p, "sameSession.constructions") ?? "n/a")} / ${String(get(p, "sameSession.sameObject") ?? "n/a")}`],
+    ["message history per attempt", JSON.stringify(((get(p, "sameSession.historyMarks") as Json[] | undefined) ?? []).map((m) => ({ attempt: m.attempt, length: m.length })))],
+    ["trace correlation per attempt", JSON.stringify(((p.attempts ?? []) as Json[]).map((a) => ({ attempt: a.attempt, conversationId: a.conversationId ?? null, runId: (a.correlationObserved as Json | undefined)?.runId ?? (a.correlation as Json | undefined)?.runId ?? a.runId, previousRunId: (a.correlationObserved as Json | undefined)?.previousRunId ?? (a.correlation as Json | undefined)?.previousRunId ?? a.previousRunId ?? null })))],
     ["builder", JSON.stringify(r.builderConfig ?? null)],
     ["GitHub default branch", get(p, "githubTruth.defaultBranch")],
     ["GitHub ?ref=master", `${String(get(p, "githubTruth.masterStatus"))} ${String(get(p, "githubTruth.masterMessage"))} (request ${String(get(p, "githubTruth.masterRequestId"))})`],
@@ -45,7 +48,8 @@ export function renderMarkdown(r: Json): string {
     ["deployment before -> after", `${String(get(p, "diffs.deployment.before.deploymentId"))} -> ${String(get(p, "diffs.deployment.after.deploymentId"))}`],
     ["live child MCP URL", get(p, "diffs.deployment.mcpUrl") ?? get(p, "seed.manufact.mcpUrl")],
     ["daily build", `${String(get(p, "dailyBuild.status"))} in ${String(get(p, "dailyBuild.buildMs"))} ms`],
-    ["SDK detection", get(p, "sdkUpdate.detectedBy")],
+    ["SDK detection", get(p, "sdkUpdate.detectedBy") ?? (lastC ? JSON.stringify({ kind: get(lastC, "sdk.kind"), sdkAutomatic: get(lastC, "sdk.sdkAutomatic"), piAutomatic: get(lastC, "sdk.piAutomatic"), forcedRefreshUsed: get(lastC, "sdk.forcedRefreshUsed"), manualApplyUsed: get(lastC, "sdk.manualApplyUsed"), sdkObservedAt: get(lastC, "sdk.sdkObservedAt") }) : undefined)],
+    ["build cohort (last cycle)", lastC ? JSON.stringify(get(lastC, "cohort") ?? { manifestKey: get(lastC, "receipt.manifestKey"), sessions: get(lastC, "receipt.sessions") }) : undefined],
   ];
   for (const [k, v] of kv) lines.push(`- **${k}**: ${String(v ?? "n/a")}`);
   if (attemptsArr.length) {
@@ -59,7 +63,8 @@ export function renderMarkdown(r: Json): string {
     lines.push("", "## Attempt 1 (seeded integration)", "", `Answer:`, "", fence(get(p, "attempt1.answer")), "");
     lines.push("## Attempt 2 (same session, repaired integration)", "", "Answer:", "", fence(get(p, "attempt2.answer")), "");
   }
-  lines.push("## read_file schema seen by the SDK", "", "Before:", fence(JSON.stringify(get(p, "sdkUpdate.initialSchema"), null, 2)), "After:", fence(JSON.stringify(get(p, "sdkUpdate.newSchema"), null, 2)), "");
+  lines.push("## read_file schema seen by the SDK", "", "Before:", fence(JSON.stringify(get(p, "sdkUpdate.initialSchema") ?? get(p, "customerSession.initialReadFileSchema") ?? (cyclesArr[0] ? get(cyclesArr[0], "sdk.schemaBefore") : null), null, 2)), "After:", fence(JSON.stringify(get(p, "sdkUpdate.newSchema") ?? (lastC ? get(lastC, "sdk.schemaAfter") : null), null, 2)), "");
+  if (r.postRunClarification) lines.push("## Post-run metadata clarification", "", fence(JSON.stringify({ clarifiedFields: get(r, "postRunClarification.clarifiedFields"), unchanged: get(r, "postRunClarification.unchanged"), originalEmitted: get(r, "postRunClarification.originalEmitted"), checks: get(r, "postRunClarification.checks"), auditReport: get(r, "postRunClarification.auditReport") }, null, 2)), "");
   lines.push("## Integration source diff (model-authored repair)", "", fence(get(p, "diffs.source.diff")), "");
   lines.push("## Memory diff (model-authored wiki update)", "", fence(get(p, "diffs.memory.diff")), "");
   lines.push("## Customer transcript (captured Pi events)", "");

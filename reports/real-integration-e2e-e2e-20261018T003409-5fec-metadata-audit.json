@@ -1,0 +1,137 @@
+{
+  "kind": "real-integration-e2e metadata audit",
+  "runId": "e2e-20261018T003409-5fec",
+  "at": "2026-10-18T00:51:18.817Z",
+  "auditOk": true,
+  "checks": {
+    "bindings.presentAndNonLegacy": true,
+    "chunks.sha256VerifiedAgainstIndex": true,
+    "correlation.sameConversation": true,
+    "correlation.conversationIsNativePiIdentity": true,
+    "correlation.distinctRunIdsMatchingProducerRecords": true,
+    "correlation.previousRunIdLinksRetryToFirstRun": true,
+    "events.turnAndSpanStructurePresent": true,
+    "cohort.manifestMatchesReceipt": true,
+    "cohort.includesFreshCustomerFailureTrace": true
+  },
+  "observed": {
+    "traceCorrelation": [
+      {
+        "attempt": 1,
+        "sessionId": "ses-mvd3jr7e-8ff24dcdc54a",
+        "binding": {
+          "boundAt": "2026-10-18T00:38:33.278Z",
+          "correlation": {
+            "conversationId": "pi:01a14c71-b6b2-765e-99ed-3bf68a25e16a",
+            "conversationSource": "harness",
+            "runId": "e2e-20261018t003409-5fec-a1"
+          },
+          "day": "2026-10-18",
+          "firstChunkSeq": 1,
+          "legacy": false,
+          "schema": "procmem.trace-session/v1",
+          "sessionId": "ses-mvd3jr7e-8ff24dcdc54a"
+        },
+        "chunks": [
+          {
+            "key": "traces/2026-10-18/ses-mvd3jr7e-8ff24dcdc54a/chunk-000001.jsonl.gz",
+            "sha256Matches": true
+          }
+        ],
+        "events": 33,
+        "sessionStartCorrelation": null,
+        "correlationValuesInEvents": [
+          {
+            "conversationId": null,
+            "runId": null
+          }
+        ],
+        "turnIds": 2,
+        "spanIds": 9,
+        "parentSpanRefs": 8
+      },
+      {
+        "attempt": 2,
+        "sessionId": "ses-mvd3vsnu-8e637251cfd8",
+        "binding": {
+          "boundAt": "2026-10-18T00:47:56.966Z",
+          "correlation": {
+            "conversationId": "pi:01a14c71-b6b2-765e-99ed-3bf68a25e16a",
+            "conversationSource": "harness",
+            "previousRunId": "e2e-20261018t003409-5fec-a1",
+            "runId": "e2e-20261018t003409-5fec-a2"
+          },
+          "day": "2026-10-18",
+          "firstChunkSeq": 1,
+          "legacy": false,
+          "schema": "procmem.trace-session/v1",
+          "sessionId": "ses-mvd3vsnu-8e637251cfd8"
+        },
+        "chunks": [
+          {
+            "key": "traces/2026-10-18/ses-mvd3vsnu-8e637251cfd8/chunk-000001.jsonl.gz",
+            "sha256Matches": true
+          }
+        ],
+        "events": 27,
+        "sessionStartCorrelation": null,
+        "correlationValuesInEvents": [
+          {
+            "conversationId": null,
+            "runId": null
+          }
+        ],
+        "turnIds": 2,
+        "spanIds": 7,
+        "parentSpanRefs": 6
+      }
+    ],
+    "cohort": {
+      "buildId": "bld-mvd3ko1m-2a179be130",
+      "manifestKey": "daily/2026-10-18/manifest-0001.json",
+      "day": "2026-10-18",
+      "sessionIds": [
+        "ses-mvd2n98x-399c659ea532",
+        "ses-mvd2ngtu-93d997cd3819",
+        "ses-mvd2noef-7e79df026363",
+        "ses-mvd3jr7e-8ff24dcdc54a"
+      ],
+      "chunks": 5,
+      "receiptSessions": [
+        "ses-mvd2n98x-399c659ea532",
+        "ses-mvd2ngtu-93d997cd3819",
+        "ses-mvd2noef-7e79df026363",
+        "ses-mvd3jr7e-8ff24dcdc54a"
+      ],
+      "traceArchive": {
+        "bytes": 1710671,
+        "chunks": 9,
+        "days": 2,
+        "disabled": false,
+        "events": 160,
+        "files": 31,
+        "firstDay": "2026-10-17",
+        "lastDay": "2026-10-18",
+        "partitions": 8,
+        "schema": "procmem.trace-archive/v1",
+        "sessions": 8,
+        "sha256": "1231f684410c983a5f1244adb3f6fc204f506e1507499a648585f746a8f2e466"
+      },
+      "freshCustomerSession": "ses-mvd3jr7e-8ff24dcdc54a",
+      "otherSessions": [
+        "ses-mvd2n98x-399c659ea532",
+        "ses-mvd2ngtu-93d997cd3819",
+        "ses-mvd2noef-7e79df026363"
+      ],
+      "note": "The other current-day sessions are earlier synthetic hosted SDK wire-verification traces in the same tenant; the build input labelled their objectives synthetic. This is normal full-tenant daily catch-up, not a fresh-only cohort."
+    }
+  },
+  "originalEmitted": {
+    "sha256": {
+      "reports/real-integration-e2e-e2e-20261018T003409-5fec.json": "31d91db15074270227d36c771741dca6e3513054b3646647c38023eeaeb7ceba",
+      "reports/real-integration-e2e-e2e-20261018T003409-5fec.md": "1aa206344f52124bed12964c17c0da42c4794a1188cae25b6e236cef53aa2440",
+      "reports/real-integration-e2e-e2e-20261018T003409-5fec.html": "451a7617b9c47d32a6372abc14d8bd6f8eb53e5e16d35d6ab90f1791dad6d602"
+    },
+    "preservedAt": ".context/real-demo-fresh/as-emitted-reports"
+  }
+}
