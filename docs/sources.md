@@ -28,6 +28,24 @@ The usual verbs take `$SOURCES/...` paths and run host-side (no workspace or san
 are separate on purpose: a provider can be `complete` but `stale` (collector stopped), or
 `healthy` with old data (nothing changed upstream). `unreported` never means complete.
 
+### Who can read `$SOURCES` (decide before connecting real accounts)
+
+Reads use the existing auth unchanged. `$SOURCES`, `sources_status` and `sources_history` need only `memory:read`,
+which every verified user receives implicitly (`DEFAULT_IMPLICIT_SCOPES` in `src/auth/scopes.ts`). The namespace is
+the principal's tenant, and with WorkOS organizations that tenant is shared by every member (`docs/auth.md`). There
+is no per-source or per-owner ACL: Slack and Drive permission labels are recorded but not enforced.
+
+So in an organization tenant, any member's MCP client can read everything the tenant captured:
+
+- every domain-wide-delegated mailbox;
+- each member's Mac iMessage, coding-session and office-audio sources;
+- the Slack channels and DMs the app can see.
+
+This is an open product decision (final-audit H3). The options are a dedicated non-implicit scope (for example
+`sources:read`, granted by role), or per-provider / per-owner visibility, with device-originated personal sources
+visible to their owner only. Until one is chosen, connect only sources every member of the tenant may read, or
+use single-user tenants.
+
 ## Layout
 
 * Projections: the donor mirror paths verbatim, e.g. `sources/confluence/<spaceId>/<pageId>.md`,
