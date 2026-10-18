@@ -95,6 +95,7 @@ import { accountFileDirectory, accountFilePaths } from "../../../../src/source-l
 import { googleAttributionFor } from "../../../../src/source-lane/providers/google-auth/attribution.js";
 import { googleDocsCoverage } from "../../../../src/source-lane/providers/google-docs/coverage.js";
 import { runGdocsSourceSweep } from "../../../../src/source-lane/providers/google-docs/sweep.js";
+import { getCheckpoint } from "../../../../src/source-lane/providers/google-docs/checkpoints.js";
 import { gdocsVersionsExport } from "../../../../src/source-lane/providers/google-docs/export-map.js";
 import { resetExportFormatsCacheForTests } from "../../../../src/source-lane/providers/google-docs/drive-export.js";
 import { resetGoogleRateLimitCooldownsForTests } from "../../../../src/vault/google-rate-limit.js";
@@ -479,6 +480,25 @@ describe("view-only accounts read their own Sheets, Slides, Drive files and PDFs
     await poll({ [ALICE]: [live(r, true)], [BOB]: [withRestriction(r, true)] });
     expect((await runAccountTasks([r])).value).toEqual([expect.objectContaining({ file: "sheet-1", status: "blocked", reason: "copy_restricted_for_account" })]);
     expect(await tree(P.sheet)).toEqual(["capture.json", "comments.json", "drive.json"]);
+  });
+
+  it("skips the shared copy of a Sheet only view-only mailboxes see, and captures it once a revisions reader sees it", async () => {
+    const s = sheet();
+    const shared = driveFileDirectory("sheets", "sheet-1", "Budget");
+    // Only bob (view-only) sees it: his own copy is captured; the shared copy nobody could read makes no request.
+    await poll({ [ALICE]: [], [BOB]: [live(s, false)] });
+    await runAccountTasks([s]);
+    expect(await liveFile(T, P.sheet.native)).not.toBeNull();
+    const skipped = await sharedExport([s]);
+    expect(skipped.value.results).toEqual([expect.objectContaining({ fileId: "sheet-1", lane: "drive", state: "blocked" })]);
+    expect(skipped.calls).toEqual([]);
+    expect(await liveFile(T, `${shared}/drive.json`)).toBeNull();
+    expect((await getCheckpoint(T, "sheet-1", deps))!).toMatchObject({ contentState: "blocked", contentReason: expect.stringContaining("no_revisions_reader") });
+    // Alice (revisions reader) sees the same, unchanged version: the shared copy is captured as her.
+    await poll({ [ALICE]: [live(s, true)], [BOB]: [] });
+    const captured = await sharedExport([s]);
+    expect(captured.value.results).toEqual([expect.objectContaining({ fileId: "sheet-1", lane: "drive", state: "complete" })]);
+    expect(await text(`${shared}/content/Budget.xlsx`)).toContain(`as:${ALICE}`);
   });
 
   it("does not download the shared PDF unit for a mailbox that may only view it (final-performance-check)", async () => {

@@ -89,8 +89,36 @@ export async function setFileVisibility(
         can_read_revisions = COALESCE(EXCLUDED.can_read_revisions, gdocs_file_visibility.can_read_revisions),
         changed_at = CASE WHEN gdocs_file_visibility.visible <> EXCLUDED.visible THEN now() ELSE gdocs_file_visibility.changed_at END
     `);
+    // A mailbox that may read revisions now sees a file whose shared copy was skipped because only view-only mailboxes
+    // saw it: capture it now, even if its version did not change.
+    if (visible && canReadRevisions === true) {
+      await db.execute(sql`
+        UPDATE gdocs_file_checkpoints SET content_state = 'pending', content_retry_at = NULL, updated_at = now()
+        WHERE tenant_id = ${tenantId} AND file_id = ${fileId} AND content_state = 'blocked' AND content_reason = ${NO_REVISIONS_READER}
+      `);
+    }
   } catch (err) {
     console.warn(`[gdocs-source] visibility update failed for ${fileId}:`, err instanceof Error ? err.message : err);
+  }
+}
+
+/** Shared-copy reason of a file that only view-only mailboxes see (their own copies live under `_accounts/`). */
+export const NO_REVISIONS_READER = "no_revisions_reader: only view-only mailboxes see this file; their own copies are under _accounts/";
+
+/**
+ * True when every roster mailbox that sees the file is known to be view-only (Drive `canReadRevisions` false): its
+ * shared copy would be served to nobody. Unknown capabilities or a failed lookup answer false (capture as before).
+ */
+export async function onlyViewOnlyMailboxes(tenantId: string, fileId: string, deps?: StoreDeps): Promise<boolean> {
+  try {
+    const db = await resolveDb(deps);
+    const [row] = rowsOf<{ n: number; viewers: number }>(await db.execute(sql`
+      SELECT count(*)::int AS n, count(*) FILTER (WHERE can_read_revisions IS FALSE)::int AS viewers
+      FROM gdocs_file_visibility WHERE tenant_id = ${tenantId} AND file_id = ${fileId} AND visible
+    `));
+    return !!row && row.n > 0 && row.viewers === row.n;
+  } catch {
+    return false;
   }
 }
 

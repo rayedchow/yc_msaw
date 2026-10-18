@@ -223,6 +223,13 @@ export async function exportDriveFile(input: DriveExportInput): Promise<DriveExp
     nativeJsonMaxBytes: input.limits?.nativeJsonMaxBytes ?? DRIVE_NATIVE_JSON_MAX_BYTES,
   };
   const checkpoint = await getCheckpoint(input.tenantId, input.fileId, deps);
+  // Only view-only mailboxes see it: the shared copy would be served to nobody (each of them has its own copy under
+  // _accounts/). No request, not even a token; a mailbox that may read revisions re-pends it (lifecycle.setFileVisibility).
+  const { NO_REVISIONS_READER, onlyViewOnlyMailboxes } = await import("./lifecycle.js");
+  if (await onlyViewOnlyMailboxes(input.tenantId, input.fileId, deps)) {
+    await setContentState(input.tenantId, input.fileId, { state: "blocked", reason: NO_REVISIONS_READER }, deps);
+    return { state: "blocked", reason: NO_REVISIONS_READER, directory: checkpoint?.exportDirectory ?? null, files: {}, retryAt: null };
+  }
   let accessToken = input.accessToken;
   if (!accessToken) {
     const { getGoogleAccessToken, GOOGLE_DOCS_DELEGATION_SCOPES } = await import("../../../vault/google-auth.js");
