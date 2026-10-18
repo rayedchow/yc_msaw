@@ -24,6 +24,8 @@ import { isTextualContentType, isVersionId, type FileEntry, type SourceStore, ty
 export const MAX_SOURCE_LINE_LOAD_BYTES = 4 * 1024 * 1024;
 /** Upper bound on files a single grep loads, independent of total bytes. */
 const MAX_GREP_FILES = 5_000;
+/** Files loaded and searched per round; a grep stops after the round that reaches its match limit. */
+const GREP_BATCH_FILES = 250;
 /** Upper bound on tree entries visited by find/grep. */
 const MAX_WALK_ENTRIES = 200_000;
 const STATUS_TTL_MS = 15_000;
@@ -256,17 +258,29 @@ export class SourceFs {
       selected.push(c);
       scanned += c.entry.size;
     }
-    const contents = await store.readWholeMany(await store.versions(selected.map((c) => c.entry.v)));
-    selected.forEach((c, i) => files.set(c.path, contents[i]!));
-    // Reuse the customer tree grep (literal/regex worker with timeout) over the loaded files.
-    const tree = new VTree("knowledge");
-    for (const [p, buf] of files) tree.add(p, { type: "file", size: buf.byteLength, content: buf });
-    const scope = r.type === "dir" && tree.get(stored)?.type === "dir" ? stored : "";
-    const g = files.size
-      ? await grepTree(tree, { root: "knowledge", rel: scope }, { pattern: input.pattern, literal: input.literal, ignoreCase: input.ignoreCase, limit: input.limit })
-      : { matches: [], filesSkipped: 0, truncated: false };
-    const matches = g.matches.map((m) => ({ ...m, path: displaySourcePath(m.path.replace(/^\$KNOWLEDGE\/?/, "")) }));
-    return { path, pattern: input.pattern, matches, filesSearched: files.size, filesSkipped: filesSkipped + g.filesSkipped, truncated: truncated || g.truncated };
+    // Load and search in batches, and stop once `limit` matches are found: a grep that matches early never reads the
+    // rest of the subtree. Reuses the customer tree grep (literal/regex worker with timeout) per batch.
+    const matches: Array<Record<string, unknown> & { path: string }> = [];
+    let grepSkipped = 0;
+    let searched = 0;
+    for (let i = 0; i < selected.length; i += GREP_BATCH_FILES) {
+      const batch = selected.slice(i, i + GREP_BATCH_FILES);
+      const contents = await store.readWholeMany(await store.versions(batch.map((c) => c.entry.v)));
+      files.clear();
+      batch.forEach((c, j) => files.set(c.path, contents[j]!));
+      const tree = new VTree("knowledge");
+      for (const [p, buf] of files) tree.add(p, { type: "file", size: buf.byteLength, content: buf });
+      const scope = r.type === "dir" && tree.get(stored)?.type === "dir" ? stored : "";
+      const g = await grepTree(tree, { root: "knowledge", rel: scope }, { pattern: input.pattern, literal: input.literal, ignoreCase: input.ignoreCase, limit: input.limit - matches.length });
+      searched += files.size;
+      grepSkipped += g.filesSkipped;
+      for (const m of g.matches) matches.push({ ...m, path: displaySourcePath(m.path.replace(/^\$KNOWLEDGE\/?/, "")) });
+      if (g.truncated || matches.length >= input.limit) {
+        truncated = truncated || g.truncated || i + GREP_BATCH_FILES < selected.length;
+        break;
+      }
+    }
+    return { path, pattern: input.pattern, matches, filesSearched: searched, filesSkipped: filesSkipped + grepSkipped, truncated };
   }
 
   async status(ns: string, viewer: SourceViewer, input: z.output<typeof SourcesStatusSchema>): Promise<Record<string, unknown>> {
