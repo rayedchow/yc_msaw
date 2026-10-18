@@ -224,7 +224,7 @@ describe.skipIf(!PG)("source runtime on real PostgreSQL with the real yc_msaw se
     await mods.tenants.ensureTenant({ id: "acme", name: "acme" });
     await mods.dispatch.startNangoPolling("acme", "confluence");
     const schedules = (await sql`SELECT kind FROM task_schedules WHERE tenant_id = 'acme' ORDER BY kind`).map((r: Any) => r.kind);
-    expect(schedules).toEqual(["nango.poll"]);
+    expect(schedules).toEqual(["confluence.sweep", "nango.poll"]); // confluence request 1
     const refused = (await sql`SELECT kind FROM source_lane_refused_tasks WHERE tenant_id = 'acme'`).map((r: Any) => r.kind);
     expect(refused).toContain("graph.ensure_default_kb");
     expect(await mods.queue.enqueueTask({ queue: "sync", tenantId: "acme", kind: "graph.extract_chunks", payload: {} })).toBeNull();

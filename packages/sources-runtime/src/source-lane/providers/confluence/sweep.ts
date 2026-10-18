@@ -946,9 +946,15 @@ async function downloadAttachment(ctx: Ctx, item: WorkRow): Promise<ItemOutcome>
   const declared = num(item.payload.fileSize);
   const current = await findObject(ctx.db, ctx.scope, "attachment", id);
   if (!current || current.tombstoned_at) return { state: "done", outcome: { skipped: "attachment no longer live" } };
+  const containerType = item.payload.containerType as ContainerType;
+  // The container's page.md lists its attachments with their byte status: re-export it after any outcome.
+  const settle = async (outcome: ItemOutcome): Promise<ItemOutcome> => {
+    await bumpChildrenEpoch(ctx.db, ctx.scope, containerType, containerId);
+    return outcome;
+  };
   if (declared !== null && declared > ctx.opts.maxAttachmentBytes) {
     await setObjectFields(ctx.db, ctx.scope.tenantId, key, { binaryStatus: "too_large", binaryVersion: version, binaryError: `declared ${declared} bytes > limit ${ctx.opts.maxAttachmentBytes}` });
-    return { state: "done", outcome: { tooLarge: declared } };
+    return settle({ state: "done", outcome: { tooLarge: declared } });
   }
   const writer = new ChunkWriter(ctx.db, ctx.scope.tenantId);
   try {
@@ -962,12 +968,12 @@ async function downloadAttachment(ctx: Ctx, item: WorkRow): Promise<ItemOutcome>
     );
     if (r.status === 401 || r.status === 403) {
       await setObjectFields(ctx.db, ctx.scope.tenantId, key, { binaryStatus: r.status === 401 ? "scope_missing" : "forbidden", binaryVersion: version, binaryError: `HTTP ${r.status}` });
-      return { state: "inaccessible", outcome: { status: r.status } };
+      return settle({ state: "inaccessible", outcome: { status: r.status } });
     }
     if (r.status === 404) {
       await setObjectFields(ctx.db, ctx.scope.tenantId, key, { binaryStatus: "missing", binaryVersion: version, binaryError: "HTTP 404" });
       await enqueueWork(ctx.db, ctx.scope, ctx.generation, [confirmItem("attachment", id)]);
-      return { state: "inaccessible", outcome: { status: 404 } };
+      return settle({ state: "inaccessible", outcome: { status: 404 } });
     }
     const blob = await writer.finish(r.sha256, r.size, r.mediaType);
     await setObjectFields(ctx.db, ctx.scope.tenantId, key, {
@@ -978,11 +984,11 @@ async function downloadAttachment(ctx: Ctx, item: WorkRow): Promise<ItemOutcome>
       binaryMediaType: r.mediaType ?? str(current.raw.mediaType),
       binaryError: null,
     });
-    return { state: "done", outcome: { size: blob.size, via: r.via } };
+    return settle({ state: "done", outcome: { size: blob.size, via: r.via } });
   } catch (error) {
     if (error instanceof AttachmentTooLargeError) {
       await setObjectFields(ctx.db, ctx.scope.tenantId, key, { binaryStatus: "too_large", binaryVersion: version, binaryError: error.message });
-      return { state: "done", outcome: { tooLarge: error.size } };
+      return settle({ state: "done", outcome: { tooLarge: error.size } });
     }
     throw error;
   }

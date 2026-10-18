@@ -183,13 +183,18 @@ async function nangoRecordsCoverage(ctx: ExportContext): Promise<CoverageReport[
       WHERE user_id = ${ctx.tenantId} AND source = 'confluence' GROUP BY event_type ORDER BY event_type
     `),
   );
-  const polled = rowsOf<{ at: unknown; cursors: number }>(
+  // The donor records every nango.sync_records run (a no-change pull counts) in source_sync_runs.
+  const polled = rowsOf<{ ok: unknown; failed: unknown; err: string | null; runs: number }>(
     await ctx.executor.execute(sql`
-      SELECT max(last_polled_at) AS at, count(*)::int AS cursors FROM conversation_watermarks
-      WHERE user_id = ${ctx.tenantId} AND provider = 'confluence' AND conversation_type = 'nango_sync_cursor'
+      SELECT max(completed_at) FILTER (WHERE status = 'completed') AS ok,
+             max(failed_at) FILTER (WHERE status IN ('failed', 'blocked')) AS failed,
+             (array_agg(error_message ORDER BY failed_at DESC NULLS LAST) FILTER (WHERE status IN ('failed', 'blocked')))[1] AS err,
+             count(*)::int AS runs
+      FROM source_sync_runs
+      WHERE user_id = ${ctx.tenantId} AND provider = 'confluence' AND metadata->>'taskKind' = 'nango.sync_records'
     `),
   )[0];
-  if (!r.length && !Number(polled?.cursors ?? 0)) return [];
+  if (!r.length && !Number(polled?.runs ?? 0)) return [];
   const counts: Record<string, number> = {};
   for (const x of r) counts[x.event_type] = Number(x.n);
   return [
@@ -198,7 +203,8 @@ async function nangoRecordsCoverage(ctx: ExportContext): Promise<CoverageReport[
       scope: "nango-records",
       state: "partial",
       counts,
-      ...(polled?.at ? { lastSuccessAt: isoOrNull(polled.at)! } : {}),
+      ...(polled?.ok ? { lastSuccessAt: isoOrNull(polled.ok)! } : {}),
+      ...(polled?.failed ? { lastErrorAt: isoOrNull(polled.failed)!, lastError: polled.err ?? undefined } : {}),
       reason:
         "Nango /records keeps only the latest state per record: each poll's distinct record is journaled under sources/confluence/_raw/, but versions edited between polls are not in this lane (see the site :history scope for version-API bodies)",
     },

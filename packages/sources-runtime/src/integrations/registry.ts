@@ -10,6 +10,11 @@ import { githubIntegration } from "./github/index.js";
 import { slackIntegration } from "./slack/index.js";
 // SOURCE-LANE PATCH (coordinator, stripe): Stripe connector ported from gigabrain 5448774 (webhook + backfill).
 import { stripeIntegration } from "./stripe/index.js";
+// SOURCE-LANE PATCH (coordinator, discord): official bot API collector (semantic reference gigabrain discord-personal).
+import { discordIntegration } from "./discord/index.js";
+// SOURCE-LANE PATCH (coordinator, unipile): WhatsApp/Instagram personal over Unipile (read-only, operator opt-in).
+import { instagramPersonalIntegration } from "./instagram-personal/index.js";
+import { whatsappPersonalIntegration } from "./whatsapp-personal/index.js";
 
 /**
  * Launch catalog: the mirror-ready sources (gmail + calendar + gdocs live under
@@ -27,6 +32,9 @@ export const integrations: AqueductIntegration[] = [
   githubIntegration,
   slackIntegration,
   stripeIntegration,
+  discordIntegration,
+  instagramPersonalIntegration,
+  whatsappPersonalIntegration,
 ];
 
 export function registerIntegrationHttpRoutes(app: Hono, list: AqueductIntegration[] = integrations): void {

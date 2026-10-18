@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("../../../../src/db/client.js", async () => {
@@ -49,7 +50,6 @@ describe("confluence deep lane: initial full capture", () => {
     expect(md).toContain("Hello **world** v3");
     expect(md).toContain("![[attachment:diagram.png]]");
     expect(md).toContain("- Version: v3");
-    expect(md).toContain("- Version history captured: v1..v3 of v3");
     expect(md).toContain("- Restrictions: read: 1 user(s), 1 group(s); update: 0 user(s), 1 group(s)");
     expect(md).toMatch(/\[diagram\.png\]\(attachments\/att-1\/diagram\.png\)/u);
     const pageFile = await yc.file(`${page("1001")}/page.md`);
@@ -139,6 +139,48 @@ describe("confluence deep lane: initial full capture", () => {
     expect(await journalCount(T)).toBe(0);
     expect((await exporter.runOnce()).claimed).toBe(0);
   });
+});
+
+describe("confluence deep lane: export interleaving", () => {
+  async function snapshot(yc: Awaited<ReturnType<typeof makeExporter>>["yc"]): Promise<Record<string, string>> {
+    const out: Record<string, string> = {};
+    for (const p of await yc.paths(ROOT)) {
+      let bytes = (await yc.file(p))!.bytes;
+      // Capture times legitimately differ between two runs; everything else must be identical.
+      if (p.endsWith(".json")) {
+        const doc = JSON.parse(bytes.toString("utf8"));
+        delete doc.observedAt;
+        delete doc.firstSeenAt;
+        bytes = Buffer.from(JSON.stringify(doc));
+      } else if (p.includes("/versions/")) {
+        bytes = Buffer.from(bytes.toString("utf8").replace(/^- Captured: .*$/mu, ""));
+      }
+      out[p] = createHash("sha256").update(bytes).digest("hex");
+    }
+    return out;
+  }
+
+  it("converges to the same tree when the exporter runs between small sweep slices", async () => {
+    const { exporter, yc } = await makeExporter(T);
+    for (let i = 0; i < 200; i++) {
+      await runConfluenceSweep(db as never, T, sweepOptions(fake, { maxRequestsPerSite: 3 }));
+      await drain(exporter);
+      const st = await query(`SELECT generation_phase FROM confluence_source_sync_state WHERE tenant_id = $1`, [T]);
+      const pending = await query(`SELECT count(*)::int AS n FROM confluence_source_work WHERE tenant_id = $1 AND state = 'pending'`, [T]);
+      if (st[0]?.generation_phase === "closed" && Number(pending[0]!.n) === 0) break;
+    }
+    const interleaved = await snapshot(yc);
+    expect(await yc.text(`${page("1001")}/page.md`)).toMatch(/\[diagram\.png\]\(attachments\/att-1\/diagram\.png\)/u);
+
+    await resetAll();
+    fake = new FakeConfluence();
+    seedSite(fake);
+    await connect(T, CONN);
+    await sweepUntilQuiet(T, fake);
+    const once = await makeExporter(T);
+    await drain(once.exporter);
+    expect(interleaved).toEqual(await snapshot(once.yc));
+  }, 60_000);
 });
 
 describe("confluence deep lane: updates, moves and deletions", () => {
@@ -231,6 +273,25 @@ describe("confluence deep lane: updates, moves and deletions", () => {
     await sweepUntilQuiet(T, fake, { fullScanIntervalMs: 0 });
     await drain(exporter);
     expect(await yc.text(`${page("1004")}/page.md`)).toContain("third");
+  });
+
+  it("drops deleted comments from comments.md and removes the doc when no live comment remains", async () => {
+    await sweepUntilQuiet(T, fake);
+    const { exporter, yc } = await makeExporter(T);
+    await drain(exporter);
+    fake.comments.splice(fake.comments.findIndex((c) => c.id === "c3"), 1);
+    fake.comments.splice(fake.comments.findIndex((c) => c.id === "c4"), 1);
+    await sweepUntilQuiet(T, fake, { fullScanIntervalMs: 0 });
+    await drain(exporter);
+    const md = await yc.text(`${page("1001")}/comments.md`);
+    expect(md).not.toContain("Comment c3");
+    expect(md).toContain("Comment c1");
+    expect((await yc.tombstone(`${blog("2001")}/comments.md`))?.reason).toBe("confluence_comments_removed");
+    expect(await yc.text(`${blog("2001")}/blogpost.md`)).toContain("launch v2");
+    const states = await query(`SELECT content_id, tombstone_reason FROM confluence_source_objects WHERE tenant_id = $1 AND content_id IN ('c3', 'c4') ORDER BY content_id`, [T]);
+    expect(states).toEqual([{ content_id: "c3", tombstone_reason: "not_found" }, { content_id: "c4", tombstone_reason: "not_found" }]);
+    // Deleted comments' raw observations remain in the ledger.
+    expect((await yc.paths(`${ROOT}/_raw/inline_comment/c3`)).length).toBeGreaterThan(0);
   });
 
   it("never deletes during a partial scan: an inaccessible or failing listing confirms nothing", async () => {

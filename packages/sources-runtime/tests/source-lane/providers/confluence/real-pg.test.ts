@@ -88,6 +88,28 @@ describe.skipIf(!PG)("confluence source lane on real PostgreSQL", () => {
     expect(cov.find((c: Any) => c.scope === `site:${CLOUD}/${CONN}`)?.state).toBe("complete");
   });
 
+  it("reports the donor /records lane as partial with the last recorded sync run, through the real record task", async () => {
+    const T = "pg-records";
+    await sql`INSERT INTO connections (tenant_id, provider, external_account_id, status, metadata) VALUES (${T}, 'confluence', 'conn-r1', 'active', ${sql.json({ providerConfigKey: "confluence" })})`;
+    const processors = await import("../../../../src/integrations/atlassian/processors.js");
+    processors.registerAtlassianProcessors();
+    const tasks = await import("../../../../src/integrations/nango/tasks.js");
+    const record = { id: "page-9", title: "Nine", spaceId: "ENG", versionNumber: 2, bodyStorage: "<p>v2</p>", _nango_metadata: { cursor: "Yw==", last_modified_at: "2026-07-03T00:00:00.000Z", last_action: "UPDATED" } };
+    const handlers = tasks.registerNangoTasks({ client: { listRecords: async () => ({ records: [record], nextCursor: null }) } });
+    await handlers[tasks.NANGO_SYNC_RECORDS_TASK]({ tenantId: T, provider: "confluence", providerConfigKey: "confluence", connectionId: "conn-r1", model: "Page" }, { task: { id: "x", queue: "sync", tenantId: T } } as never);
+    const cov = (await mods.coverage.confluenceCoverage({ tenantId: T, executor: mods.db.db })).find((c: Any) => c.scope === "nango-records");
+    expect(cov).toMatchObject({ state: "partial", counts: { page: 1 } });
+    expect(cov.lastSuccessAt).toBeTruthy();
+    expect(cov.reason).toContain("latest state per record");
+    // Coordinator applied confluence patch request 3: the raw id uses the Confluence version, not the Nango cursor.
+    expect((await sql`SELECT source_event_id FROM activity_events WHERE user_id = ${T}`)[0].source_event_id).toBe("nango:confluence:page:page-9:v2");
+    const yc = await YcStore.create(T);
+    await mods.bindings.setTenantBinding(mods.db.db, { tenantId: T, bindingId: "sb-0123456789abcdef", token: bindingToken(T), publishUrl: "http://127.0.0.1:9/", providers: ["*"] });
+    const exporter = new mods.exporter.SourceExporter({ db: mods.db.db, registry: mods.registry.defaultRegistry(), fetchImpl: yc.fetch, log: () => {} });
+    for (let i = 0; i < 20 && (await exporter.runOnce()).claimed > 0; i++);
+    expect((await yc.file("sources/confluence/ENG/page-9.md"))?.ordinal).toBe(2);
+  });
+
   it("lets exactly one worker sweep an Atlassian bucket at a time, across tenants", async () => {
     const fake = new FakeConfluence();
     seedSite(fake);

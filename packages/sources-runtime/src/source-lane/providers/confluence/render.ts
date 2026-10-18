@@ -109,7 +109,7 @@ export interface AttachmentView {
 export function renderContainer(
   o: ObjectRow,
   site: SiteView,
-  extra: { spaceKey: string | null; spaceName: string | null; attachments: AttachmentView[]; liveComments: number; historyThrough: number | null; restrictionsSummary: string | null },
+  extra: { attachments: AttachmentView[]; liveComments: number; restrictionsSummary: string | null },
 ): string {
   const p = o.raw;
   const v = versionOf(p);
@@ -121,7 +121,7 @@ export function renderContainer(
     meta([
       ["Source", "Confluence"],
       ["Site", site.siteUrl ?? site.cloudId],
-      ["Space", [extra.spaceKey, extra.spaceName].filter(Boolean).join(" - ") || o.space_id],
+      // Space name/key live in ../../_space.md (a rename must not leave stale copies here).
       ["Space ID", o.space_id],
       [`${kind} ID`, o.content_id],
       ["Status", o.status],
@@ -136,7 +136,6 @@ export function renderContainer(
       ["Parent", str(p.parentId) ? `${str(p.parentType) ?? "page"} ${str(p.parentId)}` : null],
       ["URL", webui(p, site.siteUrl)],
       ["Body format", body.format === "none" ? null : body.format],
-      ["Version history captured", o.version_number !== null ? `v1..v${extra.historyThrough ?? 0} of v${o.version_number}` : null],
       ["Comments", extra.liveComments ? String(extra.liveComments) : null],
       ["Restrictions", extra.restrictionsSummary],
       ["Inaccessible since", iso(o.inaccessible_at)],
@@ -170,7 +169,6 @@ export function renderVersion(container: ObjectRow, record: RecordRow, site: Sit
       ["Site", site.siteUrl ?? site.cloudId],
       [`${kind} ID`, container.content_id],
       ["Version", `v${record.version_number}`],
-      ["Current version", container.version_number !== null ? `v${container.version_number}` : null],
       ["Version created", iso(v?.createdAt)],
       ["Version message", str(v?.message)],
       ["Minor edit", typeof v?.minorEdit === "boolean" ? String(v.minorEdit) : null],

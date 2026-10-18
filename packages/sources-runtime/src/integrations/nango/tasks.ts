@@ -263,6 +263,16 @@ export async function disableNangoPollSchedule(
       AND kind IN (${NANGO_POLL_TASK}, ${NANGO_PROXY_ISSUES_TASK}, ${NANGO_PROXY_DETAILS_TASK})
       AND group_key = ${`${tenantId}:nango:${provider}`}
   `);
+  // SOURCE-LANE PATCH (confluence request 2): the Confluence deep sweep has its own group key.
+  if (provider.trim().toLowerCase() === "confluence") {
+    await executor.execute(sql`
+      UPDATE task_schedules
+      SET enabled = false, updated_at = now()
+      WHERE tenant_id = ${tenantId}
+        AND kind = 'confluence.sweep'
+        AND group_key = ${`${tenantId}:confluence:sweep`}
+    `);
+  }
 }
 
 export async function loadStoredCursor(

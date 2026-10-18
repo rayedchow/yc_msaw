@@ -192,7 +192,7 @@ export async function startNangoPolling(tenantId: string, provider: string): Pro
   }
   // Deep-content proxy sweep: jira full issues + comments; github issue/PR
   // comments (+ repo discovery fallback); bitbucket PR details + comments.
-  // Confluence needs none - its Page sync already carries full bodies.
+  // Confluence's page sync carries the current body only; its deep sweep is below.
   if (isNangoProxyDetailsProvider(provider)) {
     await upsertTaskSchedule({
       tenantId,
@@ -200,6 +200,18 @@ export async function startNangoPolling(tenantId: string, provider: string): Pro
       frequencySeconds: 300,
       groupKey: `${tenantId}:nango:${provider}`,
       payload: { tenantId, provider },
+    });
+  }
+  // SOURCE-LANE PATCH (confluence request 1): REST deep sweep through the Nango proxy
+  // (src/source-lane/providers/confluence/sweep.ts): version bodies, comments, attachment
+  // bytes, permissions, 404-confirmed deletions. Own group so it never blocks nango.poll.
+  if (provider.trim().toLowerCase() === "confluence") {
+    await upsertTaskSchedule({
+      tenantId,
+      kind: "confluence.sweep",
+      frequencySeconds: 300,
+      groupKey: `${tenantId}:confluence:sweep`,
+      payload: { tenantId },
     });
   }
 }

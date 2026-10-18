@@ -81,7 +81,7 @@ const FULL_SHA = /^[0-9a-f]{40}$/;
 const REPO = /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i;
 
 /** Donor files intentionally replaced in the source lane. Keep in sync with CONTRACT.md §0. */
-export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; reason: string; test?: string }> = {
+export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; reason: string; test?: string; tests?: string[] }> = {
   "src/graph/wiring/ingest-hook.ts": {
     status: "shim",
     reason: "Graph ingestion disabled in the source lane: same export names, no kb reads, no graph.* tasks; mirror changes are exported via source_export_journal triggers.",
@@ -94,12 +94,23 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/queue/dispatch.ts": {
     status: "patched",
-    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync.",
+    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync. confluence patch request 1: startNangoPolling schedules confluence.sweep (own group) for Confluence.",
     test: "tests/source-lane/core/shared-patches.test.ts",
+    tests: ["tests/source-lane/core/shared-patches-confluence.test.ts"],
+  },
+  "src/integrations/nango/tasks.ts": {
+    status: "patched",
+    reason: "confluence patch request 2: disableNangoPollSchedule also disables the Confluence deep sweep schedule (its own group key).",
+    test: "tests/source-lane/core/shared-patches-confluence.test.ts",
+  },
+  "src/integrations/atlassian/processors.ts": {
+    status: "patched",
+    reason: "confluence patch request 3: Confluence page/comment raw ids use the Confluence version number (nango:confluence:<model>:<id>:v<N>, tombstones :deleted:<at>) instead of the per-delivery Nango cursor.",
+    test: "tests/source-lane/core/shared-patches-confluence.test.ts",
   },
   "src/integrations/registry.ts": {
     status: "patched",
-    reason: "Coordinator (stripe): registers the Stripe connector (src/integrations/stripe, ported from gigabrain 5448774) so its connect/disconnect, /webhooks/stripe/:connectionId and stripe.sync/stripe.backfill handlers are live.",
+    reason: "Coordinator (stripe, discord, unipile): registers the Stripe connector (ported from gigabrain 5448774), the Discord official-bot collector and the WhatsApp/Instagram personal Unipile connectors (read-only, operator opt-in) so their connect/disconnect, webhook and sync handlers are live.",
     test: "tests/source-lane/providers/stripe/stripe.test.ts",
   },
   "src/integrations/nango/capture.ts": {

@@ -712,6 +712,36 @@
       "donorSha256": "06cb95a0763b07eebd69824a515072e3063944c8f96d11d52a563c44c8ba1b29"
     },
     {
+      "path": "drizzle/10000_instagram_personal_lane.sql",
+      "sha256": "badfc996c5723c2af364dbefb08a248ce38e905ab5f77bbad82a5aadd1618d37",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Instagram personal connections/chats/messages/attachments + journal triggers.",
+      "tests": [
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ]
+    },
+    {
+      "path": "drizzle/10050_whatsapp_personal_lane.sql",
+      "sha256": "460f2d2a049f741361731c6e698dca3ea8e25305edfb3b55a9a06ed7a4c998ab",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "WhatsApp personal connections/chats/messages/attachments + journal triggers.",
+      "tests": [
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ]
+    },
+    {
+      "path": "drizzle/10100_discord_bot_lane.sql",
+      "sha256": "9399b98de1d39f9a84907129c95e8742ddb8b997c01a0214921dbdc1fd2f44c2",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "discord_connections, discord_channels (allowlist + cursors), discord_messages + journal trigger.",
+      "tests": [
+        "tests/source-lane/providers/discord/discord.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9100_gdocs_source_lane.sql",
       "sha256": "08df6349521e959a630029d533ebc726a6e4347bdd31d7f78b44cec2ce727b00",
       "status": "new",
@@ -769,6 +799,31 @@
         "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
         "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
         "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ]
+    },
+    {
+      "path": "drizzle/9200_confluence_source_lane.sql",
+      "sha256": "0fa34827bcc7195ba5dfd89ecc6de8850b5af870ee82747804c14465669f566a",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence deep-lane tables (quota bucket per OAuth app x site, connection discovery, sites+scopes, sync generations, restart-safe work queue, current objects, append-only raw records, <=8 MiB byte chunks) and journal triggers via source_lane_journal_row with lifecycle columns ignored.",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "drizzle/9201_confluence_sweep_schedules.sql",
+      "sha256": "757c3cd7ece3c260b3d30af84c1d76376d2955a61c5851343d1ccd11bab78318",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Schedules confluence.sweep for tenants already connected at install (idempotent); new connections need patch request confluence#1.",
+      "tests": [
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts"
       ]
     },
     {
@@ -954,10 +1009,15 @@
     },
     {
       "path": "src/integrations/atlassian/processors.ts",
-      "sha256": "a814645a8578e03bbc5e3db415455482c5fef17de241b97d205abd99527689aa",
-      "status": "verbatim",
+      "sha256": "414aa6be9598abef6b13eaee5eef732bf23b7180952bf61f7ac970dd0a95a2b4",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/integrations/atlassian/processors.ts",
-      "donorSha256": "a814645a8578e03bbc5e3db415455482c5fef17de241b97d205abd99527689aa"
+      "donorSha256": "a814645a8578e03bbc5e3db415455482c5fef17de241b97d205abd99527689aa",
+      "reason": "confluence request 3 (see DECLARED_OVERRIDES).",
+      "tests": [
+        "tests/source-lane/core/shared-patches-confluence.test.ts"
+      ]
     },
     {
       "path": "src/integrations/atlassian/storage-format.ts",
@@ -986,6 +1046,88 @@
       "status": "verbatim",
       "donorPath": "src/integrations/bitbucket/processors.ts",
       "donorSha256": "62cdb0bb49c8572a48fb62d9b555e69467265f1f182250b277ba2fd746642628"
+    },
+    {
+      "path": "src/integrations/discord/api.ts",
+      "sha256": "1ed8356e887f1f78d3901da253066c3190dc9f37deb2ad632645ff3534edfb6b",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Read-only Discord REST client for bot tokens (API v10): full retry_after honoured and surfaced (donor clipped to 60 s and slept in-process), bucket headers, access/permission classification, Message Content intent flags.",
+      "tests": [
+        "tests/source-lane/providers/discord/discord.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/discord-personal/poller.ts",
+          "use": "discordApi request/429 semantics"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/discord/connect.ts",
+      "sha256": "4c50a243ea8783c2c2d661abe74ed905c37417232a0162519666fb25999e64bc",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Official bot API only (bot:true required; user/selfbot tokens refused), explicit verified channel allowlist, discovery listing; no bot registration/invite.",
+      "tests": [
+        "tests/source-lane/providers/discord/discord.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/discord-personal/connect.ts",
+          "use": "connect flow shape (adapted from user tokens to bot tokens)"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/discord/index.ts",
+      "sha256": "76788cccbad981563f6524c47a59a08d998f94481c3c19fc8ed4434e25a69c44",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Discord AqueductIntegration (connect/disconnect, discord.sync; tenant from the task).",
+      "tests": [
+        "tests/source-lane/providers/discord/discord.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/discord/store.ts",
+      "sha256": "147cd5e82aa96befd8ef6ffb694e13e8abd3bd1e245f50d513ec8af6f59757d6",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Bot connections (token sealed to connection+tenant), channel allowlist with leased per-channel cursors, current messages + raw versions/tombstones in activity_events.",
+      "tests": [
+        "tests/source-lane/providers/discord/discord.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/discord-personal/poller.ts",
+          "use": "message storage keyed per channel+message"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/discord/sync.ts",
+      "sha256": "57400b1f2ac40bbf8db4b1ef643697cc39ae70ec41386431b8d9dc0a8df64909",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Forward polling (after), full-history backfill (before) with durable cursor, reconcile window for edits/deletions; per-channel rate-limit/permission handling; global limit pauses the connection.",
+      "tests": [
+        "tests/source-lane/providers/discord/discord.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/discord-personal/poller.ts",
+          "use": "pollDiscordPersonalDms watermark + edited_timestamp semantics"
+        }
+      ]
     },
     {
       "path": "src/integrations/github/index.ts",
@@ -1378,6 +1520,30 @@
       "donorSha256": "cf73637a12a0bdc04df3cfdf26d94080b36c4e77b73ab60e8ac725acd0fb1c39"
     },
     {
+      "path": "src/integrations/instagram-personal/index.ts",
+      "sha256": "9609592ce0bd128d5b98bd101b995f176925d30f6f0a3b0d056a6f2c8f9552d4",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Instagram personal lane config (donor provider id, event types, message-only webhook), always-partial history per research doc.",
+      "tests": [
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/instagram-personal/poller.ts",
+          "use": "instagramPersonalEventType, source ids"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/evals/research/unipile-instagram-sync.md",
+          "use": "limited-slice history finding"
+        }
+      ]
+    },
+    {
       "path": "src/integrations/nango/capture.ts",
       "sha256": "31b4ea4c678e4ffff2807cb6751e85dfe7efa92fdaba81ba9230ef6d6eb5c1ef",
       "status": "patched",
@@ -1433,10 +1599,15 @@
     },
     {
       "path": "src/integrations/nango/tasks.ts",
-      "sha256": "91f2cf584be4a011f257429adecc68c4db78c7f912c57e87c9f0dadd3e6ffdea",
-      "status": "verbatim",
+      "sha256": "7708848fd553c3d251339a570427abbe05f90ada508ac20f412b58a732c1444c",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/integrations/nango/tasks.ts",
-      "donorSha256": "91f2cf584be4a011f257429adecc68c4db78c7f912c57e87c9f0dadd3e6ffdea"
+      "donorSha256": "91f2cf584be4a011f257429adecc68c4db78c7f912c57e87c9f0dadd3e6ffdea",
+      "reason": "confluence request 2 (see DECLARED_OVERRIDES).",
+      "tests": [
+        "tests/source-lane/core/shared-patches-confluence.test.ts"
+      ]
     },
     {
       "path": "src/integrations/nango/types.ts",
@@ -1577,14 +1748,16 @@
     },
     {
       "path": "src/integrations/registry.ts",
-      "sha256": "0fd09560a213a3517d727d869742a5eb77d582145c3fd193e99be12d190a63e2",
+      "sha256": "7913173dc6a46cc00ab70219856f24d989b8ea79a44fef0a5a09af65df6f9ab3",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/registry.ts",
       "donorSha256": "7d0076b5c7bca8d5155e320455ff5f7d479fd50939eeb4e1b4f7e64027d1c55b",
-      "reason": "Coordinator (stripe): registers the Stripe connector (src/integrations/stripe, ported from gigabrain 5448774).",
+      "reason": "Coordinator (stripe, discord, unipile): registers Stripe, Discord and the WhatsApp/Instagram personal connectors.",
       "tests": [
-        "tests/source-lane/providers/stripe/stripe.test.ts"
+        "tests/source-lane/providers/discord/discord.test.ts",
+        "tests/source-lane/providers/stripe/stripe.test.ts",
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
       ]
     },
     {
@@ -1811,6 +1984,84 @@
       "donorSha256": "a90eaed1ffc869e65b7a536910233c50a5b68974d36975991a31fa2fcd45a5f1"
     },
     {
+      "path": "src/integrations/unipile-personal/api.ts",
+      "sha256": "2e17b69afa74ead1ab221357dc68c923c5a802341dcbb8a787fc144ed95085b1",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Read-only Unipile client shared by WhatsApp/Instagram: donor normalizeUnipileApiBase host allowlist, page helpers, readiness helpers; Retry-After surfaced (donor slept, capped 60 s); redirects refused; bounded attachment bytes from the same host.",
+      "tests": [
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/whatsapp-personal/poller.ts",
+          "use": "unipileApi, normalizeUnipileApiBase, pageItems/nextCursor, messageTimestamp, readiness"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/whatsapp-personal/connect.ts",
+          "use": "accountUserId/displayName helpers"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/unipile-personal/lane.ts",
+      "sha256": "7be0563d4778f7f5fa86b0902b09ee477a9d0d1565f1afe45ec8205db699b6bd",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Shared Unipile lane: donor raw payload shape and source ids (+ WhatsApp :<event>), sync modes, readiness gate, after/cursor paging; per-connection webhook URL+secret with account ownership check (donor: global secret + first-match account lookup), durable per-chat cursors, :v:<sha> versions, deletions, attachment bytes, operator opt-in (ToS policy 0a92129868), export + coverage.",
+      "tests": [
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/whatsapp-personal/poller.ts",
+          "use": "sync/store/webhook message semantics"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/whatsapp-personal/webhook.ts",
+          "use": "webhook event handling"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/whatsapp-personal/account-webhook.ts",
+          "use": "AccountStatus lifecycle mapping"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/instagram-personal/poller.ts",
+          "use": "Instagram identities/event types"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/whatsapp-personal/index.ts",
+      "sha256": "dfc6a30ad3fda22d510a9cf64d738f87fc9f907f50c19ad56af3a26c9d69a04c",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "WhatsApp personal lane config (donor provider id, sender resolution, event types).",
+      "tests": [
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/whatsapp-personal/poller.ts",
+          "use": "whatsappPersonalEventType, messageSenderId"
+        }
+      ]
+    },
+    {
       "path": "src/lib/activity-event-time.ts",
       "sha256": "78eba70d0caa8a0bd281ac9fa450e27cd8afd5f53be67a241e8585c714fd4751",
       "status": "verbatim",
@@ -2021,14 +2272,15 @@
     },
     {
       "path": "src/queue/dispatch.ts",
-      "sha256": "50f25920dc880102d48ed08d17bd48330752c7a6bc00ec83f25c748815bd2ec5",
+      "sha256": "12e23c20037f852fca83358590e758f7f14bd7cb8a101f3d914c6ae0f40cd2aa",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/queue/dispatch.ts",
       "donorSha256": "3efb36af346a94abf50a50e44472ab50583eef8379193e2cb15befd9f3548bd0",
-      "reason": "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync.",
+      "reason": "calendar-contacts request 4 + confluence request 1 (see DECLARED_OVERRIDES).",
       "tests": [
-        "tests/source-lane/core/shared-patches.test.ts"
+        "tests/source-lane/core/shared-patches.test.ts",
+        "tests/source-lane/core/shared-patches-confluence.test.ts"
       ]
     },
     {
@@ -2181,6 +2433,199 @@
           "path": "src/integrations/google/calendar/poller.ts",
           "use": "ensureCalendarListWatch / ensureCalendarEventsWatch / createWatch / storeWatchChannel / storeUnsupportedWatchChannel"
         }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/confluence/api.ts",
+      "sha256": "d1d07acdacefd4e414a16a6c132e1b417c99a6db6d3aa5caf336793daa318006",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence REST via the authenticated Nango proxy: JSON + streamed attachment bytes, manual redirects (same-site via proxy, allowlisted media host without credential, else refused), validated _links.next, typed 429/503 (Retry-After / X-RateLimit-Reset) and auth errors, no in-process sleep.",
+      "tests": [
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/deep-lane.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/nango/client.ts",
+          "use": "Nango proxy URL/header shape and Retry-After parsing"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/nango/proxy-details.ts",
+          "use": "Atlassian routing /oauth/token/accessible-resources and /ex/<product>/<cloudId>/"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/confluence/coverage.ts",
+      "sha256": "2c633a42d47ded210424abd99239ebfa842a5511b25ca8538de003859923229f",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Truthful coverage per connection/site from durable state (complete only when proven), :history always partial, nango-records partial with last donor sync run, donor-mirror partial for multi-connection tenants.",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/confluence/export-map.ts",
+      "sha256": "310e06afb47b21324c9f646240560d56363ef458dd5b8e2d0e0a8327d9999328",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Exporters for the 9200 tables (exact jsonb text, binaries chunked, explicit reasoned deletes) and donor mirror/event export: page version ordinal, export-time cleanup of tombstones without spaceId, moved pages, deleted blog posts' comment docs, deep-lane-confirmed deletions; single-site guard.",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "atlassianPathSegment rule and Confluence container/tombstone semantics"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/source-lane/export/mapping.ts",
+          "use": "default raw/mirror mappings reused (core file, called unchanged)"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/confluence/identity.ts",
+      "sha256": "d9624f9d2cd96ac5098a18ac01727acd5d8db90cf63d60aafad95f429e895a8e",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Tenant/connection/site-scoped row keys, observation/version record keys, Atlassian quota bucket key, stable JSON hashing.",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/confluence/index.ts",
+      "sha256": "c7248b6f55b0726efd36b1be0c1765b6d3dcb4e5a617e8b95578c6d547e47507",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Replaces the core baseline module (oldSha256): registers extraTables, mapEvent, mapMirror, coverage and the confluence.sweep task handler under the same id/eventSources/mirrorRoots.",
+      "tests": [
+        "tests/source-lane/providers/confluence/module.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/confluence/paths.ts",
+      "sha256": "23575837496d3916ee55d23d509893b39675c4bcfbfc8b80a46b5ad987549802",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "File layout under sources/confluence/_sites/<cloudId>/<connectionId>/ (projections by current space, append-only _raw), donor mirror path parser.",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "donor mirror paths sources/confluence/<spaceId>/<pageId>{,-comments}.md"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/confluence/render.ts",
+      "sha256": "bdf5d4ba36f147c6ccc8bfdd051e2211fc883fd13185044615f0bea352e88c96",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Readable projections via donor storageFormatToMarkdown/adfToMarkdown (unchanged): page/blog post, version, space, threaded comments (inline selection, resolution), restrictions/permissions summaries; no fields derived from other rows.",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "Confluence page/comments rendering semantics (metadata list, threading by parentCommentId, orphans top-level)"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/atlassian/storage-format.ts",
+          "use": "called unchanged"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/atlassian/adf.ts",
+          "use": "called unchanged"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/confluence/store.ts",
+      "sha256": "e41b5c55925a772250ecbc2c1af9e0fe3ad8fba0e5bb3c49fd7c8bfb1a5d4106",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "DB layer for 9200: sites/discovery, sync state and generations, work queue with cursor checkpoints and backoff, object upsert with move/restore/tombstone detection, dependent re-journal, append-only records, chunk writer/blobs, quota cooldown and lease.",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/confluence/sweep.ts",
+      "sha256": "bf5b63f28205e7d389f43814f62102e35ec3f8eb411f75f513c251d47b4d932b",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "confluence.sweep: site discovery with scopes, generational full pass (spaces, pages/blog posts current+archived, trash, permissions, restrictions, comments+replies, attachments+bytes, version list + every version body, ADF), 404-confirmed tombstones incl. whole-space deletion, partial-scan safety, CQL delta with durable watermark, shared-bucket rate limiting, request budget, server-side tenant check.",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/nango/proxy-details.ts",
+          "use": "proxy sweep structure and watermark-gated 404-confirmed deletion reconcile (Jira lane)"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/nango/tasks.ts",
+          "use": "connections query for active Nango connections"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/discord/index.ts",
+      "sha256": "cc27a82f45907a6e0208a10f83e4ee6b2612d7fc2f08cded97943eda4aed5fa6",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Discord provider: message files with tombstones, truthful coverage (intent, edits/deletions window, per-channel history).",
+      "tests": [
+        "tests/source-lane/providers/discord/discord.test.ts"
       ]
     },
     {
@@ -2785,12 +3230,24 @@
     },
     {
       "path": "src/source-lane/providers/index.ts",
-      "sha256": "6cd9572ebee8ba431cf92192caf98092634a6648b5e7b0a75149fd114ff08758",
+      "sha256": "c6c4c31abd3ab4931db96b8a592474c528c9cabd09778a09f358fac97d645148",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Provider registry; nango-expansion request 3: SPECIALIZED_PROVIDERS + withNangoRecordsProviders (configured generic sources, collisions refused).",
+      "reason": "Provider registry (+ stripe, discord, whatsapp-personal, instagram-personal).",
       "tests": [
-        "tests/source-lane/providers/nango-records/shared-patches.test.ts"
+        "tests/source-lane/providers/discord/discord.test.ts",
+        "tests/source-lane/providers/nango-records/shared-patches.test.ts",
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/instagram-personal/index.ts",
+      "sha256": "f092b2f327cbb2a3e951af0280282ec27cae4fa830c919e4e651f1fb3e73f7a5",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Instagram personal provider module.",
+      "tests": [
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
       ]
     },
     {
@@ -3019,6 +3476,16 @@
       "reason": "Stripe source provider: raw events via the default layout, object snapshots exported as exact JSON files with tombstones.",
       "tests": [
         "tests/source-lane/providers/stripe/stripe.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/whatsapp-personal/index.ts",
+      "sha256": "8508b33711e1a52ee198d6161a57c3552f9b4e58b5e9511dbdfff3e5af9b8ae6",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "WhatsApp personal provider module.",
+      "tests": [
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
       ]
     },
     {
@@ -3729,12 +4196,152 @@
     },
     {
       "path": "tests/source-lane/core/runtime-pg.test.ts",
-      "sha256": "b7ed9d6bcac57103c6367767272f17df44bbdc4a0b2fe746b95503e196b159d9",
+      "sha256": "bcdcf4b48962c3eb755c5f3318505597396c47eecf79b65f24a6912be2c82801",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Coordinator (nango-expansion request 2): the second signed Nango webhook uses the documented x-nango-hmac-sha256 header.",
+      "reason": "Core real-PG e2e; coordinator updates: x-nango-hmac-sha256 header (nango request 2) and confluence.sweep schedule (confluence request 1).",
       "tests": [
         "tests/source-lane/core/runtime-pg.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/core/shared-patches-confluence.test.ts",
+      "sha256": "1a5f0db5827473c0ea013af84a7b447eec7c28ed7141bd08f0c7e5f0c2f181c0",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Confluence shared-patch regressions.",
+      "tests": [
+        "tests/source-lane/core/shared-patches-confluence.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/confluence/deep-lane.test.ts",
+      "sha256": "d3544761a297f2c58b04f85517940f0db0879237c91be2c8dd532822d332f568",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence lane test suite (production code; real yc_msaw SourceStore as publish target)",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/confluence/donor-lane.test.ts",
+      "sha256": "309ae3e232d7ede32f7cf397de72f5ae357c903e78120617a9d6b0ea196111cf",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence lane test suite (production code; real yc_msaw SourceStore as publish target)",
+      "tests": [
+        "tests/source-lane/providers/confluence/donor-lane.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/confluence/fake-confluence.ts",
+      "sha256": "78296234ba0f44040120338b93bd32e4bf8d898add35e40d7b7fb03b61bad3df",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence lane test helper (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/confluence/fixtures.ts",
+      "sha256": "b17ad62dd136ab19d43277f45202125244fa58c623542906ace64250694be18f",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence lane test helper (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/confluence/harness.ts",
+      "sha256": "ea3e1e257af2c658d66ae0f8390d093768aed3112559bf6f3de2937e4b1996f8",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence lane test helper (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/confluence/module.test.ts",
+      "sha256": "46c9734ec1625840f9ac5cf29bcc05e4fd9e5ef6e759937a7af9d17f51438c8f",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence lane test suite (production code; real yc_msaw SourceStore as publish target)",
+      "tests": [
+        "tests/source-lane/providers/confluence/module.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/confluence/real-pg.test.ts",
+      "sha256": "b5e05aa5261009b209148167a4ef408dae70e4d88925f255c8e2eb301aafbd6d",
+      "status": "new",
+      "owner": "confluence, coordinator",
+      "reason": "Confluence lane test suite (production code; real yc_msaw SourceStore as publish target) Coordinator: asserts the version-based raw id after confluence patch request 3.",
+      "tests": [
+        "tests/source-lane/providers/confluence/real-pg.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/confluence/seed.ts",
+      "sha256": "019b2a70e21b17ef7a96f6ad496bfe2c5b959f42b4bea7ba46ba048e92580434",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence lane test helper (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/confluence/transport.test.ts",
+      "sha256": "5052378e1784887f2af82fe04db4673494d9a7950e9220c2b46f8061241daa31",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence lane test suite (production code; real yc_msaw SourceStore as publish target)",
+      "tests": [
+        "tests/source-lane/providers/confluence/transport.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/confluence/yc-store.ts",
+      "sha256": "a7e52f88ae9d23b71fa3abd2696949c430359c334ce8db1e2329fc06874bdfc8",
+      "status": "new",
+      "owner": "confluence",
+      "reason": "Confluence lane test helper (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/confluence/deep-lane.test.ts",
+        "tests/source-lane/providers/confluence/transport.test.ts",
+        "tests/source-lane/providers/confluence/donor-lane.test.ts",
+        "tests/source-lane/providers/confluence/module.test.ts",
+        "tests/source-lane/providers/confluence/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/discord/discord.test.ts",
+      "sha256": "19566ef4380e485a1b7865924cad38e8bcf78da62aef9e3ea582166b56593755",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Discord lane regression suite.",
+      "tests": [
+        "tests/source-lane/providers/discord/discord.test.ts"
       ]
     },
     {
@@ -4214,6 +4821,16 @@
       "reason": "Stripe lane regression suite.",
       "tests": [
         "tests/source-lane/providers/stripe/stripe.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/whatsapp-personal/unipile.test.ts",
+      "sha256": "6d13c90d6ce48b9f7d2d1d9ca33ce495036d4f371ac5496bf1c99dbdc7d869a4",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Unipile lanes regression suite.",
+      "tests": [
+        "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
       ]
     },
     {

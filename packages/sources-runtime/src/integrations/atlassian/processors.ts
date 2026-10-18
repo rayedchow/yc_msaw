@@ -146,6 +146,7 @@ export async function processConfluencePageRecord(
     provider: "confluence",
     model: "Page",
     record,
+    sourceEventId: confluenceVersionedEventId("page", record),
   });
 
   const pageId = nangoRecordId(record);
@@ -186,6 +187,7 @@ export async function processConfluenceCommentRecord(
     model,
     record,
     eventType: CONFLUENCE_COMMENT_EVENT_TYPES[model],
+    sourceEventId: confluenceVersionedEventId(model.toLowerCase(), record),
   });
 
   const container = confluenceCommentContainer(record);
@@ -193,6 +195,24 @@ export async function processConfluenceCommentRecord(
     await materializeConfluenceCommentsSourceWiki(ctx.tenantId, container);
   }
   return { stored: captured.stored, skipped: !captured.stored };
+}
+
+/**
+ * SOURCE-LANE PATCH (confluence request 3): Nango records carry `_nango_metadata.cursor`, which
+ * nangoRecordVersion prefers over the Confluence version number, so raw ids were per-delivery
+ * cursors. Use the provider version when the record has one (`...:v<N>`); a tombstone of that
+ * version gets its own id so ON CONFLICT never drops it. Records without a version keep the
+ * generic id (undefined).
+ */
+function confluenceVersionedEventId(model: string, record: NangoRecord): string | undefined {
+  const id = nangoRecordId(record);
+  const raw = record.versionNumber ?? record.version_number ?? objectValue(record.version)?.number;
+  const n = typeof raw === "number" && Number.isFinite(raw) ? raw : typeof raw === "string" && /^v?\d+$/u.test(raw.trim()) ? Number(raw.trim().replace(/^v/u, "")) : null;
+  if (!id || n === null) return undefined;
+  const base = `nango:confluence:${model}:${id}:v${n}`;
+  if (!isDeletedNangoRecord(record)) return base;
+  const meta = objectValue(record._nango_metadata);
+  return `${base}:deleted:${stringValue(meta?.deleted_at) ?? stringValue(meta?.last_modified_at) ?? "unknown"}`;
 }
 
 function confluenceCommentContainer(record: NangoRecord): ConfluenceCommentsContainerRef | null {

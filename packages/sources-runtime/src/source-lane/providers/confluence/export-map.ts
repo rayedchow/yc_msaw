@@ -149,7 +149,6 @@ async function mapContainer(ctx: ExportContext, o: ObjectRow, at: string, previo
   const scope = { tenantId: ctx.tenantId, connectionId: o.connection_id, cloudId: o.cloud_id };
   const dir = containerDir(o.cloud_id, o.connection_id, o.space_id, type, o.content_id);
   const file = containerFileBase(type);
-  const space = o.space_id ? (await listObjects(ctx.executor, scope, { types: ["space"] })).find((s) => s.content_id === o.space_id) ?? null : null;
   const comments = (await listObjects(ctx.executor, scope, { types: ["footer_comment", "inline_comment"], containerId: o.content_id, live: true })).filter((c) => c.container_type === type);
   const attachments = (await listObjects(ctx.executor, scope, { types: ["attachment"], containerId: o.content_id, live: true })).filter((a) => a.container_type === type);
   const views: AttachmentView[] = attachments.map((a) => ({
@@ -171,11 +170,8 @@ async function mapContainer(ctx: ExportContext, o: ObjectRow, at: string, previo
       contentType: "text/markdown; charset=utf-8",
       content: Buffer.from(
         renderContainer(o, site, {
-          spaceKey: space?.space_key ?? null,
-          spaceName: space?.title ?? null,
           attachments: views,
           liveComments: comments.length,
-          historyThrough: o.history_through,
           restrictionsSummary: restrictionsSummary(o.restrictions, o.restrictions_status),
         }),
         "utf8",
