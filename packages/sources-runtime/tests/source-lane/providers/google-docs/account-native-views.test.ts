@@ -460,6 +460,27 @@ describe("view-only accounts read their own Sheets, Slides, Drive files and PDFs
     expect(bob.reason).toContain("copy_restricted_for_account");
   });
 
+  it("follows a restriction switched on or off without a new file version (final-combined-review N-1)", async () => {
+    const s = sheet();
+    await poll({ [ALICE]: [live(s, true)], [BOB]: [live(s, false)] });
+    await runAccountTasks([s]);
+    expect(await liveFile(T, P.sheet.native)).not.toBeNull();
+    // A capture that runs for another reason (sweep, comment activity) on the same version still honours a restriction.
+    const r = { ...s, copyRequiresWriterPermission: true };
+    const forced = await withGoogle([r], () => captureAccountView({ tenantId: T, docId: "sheet-1", mailbox: BOB, deps }));
+    expect(forced.value).toMatchObject({ state: "blocked", reason: "copy_restricted_for_account" });
+    expect(await tree(P.sheet)).toEqual(["capture.json", "comments.json", "drive.json"]);
+    // Switched off again, reported by bob's own feed with the same modifiedTime: captured again.
+    const withRestriction = (f: FileState, on: boolean) => ({ ...live(f, false), file: { ...live(f, false).file, copyRequiresWriterPermission: on } });
+    await poll({ [ALICE]: [live(s, true)], [BOB]: [withRestriction(s, false)] });
+    expect((await runAccountTasks([s])).value).toEqual([expect.objectContaining({ file: "sheet-1", status: "complete" })]);
+    expect(await liveFile(T, P.sheet.native)).not.toBeNull();
+    // Switched on, again only in the feed's restriction fields: the content is tombstoned without waiting for an edit.
+    await poll({ [ALICE]: [live(r, true)], [BOB]: [withRestriction(r, true)] });
+    expect((await runAccountTasks([r])).value).toEqual([expect.objectContaining({ file: "sheet-1", status: "blocked", reason: "copy_restricted_for_account" })]);
+    expect(await tree(P.sheet)).toEqual(["capture.json", "comments.json", "drive.json"]);
+  });
+
   it("fails closed under the account's own credential: 5xx/429/403/404 export nothing new, Retry-After is the floor", async () => {
     const base = sheet();
     await poll({ [ALICE]: [live(base, true)], [BOB]: [live(base, false)] });

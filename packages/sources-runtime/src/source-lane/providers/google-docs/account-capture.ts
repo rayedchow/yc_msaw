@@ -296,7 +296,13 @@ export async function markAccountCapturesRetired(tenantId: string, fileId: strin
 
 export interface AccountViewChange {
   fileId: string;
-  file?: { mimeType?: string; modifiedTime?: string; capabilities?: { canReadRevisions?: boolean } };
+  file?: {
+    mimeType?: string;
+    modifiedTime?: string;
+    capabilities?: { canReadRevisions?: boolean; canCopy?: boolean; canDownload?: boolean };
+    copyRequiresWriterPermission?: boolean;
+    downloadRestrictions?: { effectiveDownloadRestrictionWithContext?: { restrictedForReaders?: boolean; restrictedForWriters?: boolean } };
+  };
 }
 
 /**
@@ -323,18 +329,27 @@ export async function noteAccountView(tenantId: string, change: AccountViewChang
       return;
     }
     const version = change.file.modifiedTime ?? null;
+    // A download/copy restriction switched on or off without a new version (the feed carries the restriction fields)
+    // re-captures: on, the earlier content is tombstoned; off, the content is captured again.
+    const f = change.file;
+    const knowsRestriction = typeof f.copyRequiresWriterPermission === "boolean" || f.downloadRestrictions !== undefined
+      || typeof f.capabilities?.canCopy === "boolean" || typeof f.capabilities?.canDownload === "boolean";
+    const restricted = knowsRestriction ? downloadRestrictedReason(f) !== null : null;
+    const flipped = sql`(${restricted}::boolean IS NOT NULL AND (
+      (${restricted}::boolean AND gdocs_account_captures.state = 'complete')
+      OR (NOT ${restricted}::boolean AND gdocs_account_captures.state = 'blocked' AND coalesce(gdocs_account_captures.reason, '') LIKE '%copy_restricted_for_account%')))`;
     const [row] = rowsOf<{ state: string; retry_at: unknown }>(await db.execute(sql`
       INSERT INTO gdocs_account_captures (tenant_id, file_id, mailbox, state, drive_version, mime_type, updated_at)
       VALUES (${tenantId}, ${change.fileId}, ${box}, 'pending', ${version}, ${change.file.mimeType ?? null}, now())
       ON CONFLICT (tenant_id, file_id, mailbox) DO UPDATE SET
         mime_type = COALESCE(EXCLUDED.mime_type, gdocs_account_captures.mime_type),
         state = CASE
-          WHEN gdocs_account_captures.state IN ('retired', 'superseded')
+          WHEN gdocs_account_captures.state IN ('retired', 'superseded') OR ${flipped}
             OR (EXCLUDED.drive_version IS DISTINCT FROM gdocs_account_captures.captured_version
                 AND EXCLUDED.drive_version IS DISTINCT FROM gdocs_account_captures.drive_version)
           THEN 'pending' ELSE gdocs_account_captures.state END,
         retry_at = CASE
-          WHEN gdocs_account_captures.state IN ('retired', 'superseded')
+          WHEN gdocs_account_captures.state IN ('retired', 'superseded') OR ${flipped}
             OR (EXCLUDED.drive_version IS DISTINCT FROM gdocs_account_captures.captured_version
                 AND EXCLUDED.drive_version IS DISTINCT FROM gdocs_account_captures.drive_version)
           THEN NULL ELSE gdocs_account_captures.retry_at END,
@@ -743,7 +758,8 @@ export async function captureAccountView(input: AccountSnapshotInput): Promise<A
     // First capture of an editor file reads its comments; afterwards the account's own comment activity re-reads them.
     const commentsDue = row?.commentsDue === true || row?.commentsState === "error"
       || (row?.commentsState == null && mimeType !== null && COMMENTED_EDITOR_MIMES.has(mimeType));
-    const versionDone = row?.state === "complete" && modifiedTime !== null && row.capturedVersion === modifiedTime && row.exportDirectory === directory;
+    // A restriction switched on without a new version still tombstones the earlier content (final-combined-review N-1).
+    const versionDone = !restricted && row?.state === "complete" && modifiedTime !== null && row.capturedVersion === modifiedTime && row.exportDirectory === directory;
     const capturedAt = input.now ?? new Date();
     const order = modifiedTime && Number.isFinite(Date.parse(modifiedTime)) ? Date.parse(modifiedTime) : capturedAt.getTime();
     const provenanceBase = { account: mailbox, credentialMode: caller.mode, capture: "account_view: fetched under this account's own credential" };

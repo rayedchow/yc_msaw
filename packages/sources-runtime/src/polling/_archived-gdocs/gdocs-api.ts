@@ -334,9 +334,11 @@ export async function pollDriveChanges(
     const url = new URL(`${DRIVE_API}/changes`);
     url.searchParams.set("pageToken", currentToken);
     url.searchParams.set("pageSize", "100");
+    // SOURCE-LANE PATCH (final-combined-review N-1): the download/copy restriction fields let a view-only account's
+    // copy follow a restriction switched on or off without a new file version (account-capture.ts noteAccountView).
     url.searchParams.set(
       "fields",
-      "nextPageToken,newStartPageToken,changes(fileId,removed,file(name,mimeType,modifiedTime,md5Checksum,headRevisionId,lastModifyingUser(displayName,emailAddress),owners(displayName,emailAddress),trashed,parents,capabilities(canReadRevisions)))",
+      "nextPageToken,newStartPageToken,changes(fileId,removed,file(name,mimeType,modifiedTime,md5Checksum,headRevisionId,lastModifyingUser(displayName,emailAddress),owners(displayName,emailAddress),trashed,parents,copyRequiresWriterPermission,downloadRestrictions,capabilities(canReadRevisions,canCopy,canDownload)))",
     );
     url.searchParams.set("includeRemoved", "true");
     url.searchParams.set("supportsAllDrives", "true");
