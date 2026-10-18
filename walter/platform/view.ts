@@ -7,7 +7,7 @@ import path from "node:path";
 import type { Knowledge, KnowledgeRule } from "../compile/compile.js";
 import type { ReplayCase } from "../evals/replay.js";
 import type { WalterState } from "../state.js";
-import { domainOf } from "../domains/index.js";
+import { DOMAINS, domainOf } from "../domains/index.js";
 import type { Domain } from "../domains/types.js";
 
 const HERE = path.dirname(new URL(import.meta.url).pathname);
@@ -24,15 +24,23 @@ const html = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const code = (s: string) => html(s).replace(/`([^`]+)`/g, "<code>$1</code>");
 
 export interface Usage { usage: { tool: string; client: string | null; at: string; ok: boolean; ms?: number }[]; feedback: unknown[] }
-export interface Job { id: string; mcp: string; kind: string; status: "running" | "done" | "failed"; steps: { at: string; text: string }[]; startedAt: string; error?: string }
+export interface Job { id: string; mcp: string; kind: string; status: "running" | "done" | "failed"; steps: { at: string; text: string }[]; startedAt: string; error?: string; progress?: number }
 
-export function uiMcp(id: string, k: Knowledge, st: WalterState, usage: Usage | null, job: Job | null) {
-  const cfg = domainOf(id);
+/** The packs a new MCP can be built from, for the New MCP page. */
+export function uiPacks(defaultUrl: string | null) {
+  return Object.values(DOMAINS).map((d) => ({ id: d.id, title: d.title, systems: d.systems, name: d.name, tools: d.tools.map((t) => t.name), notes: md(d.mdFile), defaultUrl }));
+}
+
+export function uiMcp(id: string, k0: Knowledge | null, st: WalterState, usage: Usage | null, job: Job | null) {
+  const conn = st.connections?.[id];
+  // a new MCP that is still being mined has no knowledge yet
+  const k: Knowledge = k0 ?? { mcp: id, pack: conn?.pack, system: conn?.url ?? "", rules: [], questions: [] };
+  const cfg = domainOf(k.pack ?? conn?.pack ?? id);
   const dep = st.mcps?.[id];
   const open = k.questions.map((q, i) => ({ ...q, i })).filter((q) => !q.answer);
   const live = k.rules.filter((r) => r.status !== "retired");
   const tools = toolsOf(cfg).filter((t) => !t.kinds.length || t.kinds.some((kd) => live.some((r) => r.kind === kd)));
-  const status = job?.status === "running" ? "build" : !dep ? (open.length ? "ask" : "build") : "live";
+  const status = job?.status === "running" || !k0 ? "build" : !dep ? (open.length ? "ask" : "build") : "live";
   const now = Date.now();
   // The last 144 calls of the past 24h, one dot each: [tool index, agent call?, ok?, latency ms]
   const names = toolsOf(cfg).map((t) => t.name);
@@ -45,12 +53,12 @@ export function uiMcp(id: string, k: Knowledge, st: WalterState, usage: Usage | 
   }
   const q = open[0];
   return {
-    id, name: cfg.name, status, version: `v${dep?.version ?? k.version ?? 1}`, progress: job?.status === "running" ? Math.min(95, 10 + job.steps.length * 15) : 100,
+    id, name: k.name ?? conn?.name ?? cfg.name, status, version: `v${dep?.version ?? k.version ?? 1}`, progress: job?.status === "running" ? Math.round(job.progress ?? Math.min(95, 10 + job.steps.length * 15)) : 100,
     url: dep?.mcpUrl ?? "not deployed yet", webUrl: dep?.webUrl ?? null,
     systems: cfg.systems,
     stats: { agents: new Set((usage?.usage ?? []).map((u) => u.client ?? "unknown").filter((c) => !c.startsWith("walter"))).size, calls: (usage?.usage.length ?? 0).toLocaleString(), success: usage?.usage.length ? `${Math.round((100 * usage.usage.filter((u) => u.ok).length) / usage.usage.length)}%` : "—", rules: live.length },
     volume, calls, toolNames: names,
-    integrations: cfg.integrations, md: md(cfg.mdFile),
+    integrations: cfg.integrations, md: conn?.notes || md(cfg.mdFile),
     tools: tools.map((t) => [t.sig, t.d, t.kinds.length ? live.filter((r) => t.kinds.includes(r.kind)).map((r) => r.id).join(" ") : t.name === "report_outcome" ? "feedback" : ""]),
     rules: live.map((r) => [r.id, code(r.title), r.evidence ?? "", open.some((x) => x.rule_id === r.id) ? "asked" : r.change && r.status !== "confirmed" ? "change" : pct(r.heldOut.n ? r.heldOut : r.train), r.code, r.short ?? ""]),
     question: q ? { text: html(q.question), options: q.options, rule: live.findIndex((r) => r.id === q.rule_id), index: q.i, evidence: q.evidence } : null,
@@ -65,7 +73,7 @@ export function uiEvals(id: string, k: Knowledge, ev: { cases: ReplayCase[]; ran
   const heldOutFrom = Math.max(0, months.findIndex((m) => m >= "2026-07"));
   const lbl = (m: string) => `${MONTH[Number(m.slice(5)) - 1]}${m.slice(2, 4) !== months.at(-1)!.slice(2, 4) ? " " + m.slice(2, 4) : ""}`;
   const open = new Set(k.questions.filter((q) => !q.answer).map((q) => q.rule_id));
-  const domain = domainOf(id);
+  const domain = domainOf(k.pack ?? id);
   const toolOf = (kind: string) => domain.tools.find((t) => t.kinds.includes(kind))?.name;
   const replays: unknown[] = [];
   const TASK: Record<string, string> = Object.fromEntries(domain.tools.map((t) => [t.name, t.task ?? t.d]));

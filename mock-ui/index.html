@@ -156,6 +156,25 @@
   .q { margin: 24px 28px; }
   .pill.ghost { background: transparent; color: var(--text); border: 1px solid var(--border-strong); }
   .crumb button { color: var(--tertiary); }
+  /* new MCP */
+  .form { display: grid; grid-template-columns: 240px 1fr; border-top: 1px solid var(--border); }
+  .form > .lbl { padding: 20px 28px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); font-size: 13px; color: var(--tertiary); }
+  .form > .lbl b { display: block; color: var(--text); font-weight: 600; font-size: 14px; margin-bottom: 4px; }
+  .form > .fld { padding: 18px 28px; border-bottom: 1px solid var(--border); display: grid; gap: 10px; }
+  .form input, .form textarea { width: 100%; background: #151515; border: 1px solid var(--border-strong); color: var(--text); font-family: var(--mono); font-size: 13px; padding: 10px 12px; outline: none; }
+  .form textarea { min-height: 170px; resize: vertical; line-height: 1.6; }
+  .form input:focus, .form textarea:focus { border-color: var(--accent); }
+  .form .note { font-size: 12.5px; color: var(--tertiary); }
+  .packs { display: grid; grid-template-columns: repeat(3, 1fr); gap: 12px; }
+  .pack { border: 1px solid var(--border-strong); padding: 14px 16px; cursor: pointer; display: grid; gap: 6px; align-content: start; }
+  .pack:hover { border-color: #555; }
+  .pack.on { border-color: var(--accent); background: #1D1B24; }
+  .pack .t { font-weight: 600; font-size: 14px; }
+  .pack .s { font-size: 12.5px; color: var(--tertiary); line-height: 1.5; }
+  .pack .tl { font-family: var(--mono); font-size: 11.5px; color: var(--muted); }
+  .formfoot { display: flex; justify-content: space-between; align-items: center; gap: 24px; padding: 20px 28px; }
+  .err { color: var(--warn); font-size: 13px; }
+  .pill:disabled { opacity: .5; cursor: default; }
   /* evals */
   .c3 { grid-template-columns: repeat(3, 1fr); }
   .evhero .cell { padding: 22px 28px 24px; }
@@ -294,6 +313,7 @@ function renderList() {
         <h1>MCPs</h1>
         <p>GurtAI's internal MCP servers. Each one knows how GurtAI actually uses its systems. Any agent can connect.</p>
       </div>
+      <button class="pill" id="new">New MCP</button>
     </section>
     <section class="mcps">
       <div class="hdr"><span>Last 24h</span><span>Server</span><span>Status</span><span>Agents</span><span>Calls · 24h</span><span>Rules</span><span></span></div>
@@ -310,6 +330,7 @@ function renderList() {
         </button>`).join("")}
     </section>`;
   $$(".mcps .card").forEach((c) => c.onclick = () => (location.hash = c.dataset.id));
+  $("#new").onclick = () => (location.hash = "new");
   startDots();
 }
 
@@ -452,7 +473,7 @@ function renderDetail(m) {
 
     ${m.job && m.job.status !== "done" ? `
     <section class="pad" style="padding-top:16px;padding-bottom:16px">
-      <span class="${m.job.status === "failed" ? "warnc" : "muted"}">${m.job.status === "failed" ? "Rebuild failed" : "Rebuilding"} · ${esc(m.job.steps.at(-1)?.text ?? "starting")}</span>
+      <span class="${m.job.status === "failed" ? "warnc" : "muted"}">${m.job.status === "failed" ? (m.job.kind === "create" ? "Build failed" : "Rebuild failed") : m.job.kind === "create" ? `Building · ${m.progress}%` : "Rebuilding"} · ${esc(m.job.steps.at(-1)?.text ?? "starting")}</span>
     </section>` : ""}
     ${m.question && !(m.job && m.job.status === "running") ? `
     <section>
@@ -510,6 +531,65 @@ function renderDetail(m) {
     if (!r.ok) { alert((await r.json()).error); return; }
     await load(true);
   });
+}
+
+// ── new MCP: connect a system; walter mines, builds, deploys and checks it ──
+let PACKS = null;
+async function renderNew() {
+  $("#crumb").innerHTML = `<button id="back">MCPs</button><span>/</span><span class="cur">New MCP</span>`;
+  $("#back").onclick = () => (location.hash = "");
+  if (!PACKS) PACKS = (await (await fetch(`${API}/api/packs`)).json()).packs;
+  let pack = PACKS[0];
+  const draw = () => {
+    $("#app").innerHTML = `
+      <section class="pad head">
+        <div>
+          <h1>New MCP</h1>
+          <p>Connect a system. walter mines its history, builds the MCP, deploys it to Manufact and checks it against history.</p>
+        </div>
+      </section>
+      <section class="form">
+        <div class="lbl"><b>System</b>What walter connects to and learns from</div>
+        <div class="fld"><div class="packs">${PACKS.map((p) => `
+          <div class="pack ${p.id === pack.id ? "on" : ""}" data-p="${p.id}">
+            <span class="t">${esc(p.systems[0])}</span>
+            <span class="s">${esc(p.title.replace(/^GurtAI's /, ""))}</span>
+            <span class="tl">${p.tools.join(" · ")}</span>
+          </div>`).join("")}</div></div>
+        <div class="lbl"><b>Name</b>What agents and people see</div>
+        <div class="fld"><input id="f-name" placeholder="e.g. ${esc(pack.name.replace(/^GurtAI /, "GurtAI EMEA "))}" autocomplete="off" /></div>
+        <div class="lbl"><b>Connection</b>Base URL and API token</div>
+        <div class="fld">
+          <input id="f-url" value="${esc(pack.defaultUrl ?? "")}" placeholder="https://" autocomplete="off" />
+          <input id="f-token" type="password" placeholder="${pack.defaultUrl ? "API token (leave empty to use the token walter holds for this host)" : "API token"}" autocomplete="off" />
+          <span class="note">walter keeps the token and injects it into the MCP's environment on Manufact. Agents never see it.</span>
+        </div>
+        <div class="lbl"><b>Notes</b>What you already know about this system, as markdown</div>
+        <div class="fld"><textarea id="f-notes">${esc(pack.notes)}</textarea></div>
+      </section>
+      <section class="formfoot">
+        <span class="dim" id="f-msg" style="font-size:13px">Mining takes 5–15 minutes, then deploy and evals take a few more. You can leave this page.</span>
+        <button class="pill" id="f-go">Build MCP</button>
+      </section>`;
+    $$(".pack").forEach((el) => el.onclick = () => { pack = PACKS.find((p) => p.id === el.dataset.p); draw(); });
+    $("#f-go").onclick = async () => {
+      const btn = $("#f-go"), msg = $("#f-msg");
+      btn.disabled = true; btn.textContent = "Checking connection…";
+      msg.className = "dim"; msg.textContent = "walter is reading the system to make sure the URL and token work.";
+      try {
+        const r = await fetch(`${API}/api/mcps`, { method: "POST", headers: { "content-type": "application/json" },
+          body: JSON.stringify({ pack: pack.id, name: $("#f-name").value, url: $("#f-url").value, token: $("#f-token").value, notes: $("#f-notes").value }) });
+        const j = await r.json();
+        if (!r.ok) throw new Error(j.error);
+        await load(true);
+        location.hash = j.id;
+      } catch (e) {
+        btn.disabled = false; btn.textContent = "Build MCP";
+        msg.className = "err"; msg.textContent = e.message;
+      }
+    };
+  };
+  draw();
 }
 
 // ── evals: is walter's understanding of the system correct? ───────────────
@@ -658,6 +738,7 @@ function startDots() {
 function route() {
   const [path, opt] = location.hash.slice(1).split(",");
   const [id, sub] = path.split("/");
+  if (id === "new") return renderNew(), window.scrollTo({ top: 0 });
   const m = MCPS.find((x) => x.id === id);
   if (m && sub === "evals") return renderEvals(m), window.scrollTo({ top: 0 });
   m ? renderDetail(m) : renderList();
@@ -677,6 +758,7 @@ async function load(force) {
     if (!force && text === lastJson) return;
     lastJson = text;
     MCPS = j.mcps; EVALS = j.evals;
+    if (location.hash === "#new" && !force) return; // never redraw a form someone is typing in
     // don't redraw under the cursor on the overview tree unless something material changed
     route();
   } catch (e) {

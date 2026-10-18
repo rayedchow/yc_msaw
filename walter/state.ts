@@ -8,6 +8,8 @@ const FILE = path.join(STATE_DIR, "state.json");
 export interface WalterState {
   system?: { url?: string; mcpUrl?: string; serverId?: string; token?: string; deployedAt?: string };
   walterToken?: string;
+  /** per-MCP system connections added from the UI (token held here, injected into the MCP's Manufact env) */
+  connections?: Record<string, { pack: string; name: string; url: string; token: string; notes?: string; createdAt: string }>;
   mcps?: Record<string, { url?: string; mcpUrl?: string; serverId?: string; version?: number; hash?: string; webUrl?: string; deployedAt?: string; history?: { version: number; hash: string; at: string }[] }>;
 }
 
