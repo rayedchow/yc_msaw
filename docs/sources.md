@@ -55,7 +55,8 @@ How it is enforced:
   mailbox. The root sums only fully readable providers.
 - In status, providers the caller cannot read are omitted. For a partly readable provider, a coverage report is kept
   only if its scope names one of the caller's own addresses (whole-address match) and its reason names no other.
-  Device bindings are listed to their enroller only.
+  Device bindings are listed to their enroller only. The admin `GET /v1/sources/bindings` lists every binding so
+  admins can manage them, but another member's device label is redacted (`label: null`).
 - The runtime relays are filtered the same way:
   - `GET /v1/sources/runtime/status` drops other owners' coverage and every connection whose directory the caller
     cannot read. A runtime error is answered with a fixed 502, never the runtime's body.
