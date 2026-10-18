@@ -30,6 +30,7 @@ let runtimeToken: string;
 let provisioned = "";
 const connectedProviders = new Set<string>(["zoom"]); // zoom: connected before owners were recorded (legacy)
 let failNextCodingEnrol = false;
+let failStatus = false;
 const tok: Record<"alice" | "bob" | "carol" | "outsider", string> = { alice: "", bob: "", carol: "", outsider: "" };
 const mcp: Partial<Record<keyof typeof tok, Client>> = {};
 
@@ -105,6 +106,9 @@ beforeAll(async () => {
       connectedProviders.add("granola");
       return void res.writeHead(200).end(JSON.stringify({ connected: true }));
     }
+    if (req.method === "DELETE" && /\/devices\/[a-z-]+\/sb-[0-9a-f]{16}$/.test(url)) return void res.writeHead(200).end(JSON.stringify({ revoked: true }));
+    if (req.method === "DELETE" && /\/connections\/(granola|cursor_background_agents)$/.test(url)) return void res.writeHead(200).end(JSON.stringify({ status: "revoked" }));
+    if (req.method === "GET" && /\/status$/.test(url) && failStatus) return void res.writeHead(500).end(JSON.stringify({ connections: [{ provider: "google", external_account_id: "bob@acme.test" }] }));
     if (req.method === "GET" && /\/status$/.test(url)) {
       return void res.writeHead(200).end(JSON.stringify({
         tenantId: "t",
@@ -386,6 +390,43 @@ describe("owner-only personal sources for members of one organization", () => {
     const zoom = await http("POST", "/v1/sources/connect/zoom", tok.carol, { mode: "oauth" });
     expect(zoom.status).toBe(409);
     expect(((await zoom.json()) as any).error.reason).toBe("unowned_legacy_data");
+  });
+
+  it("closes the owner-acl re-audit findings (purged legacy, sticky withholding, owner self-service stop, relays)", async () => {
+    // NEW-1: legacy data that was purged (ordinary deletes) still has readable history: it blocks a first claim.
+    await publish("legacy-wa", [put("sources/whatsapp-personal/acct/chat/2026-01/m.json", "legacy chat: needle-legacy-wa\n")]);
+    const at = new Date().toISOString();
+    await publish("legacy-wa-purge", [{ op: "delete", path: "sources/whatsapp-personal/acct/chat/2026-01/m.json", deletedAt: at, reason: "operator_purge", capturedAt: at }]);
+    const wa = await http("POST", "/v1/sources/connect/instagram_personal", tok.carol, {});
+    expect(wa.status).not.toBe(201); // unrelated provider: unaffected (fake runtime refuses it)
+    const claim = await http("POST", "/v1/sources/connect/whatsapp_personal", tok.carol, {});
+    expect(claim.status).toBe(409);
+    expect(((await claim.json()) as any).error.reason).toBe("unowned_legacy_data");
+    // NEW-2: once a path is withheld, a later put does not restore it (its earlier versions stay sealed).
+    const p = "sources/slack/mpdm-x--y-channel-77/threads/t.md";
+    await publish("dm-1", [put(p, "group dm v1: needle-sticky\n")]);
+    const t1 = new Date().toISOString();
+    await publish("dm-withheld", [{ op: "delete", path: p, deletedAt: t1, reason: "slack_direct_message_withheld", capturedAt: t1 }]);
+    await new Promise((r) => setTimeout(r, 5));
+    await publish("dm-republish", [{ ...put(p, "group dm v2\n"), capturedAt: new Date().toISOString() }]);
+    expect((await tool("carol", "read", { path: `$SOURCES/${p.slice(8)}` })).code).toBe("not_found");
+    expect((await tool("carol", "sources_history", { path: `$SOURCES/${p.slice(8)}` })).versions).toEqual([]);
+    // N3: owners stop their own collection; nobody else can.
+    const devices = ((await (await http("GET", "/v1/sources/status", tok.alice)).json()) as any).bindings.filter((b: any) => b.kind === "device" && b.providers.includes("imessage"));
+    expect(devices.length).toBeGreaterThan(0);
+    expect((await http("DELETE", `/v1/sources/bindings/${devices[0].bindingId}`, tok.carol)).status).toBe(403);
+    expect((await http("DELETE", `/v1/sources/bindings/${devices[0].bindingId}`, tok.alice)).status).toBe(200);
+    expect((await http("DELETE", "/v1/sources/connections/granola", tok.carol)).status).toBe(403);
+    expect((await http("DELETE", "/v1/sources/connections/granola", tok.bob)).status).toBe(200);
+    // A plain member (carol owns cursor-agents) disconnects her own account; another member cannot.
+    expect((await http("DELETE", "/v1/sources/connections/cursor_background_agents", tok.outsider)).status).not.toBe(200);
+    expect((await http("DELETE", "/v1/sources/connections/cursor_background_agents", tok.carol)).status).toBe(200);
+    // N4: a failing runtime status is never relayed (its body could carry other owners' data).
+    failStatus = true;
+    const rs = await http("GET", "/v1/sources/runtime/status", tok.carol);
+    failStatus = false;
+    expect(rs.status).toBe(502);
+    expect(await rs.text()).not.toContain("bob@acme.test");
   });
 });
 

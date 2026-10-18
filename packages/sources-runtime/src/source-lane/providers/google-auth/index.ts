@@ -39,6 +39,10 @@ export async function googleAccountOwners(tenantId: string, executor: DbExecutor
       UNION
       SELECT account_email FROM google_oauth_grants WHERE tenant_id = ${tenantId}
       UNION
+      -- A legacy single-token Google connection (donor integration_tokens metadata.email, no connections row).
+      SELECT lower(metadata->>'email') FROM integration_tokens
+       WHERE user_id = ${tenantId} AND provider = 'google' AND COALESCE(metadata->>'email', '') <> ''
+      UNION
       SELECT account_email FROM google_account_owner_proofs WHERE tenant_id = ${tenantId}
     )
     SELECT a.email, g.subject, g.issuer

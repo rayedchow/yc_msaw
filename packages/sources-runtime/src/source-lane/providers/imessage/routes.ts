@@ -115,7 +115,7 @@ function principalSubject(c: Context): { subject: string; issuer: string } | nul
 }
 
 /**
- * Device enrolment and device commands are self-service (owner-only sources: a member enrols and commands their own
+ * Device enrolment, commands and revocation are self-service (owner-only sources: a member enrols and commands their own
  * Mac); yc_msaw mints the binding and checks the owner, so this is defence in depth. Every other admin route keeps the
  * collection scopes.
  */
@@ -187,7 +187,7 @@ export function registerImessageInternalRoutes(app: Hono, deps: InternalRouteDep
   });
 
   app.delete("/tenants/:tenantId/devices/imessage/:bindingId", async (c) => {
-    const denied = requireCollectionScope(c);
+    const denied = requireEnrolScope(c);
     if (denied) return denied;
     const device = await db.transaction((tx) => revokeImessageDevice(tx, tenantOf(c), c.req.param("bindingId") ?? ""));
     return device ? c.json({ device, revoked: true }) : c.json({ error: { code: "not_found", message: "no iMessage device for this binding" } }, 404);

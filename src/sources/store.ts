@@ -533,6 +533,12 @@ export class SourceStore {
     yield* visit(stored, r.sha);
   }
 
+  /** True for a tombstone whose reason ends in `_withheld`: the collector decided the content must not be served. */
+  async isWithheldVersion(versionId: string): Promise<boolean> {
+    const v = await this.version(versionId);
+    return typeof v.deleted?.reason === "string" && v.deleted.reason.endsWith("_withheld");
+  }
+
   async version(versionId: string): Promise<SourceVersion> {
     if (!isVersionId(versionId)) throw new SourceError("invalid_input", `Invalid versionId ${JSON.stringify(versionId)}`);
     const bytes = (await this.store.get(this.ns, [versionKey(versionId)])).get(versionKey(versionId));
@@ -1040,6 +1046,9 @@ class Overlay {
     }
     // After a deletion only observation order counts: provider restores keep their old modification time.
     if (existing?.t === "x" && change.capturedAt < existing.capturedAt) return { outcome: "stale", versionId: existing.v };
+    // Withholding is sticky: a collector withheld this path's content (e.g. a Slack DM), and a later put would unseal
+    // every earlier version through history. Such puts are ignored (outcome stale) rather than restoring the path.
+    if (existing?.t === "x" && (await this.src.isWithheldVersion(existing.v))) return { outcome: "stale", versionId: existing.v };
     const body: SourceVersionBody = {
       schema: "procmem.source-version/v1",
       path: change.stored,

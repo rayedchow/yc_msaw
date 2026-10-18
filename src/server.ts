@@ -488,7 +488,8 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       return listBindingsRoute(principal, sources);
     });
     server.delete("/v1/sources/bindings/:id", async (c) => {
-      const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+      // Admins revoke any binding; a member revokes only a device they enrolled (checked in the route).
+      const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
       if (principal instanceof Response) return principal;
       return revokeBindingRoute(principal, sources, c.req.param("id"), deps.sourceRuntime);
     });
@@ -525,9 +526,11 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         return connectRoute(c.req.raw, principal, runtime, c.req.param("provider"), sources);
       });
       server.delete("/v1/sources/connections/:provider", async (c) => {
-        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        // The owner of a personal account disconnects it themselves; shared tools need an admin.
+        const personal = Object.prototype.hasOwnProperty.call(PERSONAL_CONNECT_DIRS, c.req.param("provider"));
+        const principal = await authenticateHttp(c.req.raw, auth, personal ? SCOPES.memoryRead : SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;
-        return disconnectRoute(principal, runtime, c.req.param("provider"));
+        return disconnectRoute(principal, runtime, c.req.param("provider"), sources);
       });
       // Google provider grants (OAuth / Composio / DWD allowlist) live in the runtime's google-auth module.
       server.get("/v1/sources/google/auth", async (c) => {
@@ -601,7 +604,8 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       });
       // Generic Nango records lane (operator-configured Nango integrations; runtime providers/nango-records).
       server.get("/v1/sources/nango-records", async (c) => {
-        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+        // Admin-only: the lane status names connections and end users of sources members may not read.
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;
         return nangoRecordsRoute(c.req.raw, principal, runtime, "status");
       });

@@ -33,7 +33,7 @@ export async function isDirectChannel(ctx: ExportContext, channelId: string): Pr
   const hit = cache.get(key);
   if (hit && Date.now() - hit.at < (hit.direct ? CACHE_TTL_MS : NEGATIVE_TTL_MS)) return hit.direct;
   const res = (await ctx.executor.execute(sql`
-    SELECT EXISTS (
+    SELECT (EXISTS (
       SELECT 1 FROM slack_source_conversations
        WHERE tenant_id = ${ctx.tenantId} AND channel_id = ${channelId} AND channel_type IN ('im', 'mpim')
     ) OR EXISTS (
@@ -41,14 +41,28 @@ export async function isDirectChannel(ctx: ExportContext, channelId: string): Pr
        WHERE user_id = ${ctx.tenantId} AND source = 'slack'
          AND COALESCE(raw_payload->>'_channel', raw_payload->>'channel') = ${channelId}
          AND COALESCE(raw_payload->>'_channel_type', raw_payload->>'channel_type') IN ('im', 'mpim')
-    ) AS direct
-  `)) as unknown as { rows?: Array<{ direct: boolean }> } | Array<{ direct: boolean }>;
+    )) AS direct,
+    EXISTS (
+      SELECT 1 FROM slack_source_conversations
+       WHERE tenant_id = ${ctx.tenantId} AND channel_id = ${channelId} AND channel_type IS NOT NULL AND channel_type NOT IN ('im', 'mpim')
+    ) AS known_channel
+  `)) as unknown as { rows?: Array<{ direct: boolean; known_channel: boolean }> } | Array<{ direct: boolean; known_channel: boolean }>;
   const rows = Array.isArray(res) ? res : (res.rows ?? []);
   const direct = rows[0]?.direct === true;
-  cache.delete(key);
-  cache.set(key, { direct, at: Date.now() });
+  // A "not a DM" answer is cached only when the conversation's own metadata says so; otherwise it is re-asked.
+  if (direct || rows[0]?.known_channel === true) {
+    cache.delete(key);
+    cache.set(key, { direct, at: Date.now() });
+  }
   while (cache.size > MAX_CACHE) cache.delete(cache.keys().next().value!);
   return direct;
+}
+
+/** Record that a conversation is a DM (its metadata arrived): later exports withhold it without asking again. */
+export function markDirectChannel(tenantId: string, channelId: string): void {
+  const key = `${tenantId}\n${channelId}`;
+  cache.delete(key);
+  cache.set(key, { direct: true, at: Date.now() });
 }
 
 export function resetDirectChannelCacheForTests(): void {

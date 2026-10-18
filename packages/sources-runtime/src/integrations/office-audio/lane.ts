@@ -315,7 +315,8 @@ export function registerOfficeAudioInternalRoutes(app: Hono, deps: InternalRoute
     return c.json({ created: true, bindingId: b.bindingId, wire: "/api/office-audio/ingest" }, 201);
   });
   app.delete("/tenants/:tenantId/devices/office-audio/:bindingId", async (c) => {
-    if (!writer(c)) return c.json({ error: { code: "insufficient_scope" } }, 403);
+    // The device owner revokes it (yc_msaw checks ownership before forwarding).
+    if (!writer(c) && !(principal(c).scopes ?? []).includes("memory:read")) return c.json({ error: { code: "insufficient_scope" } }, 403);
     const r = rowsOf(await ex().execute(sql`UPDATE office_audio_devices SET status = 'revoked', revoked_at = now() WHERE tenant_id = ${deps.tenantOf(c)} AND binding_id = ${c.req.param("bindingId")} AND status = 'active' RETURNING binding_id`));
     return r.length ? c.json({ revoked: true }) : c.json({ error: { code: "not_found" } }, 404);
   });

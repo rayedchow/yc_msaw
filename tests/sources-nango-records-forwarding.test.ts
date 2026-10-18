@@ -104,6 +104,8 @@ function req(method: string, route: string, key: string | null, body?: unknown) 
 describe("Nango records setup forwarding", () => {
   it("requires the right scope per route", async () => {
     expect((await req("GET", "/v1/sources/nango-records", null)).status).toBe(401);
+    // The lane status names connections of sources members may not read (owner-only): admins only.
+    expect((await req("GET", "/v1/sources/nango-records", reader.key)).status).toBe(403);
     expect((await req("POST", "/v1/sources/nango-records/connect-sessions", reader.key, { source: "outlook" })).status).toBe(403);
     expect((await req("DELETE", "/v1/sources/nango-records/connections/outlook/conn-1", reader.key)).status).toBe(403);
     expect((await req("POST", "/v1/sources/nango-records/sync", collector.key, {})).status).toBe(403);
@@ -111,9 +113,9 @@ describe("Nango records setup forwarding", () => {
   });
 
   it("forwards status, connect sessions, session status, disconnect and sync with the verified tenant", async () => {
-    expect((await req("GET", "/v1/sources/nango-records", reader.key)).status).toBe(200);
+    expect((await req("GET", "/v1/sources/nango-records", admin.key)).status).toBe(200);
     expect(seen[0]).toMatchObject({ method: "GET", url: "/internal/v1/tenants/acme/nango-records", auth: `Bearer ${SERVICE_TOKEN}`, principal: { tenantNs: "acme" } });
-    expect(seen[0]!.principal!.scopes).toEqual(["memory:read"]);
+    expect(seen[0]!.principal!.scopes).toEqual(["memory:build", "memory:read"]);
 
     reply = { status: 201, body: { sessionId: "4f9c2c55-9f0e-4a43-8a8e-6a8a4b0b1c2d", token: "nango_connect_session_x" } };
     const created = await req("POST", "/v1/sources/nango-records/connect-sessions", admin.key, { source: "outlook" });

@@ -175,8 +175,9 @@ export class SourceViewer {
     }
     if (provider === "slack") {
       if (seg.some((s) => SLACK_DM_RE.test(s))) return "deny";
-      // Directories that hold conversations directly: filter their children.
-      if (seg.length === 1 || (seg.length === 4 && seg[1] === "_workspaces" && seg[3] === "conversations")) return "mixed";
+      // Directories that (transitively) hold conversations: filter their children, withhold their totals.
+      if (seg.length === 1) return "mixed";
+      if ((seg[1] === "_workspaces" && seg.length <= 4) || (seg[1] === "_raw" && seg.length <= 3)) return "mixed";
       return "allow";
     }
     // Default deny: a provider nobody declared shared (e.g. an operator-configured Nango source) has no owner.

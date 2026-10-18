@@ -427,7 +427,8 @@ export function registerCodingSessionsInternalRoutes(app: Hono, deps: InternalRo
     return c.json({ devices: rows });
   });
   app.delete("/tenants/:tenantId/devices/coding-sessions/:bindingId", async (c) => {
-    if (!canWrite(c)) return c.json({ error: { code: "insufficient_scope" } }, 403);
+    // The device owner revokes it (yc_msaw checks ownership before forwarding).
+    if (!canWrite(c) && !(principal(c).scopes ?? []).includes("memory:read")) return c.json({ error: { code: "insufficient_scope" } }, 403);
     const ok = await revokeDevice(ex(), deps.tenantOf(c), c.req.param("bindingId"));
     return ok ? c.json({ revoked: true }) : c.json({ error: { code: "not_found" } }, 404);
   });

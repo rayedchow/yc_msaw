@@ -160,7 +160,8 @@ describe("revocation", () => {
     expect(cmd.command.sourceSyncRunId).toBeTruthy();
 
     // Requires a collection-scoped principal of the tenant.
-    expect((await internal("DELETE", `/tenants/acme/devices/imessage/${d.bindingId}`, { tenant: "acme", scopes: ["memory:read"] })).status).toBe(403);
+    // Owners revoke their own device (yc_msaw checks ownership); a principal without a source scope may not.
+    expect((await internal("DELETE", `/tenants/acme/devices/imessage/${d.bindingId}`, { tenant: "acme", scopes: ["integrations:read"] })).status).toBe(403);
     expect((await internal("DELETE", `/tenants/acme/devices/imessage/${d.bindingId}`, { tenant: "rival" })).status).toBe(403);
     const revoked = await internal("DELETE", `/tenants/acme/devices/imessage/${d.bindingId}`, { tenant: "acme" });
     expect(revoked.status).toBe(200);

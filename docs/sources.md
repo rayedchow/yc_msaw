@@ -57,7 +57,9 @@ How it is enforced:
   only if its scope names one of the caller's own addresses (whole-address match) and its reason names no other.
   Device bindings are listed to their enroller only.
 - The runtime relays are filtered the same way:
-  - `GET /v1/sources/runtime/status` drops other owners' coverage and personal connections.
+  - `GET /v1/sources/runtime/status` drops other owners' coverage and every connection whose directory the caller
+    cannot read. A runtime error is answered with a fixed 502, never the runtime's body.
+  - `GET /v1/sources/nango-records` (lane status: connection ids and end users) is admin-only.
   - `GET /v1/sources/google/auth` lists a member's own Google accounts only. Admins (`memory:build`) still see
     every account's auth metadata, because they add DWD mailboxes and revoke grants. They never see the data.
   - `GET /v1/sources/office-audio/consents` (participant names) is limited to the office-audio owner and admins.
@@ -79,10 +81,14 @@ How it is enforced:
   - so is data with more than one claimed owner;
   - a provider directory has one owner. A second member's device setup or connect is refused with
     `409 owner_conflict`.
-  - A first claim is refused (`reason: unowned_legacy_data`) when the directory still has live files, or the
-    runtime still holds a connection of that integration (or cannot be asked). Legacy data is never handed to
-    whoever enrols first.
+  - A first claim is refused (`reason: unowned_legacy_data`) when the directory holds any history: live files, or
+    tombstones whose earlier versions stay readable through `sources_history`. It is also refused when the runtime
+    still holds a connection of that integration, or cannot be asked. Legacy data is never handed to whoever enrols
+    first, including after a purge.
   - A refused connect or device setup leaves no owner behind.
+  - Owners stop their own collection: a member revokes a device they enrolled (`DELETE /v1/sources/bindings/:id`)
+    and disconnects a personal account they own (`DELETE /v1/sources/connections/<integration>`). Ownership and its
+    history are kept. Admins can revoke any binding.
 - **Slack direct messages and group DMs** are personal, but their participants are Slack users, not yc_msaw
   principals. So nobody may read them:
   - The runtime withholds them at export (`providers/slack/direct.ts`). That covers projections, raw records,
@@ -90,6 +96,7 @@ How it is enforced:
     withheld too. When a conversation turns out to be a DM later, its already exported projections are withheld.
   - Withheld paths are published as tombstones with reason `slack_direct_message_withheld`. yc_msaw treats any
     `*_withheld` tombstone as a missing path, so `read` and `sources_history` (earlier versions included) are sealed.
+    Withholding is sticky: a later put to that path is ignored (`stale`) and never restores it.
   - yc_msaw also denies any `D…` conversation path, and denies `binary/slack/` (legacy donor Slack files carry no
     conversation).
   - The data stays in the runtime database.
@@ -109,8 +116,9 @@ Migration, enrolment and current limits (owner-only is enforced; these are decis
   mailbox sees stay sealed. The donor calendar month files (which mix mailboxes) still need one owner of every
   Google account.
 - Legacy data captured before owners existed stays sealed, and so does a provider whose runtime connection
-  predates owner records. Releasing it needs an operator to delete those runtime rows (database-level). No tenant
-  has such data yet.
+  predates owner records. A purge does not release it, because its history stays in `$SOURCES`; only a new tenant
+  does. Separately, a row captured before a claim but exported after it is attributed to the claimer. Per-connection
+  attribution (runtime connection rows recording their connector) would close this. No tenant has such data yet.
 - Ownership cannot be transferred. A static SDK key that enrols a device owns it like any principal.
 
 ## Layout

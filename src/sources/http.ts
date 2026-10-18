@@ -212,6 +212,13 @@ export async function listBindingsRoute(principal: Principal, service: SourceSer
 
 export async function revokeBindingRoute(principal: Principal, service: SourceService, bindingId: string, runtime?: SourceRuntimeClient): Promise<Response> {
   try {
+    if (!principal.scopes.includes(SCOPES.memoryBuild)) {
+      // Members stop their own devices; every other binding is administrative.
+      const own = (await service.bindings.list(principal.tenantNs)).find((x) => x.bindingId === bindingId);
+      if (!own || own.kind !== "device" || own.createdBy.subject !== principal.subject || own.createdBy.issuer !== principal.issuer) {
+        return error(403, "forbidden", "Members may revoke only a device they enrolled");
+      }
+    }
     const b = await service.bindings.revoke(principal.tenantNs, bindingId);
     if (!b) return error(404, "not_found", `No binding ${bindingId}`);
     // Revocation here is authoritative and immediate: the runtime asks deviceKeyVerifyRoute on every
@@ -356,7 +363,9 @@ export async function runtimeStatusRoute(principal: Principal, runtime: SourceRu
   } catch (e) {
     return error(502, "runtime_unreachable", errorMessage(e));
   }
-  if (!service || r.status !== 200 || !r.body || typeof r.body !== "object") return relay(r);
+  if (!service) return relay(r);
+  // A non-200 body could still carry data: callers get a fixed error, never the runtime's body.
+  if (r.status !== 200 || !r.body || typeof r.body !== "object") return error(502, "runtime_status_unavailable", `Source runtime status answered ${r.status}`);
   const viewer = await service.viewer(principal.tenantNs, who(principal));
   const body = r.body as { coverage?: Array<{ provider?: unknown; scope?: unknown; reason?: unknown }>; connections?: Array<{ provider?: unknown; external_account_id?: unknown }> };
   const owned = new Set(viewer.googleAccounts);
@@ -369,8 +378,9 @@ export async function runtimeStatusRoute(principal: Principal, runtime: SourceRu
       ? {
           connections: body.connections.filter((c) => {
             if (c.provider === "google") return typeof c.external_account_id === "string" && owned.has(c.external_account_id.toLowerCase());
-            const dir = typeof c.provider === "string" ? PERSONAL_CONNECT_DIRS[c.provider] : undefined;
-            return dir ? viewer.access(dir) === "allow" : true;
+            if (typeof c.provider !== "string") return false;
+            const dir = PERSONAL_CONNECT_DIRS[c.provider] ?? c.provider.replace(/_/g, "-");
+            return viewer.access(dir) === "allow";
           }),
         }
       : {}),
@@ -387,10 +397,13 @@ export const PERSONAL_CONNECT_DIRS: Readonly<Record<string, string>> = {
   instagram_personal: "instagram-personal",
 };
 
-/** True when sources/<provider>/ holds live files (tombstones of purged data do not count). */
+/**
+ * True when sources/<provider>/ holds any history: live files or tombstones. A purge publishes ordinary deletes, and
+ * every earlier version stays readable through sources_history, so purged legacy data must block a first claim too.
+ */
 async function providerHasData(service: SourceService, ns: string, provider: string): Promise<boolean> {
   const r = await service.storeFor(ns).resolve(provider);
-  return r !== null && r.type === "dir" && (r.entry === null || r.entry.files > 0);
+  return r !== null && r.type === "dir" && (r.entry === null || r.entry.files + r.entry.deleted > 0);
 }
 
 /**
@@ -437,8 +450,16 @@ export async function connectRoute(request: Request, principal: Principal, runti
   }
 }
 
-export async function disconnectRoute(principal: Principal, runtime: SourceRuntimeClient, provider: string): Promise<Response> {
+export async function disconnectRoute(principal: Principal, runtime: SourceRuntimeClient, provider: string, service?: SourceService): Promise<Response> {
   try {
+    const dir = PERSONAL_CONNECT_DIRS[provider];
+    if (dir && service && !principal.scopes.includes(SCOPES.memoryBuild)) {
+      // A member disconnects only a personal account they own (ownership, and its sealed history, is kept).
+      const owners = (await service.owners.registry(principal.tenantNs)).value.entries.filter((e) => e.provider === dir);
+      if (!owners.some((e) => e.subject === principal.subject && e.issuer === principal.issuer)) {
+        return error(403, "forbidden", `Only the owner of ${dir} may disconnect it`);
+      }
+    }
     return relay(await runtime.disconnect(principal, provider));
   } catch (e) {
     return e instanceof SourceError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
