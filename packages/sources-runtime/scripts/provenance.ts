@@ -171,6 +171,11 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     reason: "notion report: the handshake verification token (the webhook signing secret) is logged as a sha256 fingerprint unless NOTION_WEBHOOK_LOG_VERIFICATION_TOKEN=1",
     test: "tests/source-lane/providers/notion/notion-report-fixes.test.ts",
   },
+  "src/vault/google-rate-limit.ts": {
+    status: "patched",
+    reason: "Valid Retry-After above the donor's 15-minute clamp is honoured (bounded at 24 h); lanes persist it durably.",
+    test: "tests/source-lane/core/google-retry-after.test.ts",
+  },
   "src/mirror/backfill.ts": {
     status: "patched",
     reason: "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones). slack request 1: fold the append-only Slack ledger into window files. granola request 1: render each Granola note's latest snapshot only and skip notes whose newest observation is a tombstone; granola fidelity P1: notes with only typed notes are rendered too. granola fidelity P1: a Granola note with only typed notes is rendered by mirror.backfill",
