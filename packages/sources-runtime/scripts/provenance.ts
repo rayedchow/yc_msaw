@@ -137,10 +137,16 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     test: "tests/source-lane/providers/jira/shared-patches.test.ts",
     tests: ["tests/source-lane/providers/jira/donor-selection.test.ts"],
   },
+  "src/mirror/materializer.ts": {
+    status: "patched",
+    reason: "slack request 1: fold the append-only Slack ledger into channel-day files.",
+    test: "tests/source-lane/providers/slack/fold.test.ts",
+  },
   "src/mirror/backfill.ts": {
     status: "patched",
-    reason: "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones).",
+    reason: "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones). slack request 1: fold the append-only Slack ledger into window files.",
     test: "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts",
+    tests: ["tests/source-lane/providers/slack/fold.test.ts"],
   },
   "src/vault/redaction.ts": {
     status: "patched",

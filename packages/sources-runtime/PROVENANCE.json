@@ -898,6 +898,18 @@
       ]
     },
     {
+      "path": "drizzle/9400_slack_source_lane.sql",
+      "sha256": "93c008511b4b214d814b745e4476a666bc073786d3f4f420a7fba25f47fc2fab",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane tables: slack_source_quota (per app+workspace+method slots, Retry-After), slack_source_workspaces (leases, discovery/auth/rate state), slack_source_conversations (access state, head/tail, forward/backward/reconcile pass checkpoints, history bound/completion), reconcile seen-set, slack_source_files + chunks/blobs; journal triggers via source_lane_journal_row ignoring cursor/progress columns.",
+      "tests": [
+        "tests/source-lane/providers/slack/history-sync.test.ts",
+        "tests/source-lane/providers/slack/export.test.ts",
+        "tests/source-lane/providers/slack/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
       "path": "drizzle/9550_imessage_device_ingest.sql",
       "sha256": "a90496678f6b14512efca3fceac38d1f7f2804642af7ed9a207d143912fc5349",
       "status": "new",
@@ -2057,17 +2069,51 @@
     },
     {
       "path": "src/integrations/slack/files.ts",
-      "sha256": "9c8e2d2e2d39fcecf6ab2f23f0fadf707659af8f8d4157f07cf5fef1366a14fd",
-      "status": "verbatim",
+      "sha256": "a8e43a386e69cd604d3ee62761df0cc330df29717f58e6f1b3f89da21dc364f0",
+      "status": "patched",
+      "owner": "slack",
       "donorPath": "src/integrations/slack/files.ts",
-      "donorSha256": "9c8e2d2e2d39fcecf6ab2f23f0fadf707659af8f8d4157f07cf5fef1366a14fd"
+      "donorSha256": "9c8e2d2e2d39fcecf6ab2f23f0fadf707659af8f8d4157f07cf5fef1366a14fd",
+      "reason": "Bytes moved from S3 binary_documents to lane-owned slack_source_files + per-tenant 8 MiB chunks (exported as binary versions with tombstones); token sent only to https allow-listed Slack file hosts (files.slack.com, files.slack-gov.com), no credentials/port, redirects refused, sign-in HTML rejected, streamed size cap; tombstone/hidden_by_limit/external labelled; failed downloads back off and retry via files.info (no URL stored); donor skip counters kept.",
+      "tests": [
+        "tests/source-lane/providers/slack/files.test.ts",
+        "tests/integrations/slack/files.test.ts",
+        "tests/source-lane/providers/slack/export.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/slack/history-sync.ts",
+      "sha256": "fca2dd94a34322c3a3ad50dc85080b8413d54f0053b39915cf2924b12c58f3b8",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Restart-safe Slack history engine: forward/reconcile/backward conversations.history passes with per-page cursor+low-ts checkpoints and invalid_cursor restart, round-robin under the durable quota, per-workspace leases, legacy watermark seeding, history_complete only for unbounded walks, revision/absence ledger observations, thread replies with per-page last_reply_ts checkpoints and missing-thread registration, files.info retries, discovery incl. archived with access-state labelling, continuation tasks.",
+      "tests": [
+        "tests/source-lane/providers/slack/history-sync.test.ts",
+        "tests/source-lane/providers/slack/threads.test.ts",
+        "tests/source-lane/providers/slack/files.test.ts",
+        "tests/source-lane/providers/slack/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)",
+        "tests/integrations/slack/poller-backfill.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "bd8034957d3d9a99c69a2aaaec49c58fb957e071",
+          "path": "src/integrations/_pending/slack/poller.ts",
+          "use": "poll-path reconcile of stored messages (edit history) re-expressed as append-only revision observations"
+        }
+      ]
     },
     {
       "path": "src/integrations/slack/index.ts",
-      "sha256": "26514dd65e3e4f4600c9d5c0cb888b4b28a71c11d352622dbbeb981b7578c557",
-      "status": "verbatim",
+      "sha256": "4c8e0d4ab3dd0eeab51eba6836adac7ddff56c8b691e658b35f497883bb4fc7b",
+      "status": "patched",
+      "owner": "slack",
       "donorPath": "src/integrations/slack/index.ts",
-      "donorSha256": "26514dd65e3e4f4600c9d5c0cb888b4b28a71c11d352622dbbeb981b7578c557"
+      "donorSha256": "26514dd65e3e4f4600c9d5c0cb888b4b28a71c11d352622dbbeb981b7578c557",
+      "reason": "Task tenant is the queue row's tenant; a payload naming another tenant is refused (donor took payload.userId/tenantId first).",
+      "tests": [
+        "tests/source-lane/providers/slack/task-tenant.test.ts"
+      ]
     },
     {
       "path": "src/integrations/slack/jobs.ts",
@@ -2085,24 +2131,47 @@
     },
     {
       "path": "src/integrations/slack/poller.ts",
-      "sha256": "ca9146d74b339df18d46e8f9bef930a6bacbd1a7fc5780c242d332b0087696eb",
-      "status": "verbatim",
+      "sha256": "3b765e9ab9a6d2b582b07241fd291b5c298ae64fc257a5333ed02172f3385574",
+      "status": "patched",
+      "owner": "slack",
       "donorPath": "src/integrations/slack/poller.ts",
-      "donorSha256": "ca9146d74b339df18d46e8f9bef930a6bacbd1a7fc5780c242d332b0087696eb"
+      "donorSha256": "ca9146d74b339df18d46e8f9bef930a6bacbd1a7fc5780c242d332b0087696eb",
+      "reason": "pollConversationsDetailed / pollThreads / discoverConversationsDetailed delegate to the checkpointed history engine (history-sync.ts) keeping exported names and result shapes; storeMessage/getSlackToken/getUserDirectory exported for reuse, user directory accepts the durable-quota client; donor slackApi honours the full Retry-After (was clamped to 60s); SlackApiError is the shared web-api class; dead donor helpers removed.",
+      "tests": [
+        "tests/integrations/slack/poller-backfill.test.ts",
+        "tests/source-lane/providers/slack/history-sync.test.ts",
+        "tests/source-lane/providers/slack/web-api.test.ts",
+        "tests/integrations/slack/jobs.test.ts",
+        "tests/integrations/slack/poller.test.ts"
+      ]
     },
     {
       "path": "src/integrations/slack/rate-limit.ts",
-      "sha256": "224453d44bbb820f36ac1a938bf27bd95f62335a98a25fbbb4f3715434a8da70",
-      "status": "verbatim",
+      "sha256": "c67c95a97078167ae4699d63e0ae9d0d72a95274464fa5c84cb056731ef7ec22",
+      "status": "patched",
+      "owner": "slack",
       "donorPath": "src/integrations/slack/rate-limit.ts",
-      "donorSha256": "224453d44bbb820f36ac1a938bf27bd95f62335a98a25fbbb4f3715434a8da70"
+      "donorSha256": "224453d44bbb820f36ac1a938bf27bd95f62335a98a25fbbb4f3715434a8da70",
+      "reason": "Adds slackMethodRpm (same tier table) for the durable quota client; in-process throttle unchanged.",
+      "tests": [
+        "tests/integrations/slack/rate-limit.test.ts",
+        "tests/source-lane/providers/slack/web-api.test.ts"
+      ]
     },
     {
       "path": "src/integrations/slack/realtime.ts",
-      "sha256": "0b9f59541ceaa70b3c46de4adee2fabebf3e747f5df7a32fe1344b86f084bec7",
-      "status": "verbatim",
+      "sha256": "10fe3b58762a838e027da24e759c373a674539447750a050177e86df710316ca",
+      "status": "patched",
+      "owner": "slack",
       "donorPath": "src/integrations/slack/realtime.ts",
-      "donorSha256": "0b9f59541ceaa70b3c46de4adee2fabebf3e747f5df7a32fe1344b86f084bec7"
+      "donorSha256": "0b9f59541ceaa70b3c46de4adee2fabebf3e747f5df7a32fe1344b86f084bec7",
+      "reason": "appendSlackLedgerEvent exported for poll-observed revisions; socket gap-fill enqueues a deduped slack.poll (durable quota + lease) instead of polling inline; realtime thread replies register/re-activate their thread; file_deleted events (no channel) tombstone captured bytes for routed tenants; file capture keyed by the routed workspace.",
+      "tests": [
+        "tests/integrations/slack/realtime.test.ts",
+        "tests/source-lane/providers/slack/threads.test.ts",
+        "tests/source-lane/providers/slack/files.test.ts",
+        "tests/source-lane/providers/slack/fold.test.ts"
+      ]
     },
     {
       "path": "src/integrations/slack/skips.ts",
@@ -2110,6 +2179,31 @@
       "status": "verbatim",
       "donorPath": "src/integrations/slack/skips.ts",
       "donorSha256": "413edd453987374d3616881cd1f61e71f0ba1edc7991e9ad672c51fe09e891e8"
+    },
+    {
+      "path": "src/integrations/slack/source-store.ts",
+      "sha256": "37e237b0c280dced6eeed1162f40731f9383315bfb60cff57e15cea303c7a465",
+      "status": "new",
+      "owner": "slack",
+      "reason": "SQL for the 9400 tables: quota slots per (app, workspace, method) with Retry-After, workspace leases/auth state, conversation pass state, reconcile seen-set, file rows and per-tenant content-addressed chunks; every tenant statement scoped by (tenant_id, team_id).",
+      "tests": [
+        "tests/source-lane/providers/slack/web-api.test.ts",
+        "tests/source-lane/providers/slack/history-sync.test.ts",
+        "tests/source-lane/providers/slack/files.test.ts",
+        "tests/source-lane/providers/slack/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/integrations/slack/web-api.ts",
+      "sha256": "74d9a7fbe5e8c556e7c527f04d9adfd0945c9c6e127979ee81c9244bef783dc8",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack Web API client: durable shared slot per (app, workspace, method), Retry-After recorded for all workers and waited only within the run budget else deferred (no tight retry, >=60s default backoff), redirects refused, typed auth/access/transient errors.",
+      "tests": [
+        "tests/source-lane/providers/slack/web-api.test.ts",
+        "tests/source-lane/providers/slack/history-sync.test.ts",
+        "tests/source-lane/providers/slack/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
     },
     {
       "path": "src/integrations/slack/windows.ts",
@@ -2485,13 +2579,16 @@
     },
     {
       "path": "src/mirror/backfill.ts",
-      "sha256": "3cad6869fcc5b0e58c709b24b2f43cba85d5b7db04a2a526bd3d469ff2a5134b",
+      "sha256": "9d132a33646b5136dbd269662de0a0459a5ba05cb265382be4efa412d063161e",
       "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/mirror/backfill.ts",
       "donorSha256": "e391aa01ddc5c6ad0d4faf4b1aef5fd02ee6d3e2de011a3cc6c40c8d2977cfc2",
-      "owner": "coordinator",
-      "reason": "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones).",
-      "test": "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts"
+      "reason": "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones). slack request 1: fold the append-only Slack ledger into window files.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts",
+        "tests/source-lane/providers/slack/fold.test.ts"
+      ]
     },
     {
       "path": "src/mirror/calcom.ts",
@@ -2516,10 +2613,34 @@
     },
     {
       "path": "src/mirror/materializer.ts",
-      "sha256": "2c1fe9478519ff72ceb64adc187213c581c3143698b7180808cc1685dc05db96",
-      "status": "verbatim",
+      "sha256": "e9940bd45ca4f8834233409345aa34bad55a01ecc5b6dd81d53d0a637932ce90",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/mirror/materializer.ts",
-      "donorSha256": "2c1fe9478519ff72ceb64adc187213c581c3143698b7180808cc1685dc05db96"
+      "donorSha256": "2c1fe9478519ff72ceb64adc187213c581c3143698b7180808cc1685dc05db96",
+      "reason": "slack request 1: fold the append-only Slack ledger into channel-day files.",
+      "tests": [
+        "tests/source-lane/providers/slack/fold.test.ts"
+      ]
+    },
+    {
+      "path": "src/mirror/slack-fold.ts",
+      "sha256": "e8d9e699daeb3a4fe7de2d197c282aa4761594769e9216b3cb9a196b86f1e92f",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Current state of a Slack message folded from its base row and append-only ledger (edit, delete, reaction, revision/absence observations) without rewriting raw rows; comparable-state hash for poll revisions; indexed correlated-subquery columns + pure folds for the donor channel-day and window renderers (shared patch slack request 1).",
+      "tests": [
+        "tests/source-lane/providers/slack/fold.test.ts",
+        "tests/source-lane/providers/slack/history-sync.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "bd8034957d3d9a99c69a2aaaec49c58fb957e071",
+          "path": "src/mirror/slack-payload.ts",
+          "use": "reconcileStoredSlackMessagePayload edit-history and reaction comparison semantics"
+        }
+      ]
     },
     {
       "path": "src/mirror/slack-payload.ts",
@@ -2728,10 +2849,10 @@
     },
     {
       "path": "src/source-lane/providers/binary/index.ts",
-      "sha256": "e48e1804851099324882f0d8e598961d37362cec238fb608de5eccb403bd81d9",
+      "sha256": "3cf3825ac9618fb2764401c678a76795da5899aa88d6dbec0d17755e26ce1d7f",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Binary provider module: binary_documents (meta.json + current bytes) and binary_document_versions (immutable history) extraTables, tombstone/restore/purge deletes, gmail-attachment and slack rows left to their own lanes, truthful coverage.",
+      "reason": "Binary provider module: binary_documents (meta.json + current bytes) and binary_document_versions (immutable history) extraTables, tombstone/restore/purge deletes, gmail-attachment and slack rows left to their own lanes, truthful coverage. Legacy slack rows exported (the slack source lane no longer writes binary_documents).",
       "tests": [
         "tests/source-lane/providers/binary/binary.test.ts"
       ]
@@ -4282,6 +4403,49 @@
       ]
     },
     {
+      "path": "src/source-lane/providers/slack/coverage.ts",
+      "sha256": "93e8e99c4888d3e949d9d6d6b811524a34c3aecc65cb79f15f1505881617e498",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Coverage per workspace/conversation/threads/files/edits-deletes: complete only for unbounded completed walks with recent forward pass and no errors; bounded, lagging, rate-limited, erroring partial; lost access/invalid token blocked; edits-deletes always partial.",
+      "tests": [
+        "tests/source-lane/providers/slack/history-sync.test.ts",
+        "tests/source-lane/providers/slack/threads.test.ts",
+        "tests/source-lane/providers/slack/export.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/slack/export-map.ts",
+      "sha256": "1cd728b7ae65e5ad81632b9609b62fbc64996cce678bf1561d1549d64cc40fcf",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Extra-table exporters: conversation access/history labels; file metadata + chunked exact bytes with sourceVersion, deletes with Slack reasons on tombstone, path-change cleanup.",
+      "tests": [
+        "tests/source-lane/providers/slack/export.test.ts",
+        "tests/source-lane/providers/slack/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/slack/index.ts",
+      "sha256": "a2a4be338fee00739827c9599c9d13e6838e543992b00246144d917a84e351c5",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack source-lane module: default raw/projection mappings plus 9400 extra tables and truthful coverage.",
+      "tests": [
+        "tests/source-lane/providers/slack/export.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/slack/paths.ts",
+      "sha256": "32214f902bc0e4ec718832312a6998710b00e81e1d75453b7468ef2dd6877db8",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Team-scoped lane paths under sources/slack/_workspaces/<team>/ (conversation labels, file metadata, exact bytes).",
+      "tests": [
+        "tests/source-lane/providers/slack/export.test.ts"
+      ]
+    },
+    {
       "path": "src/source-lane/providers/stripe/coverage.ts",
       "sha256": "c82df55b3dfa16bd2033a45c5cc0f9cc5d79e02df0fd667d53c0fca64ba6712e",
       "status": "new",
@@ -4793,10 +4957,15 @@
     },
     {
       "path": "tests/integrations/slack/files.test.ts",
-      "sha256": "1efff87e45f69230d97557bcdfa8d7a2af2b71b117fb99e58fdf20447b49ec9c",
-      "status": "verbatim",
+      "sha256": "acf81cc4bcb8891206dc1db0507868b081f96a17acbce188e99d68003b45bd09",
+      "status": "patched",
+      "owner": "slack",
       "donorPath": "tests/integrations/slack/files.test.ts",
-      "donorSha256": "1efff87e45f69230d97557bcdfa8d7a2af2b71b117fb99e58fdf20447b49ec9c"
+      "donorSha256": "1efff87e45f69230d97557bcdfa8d7a2af2b71b117fb99e58fdf20447b49ec9c",
+      "reason": "Donor cases rerun against real SQL (PGlite) because Slack bytes moved from the mocked binary_documents lane to the 9400 lane tables; same semantics (token + files.download throttle, oversize/no URL/no id/fetch failure counters, version dedupe), plus redirect: manual.",
+      "tests": [
+        "tests/integrations/slack/files.test.ts"
+      ]
     },
     {
       "path": "tests/integrations/slack/jobs.test.ts",
@@ -4807,10 +4976,15 @@
     },
     {
       "path": "tests/integrations/slack/poller-backfill.test.ts",
-      "sha256": "c590060e6452de2c5e960fceb557cf69901d64678392aecb94348a0fb1e88866",
-      "status": "verbatim",
+      "sha256": "7063ec3f8f72270cd9e2c583ae08d38dc9053fdb62eef1d1343b8faeb200c7ab",
+      "status": "patched",
+      "owner": "slack",
       "donorPath": "tests/integrations/slack/poller-backfill.test.ts",
-      "donorSha256": "c590060e6452de2c5e960fceb557cf69901d64678392aecb94348a0fb1e88866"
+      "donorSha256": "c590060e6452de2c5e960fceb557cf69901d64678392aecb94348a0fb1e88866",
+      "reason": "Donor assertions rerun against real SQL (PGlite): pollConversationsDetailed now runs the checkpointed engine whose state lives in the 9400 tables; durable quota made fast via SLACK_HISTORY_RPM.",
+      "tests": [
+        "tests/integrations/slack/poller-backfill.test.ts"
+      ]
     },
     {
       "path": "tests/integrations/slack/poller.test.ts",
@@ -5079,7 +5253,7 @@
     },
     {
       "path": "tests/source-lane/providers/binary/binary.test.ts",
-      "sha256": "1662dd72bd64763ee4fc0be5c9a983ba94937c4c14d5cb3c6d00d5574923b2ae",
+      "sha256": "bb14fac587fcdcb6ed527f2c6b78156d7ea796bdf5d3c02a1b885399a9d3f9a6",
       "status": "new",
       "owner": "coordinator",
       "reason": "Binary lane tests: non-UTF-8, empty, >8 MiB ranged, range/tamper, transient retry with checkpointed manifest, replace history, tombstone/restore, purge, cross-tenant forged key, integrity refusal, provider ownership.",
@@ -5961,6 +6135,116 @@
       "reason": "Office audio regression suite.",
       "tests": [
         "tests/source-lane/providers/office-audio/office-audio.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/export.test.ts",
+      "sha256": "0e1aa7dc5c51062f7a63f8a3193df5da2e4790808cc38eafe918412f8aec5351",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/export.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/fake-slack.ts",
+      "sha256": "5cb4ab97720b008627b860e2b4163e6567f0c0164db7f38ff47c7638c0bfbe37",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/fake-slack.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/files.test.ts",
+      "sha256": "ec57ef673adb522181e2d2dff1c2a23e2eb185905172bcbf40eab583b2a02c31",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/files.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/fold.test.ts",
+      "sha256": "111d72c0e9f0525d7e6c3ef3aa0f1f132c58ec336c52cc7fb2fe186b115d241a",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/fold.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/harness.ts",
+      "sha256": "246a5876a2c462ad988c4995d33af3dd8791278660b6e1793770659606703266",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/harness.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/history-sync.test.ts",
+      "sha256": "64506da6bc12eb83f12c2e1e6eeb21367ca374278ef0adb522d1af1285cd3965",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/history-sync.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/publish.ts",
+      "sha256": "2cffdd2dc998b35517943cd1c3d04498b9b01b8f111a35877ff1f095c3959320",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/publish.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/real-pg.test.ts",
+      "sha256": "b1d98433b9e40d61fbfe1efcc2f0ba5106b8d7bb7867d26ec120714554a6a655",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/real-pg.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/task-tenant.test.ts",
+      "sha256": "c540ff0265c46cc69e9d9ea4712c8db889cbb8748d84edeed1ba4e9d5212f2b7",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/task-tenant.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/threads.test.ts",
+      "sha256": "08358847797a0ffc1bd66e4ae4c203ac8f3adea24eb99aa0fcc34bb8f52952ff",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/threads.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/slack/web-api.test.ts",
+      "sha256": "39274ecb1ba5c1edc8dfd8feb2103b398f0f6f54e41a962c05c200bd74639a60",
+      "status": "new",
+      "owner": "slack",
+      "reason": "Slack lane test/harness (synthetic data only)",
+      "tests": [
+        "tests/source-lane/providers/slack/web-api.test.ts"
       ]
     },
     {

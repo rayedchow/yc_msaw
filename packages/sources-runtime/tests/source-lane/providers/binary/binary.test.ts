@@ -293,14 +293,24 @@ describe("binary lane: scope and integrity", () => {
     expect(under("sources/binary/drive-pdf/").filter((p) => !p.endsWith("meta.json"))).toEqual([]);
   });
 
-  it("leaves Gmail attachments and Slack files to their own lanes and records fetch failures metadata-only", async () => {
+  it("leaves Gmail attachments to the gmail lane, exports legacy Slack rows, and records fetch failures metadata-only", async () => {
     await intake({ externalId: "msg-1:part-2", bytes: Buffer.from("x"), provider: "gmail-attachment", mimeType: "image/png" });
-    await intake({ externalId: "F123", bytes: Buffer.from("y"), provider: "slack", mimeType: "image/png" });
+    // Captured by the donor Slack lane before the slack source lane (which no longer writes binary_documents).
+    await intake({ externalId: "F123", bytes: Buffer.from([0x89, 0x50, 0x4e, 0x47, 0xff]), provider: "slack", mimeType: "image/png" });
     await intakeBinaryDocument({ tenantId: T, provider: "drive-pdf", externalId: "unfetchable", mimeType: "application/pdf", fetchBytes: async () => { throw new Error("403"); }, executor: db as never });
     expect(await drain()).toEqual({ errors: [] });
-    expect([...files.keys()]).toEqual(["sources/binary/drive-pdf/unfetchable/meta.json"]);
+    expect([...files.keys()].filter((p) => !p.includes("/versions/")).sort()).toEqual([
+      "sources/binary/drive-pdf/unfetchable/meta.json",
+      "sources/binary/slack/F123/current.png",
+      "sources/binary/slack/F123/meta.json",
+    ]);
+    expect(files.get("sources/binary/slack/F123/current.png")!.bytes.equals(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0xff]))).toBe(true);
+    expect([...files.keys()].some((p) => p.includes("gmail-attachment"))).toBe(false);
     const cov = await binaryCoverage({ tenantId: T, executor: db as never });
-    expect(cov).toEqual([expect.objectContaining({ scope: "provider:drive-pdf", state: "partial", reason: expect.stringMatching(/1 fetch failure/) })]);
+    expect(cov).toEqual([
+      expect.objectContaining({ scope: "provider:drive-pdf", state: "partial", reason: expect.stringMatching(/1 fetch failure/) }),
+      expect.objectContaining({ scope: "provider:slack", state: "complete" }),
+    ]);
   });
 
   it("is registered, reports pending with no captures, and owns its journal tables", async () => {

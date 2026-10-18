@@ -24,6 +24,7 @@ import {
 } from "./envelope.js";
 import { CALCOM_BOOKING_ALIAS_KIND, calcomBookingUid } from "./calcom.js";
 import { wikiContentSha } from "./hashes.js";
+import { foldSlackChannelDayRows, slackLedgerColumn } from "./slack-fold.js";
 
 export type { StagedDocumentMeta } from "./envelope.js";
 
@@ -1681,6 +1682,7 @@ export async function materializeSlackChannelDaySourceWiki(
     timestamp: Date | string;
     source_updated_at: Date | string | null;
     raw_payload: Record<string, unknown>;
+    fold_ledger?: unknown;
   }>(await db.execute(sql`
     SELECT
       id AS event_id,
@@ -1688,7 +1690,8 @@ export async function materializeSlackChannelDaySourceWiki(
       source_event_id,
       timestamp,
       source_updated_at,
-      raw_payload
+      raw_payload,
+      ${slackLedgerColumn()}
     FROM activity_events
     WHERE user_id = ${userId}
       AND source = 'slack'
@@ -1710,7 +1713,10 @@ export async function materializeSlackChannelDaySourceWiki(
     return null;
   }
 
-  const messages = rows.map((row) => ({
+  // SOURCE-LANE PATCH (slack request 1): current state = each message's append-only edit/delete/reaction/revision
+  // ledger rows (excluded above, joined per row by slackLedgerColumn) onto the base
+  // row; raw rows are never rewritten.
+  const messages = foldSlackChannelDayRows(rows).map((row) => ({
     eventId: row.event_id,
     eventType: row.event_type,
     sourceEventId: row.source_event_id,

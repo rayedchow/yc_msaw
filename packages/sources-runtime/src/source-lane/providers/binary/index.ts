@@ -6,8 +6,9 @@
  *   sources/binary/<provider>/<externalId>/current<.ext>                     latest bytes
  *   sources/binary/<provider>/<externalId>/versions/<capturedAt>-<sha16><.ext>  every byte state ever recorded
  *
- * Only `drive-pdf` and `upload` rows are exported here: Gmail attachments are exported by the gmail lane
- * (gmail_source_attachments) and Slack files by the slack lane. A withdrawn (tombstoned) document deletes its
+ * `drive-pdf`, `upload` and legacy `slack` rows are exported here. Gmail attachments are exported by the gmail lane
+ * (gmail_source_attachments). The slack source lane stores new Slack files itself (slack_source_files) and no longer
+ * writes binary_documents, so `slack` rows are only those captured before it. A withdrawn (tombstoned) document deletes its
  * files and history; a restore republishes them. The source-only runtime performs no PDF text/OCR extraction,
  * so parse_status stays as captured (normally `pending`).
  */
@@ -22,7 +23,7 @@ import {
   type BinaryObjectReader,
 } from "../../../integrations/binary/source-bytes.js";
 
-export const BINARY_EXPORTED_PROVIDERS: ReadonlySet<string> = new Set(["drive-pdf", "upload"]);
+export const BINARY_EXPORTED_PROVIDERS: ReadonlySet<string> = new Set(["drive-pdf", "upload", "slack"]);
 const DONOR = "askshepherd/aqueduct@b26d3f46 src/integrations/binary/intake.ts";
 
 const rowsOf = <T>(r: unknown): T[] => (Array.isArray(r) ? (r as T[]) : ((r as { rows?: T[] } | null)?.rows ?? []));
@@ -237,7 +238,7 @@ export async function binaryCoverage(ctx: ExportContext): Promise<CoverageReport
       provider: "binary",
       scope: "documents",
       state: "pending",
-      reason: "no drive-pdf or upload binary documents captured (Drive PDFs arrive through the google-docs Drive inventory; the source-only runtime has no upload route)",
+      reason: "no drive-pdf, upload or legacy slack binary documents captured (Drive PDFs arrive through the google-docs Drive inventory; the source-only runtime has no upload route; new Slack files go to the slack lane)",
     });
   }
   return out;

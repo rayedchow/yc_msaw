@@ -32,8 +32,13 @@ export const slackIntegration: AqueductIntegration = {
   },
 };
 
+// The tenant is the queue row's server-assigned tenant; a payload naming another tenant is refused.
 function slackTaskTenantId(payload: Record<string, unknown>, taskTenantId: string): string {
-  return String(payload.userId ?? payload.tenantId ?? taskTenantId);
+  const named = payload.userId ?? payload.tenantId;
+  if (named !== undefined && String(named) !== taskTenantId) {
+    throw new Error("slack task payload tenant does not match the task tenant");
+  }
+  return taskTenantId;
 }
 
 const slackDiscoverTaskHandler: TaskHandler = async (payload, ctx) => {

@@ -1,45 +1,25 @@
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest";
 
 // Verifies backfill completeness: a conversation with no watermark (fresh
 // connect) is fetched WITHOUT an `oldest` bound and paginated to exhaustion,
 // every subtype is stored, and threads register for full-reply fetch.
+//
+// Patched for the source lane: pollConversationsDetailed now runs the
+// checkpointed history engine (history-sync.ts) whose state lives in the
+// 9400 tables, so this runs against real SQL (PGlite) instead of a mocked
+// drizzle chain; the assertions are the donor's. The durable quota is made
+// fast with SLACK_HISTORY_RPM (pacing is covered in rate-limit.test.ts and
+// tests/source-lane/providers/slack/history-sync.test.ts).
 
-interface InsertRecord {
-  table: unknown;
-  values: Record<string, any>;
-}
+const enqueueSlackWindowsMock = vi.hoisted(() => {
+  process.env.SLACK_HISTORY_RPM = "6000";
+  return vi.fn();
+});
 
-const inserted = vi.hoisted(() => [] as InsertRecord[]);
-const updates = vi.hoisted(() => [] as Array<Record<string, any>>);
-const watermarkRows = vi.hoisted(() => [] as Array<Record<string, any>>);
-const enqueueSlackWindowsMock = vi.hoisted(() => vi.fn());
-
-const dbMock = vi.hoisted(() => ({
-  select: vi.fn(() => ({
-    from: vi.fn(() => ({
-      where: vi.fn(async () => watermarkRows),
-    })),
-  })),
-  insert: vi.fn((table: unknown) => ({
-    values: vi.fn((values: Record<string, any>) => {
-      inserted.push({ table, values });
-      return {
-        onConflictDoNothing: vi.fn(() => ({
-          returning: vi.fn(async () => [{ id: `evt-${inserted.length}` }]),
-        })),
-        onConflictDoUpdate: vi.fn(async () => undefined),
-      };
-    }),
-  })),
-  update: vi.fn(() => ({
-    set: vi.fn((values: Record<string, any>) => {
-      updates.push(values);
-      return { where: vi.fn(async () => undefined) };
-    }),
-  })),
-}));
-
-vi.mock("../../../src/db/client.js", () => ({ db: dbMock }));
+vi.mock("../../../src/db/client.js", async () => {
+  const h = await import("../../source-lane/providers/slack/harness.js");
+  return { db: h.db, pgClient: null };
+});
 
 vi.mock("../../../src/queue/dispatch.js", () => ({
   enqueueCollectedEventForProcessing: vi.fn(),
@@ -50,6 +30,8 @@ vi.mock("../../../src/vault/tokens.js", () => ({
     token: "xoxp-token",
     metadata: { slackTeamId: "T123" },
   })),
+  getTokenMetadata: vi.fn(async () => ({ slackTeamId: "T123" })),
+  mergeTokenMetadata: vi.fn(),
 }));
 
 vi.mock("../../../src/integrations/slack/materialize.js", () => ({
@@ -57,7 +39,8 @@ vi.mock("../../../src/integrations/slack/materialize.js", () => ({
   slackDayKeyFromTs: vi.fn(() => "2027-01-15"),
 }));
 
-vi.mock("../../../src/integrations/slack/files.js", () => ({
+vi.mock("../../../src/integrations/slack/files.js", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../../../src/integrations/slack/files.js")>()),
   captureSlackMessageFiles: vi.fn(async () => ({ stored: 0, skips: {} })),
 }));
 
@@ -65,38 +48,26 @@ vi.mock("../../../src/integrations/slack/windows.js", () => ({
   enqueueSlackChannelWindows: enqueueSlackWindowsMock,
 }));
 
-// The real throttle allows 1 history request/min (non-Marketplace regime);
-// pacing behavior is covered in rate-limit.test.ts. Keep the real page-limit
-// constant so the `limit=15` assertion below exercises production config.
-vi.mock("../../../src/integrations/slack/rate-limit.js", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("../../../src/integrations/slack/rate-limit.js")>()),
-  slackThrottle: vi.fn(async () => undefined),
-}));
-
 import { pollConversationsDetailed } from "../../../src/integrations/slack/poller.js";
-import { activityEvents, threadWatermarks } from "../../../src/db/schema.js";
+import { SLACK_HISTORY_PAGE_LIMIT } from "../../../src/integrations/slack/rate-limit.js";
+import { query, ready, resetAll } from "../../source-lane/providers/slack/harness.js";
 
 describe("Slack first-poll history backfill", () => {
-  beforeEach(() => {
-    inserted.length = 0;
-    updates.length = 0;
-    watermarkRows.length = 0;
+  beforeAll(async () => {
+    await ready;
+  });
+
+  beforeEach(async () => {
+    await resetAll();
     enqueueSlackWindowsMock.mockReset().mockResolvedValue("task-1");
     vi.unstubAllGlobals();
   });
 
   it("fetches the FULL channel history for a fresh watermark and stores every subtype", async () => {
-    watermarkRows.push({
-      id: "wm-1",
-      userId: "tenant-1",
-      provider: "slack",
-      conversationId: "C123",
-      conversationType: "public_channel",
-      conversationName: "launch",
-      lastSeenTs: null, // fresh connect: never polled
-      lastPolledAt: null,
-      isActive: true,
-    });
+    await query(
+      `INSERT INTO conversation_watermarks (user_id, provider, conversation_id, conversation_type, conversation_name, last_seen_ts, last_polled_at, is_active)
+       VALUES ('tenant-1', 'slack', 'C123', 'public_channel', 'launch', NULL, NULL, true)`, // fresh connect: never polled
+    );
 
     const historyRequests: URL[] = [];
     vi.stubGlobal("fetch", vi.fn(async (input: string | URL) => {
@@ -145,36 +116,42 @@ describe("Slack first-poll history backfill", () => {
 
     // Every history page honors the 15-messages/request cap of the 2025
     // non-Marketplace distributed-app regime.
+    expect(SLACK_HISTORY_PAGE_LIMIT).toBe(15);
     for (const request of historyRequests) {
       expect(request.searchParams.get("limit")).toBe("15");
     }
 
     // Both messages stored, including the channel_join subtype (max capture).
-    const messageInserts = inserted.filter((record) => record.table === activityEvents);
-    expect(messageInserts.map((record) => record.values.sourceEventId)).toEqual([
+    const messageInserts = await query<{ source_event_id: string; raw_payload: Record<string, unknown>; source_namespace: string; source_object_id: string; record_kind: string }>(
+      `SELECT source_event_id, raw_payload, source_namespace, source_object_id, record_kind FROM activity_events WHERE user_id = 'tenant-1' ORDER BY (raw_payload->>'ts')::numeric DESC`,
+    );
+    expect(messageInserts.map((record) => record.source_event_id)).toEqual([
       "slack:C123:1800000010.000100",
       "slack:C123:1700000000.000100",
     ]);
-    expect(messageInserts[1]?.values.rawPayload).toMatchObject({ subtype: "channel_join" });
-    expect(messageInserts[0]?.values).toMatchObject({
-      sourceNamespace: "workspace:T123",
-      sourceObjectId: "message:C123:1800000010.000100",
-      recordKind: "activity",
+    expect(messageInserts[1]?.raw_payload).toMatchObject({ subtype: "channel_join" });
+    expect(messageInserts[0]).toMatchObject({
+      source_namespace: "workspace:T123",
+      source_object_id: "message:C123:1800000010.000100",
+      record_kind: "activity",
     });
     expect(enqueueSlackWindowsMock).toHaveBeenCalledTimes(2);
     expect(enqueueSlackWindowsMock).toHaveBeenCalledWith("tenant-1", "C123");
 
     // The thread registered for a FULL reply fetch (no lastReplyTs watermark).
-    const threadInserts = inserted.filter((record) => record.table === threadWatermarks);
+    const threadInserts = await query(`SELECT channel_id, thread_ts, last_reply_ts FROM thread_watermarks WHERE user_id = 'tenant-1'`);
     expect(threadInserts).toHaveLength(1);
-    expect(threadInserts[0]?.values).toMatchObject({
-      channelId: "C123",
-      threadTs: "1800000010.000100",
-      lastReplyTs: null,
+    expect(threadInserts[0]).toMatchObject({
+      channel_id: "C123",
+      thread_ts: "1800000010.000100",
+      last_reply_ts: null,
     });
 
     // Watermark advanced to the newest ts only after full traversal.
-    expect(updates.some((values) => values.lastSeenTs === "1800000010.000100")).toBe(true);
+    const [watermark] = await query<{ last_seen_ts: string }>(`SELECT last_seen_ts FROM conversation_watermarks WHERE user_id = 'tenant-1'`);
+    expect(watermark?.last_seen_ts).toBe("1800000010.000100");
+    const [state] = await query<{ history_complete_at: Date | null }>(`SELECT history_complete_at FROM slack_source_conversations WHERE tenant_id = 'tenant-1'`);
+    expect(state?.history_complete_at).not.toBeNull();
 
     expect(result).toMatchObject({ conversationsSeen: 1, stored: 2, exhausted: true, capHit: false });
   });

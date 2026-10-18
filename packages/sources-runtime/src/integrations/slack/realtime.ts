@@ -10,7 +10,8 @@ import { getTokenWithMetadata, mergeTokenMetadata } from "../../vault/tokens.js"
 import { redactProviderPayload } from "../../vault/redaction.js";
 import { activityEventTimes } from "../../lib/activity-event-time.js";
 import { materializeSlackChannelDay } from "./materialize.js";
-import { captureSlackMessageFiles } from "./files.js";
+import { captureSlackMessageFiles, markSlackFileDeleted } from "./files.js";
+import { enqueueTask } from "../../queue/queue.js";
 import { recordSlackSkip, SLACK_UNATTRIBUTED_SKIP_BUCKET } from "./skips.js";
 import { enqueueSlackChannelWindows } from "./windows.js";
 
@@ -146,7 +147,7 @@ function slackEventChannelId(event: any): string | undefined {
  * marked `_ledger: true` in the raw payload so the channel-day mirror keeps
  * rendering only current-state message rows, exactly as before.
  */
-async function appendSlackLedgerEvent(input: {
+export async function appendSlackLedgerEvent(input: {
   userId: string;
   workspaceId: string | null;
   eventType: string;
@@ -447,18 +448,23 @@ export async function startSlackSockets(options: SlackSocketsOptions = {}): Prom
   const routedUserIds = () => [...new Set([...routing.values()].flat().map((t) => t.userId))].sort();
 
   async function gapFillAfterOutage(): Promise<void> {
-    try {
-      const { pollConversations } = await import("./poller.js");
-      for (const userId of routedUserIds()) {
-        try {
-          const filled = await pollConversations(userId);
-          if (filled > 0) console.log(`[slack-socket] gap-fill recovered ${filled} messages for user ${userId}`);
-        } catch (err) {
-          console.error(`[slack-socket] gap-fill failed for user ${userId}:`, err instanceof Error ? err.message : err);
-        }
+    // Queue (not run inline) one slack.poll per routed tenant: the poll runs under the
+    // durable per-workspace quota and lease, so a reconnect storm cannot multiply
+    // conversations.history calls past Slack's limit. Its forward pass and reconcile
+    // sweep pick up messages, edits and deletions missed during the outage.
+    for (const userId of routedUserIds()) {
+      try {
+        await enqueueTask({
+          queue: "sync",
+          tenantId: userId,
+          kind: "slack.poll",
+          payload: { tenantId: userId, reason: "socket_gap_fill" },
+          groupKey: `${userId}:slack`,
+          dedupeKey: `${userId}:slack.poll:continue`,
+        });
+      } catch (err) {
+        console.error(`[slack-socket] gap-fill enqueue failed for user ${userId}:`, err instanceof Error ? err.message : err);
       }
-    } catch (err) {
-      console.error("[slack-socket] gap-fill failed:", err instanceof Error ? err.message : err);
     }
   }
 
@@ -468,7 +474,7 @@ export async function startSlackSockets(options: SlackSocketsOptions = {}): Prom
     if (!event) return;
 
     const channelId = slackEventChannelId(event);
-    if (!channelId) {
+    if (!channelId && event.type !== "file_deleted") {
       recordSlackSkip(SLACK_UNATTRIBUTED_SKIP_BUCKET, `realtime_no_channel:${event.type ?? "unknown"}`);
       return;
     }
@@ -495,8 +501,13 @@ export async function startSlackSockets(options: SlackSocketsOptions = {}): Prom
     }
 
     for (const target of targets) {
+      if (event.type === "file_deleted") {
+        await handleFileDeleted(event, target.userId, target.slackTeamId);
+        options.onEvent?.(target.userId, event.type, channelId ?? "");
+        continue;
+      }
       await handleEvent(payload, target.userId, target.token, target.slackTeamId);
-      options.onEvent?.(target.userId, event.type, channelId);
+      options.onEvent?.(target.userId, event.type, channelId!);
     }
   }
 
@@ -735,7 +746,41 @@ export async function handleEvent(
     await materializeSlackEventDay(userId, channelId, String(event.ts));
   }
 
-  await captureEventFiles(userId, userToken, channelId, event.files);
+  const threadTs = typeof event.thread_ts === "string" ? event.thread_ts : null;
+  if (threadTs && threadTs !== String(event.ts)) {
+    await registerRealtimeThreadReply(userId, channelId, threadTs);
+  }
+
+  await captureEventFiles(userId, userToken, channelId, event.files, workspaceId, String(event.ts));
+}
+
+/**
+ * A realtime reply to a thread the poller has never registered (or has deactivated after
+ * 7 quiet days) registers/re-activates it, so the thread lane backfills earlier replies
+ * that arrived while realtime was down. last_reply_ts is never moved forward here.
+ */
+async function registerRealtimeThreadReply(userId: string, channelId: string, threadTs: string): Promise<void> {
+  try {
+    await db.execute(sql`
+      INSERT INTO thread_watermarks (user_id, channel_id, thread_ts, last_reply_ts, is_active)
+      VALUES (${userId}, ${channelId}, ${threadTs}, NULL, true)
+      ON CONFLICT (user_id, channel_id, thread_ts) DO UPDATE SET is_active = true, updated_at = now()
+    `);
+  } catch (err) {
+    recordSlackSkip(userId, "realtime_thread_register_error");
+    console.error(`[slack] thread registration failed in ${channelId}:`, err instanceof Error ? err.message : err);
+  }
+}
+
+/** file_deleted (no channel): tombstone the captured bytes of that file for the routed tenant. */
+export async function handleFileDeleted(event: any, userId: string, workspaceId: string | null): Promise<void> {
+  const fileId = typeof event?.file_id === "string" ? event.file_id : typeof event?.file?.id === "string" ? event.file.id : null;
+  if (!fileId || !workspaceId) {
+    recordSlackSkip(userId, "realtime_file_deleted_unkeyed");
+    return;
+  }
+  const at = slackTimestampToDate(event.event_ts) ?? new Date();
+  await markSlackFileDeleted({ userId, teamId: workspaceId, fileId, reason: "file_deleted", at });
 }
 
 // Attachment bytes ride the binary_documents lane; per-file skips (too large,
@@ -745,10 +790,12 @@ async function captureEventFiles(
   userToken: string,
   channelId: string,
   files: unknown,
+  workspaceId: string | null = null,
+  messageTs: string | null = null,
 ): Promise<void> {
   if (!Array.isArray(files) || files.length === 0) return;
   try {
-    const result = await captureSlackMessageFiles({ userId, token: userToken, channelId, files });
+    const result = await captureSlackMessageFiles({ userId, token: userToken, channelId, files, teamId: workspaceId, messageTs });
     for (const [reason, count] of Object.entries(result.skips)) {
       recordSlackSkip(userId, reason, count);
     }
@@ -860,7 +907,7 @@ export async function handleMessageChanged(
     }
   }
 
-  await captureEventFiles(userId, userToken, channelId, newMessage.files);
+  await captureEventFiles(userId, userToken, channelId, newMessage.files, workspaceId, String(newMessage.ts));
 }
 
 export async function handleMessageDeleted(

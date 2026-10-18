@@ -261,56 +261,6 @@ export async function getConversation(
   `))[0] ?? null;
 }
 
-export interface ListedConversation {
-  channelId: string;
-  name: string | null;
-  type: string;
-  isArchived: boolean;
-  isMember: boolean | null;
-}
-
-/** Discovery upsert: listed conversations become `listed` again (access restored) with fresh labels. */
-export async function upsertListedConversation(
-  executor: SlackDbExecutor,
-  tenantId: string,
-  teamId: string,
-  convo: ListedConversation,
-  seed: { headTs: string | null } = { headTs: null },
-): Promise<void> {
-  await executor.execute(sql`
-    INSERT INTO slack_source_conversations (tenant_id, team_id, channel_id, channel_name, channel_type, is_archived, is_member, access_state, head_ts, last_listed_at)
-    VALUES (${tenantId}, ${teamId}, ${convo.channelId}, ${convo.name}, ${convo.type}, ${convo.isArchived}, ${convo.isMember}, 'listed', ${seed.headTs}, now())
-    ON CONFLICT (tenant_id, team_id, channel_id) DO UPDATE
-    SET channel_name = EXCLUDED.channel_name,
-        channel_type = EXCLUDED.channel_type,
-        is_archived = EXCLUDED.is_archived,
-        is_member = EXCLUDED.is_member,
-        access_state = 'listed',
-        access_reason = NULL,
-        last_listed_at = now(),
-        updated_at = now()
-  `);
-}
-
-/** After a COMPLETE listing: conversations the token no longer lists lose `listed` (data is kept). */
-export async function markUnlistedConversations(
-  executor: SlackDbExecutor,
-  tenantId: string,
-  teamId: string,
-  listedIds: readonly string[],
-): Promise<string[]> {
-  const ids = JSON.stringify([...listedIds]);
-  return rowsOf<{ channel_id: string }>(await executor.execute(sql`
-    UPDATE slack_source_conversations
-    SET access_state = 'not_listed',
-        access_reason = 'no longer returned by conversations.list for this token (left, removed or deleted); captured history is kept but not refreshed',
-        updated_at = now()
-    WHERE tenant_id = ${tenantId} AND team_id = ${teamId} AND access_state = 'listed'
-      AND NOT (channel_id = ANY (ARRAY(SELECT jsonb_array_elements_text(${ids}::jsonb))))
-    RETURNING channel_id
-  `)).map((r) => r.channel_id);
-}
-
 export async function setConversationAccess(
   executor: SlackDbExecutor,
   key: { tenantId: string; teamId: string; channelId: string },

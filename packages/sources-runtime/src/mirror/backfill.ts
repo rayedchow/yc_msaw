@@ -3,6 +3,7 @@ import { db } from "../db/client.js";
 import { fetchAndMaterializeNotionPageContentSourceWiki } from "../integrations/notion/source-wiki.js";
 import { mapWithConcurrency, parseConcurrencyEnv } from "../lib/concurrency.js";
 import { normalizeSlackText, renderSlackReactions, type SlackUserDirectory } from "./slack-text.js";
+import { foldSlackWindowRows, slackWindowFoldColumns } from "./slack-fold.js";
 import {
   materializeCalendarEventSourceWiki,
   materializeGmailMessageSourceWiki,
@@ -198,7 +199,8 @@ export async function mirrorSlackChannelWindows(
   channelName?: string | null,
 ): Promise<SlackWindowMaterializeResult> {
   const { materializeSlackWindowSourceWiki } = await import("./materializer.js");
-  const rows = rowsFromExecute<SlackMessageRow>(await db.execute(sql`
+  // SOURCE-LANE PATCH (slack request 1): current state, the ledger folded per row (slack-fold.ts); raw rows are unchanged.
+  const rows = foldSlackWindowRows(rowsFromExecute<SlackMessageRow & { fold_base?: unknown; fold_ledger?: unknown }>(await db.execute(sql`
     SELECT
       raw_payload->>'ts' AS ts,
       source_event_id,
@@ -209,7 +211,8 @@ export async function mirrorSlackChannelWindows(
       COALESCE(raw_payload->>'_thread_ts', raw_payload->>'thread_ts') AS thread_ts,
       raw_payload->>'_channel_name' AS channel_name,
       raw_payload->'reactions' AS reactions,
-      raw_payload->'_mentions' AS mentions
+      raw_payload->'_mentions' AS mentions,
+      ${slackWindowFoldColumns()}
     FROM activity_events
     WHERE user_id = ${userId}
       AND source = 'slack'
@@ -221,7 +224,7 @@ export async function mirrorSlackChannelWindows(
         OR raw_payload->>'_deleted' = 'true'
       )
     ORDER BY "timestamp" ASC, source_event_id ASC
-  `));
+  `)));
   const fallbackDirectory = slackWorkspaceFallbackDirectory(rowsFromExecute<SlackDirectoryRow>(await db.execute(sql`
     SELECT DISTINCT ON (raw_payload->>'user')
       raw_payload->>'user' AS id,

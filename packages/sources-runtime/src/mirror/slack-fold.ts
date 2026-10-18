@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import { sql } from "drizzle-orm";
+import { sql, type SQL } from "drizzle-orm";
 import { db } from "../db/client.js";
 
 /**
@@ -236,7 +236,7 @@ export function slackComparableHash(message: Record<string, unknown>): string {
   return createHash("sha256").update(slackComparableState(message)).digest("hex").slice(0, 16);
 }
 
-// ------------------------------------------------------------------ DB loaders for renderers
+// ------------------------------------------------------------------ renderer integration
 
 type Executor = Pick<typeof db, "execute">;
 
@@ -258,68 +258,54 @@ function payloadOf(value: unknown): Record<string, unknown> {
   return isRecord(value) ? value : {};
 }
 
-/** Ledger observations for messages (by ts) of one channel, grouped by `_object_ts`. */
-export async function loadSlackLedgerObservations(
-  executor: Executor,
-  userId: string,
-  channelId: string,
-  tsList: readonly string[],
-): Promise<Map<string, SlackLedgerObservation[]>> {
-  const out = new Map<string, SlackLedgerObservation[]>();
-  const unique = [...new Set(tsList.filter((t) => typeof t === "string" && t))];
-  if (unique.length === 0) return out;
-  for (let i = 0; i < unique.length; i += 500) {
-    const part = unique.slice(i, i + 500);
-    const rows = rowsOf<{ event_type: string; source_event_id: string; timestamp: Date | string; raw_payload: unknown }>(await executor.execute(sql`
-      SELECT event_type, source_event_id, timestamp, raw_payload
-      FROM activity_events
-      WHERE user_id = ${userId}
-        AND source = 'slack'
-        AND raw_payload->>'_channel' = ${channelId}
-        AND raw_payload->>'_ledger' = 'true'
-        AND raw_payload->>'_object_ts' IN (SELECT jsonb_array_elements_text(${JSON.stringify(part)}::jsonb))
-      ORDER BY timestamp ASC, source_event_id ASC
-    `));
-    for (const row of rows) {
-      const payload = payloadOf(row.raw_payload);
-      const ts = str(payload._object_ts);
-      if (!ts) continue;
-      const list = out.get(ts) ?? [];
-      list.push({ event_type: row.event_type, source_event_id: row.source_event_id, timestamp: row.timestamp, raw_payload: payload });
-      out.set(ts, list);
-    }
-  }
-  return out;
-}
-
-function slackTsFromSourceEventId(sourceEventId: string): string | null {
-  const m = /^slack:[^:]+:([0-9]+\.[0-9]+)$/u.exec(sourceEventId);
-  return m ? m[1]! : null;
+function observationsOf(value: unknown): SlackLedgerObservation[] {
+  const list = typeof value === "string" ? (JSON.parse(value) as unknown) : value;
+  if (!Array.isArray(list)) return [];
+  return list.flatMap((o) => (isRecord(o) && typeof o.event_type === "string" && typeof o.source_event_id === "string"
+    ? [{ event_type: o.event_type, source_event_id: o.source_event_id, timestamp: String(o.timestamp), raw_payload: payloadOf(o.raw_payload) }]
+    : []));
 }
 
 /**
- * Fold the base rows of a channel-day render (materializer.ts materializeSlackChannelDaySourceWiki)
- * with their ledger observations. Row order and every other column are kept.
+ * Column for a SELECT over base `activity_events` rows (unaliased FROM activity_events): the
+ * message's ledger observations as a jsonb array, ordered. Ledger rows carry the same
+ * (source_namespace, source_object_id) as their base message (`workspace:<team>`,
+ * `message:<channel>:<ts>`), so this is an index lookup (idx_event_object_history) per row.
  */
-export async function foldSlackChannelDayRows<T extends { source_event_id: string; raw_payload: Record<string, unknown>; source_updated_at?: Date | string | null }>(
-  executor: Executor,
-  userId: string,
-  channelId: string,
+export function slackLedgerColumn(): SQL {
+  return sql`(
+    SELECT COALESCE(jsonb_agg(jsonb_build_object(
+             'event_type', l.event_type, 'source_event_id', l.source_event_id,
+             'timestamp', l."timestamp", 'raw_payload', l.raw_payload
+           ) ORDER BY l."timestamp", l.source_event_id), '[]'::jsonb)
+    FROM activity_events l
+    WHERE l.user_id = activity_events.user_id
+      AND l.source = 'slack'
+      AND l.source_namespace = activity_events.source_namespace
+      AND l.source_object_id = activity_events.source_object_id
+      AND l.raw_payload->>'_ledger' = 'true'
+  ) AS fold_ledger`;
+}
+
+/**
+ * Channel-day rows (materializer.ts materializeSlackChannelDaySourceWiki) selected with
+ * slackLedgerColumn(): raw_payload becomes the folded current state, source_updated_at the
+ * latest observation; rows without observations are returned unchanged.
+ */
+export function foldSlackChannelDayRows<T extends { raw_payload: Record<string, unknown>; source_updated_at?: Date | string | null; fold_ledger?: unknown }>(
   rows: readonly T[],
-): Promise<T[]> {
-  const tsOf = (row: T) => str(row.raw_payload?.ts) ?? slackTsFromSourceEventId(row.source_event_id);
-  const ledger = await loadSlackLedgerObservations(executor, userId, channelId, rows.map(tsOf).filter((t): t is string => Boolean(t)));
+): Array<Omit<T, "fold_ledger">> {
   return rows.map((row) => {
-    const ts = tsOf(row);
-    const observations = ts ? ledger.get(ts) : undefined;
-    if (!observations?.length) return row;
+    const { fold_ledger, ...rest } = row;
+    const observations = observationsOf(fold_ledger);
+    if (observations.length === 0) return rest;
     const folded = foldSlackMessage(payloadOf(row.raw_payload), observations);
-    if (folded.applied === 0) return row;
+    if (folded.applied === 0) return rest;
     const latest = observations.reduce<string | null>((acc, o) => {
       const at = isoOf(o.timestamp);
       return at && (!acc || at > acc) ? at : acc;
     }, isoOf(row.source_updated_at ?? null));
-    return { ...row, raw_payload: folded.payload, ...(row.source_updated_at !== undefined ? { source_updated_at: latest } : {}) };
+    return { ...rest, raw_payload: folded.payload, ...("source_updated_at" in row ? { source_updated_at: latest } : {}) };
   });
 }
 
@@ -337,43 +323,74 @@ export interface SlackWindowRow {
   mentions: unknown;
 }
 
+/** Extra columns for the window SELECT: the base payload and its ledger observations. */
+export function slackWindowFoldColumns(): SQL {
+  return sql`raw_payload AS fold_base, ${slackLedgerColumn()}`;
+}
+
 /**
- * Folded replacement for the window renderer's SELECT: same filter (base `message` rows of the
- * channel, no ledger rows, non-empty text or deleted), same order, evaluated on folded state.
+ * Window rows (backfill.ts mirrorSlackChannelWindows) selected with slackWindowFoldColumns():
+ * text / deleted / reactions / mentions are recomputed from the folded payload. Rows selected
+ * without the fold columns (or without observations) pass through unchanged.
  */
-export async function foldedSlackWindowRows(executor: Executor, userId: string, channelId: string): Promise<SlackWindowRow[]> {
-  const base = rowsOf<{ source_event_id: string; raw_payload: unknown }>(await executor.execute(sql`
-    SELECT source_event_id, raw_payload
-    FROM activity_events
-    WHERE user_id = ${userId}
-      AND source = 'slack'
-      AND raw_payload->>'_channel' = ${channelId}
-      AND event_type = 'message'
-      AND COALESCE(raw_payload->>'_ledger', '') <> 'true'
-    ORDER BY "timestamp" ASC, source_event_id ASC
-  `));
-  const payloads = base.map((row) => ({ sourceEventId: row.source_event_id, payload: payloadOf(row.raw_payload) }));
-  const ledger = await loadSlackLedgerObservations(executor, userId, channelId, payloads.map((p) => str(p.payload.ts)).filter((t): t is string => Boolean(t)));
-  const out: SlackWindowRow[] = [];
-  for (const { sourceEventId, payload: basePayload } of payloads) {
-    const ts = str(basePayload.ts);
-    const observations = ts ? ledger.get(ts) : undefined;
-    const payload = observations?.length ? foldSlackMessage(basePayload, observations).payload : basePayload;
-    const deleted = payload._deleted === true;
-    const text = typeof payload.text === "string" ? payload.text : null;
-    if (!deleted && !text) continue;
-    out.push({
-      ts,
-      source_event_id: sourceEventId,
-      text,
-      deleted,
-      sender_name: str(payload._user_name),
-      sender_handle: str(payload.user),
-      thread_ts: str(payload._thread_ts) ?? str(payload.thread_ts),
-      channel_name: str(payload._channel_name),
+export function foldSlackWindowRows<T extends SlackWindowRow & { fold_base?: unknown; fold_ledger?: unknown }>(rows: readonly T[]): SlackWindowRow[] {
+  return rows.map((row) => {
+    const { fold_base, fold_ledger, ...rest } = row;
+    const observations = observationsOf(fold_ledger);
+    if (observations.length === 0 || fold_base === undefined) return rest;
+    const payload = foldSlackMessage(payloadOf(fold_base), observations).payload;
+    return {
+      ...rest,
+      text: typeof payload.text === "string" ? payload.text : null,
+      deleted: payload._deleted === true,
       reactions: payload.reactions ?? null,
-      mentions: payload._mentions ?? null,
-    });
+      mentions: payload._mentions ?? rest.mentions ?? null,
+    };
+  });
+}
+
+/**
+ * Ledger observations for messages (by ts) of one channel in one workspace, grouped by ts
+ * (capture-side reads: revision comparison, reconcile). Index-backed through
+ * (source_namespace, source_object_id) when the workspace is known.
+ */
+export async function loadSlackLedgerObservations(
+  executor: Executor,
+  userId: string,
+  channelId: string,
+  tsList: readonly string[],
+  teamId?: string | null,
+): Promise<Map<string, SlackLedgerObservation[]>> {
+  const out = new Map<string, SlackLedgerObservation[]>();
+  const unique = [...new Set(tsList.filter((t) => typeof t === "string" && t))];
+  for (let i = 0; i < unique.length; i += 500) {
+    const part = unique.slice(i, i + 500);
+    const objects = JSON.stringify(part.map((t) => `message:${channelId}:${t}`));
+    const rows = rowsOf<{ event_type: string; source_event_id: string; timestamp: Date | string; raw_payload: unknown }>(await executor.execute(teamId
+      ? sql`
+        SELECT event_type, source_event_id, timestamp, raw_payload
+        FROM activity_events
+        WHERE user_id = ${userId} AND source = 'slack'
+          AND source_namespace = ${`workspace:${teamId}`}
+          AND source_object_id IN (SELECT jsonb_array_elements_text(${objects}::jsonb))
+          AND raw_payload->>'_ledger' = 'true'
+        ORDER BY timestamp ASC, source_event_id ASC`
+      : sql`
+        SELECT event_type, source_event_id, timestamp, raw_payload
+        FROM activity_events
+        WHERE user_id = ${userId} AND source = 'slack'
+          AND source_object_id IN (SELECT jsonb_array_elements_text(${objects}::jsonb))
+          AND raw_payload->>'_channel' = ${channelId}
+          AND raw_payload->>'_ledger' = 'true'
+        ORDER BY timestamp ASC, source_event_id ASC`));
+    for (const row of rows) {
+      const payload = payloadOf(row.raw_payload);
+      const ts = str(payload._object_ts);
+      if (!ts) continue;
+      const list = out.get(ts) ?? [];
+      list.push({ event_type: row.event_type, source_event_id: row.source_event_id, timestamp: row.timestamp, raw_payload: payload });
+      out.set(ts, list);
+    }
   }
   return out;
 }
