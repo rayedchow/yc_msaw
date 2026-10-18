@@ -60,8 +60,9 @@ How it is enforced:
   - `GET /v1/sources/runtime/status` drops other owners' coverage and every connection whose directory the caller
     cannot read. A runtime error is answered with a fixed 502, never the runtime's body.
   - `GET /v1/sources/nango-records` (lane status: connection ids and end users) is admin-only.
-  - `GET /v1/sources/google/auth` lists a member's own Google accounts only. Admins (`memory:build`) still see
-    every account's auth metadata, because they add DWD mailboxes and revoke grants. They never see the data.
+  - `GET /v1/sources/google/auth` lists the caller's own Google accounts only, admins included. Admins
+    (`memory:build`) also see accounts nobody owns yet (the DWD mailboxes they add) and the DWD configuration, but
+    never another member's account.
   - `GET /v1/sources/office-audio/consents` (participant names) is limited to the office-audio owner and admins.
 - **Owner evidence can't be forged by a tenant admin:**
   - Google owners come from the runtime's status heartbeat (`googleAccounts`). They are accepted only from a binding

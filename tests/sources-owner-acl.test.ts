@@ -323,7 +323,8 @@ describe("owner-only personal sources for members of one organization", () => {
     expect(member.accounts).toEqual([]);
     expect(member.pendingAuthorizations).toEqual([]);
     expect(member.modes.domain_wide_delegation.approved).toBeNull();
-    expect((await rt("alice", "/v1/sources/google/auth")).accounts).toHaveLength(2);
+    // Owner-scoped for admins too: alice (admin) sees her own account, not bob's.
+    expect((await rt("alice", "/v1/sources/google/auth")).accounts.map((a: any) => a.email)).toEqual(["alice@acme.test"]);
     expect((await http("GET", "/v1/sources/office-audio/consents", tok.carol)).status).toBe(403);
     expect((await http("GET", "/v1/sources/office-audio/consents", tok.bob)).status).toBe(200);
   });

@@ -834,15 +834,20 @@ export async function googleAuthRoute(request: Request, principal: Principal, ru
     const r = await runtime.googleAuth(principal, action, { ...(body !== undefined ? { body } : {}), ...(email !== undefined ? { email } : {}) });
     // Members see only their own Google accounts. Admins manage grants and DWD mailboxes, so they see every
     // account's auth metadata (never its data).
-    if (action === "status" && service && r.status === 200 && r.body && typeof r.body === "object" && !principal.scopes.includes(SCOPES.memoryBuild)) {
-      const owned = new Set((await service.viewer(principal.tenantNs, who(principal))).googleAccounts);
+    // Owner-scoped: everyone, admins included, sees their own Google accounts. Admins also see accounts nobody owns
+    // yet (the DWD mailboxes they add and manage), never another member's account. Pending authorizations are not
+    // listed (they name addresses before any proof).
+    if (action === "status" && service && r.status === 200 && r.body && typeof r.body === "object") {
+      const viewer = await service.viewer(principal.tenantNs, who(principal));
+      const admin = principal.scopes.includes(SCOPES.memoryBuild);
+      const visible = new Set([...viewer.googleAccounts, ...(admin ? viewer.unownedGoogleAccounts : [])]);
       const b = r.body as { accounts?: Array<{ email?: unknown }>; modes?: { domain_wide_delegation?: Record<string, unknown> } };
       const dwd = b.modes?.domain_wide_delegation;
       return json(200, {
         ...b,
-        accounts: (b.accounts ?? []).filter((a) => typeof a.email === "string" && owned.has(a.email.toLowerCase())),
+        accounts: (b.accounts ?? []).filter((a) => typeof a.email === "string" && visible.has(a.email.toLowerCase())),
         pendingAuthorizations: [],
-        ...(dwd ? { modes: { ...b.modes, domain_wide_delegation: { ...dwd, approved: null, directoryAdmin: null } } } : {}),
+        ...(dwd && !admin ? { modes: { ...b.modes, domain_wide_delegation: { ...dwd, approved: null, directoryAdmin: null } } } : {}),
       });
     }
     return relay(r);

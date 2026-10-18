@@ -150,6 +150,14 @@ export class SourceViewer {
       [...byAccount].filter(([, rows]) => rows.every((r) => r.subject !== null && r.issuer !== null && same({ subject: r.subject, issuer: r.issuer }, who))).map(([k]) => k),
     );
     this.#ownsAllGoogle = byAccount.size > 0 && this.#ownedAccounts.size === byAccount.size;
+    this.#unownedAccounts = new Set([...byAccount].filter(([, rows]) => rows.every((r) => r.subject === null)).map(([k]) => k));
+  }
+
+  readonly #unownedAccounts: Set<string>;
+
+  /** Google addresses nobody owns yet (e.g. domain-wide-delegated mailboxes an admin added), lower case. */
+  get unownedGoogleAccounts(): readonly string[] {
+    return [...this.#unownedAccounts].sort();
   }
 
   /** Google addresses this principal owns (lower case). */
