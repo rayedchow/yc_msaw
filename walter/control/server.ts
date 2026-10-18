@@ -163,7 +163,7 @@ export function createWalterServer(fleet: Fleet, opts: { auth?: boolean; hash?: 
   server.tool({
     name: "create_agent",
     title: "Create an ops agent",
-    description: "Create an operations agent from a goal (e.g. \"every day, log new orders from the orders inbox into the CRM\"). walter picks the company MCPs it needs, writes its instructions, and schedules it. If a needed system is not connected yet, the reply says which template to connect first. Set run_now to run it immediately: the reply waits for the run (up to about a minute) and includes its report.",
+    description: "Create an operations agent from a goal (e.g. \"every day, log new orders from the orders inbox into the CRM\"). walter picks the company MCPs it needs, writes its instructions, and schedules it. If a needed system is not connected yet, the reply says which template to connect first. Set run_now to run it immediately: the reply includes the run's report if it finishes within about 25 seconds, otherwise its run_id for agent_status.",
     inputSchema: z.object({
       goal: z.string().describe("what the agent should do, in plain words"),
       name: z.string().optional(),
@@ -174,11 +174,13 @@ export function createWalterServer(fleet: Fleet, opts: { auth?: boolean; hash?: 
     annotations: { readOnlyHint: false, destructiveHint: false },
   }, async (a: any, ctx: any) => {
     try {
+      const started = Date.now();
       const user = userOf(ctx);
       const { agent, missing } = await fleet.createAgent(user, a);
       if (missing.length) return ok({ created: false, needs: missing, next: `Connect ${missing.map((m) => m.template).join(", ")} with connect_system first, then call create_agent again.` });
       const run = a.run_now ? fleet.run(user, agent.id) : null;
-      if (run) await waitFor(() => run.status !== "running", 50);
+      // stay well under client tool timeouts: at most ~25 s for the whole call, then agent_status waits for the rest
+      if (run) await waitFor(() => run.status !== "running", Math.max(0, 25 - (Date.now() - started) / 1000));
       return ok({ created: true, agent_id: agent.id, name: agent.name, mcps: agent.mcps.map((m) => m.name), schedule: agent.schedule ?? "on demand", instructions: agent.instructions,
         ...(run ? { run_id: run.id, run_status: run.status, tool_calls: run.toolCalls, report: run.answer ?? null, ...(run.error ? { error: run.error } : {}),
           next: run.status === "running" ? "The run is still going; call agent_status with this run_id (it waits for the result)." : "Done. agent_status with this run_id and detail: true shows every tool call it made." }
