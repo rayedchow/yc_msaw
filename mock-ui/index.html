@@ -281,114 +281,10 @@ const $ = (s, r = document) => r.querySelector(s);
 const $$ = (s, r = document) => [...r.querySelectorAll(s)];
 
 // ── data ──────────────────────────────────────────────────────────────────
-const MCPS = [
-  {
-    id: "sales", name: "GurtAI Sales MCP", status: "live", version: "v3",
-    url: "https://gurtai-sales.run.mcp-use.com/mcp",
-    systems: ["HubSpot", "gurtai_analytics"],
-    stats: { agents: 4, calls: "1,284", success: "99.2%", rules: 6 },
-    integrations: [
-      ["hubspot.md", "HubSpot CRM", "API · read, write to sandbox", "HUBSPOT_TOKEN"],
-      ["warehouse.md", "gurtai_analytics", "Postgres · read only", "WAREHOUSE_URL"],
-    ],
-    md: `# HubSpot CRM (GurtAI)
-Sales system of record.
+let MCPS = [];   // from /api/state: built from mined knowledge, deploys and live usage
+let EVALS = {};
 
-## Notes
-- Enterprise pipeline is ours
-- Ask RevOps before trusting "Closed Won"`,
-    tools: [
-      ["get_commit(quarter)", "Committed revenue for a quarter", "R1 R2 R3"],
-      ["import_leads(leads)", "Lead import, plan then commit", "R4 R5 R6"],
-      ["find_account(domain)", "The one company for a domain", "R6"],
-      ["report_outcome(…)", "Agents report what went wrong", "feedback"],
-    ],
-    mined: "3,104 historical changes · backtested on held-out Q3",
-    rules: [
-      ["R1", "Closed Won counts only when <code>booked</code>", "Set by RevOps on 97% of revenue deals", "98%", `isClosedWon(d) ? d.booked === true : isContractSent(d)`],
-      ["R2", "Value is <code>arr</code>, not <code>amount</code>", "Σarr matches every reported quarter", "100%", `value = (d) => Number(d.arr)   // amount includes one-time services`],
-      ["R3", "Partner Sandbox never counts", "Absent from every reported number", "100%", `eligible = (d) => d.pipeline !== "9900001"`],
-      ["R4", "New leads owned by territory", "1,234 of 1,240 assignments", "100%", `owner = (c) => TERRITORY[c.country]   // EMEA 201 · AMER 202 · APAC 203`],
-      ["R5", "Existing contacts keep their owner", "5 of 6 territory exceptions", "asked", `owner = (c, existing) => existing ? existing.owner : territoryOwner(c)`],
-      ["R6", "Companies match on root domain", "All 41 past merges", "100%", `key = (url) => rootDomain(url)   // lowercase, no scheme, no www.`],
-    ],
-    question: { text: "5 of 6 territory exceptions are contacts that already existed. Do existing contacts always keep their owner?", options: ["Yes, never reassign them.", "No, always use territory."], rule: 4 },
-    versions: [["v1", "First build", 3], ["v2", "R1 added after backtest", 3], ["v3", "R4 · import_leads plan → commit", 3]],
-  },
-  {
-    id: "billing", name: "GurtAI Billing MCP", status: "live", version: "v2",
-    url: "https://gurtai-billing.run.mcp-use.com/mcp",
-    systems: ["Stripe", "gurtai_analytics"],
-    stats: { agents: 2, calls: "412", success: "98.6%", rules: 4 },
-    integrations: [
-      ["stripe.md", "Stripe", "API · read only", "STRIPE_KEY"],
-      ["warehouse.md", "gurtai_analytics", "Postgres · read only", "WAREHOUSE_URL"],
-    ],
-    md: `# Stripe (GurtAI)
-Subscriptions and invoices.
-
-## Notes
-- Annual plans are invoiced monthly
-- Test-mode customers are prefixed "qa_"`,
-    tools: [
-      ["get_mrr(month)", "Recurring revenue for a month", "B1 B2"],
-      ["find_overdue(days)", "Invoices overdue past N days", "B3 B4"],
-      ["report_outcome(…)", "Agents report what went wrong", "feedback"],
-    ],
-    mined: "18,920 invoices · backtested on held-out September",
-    rules: [
-      ["B1", "MRR excludes one-time line items", "Matches finance MRR in 12 of 12 months", "100%", `mrr = (sub) => sub.items.filter(isRecurring).reduce(sumMonthly, 0)`],
-      ["B2", "Customers prefixed <code>qa_</code> are test data", "Never billed in live mode", "100%", `real = (c) => !c.id.startsWith("qa_")`],
-      ["B3", "Overdue starts after a 5-day grace period", "Dunning starts on day 6 in 98% of cases", "97%", `overdue = (inv) => daysPastDue(inv) > 5`],
-      ["B4", "Disputed invoices are never chased", "0 of 37 disputed invoices got reminders", "100%", `chase = (inv) => !inv.disputed`],
-    ],
-    question: null,
-    versions: [["v1", "First build", 3], ["v2", "B3 grace period", 3]],
-  },
-  {
-    id: "support", name: "GurtAI Support MCP", status: "build", version: "v1", progress: 62,
-    url: "https://gurtai-support.run.mcp-use.com/mcp",
-    systems: ["Zendesk"],
-    stats: { agents: 0, calls: "—", success: "—", rules: 3 },
-    integrations: [["zendesk.md", "Zendesk", "API · read only", "ZENDESK_TOKEN"]],
-    md: `# Zendesk (GurtAI)
-Customer support tickets.
-
-## Notes
-- The "priority" tag is set by a bot, not by people`,
-    tools: [],
-    mined: "Mining 41,880 tickets · 62%",
-    rules: [
-      ["S1", "Enterprise tickets escalate after 4 hours", "Matches 211 of 219 escalations", "running", `escalate = (t) => t.plan === "enterprise" && hoursOpen(t) > 4`],
-      ["S2", "Tickets tagged <code>billing</code> go to Finance", "Reassigned in 96% of cases", "running", `queue = (t) => t.tags.includes("billing") ? "finance" : t.queue`],
-      ["S3", "Auto-closed after 7 days without a reply", "Holds on 2,940 of 2,958", "running", `close = (t) => daysSinceReply(t) >= 7`],
-    ],
-    question: null,
-    versions: [["v1", "First build", 0]],
-  },
-  {
-    id: "finance", name: "GurtAI Finance MCP", status: "ask", version: "v1",
-    url: "https://gurtai-finance.run.mcp-use.com/mcp",
-    systems: ["NetSuite"],
-    stats: { agents: 0, calls: "—", success: "—", rules: 2 },
-    integrations: [["netsuite.md", "NetSuite", "API · read only", "NETSUITE_TOKEN"]],
-    md: `# NetSuite (GurtAI)
-General ledger and payables.`,
-    tools: [
-      ["find_payable_bills(period)", "Bills approved and due in a period", "F1 F2"],
-      ["report_outcome(…)", "Agents report what went wrong", "feedback"],
-    ],
-    mined: "9,402 bills · backtested on held-out Q3",
-    rules: [
-      ["F1", "<code>custbody_14</code> is the real approval flag", "Set on 98% of paid bills, rarely on unpaid ones", "asked", `approved = (b) => b.custbody_14 === true`],
-      ["F2", "Closed periods are never edited", "0 edits after period close in 2 years", "100%", `editable = (b) => !periodClosed(b.period)`],
-    ],
-    question: { text: "custbody_14 and custbody_22 agree on 91% of bills but disagree on 37. Which one should gate payment?", options: ["custbody_14", "custbody_22"], rule: 0 },
-    versions: [["v1", "Waiting on one answer", 1]],
-  },
-];
-
-const STATUS = { live: ["", "Live"], build: ["build", "Mining"], ask: ["ask", "Needs an answer"] };
+const STATUS = { live: ["", "Live"], build: ["build", "Building"], ask: ["ask", "Needs an answer"] };
 const statusEl = (m) => `<span class="status ${STATUS[m.status][0]}"><i></i>${STATUS[m.status][1]}${m.status === "live" ? " · " + m.version : ""}</span>`;
 
 // ── list ──────────────────────────────────────────────────────────────────
@@ -400,10 +296,10 @@ function renderList() {
         <h1>MCPs</h1>
         <p>GurtAI's internal MCP servers. Each one knows how GurtAI actually uses its systems. Any agent can connect.</p>
       </div>
-      <button class="pill">New MCP</button>
     </section>
     <section class="mcps">
       <div class="hdr"><span>Last 24h</span><span>Server</span><span>Status</span><span>Agents</span><span>Calls · 24h</span><span>Rules</span><span></span></div>
+      ${MCPS.length ? "" : `<div class="empty" style="padding:28px">No MCPs yet. Run the miner to build the first one.</div>`}
       ${MCPS.map((m) => `
         <button class="card" data-id="${m.id}">
           <canvas data-dots="${m.id}"></canvas>
@@ -453,23 +349,19 @@ function evalStrip(m) {
 }
 
 // ── detail ────────────────────────────────────────────────────────────────
-const SHORT = {
-  R1: "booked gate", R2: "arr, not amount", R3: "sandbox excluded", R4: "owner by territory", R5: "keep existing owner", R6: "root domain",
-  B1: "recurring only", B2: "qa_ is test", B3: "5-day grace", B4: "skip disputed",
-  S1: "4h escalation", S2: "billing → finance", S3: "7-day auto-close",
-  F1: "custbody_14 approves", F2: "closed periods locked",
-};
+const SHORT = {};   // rule id → short label, filled from the API
 const strip = (h) => h.replace(/<[^>]+>/g, "");
 const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
 function treeModel(m) {
-  const W = 1032, cx = W / 2, cy = 150;
+  const W = 1032, cx = W / 2, span = Math.max(m.integrations.length, m.tools.length, 1), cy = Math.max(150, (span - 1) * 31 + 60);
   const NW = 196, NH = 46, CW = 220, CH = 72;
   const col = (items, x) => items.map((it, i) => ({ ...it, x, y: cy - ((items.length - 1) * 62) / 2 + i * 62 - NH / 2 }));
   const integ = col(m.integrations.map(([f, n, d, s]) => ({ kind: "integ", key: f, label: n, sub: f, f, n, d, s })), 24);
-  const tools = col(m.tools.map(([sig, d, r]) => ({ kind: "tool", key: sig, label: sig.replace(/\(.*$/, ""), sub: r === "feedback" ? "agent feedback" : r, sig, d, rules: r.split(" ").filter((x) => /^[A-Z]\d$/.test(x)) })), W - 24 - NW);
-  const busY = 290, ruleY = 330, RW = Math.min(150, (W - 48 - (m.rules.length - 1) * 14) / m.rules.length);
+  const tools = col(m.tools.map(([sig, d, r]) => ({ kind: "tool", key: sig, label: sig.replace(/\(.*$/, ""), sub: r === "feedback" ? "agent feedback" : r, sig, d, rules: r.split(" ").filter((x) => /^[A-Z][A-Za-z0-9_-]*$/.test(x) && x !== "feedback") })), W - 24 - NW);
+  const busY = Math.max(290, cy + (span - 1) * 31 + 23 + 26), ruleY = busY + 40, RW = Math.min(150, (W - 48 - (m.rules.length - 1) * 14) / m.rules.length);
   const totalW = m.rules.length * RW + (m.rules.length - 1) * 14;
+  for (const r of m.rules) SHORT[r[0]] = r[5];
   const rules = m.rules.map(([id, t, ev, h, code], i) => ({ kind: "rule", key: id, id, t, ev, h, code, x: cx - totalW / 2 + i * (RW + 14), y: ruleY, w: RW }));
   for (const r of rules) r.tools = tools.filter((t) => t.rules.includes(r.id)).map((t) => t.key);
   const H = rules.length ? ruleY + 60 + 24 : cy + 120;
@@ -500,7 +392,7 @@ function treeSvg(m, T) {
       <text class="ns" x="14" y="35">${esc(n.sub)}</text>
     </g>`;
   const ruleBox = (r) => {
-    const st = r.h === "asked" ? "asked" : r.h === "running" ? "running" : "ok";
+    const st = r.h === "asked" || r.h === "change" ? "asked" : r.h === "running" ? "running" : "ok";
     return `
     <g class="node rule ${st}" data-key="${r.key}" transform="translate(${r.x} ${r.y})">
       <rect width="${r.w}" height="${NH + 6}" rx="3"/>
@@ -529,7 +421,7 @@ function treeSvg(m, T) {
 function tipHtml(m, T, key) {
   if (key === "__center") return `<div class="tt">${esc(m.name)}</div><div class="tm mono">${esc(m.url)}</div><div class="td">${m.systems.join(" · ")} · ${T.tools.length} tools · ${T.rules.length} rules</div>`;
   const r = T.rules.find((x) => x.key === key);
-  if (r) return `<div class="tk">${r.id} · ${r.h === "asked" ? "waiting on an answer" : r.h === "running" ? "backtest running" : "held-out " + r.h}</div>
+  if (r) return `<div class="tk">${r.id} · ${r.h === "asked" ? "waiting on an answer" : r.h === "change" ? "stopped matching recent history" : r.h === "running" ? "backtest running" : "held-out " + r.h}</div>
     <div class="tt">${r.t}</div><div class="td">${r.ev}</div><pre>${esc(r.code)}</pre>
     ${r.tools.length ? `<div class="tm">Compiled into ${r.tools.map((t) => `<code>${esc(t.replace(/\(.*$/, ""))}</code>`).join(", ")}</div>` : ""}`;
   const t = T.tools.find((x) => x.key === key);
@@ -559,11 +451,15 @@ function renderDetail(m) {
       <div class="inspect" id="tip"></div>
     </section>
 
-    ${m.question ? `
+    ${m.job && m.job.status !== "done" ? `
+    <section class="pad" style="padding-top:16px;padding-bottom:16px">
+      <span class="${m.job.status === "failed" ? "warnc" : "muted"}">${m.job.status === "failed" ? "Rebuild failed" : "Rebuilding"} · ${esc(m.job.steps.at(-1)?.text ?? "starting")}</span>
+    </section>` : ""}
+    ${m.question && !(m.job && m.job.status === "running") ? `
     <section>
       <div class="q" id="question">
-        <div class="body"><div class="dim" style="font-size:13px;margin-bottom:6px">Question for a human · history can't settle this</div>${m.question.text}</div>
-        ${m.question.options.map((o, i) => `<div class="opt" data-a="${i}"><b>${"AB"[i]}</b>${o}</div>`).join("")}
+        <div class="body"><div class="dim" style="font-size:13px;margin-bottom:6px">Question for a human · history can't settle this</div>${m.question.text}${m.question.evidence ? `<div class="dim" style="font-size:13px;margin-top:6px">${esc(m.question.evidence)}</div>` : ""}</div>
+        ${m.question.options.map((o, i) => `<div class="opt" data-a="${i}"><b>${"ABCD"[i]}</b>${o}</div>`).join("")}
       </div>
     </section>` : ""}
 
@@ -609,55 +505,17 @@ function renderDetail(m) {
   $("#snippet").textContent = snippets.url;
   $$("#tabs button").forEach((b) => b.onclick = () => { $$("#tabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#snippet").textContent = snippets[b.dataset.c]; });
   $("#copy").onclick = () => navigator.clipboard?.writeText(m.url);
-  $$("#question .opt").forEach((o) => o.onclick = () => {
+  $$("#question .opt").forEach((o) => o.onclick = async () => {
     $$("#question .opt").forEach((x) => x.classList.toggle("picked", x === o));
-    const r = m.rules[m.question.rule];
-    if (r[3] === "asked") r[3] = "100%";
-    setTimeout(() => renderDetail(m), 350);
+    const r = await fetch(`/api/mcps/${m.id}/answer`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: m.question.index, option: Number(o.dataset.a) }) });
+    if (!r.ok) { alert((await r.json()).error); return; }
+    await load(true);
   });
 }
 
 // ── evals: is walter's understanding of the system correct? ───────────────
 // Everything is checked against the system's own history: replays of past work compared with what was recorded,
 // each rule against the decisions people made, and coverage of the system's custom fields.
-const EVALS = {
-  sales: {
-    window: { months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct"], heldOutFrom: 6 },
-    source: "HubSpot field history and forecast_snapshots, Jan–Oct 2026. Learned on Jan–Jun, held out Jul–Oct.",
-    replays: [
-      { task: "Q1 2026 commit, as of Mar 31", truth: "$512,000", got: "$512,000", split: "train", ok: true, via: "get_commit · R1 R2 R3", diff: "Exact match with the reported number in forecast_snapshots." },
-      { task: "Q2 2026 commit, as of Jun 30", truth: "$588,000", got: "$588,000", split: "train", ok: true, via: "get_commit · R1 R2 R3", diff: "Exact match with the reported number in forecast_snapshots." },
-      { task: "Q3 2026 commit, as of Sep 30", truth: "$631,000", got: "$631,000", split: "held-out", ok: true, via: "get_commit · R1 R2 R3", diff: "Exact match on a quarter walter never learned from." },
-      { task: "SaaStr 2026 lead import: owners", truth: "48 owners", got: "47 of 48", split: "held-out", ok: false, via: "import_leads · R4 R5", diff: "liam.oconnor@northwind.io kept owner 201; territory says 202. Explained by R5 (existing contacts keep their owner), which is waiting on an answer." },
-      { task: "Company merges, 2026", truth: "41 merges", got: "41 of 41", split: "held-out", ok: true, via: "find_account · R6", diff: "Every recorded merge joined two spellings of one root domain." },
-    ],
-    rules: [
-      { id: "R1", text: "Closed Won counts only when <code>booked</code>", support: [412, 421], months: [100, 100, 98, 100, 97, 100, 98, 100, 99, 71], drift: "Oct: 2 Contract Sent deals left out of the reported commit. Re-checking whether Contract Sent still counts.",
-        counter: ["7 deals: booked set after quarter close (counted in the quarter they closed)", "2 deals: no pattern found"] },
-      { id: "R2", text: "Value is <code>arr</code>, not <code>amount</code>", support: [3, 3], unit: "quarters", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
-      { id: "R3", text: "Partner Sandbox never counts", support: [3, 3], unit: "quarters", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
-      { id: "R4", text: "New leads owned by territory", support: [1234, 1240], months: [100, 99, 100, 100, 99, 100, 100, 100, 99, 100], counter: ["5 contacts that already existed kept their owner (see R5)", "1 lead reassigned by hand to cover a vacation"] },
-      { id: "R5", text: "Existing contacts keep their owner", support: [5, 6], unit: "exceptions", months: null, asked: true, counter: ["1 existing contact was moved to the territory owner in March"] },
-      { id: "R6", text: "Companies match on root domain", support: [41, 41], unit: "merges", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
-    ],
-  },
-  billing: {
-    window: { months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"], heldOutFrom: 6 },
-    source: "Stripe invoices and finance's MRR reports, Jan–Sep 2026. Learned on Jan–Jun, held out Jul–Sep.",
-    replays: [
-      { task: "June 2026 MRR", truth: "$214,300", got: "$214,300", split: "train", ok: true, via: "get_mrr · B1 B2", diff: "Exact match with finance's report." },
-      { task: "August 2026 MRR", truth: "$228,900", got: "$228,900", split: "held-out", ok: true, via: "get_mrr · B1 B2", diff: "Exact match on a month walter never learned from." },
-      { task: "Dunning list, September", truth: "62 invoices", got: "60 of 62", split: "held-out", ok: false, via: "find_overdue · B3 B4", diff: "2 invoices were chased on day 4. Grace period may be shorter for enterprise plans; not enough cases to tell yet." },
-    ],
-    rules: [
-      { id: "B1", text: "MRR excludes one-time line items", support: [9, 9], unit: "months", months: [100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
-      { id: "B2", text: "Customers prefixed <code>qa_</code> are test data", support: [214, 214], unit: "customers", months: [100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
-      { id: "B3", text: "Overdue starts after a 5-day grace period", support: [588, 601], months: [98, 97, 98, 99, 98, 97, 98, 98, 96], counter: ["11 invoices chased on day 4 or 5, all enterprise plans", "2 invoices never chased (paid same day)"] },
-      { id: "B4", text: "Disputed invoices are never chased", support: [37, 37], unit: "disputes", months: [100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
-    ],
-  },
-};
-
 function evalScore(m) {
   const E = EVALS[m.id];
   if (!E) return null;
@@ -751,10 +609,6 @@ function renderEvals(m) {
 
 // ── dot matrix: 12 × 12, one column per 2-hour window ───────────────────
 const COLS = 12, ROWS = 12, GAP = 9.6, R = 2.9, SIZE = 116;
-const VOLUME = {
-  sales: [3,2,2,1,1,2,4,6,8,9,9,8,7,9,9,8,7,6,5,5,4,4,3,3],
-  billing: [1,1,1,0,0,1,2,3,4,4,3,3,3,4,4,3,3,2,2,2,1,1,1,1],
-};
 let dotRaf = 0;
 function startDots() {
   cancelAnimationFrame(dotRaf);
@@ -773,8 +627,8 @@ function startDots() {
         const cx = 2 + x * GAP + R, cy = 2 + y * GAP + R;
         let color = "rgba(255,255,255,0.08)", a = 1;
         if (m.status === "live") {
-          const v = VOLUME[m.id];
-          const lit = ((v[2 * x] + v[2 * x + 1]) / 18) * ROWS;
+          const v = m.volume, peak = Math.max(2, ...v.map((_, i) => i % 2 ? 0 : v[i] + v[i + 1]));
+          const lit = ((v[2 * x] + v[2 * x + 1]) / peak) * ROWS;
           if (ROWS - y <= lit) {
             const wave = 0.55 + 0.45 * Math.sin(t / 700 - x * 0.6 + y * 0.35);
             color = `rgba(196,181,253,${0.35 + 0.6 * wave})`;
@@ -809,8 +663,24 @@ function route() {
   if (m && hover) setTimeout(() => $(`.node[data-key="${CSS.escape(decodeURIComponent(hover))}"]`)?.dispatchEvent(new Event("mouseenter")), 50);
   window.scrollTo({ top: 0 });
 }
+let lastJson = "";
+async function load(force) {
+  try {
+    const r = await fetch("/api/state", { cache: "no-store" });
+    const j = await r.json();
+    const text = JSON.stringify(j);
+    if (!force && text === lastJson) return;
+    lastJson = text;
+    MCPS = j.mcps; EVALS = j.evals;
+    // don't redraw under the cursor on the overview tree unless something material changed
+    route();
+  } catch (e) {
+    $("#app").innerHTML = `<section><div class="empty" style="padding:28px">walter's API is not reachable.</div></section>`;
+  }
+}
 window.addEventListener("hashchange", route);
-route();
+load(true);
+setInterval(() => load(false), 5000);
 </script>
 </body>
 </html>

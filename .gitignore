@@ -11,3 +11,4 @@ reports/live-*.json
 .mcp-use/
 reports/*.tmp
 artifacts/
+.walter/
