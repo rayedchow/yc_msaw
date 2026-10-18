@@ -3,8 +3,8 @@ import { redactProviderPayload } from "../../../vault/redaction.js";
 import type { InternalRouteDeps } from "../../core/types.js";
 import type { ForwardedPrincipal } from "../../internal/app.js";
 import { BitbucketApiError, BitbucketAuthError, BitbucketClient, BitbucketRateLimitedError, isBitbucketUuid, isRecord, parseFullName, repoEndpoint } from "./api.js";
-import { bitbucketConnections, markOutOfScope, type BitbucketConnectionRow } from "./content.js";
-import { findRepoBySelection, listRefs, listRepos, listSelection, purgeRepoContent, setFilesRetired, setRepoStatus, setSelection, upsertRepo, type BitbucketDb } from "./store.js";
+import { bitbucketConnections, markOutOfScope, restoreScope, type BitbucketConnectionRow } from "./content.js";
+import { bumpExportEpoch, findRepoBySelection, listRefs, listRepos, listSelection, purgeRepoContent, setSelection, upsertRepo, type BitbucketDb } from "./store.js";
 
 /**
  * Repository selection for the Bitbucket content lane (yc_msaw -> runtime internal API,
@@ -164,7 +164,7 @@ export function registerBitbucketInternalRoutes(app: Hono, deps: InternalRouteDe
       const workspace = isRecord(found.raw.workspace) ? found.raw.workspace : null;
       const previous = await findRepoBySelection(db, tenantId, parsed.repo.toLowerCase());
       await setSelection(db, { tenantId, fullName: parsed.repo, selected: true, ...(parsed.refs ? { extraRefs: parsed.refs } : {}), by: principal.subject });
-      await upsertRepo(db, {
+      const { renamedFrom } = await upsertRepo(db, {
         tenantId,
         repoUuid: uuid,
         workspaceUuid: workspace && isBitbucketUuid(workspace.uuid) ? String(workspace.uuid) : null,
@@ -177,10 +177,8 @@ export function registerBitbucketInternalRoutes(app: Hono, deps: InternalRouteDe
         isPrivate: typeof found.raw.is_private === "boolean" ? found.raw.is_private : null,
         raw: found.raw,
       });
-      if (previous && previous.repo_uuid === uuid && previous.status === "out_of_scope") {
-        await setRepoStatus(db, { tenantId, repoUuid: uuid }, "active", null);
-        await setFilesRetired(db, { tenantId, repoUuid: uuid }, null, "bitbucket_repo_out_of_scope");
-      }
+      if (renamedFrom) await bumpExportEpoch(db, { tenantId, repoUuid: uuid }, "rename");
+      if (previous && previous.repo_uuid === uuid && previous.status === "out_of_scope") await restoreScope(db, { tenantId, repoUuid: uuid });
     } else {
       await setSelection(db, { tenantId, fullName: parsed.repo, selected: false, by: principal.subject });
       const row = await findRepoBySelection(db, tenantId, parsed.repo.toLowerCase());

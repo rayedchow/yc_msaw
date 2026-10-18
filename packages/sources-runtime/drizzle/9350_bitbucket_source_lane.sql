@@ -86,6 +86,10 @@ CREATE TABLE IF NOT EXISTS bitbucket_source_repos (
   UNIQUE (tenant_id, repo_uuid)
 );
 
+-- export_epoch (refs, files, snapshots) is bumped when the repository is renamed
+-- (every path moves) or leaves/re-enters scope, so the journal re-exports rows
+-- whose own columns did not change.
+
 -- 5. Branches and their scan generations.
 --    next_generation        monotonic counter; every scan takes next_generation + 1,
 --                           never reused. It is the exported sourceVersion.ordinal:
@@ -131,6 +135,7 @@ CREATE TABLE IF NOT EXISTS bitbucket_source_refs (
   last_error text,
   last_error_at timestamptz,
   error_streak integer NOT NULL DEFAULT 0,
+  export_epoch integer NOT NULL DEFAULT 0,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant_id, row_key),
   UNIQUE (tenant_id, repo_uuid, ref_name)
@@ -211,6 +216,7 @@ CREATE TABLE IF NOT EXISTS bitbucket_source_files (
   delete_reason text,
   renamed_from text,
   renamed_to text,
+  export_epoch integer NOT NULL DEFAULT 0,
   updated_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant_id, row_key),
   UNIQUE (tenant_id, repo_uuid, ref_name, path)
@@ -234,6 +240,7 @@ CREATE TABLE IF NOT EXISTS bitbucket_source_snapshots (
   changes_truncated boolean NOT NULL DEFAULT false,
   complete boolean NOT NULL,
   incomplete_reasons jsonb NOT NULL DEFAULT '[]'::jsonb,
+  export_epoch integer NOT NULL DEFAULT 0,
   committed_at timestamptz NOT NULL DEFAULT now(),
   PRIMARY KEY (tenant_id, row_key),
   UNIQUE (tenant_id, repo_uuid, ref_name, generation)

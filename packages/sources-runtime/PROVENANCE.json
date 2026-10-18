@@ -849,6 +849,31 @@
       ]
     },
     {
+      "path": "drizzle/9300_github_source_lane.sql",
+      "sha256": "bd54222a3bb98a67351a36f39badcdf84553228d6e92870e3310d02c2a93cf44",
+      "status": "new",
+      "owner": "github",
+      "reason": "GitHub repository content lane tables: quota bucket per installation/grant (cooldowns, observed budget, lease), connection discovery, selected repos by immutable id, refs with monotonic scan generations (next/scan/committed), durable tree-walk queue, staged entries, current file set (content_generation ordinal, soft deletes/renames/retire/omit), append-only snapshots, <=8 MiB bytea chunks + git-SHA-1 keyed blobs; journal triggers via source_lane_journal_row with scan/check bookkeeping columns ignored.",
+      "tests": [
+        "tests/source-lane/providers/github/content.test.ts",
+        "tests/source-lane/providers/github/transport.test.ts",
+        "tests/source-lane/providers/github/routes.test.ts",
+        "tests/source-lane/providers/github/module.test.ts",
+        "tests/source-lane/providers/github/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "drizzle/9301_github_content_schedules.sql",
+      "sha256": "1c62b2eeece0335951f46bd9f0f084c3eea236e3ad2818b42eb01643671b90fc",
+      "status": "new",
+      "owner": "github",
+      "reason": "Schedules github.content_sweep (group <tenant>:github:content) for tenants already connected at install; idempotent. New connections need patch request github#1.",
+      "tests": [
+        "tests/source-lane/providers/github/module.test.ts",
+        "tests/source-lane/providers/github/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
       "path": "drizzle/9550_imessage_device_ingest.sql",
       "sha256": "a90496678f6b14512efca3fceac38d1f7f2804642af7ed9a207d143912fc5349",
       "status": "new",
@@ -1782,12 +1807,12 @@
     },
     {
       "path": "src/integrations/nango/tasks.ts",
-      "sha256": "4244a46ca0e7b824de752112b5937d833ae507d57cbf17bdef208fb3671bb437",
+      "sha256": "0f2b6f3724d677fb81f28793042aa2d00eaaacc0af6b7e74d77c270812b44921",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/nango/tasks.ts",
       "donorSha256": "91f2cf584be4a011f257429adecc68c4db78c7f912c57e87c9f0dadd3e6ffdea",
-      "reason": "confluence request 2 (see DECLARED_OVERRIDES). jira patch request 2: also disables the Jira deep sweep.",
+      "reason": "confluence request 2 (see DECLARED_OVERRIDES). jira patch request 2: also disables the Jira deep sweep. github patch request 2: also disables the GitHub content sweep.",
       "tests": [
         "tests/source-lane/core/shared-patches-confluence.test.ts",
         "tests/source-lane/providers/jira/shared-patches.test.ts"
@@ -2559,12 +2584,12 @@
     },
     {
       "path": "src/queue/dispatch.ts",
-      "sha256": "d97666993c12222df6ae7cecab5e9f34846205907834285afa61187b4ff34b3e",
+      "sha256": "702e95ee9d3f42bdb178652a11dc13f423c3c8648098695e127eda4abba843ed",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/queue/dispatch.ts",
       "donorSha256": "3efb36af346a94abf50a50e44472ab50583eef8379193e2cb15befd9f3548bd0",
-      "reason": "calendar-contacts request 4 + confluence request 1 (see DECLARED_OVERRIDES). jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira.",
+      "reason": "calendar-contacts request 4 + confluence request 1 (see DECLARED_OVERRIDES). jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira. github patch request 1: startNangoPolling schedules github.content_sweep (own group) for GitHub.",
       "tests": [
         "tests/source-lane/core/shared-patches-confluence.test.ts",
         "tests/source-lane/core/shared-patches.test.ts",
@@ -2934,6 +2959,102 @@
       "reason": "Discord provider: message files with tombstones, truthful coverage (intent, edits/deletions window, per-channel history).",
       "tests": [
         "tests/source-lane/providers/discord/discord.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/github/api.ts",
+      "sha256": "1f5d1ed5076103a1a5383fb664c2bbbba8eee8d616a471edced5a845b4fe4c68",
+      "status": "new",
+      "owner": "github",
+      "reason": "GitHub REST through the Nango proxy (no token in the runtime): endpoint allowlist, manual redirects, GitHub primary/secondary rate-limit classification (x-ratelimit-remaining/reset, retry-after, message) raised instead of slept, budget header reporting, Nango connection errors outrank tolerated statuses, strict base64 blob decoding, git blob SHA-1, text/binary detection.",
+      "tests": [
+        "tests/source-lane/providers/github/transport.test.ts",
+        "tests/source-lane/providers/github/content.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/github/content.ts",
+      "sha256": "5a930945654dd30cce2514668fe47a97a0b01e63ac47afdbe85e4a9cc7acbcf4",
+      "status": "new",
+      "owner": "github",
+      "reason": "github.content_sweep: selection gating via donor enabledGithubRepos, scope-out reconcile, per-installation buckets, rename-safe repo refresh by id, HEAD resolve once per run, recursive tree with truncation fallback walk, blob fetch/verify, budget fair-share without backoff spin, reserve for donor lanes, Retry-After/reset cooldowns, no checkpoint advance on failure, temp_clone_token stripping, tenant-guarded task handler.",
+      "tests": [
+        "tests/source-lane/providers/github/content.test.ts",
+        "tests/source-lane/providers/github/transport.test.ts",
+        "tests/source-lane/providers/github/routes.test.ts",
+        "tests/source-lane/providers/github/module.test.ts",
+        "tests/source-lane/providers/github/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/github/coverage.ts",
+      "sha256": "65d3da3e8ef486db4e644dd72dd83893e9ef2a0e3c037d756c91def30bb8c6b6",
+      "status": "new",
+      "owner": "github",
+      "reason": "Truthful coverage: per repo@ref complete only for a fresh, fully captured HEAD; partial for scans in progress, HEAD lag, omissions, incomplete listings, rate-limit pauses, errors, staleness; blocked for auth/permission/inaccessible; donor activity lanes always partial.",
+      "tests": [
+        "tests/source-lane/providers/github/content.test.ts",
+        "tests/source-lane/providers/github/module.test.ts",
+        "tests/source-lane/providers/github/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/github/export-map.ts",
+      "sha256": "3dcfe96facc4b395128d5fe6c25c31fef4162ec897303bfa67e4b6bde3ef48e5",
+      "status": "new",
+      "owner": "github",
+      "reason": "Extra-table exporters: repo/ref/file/snapshot rows -> files with exact chunked bytes, sourceVersion ordinal = scan generation, sourceUpdatedAt null (commit dates are user-controlled), deletes with provider reasons filtered by path ownership, no placeholder bytes for omitted files.",
+      "tests": [
+        "tests/source-lane/providers/github/content.test.ts",
+        "tests/source-lane/providers/github/routes.test.ts",
+        "tests/source-lane/providers/github/module.test.ts",
+        "tests/source-lane/providers/github/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/github/index.ts",
+      "sha256": "b20a23cfa689643a1be7425453dfb4ad46ecae9920361adda7a0d7296b34616a",
+      "status": "new",
+      "owner": "github",
+      "reason": "Replaces the core baseline module: donor Nango lanes unchanged (default raw/projection mappings) plus the content lane (extra tables, coverage, task handler, internal routes).",
+      "tests": [
+        "tests/source-lane/providers/github/module.test.ts",
+        "tests/source-lane/providers/github/routes.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/github/paths.ts",
+      "sha256": "8c4f14642f4ab1a1cb5f86a7f0b3507ed9d783846f5f39eaa23f78b9cba1d144",
+      "status": "new",
+      "owner": "github",
+      "reason": "sources/github/<owner>/<repo>/code/ layout next to the donor projections (donor githubRepoSourceWikiDirectory): _repo.json, <ref>/_head.json, _snapshots/g<gen>.json, files/<git path> with injective minimal segment encoding, _overflow/<sha256> for paths beyond the sources/ grammar; content types.",
+      "tests": [
+        "tests/source-lane/providers/github/transport.test.ts",
+        "tests/source-lane/providers/github/content.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/github/routes.ts",
+      "sha256": "5696f0db62fb68a386d274430b0313d9eb9c0438a8bdd41997fe5af628fd39df",
+      "status": "new",
+      "owner": "github",
+      "reason": "Internal selection routes (tenant from the verified forwarded principal; memory:read/memory:build): installation listing via donor listGithubInstallationRepos, strict body, enable only if this tenant's grant can read the repo, scope-out disable, explicit destructive purge (donor purgeGithubRepoData + lane purge).",
+      "tests": [
+        "tests/source-lane/providers/github/routes.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/github/store.ts",
+      "sha256": "789eef766ba2478ea1a1dd89fbc1fbeac8a9f627ae7ab46ab672d1f67bab9ee2",
+      "status": "new",
+      "owner": "github",
+      "reason": "Durable state (tenant + repo-id scoped): quota cooldown/lease, repos (rename -> path_epoch), refs with atomic generation assignment, tree queue, staging, chunked blobs, transactional generation-guarded commitScan (FOR UPDATE; refuses older/superseded scans; unchanged paths keep their ordinal; rename detection; incomplete-prefix keep), commitRefGone, reason-scoped retire, destructive purge.",
+      "tests": [
+        "tests/source-lane/providers/github/content.test.ts",
+        "tests/source-lane/providers/github/transport.test.ts",
+        "tests/source-lane/providers/github/routes.test.ts",
+        "tests/source-lane/providers/github/module.test.ts",
+        "tests/source-lane/providers/github/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
       ]
     },
     {
@@ -4132,13 +4253,16 @@
     },
     {
       "path": "src/vault/redaction.ts",
-      "sha256": "4629ef5d8818135ac79d48ba4209031e3ca13544d241e4c6a7672de3089963eb",
+      "sha256": "b91db4ad12913ddbd3b31f81ab7a0069b198824b50e15dd135a5dede20b21411",
       "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/vault/redaction.ts",
       "donorSha256": "0964fe82c63d2ecf8ec2d4b5de93ce4590ede00cb886ced6d49a6ce91c82dd5b",
-      "owner": "coordinator",
-      "reason": "google-docs patch request 2: Slides image.contentUrl (requester-scoped ~30 min URL, same credential shape as Docs contentUri) is redacted for google-docs payloads by the shared rule.",
-      "test": "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts"
+      "reason": "google-docs patch request 2: Slides image.contentUrl (requester-scoped ~30 min URL, same credential shape as Docs contentUri) is redacted for google-docs payloads by the shared rule. github patch request 4: GitHub temp_clone_token (short-lived clone credential) is redacted for github payloads.",
+      "tests": [
+        "tests/source-lane/core/shared-patches-confluence.test.ts",
+        "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts"
+      ]
     },
     {
       "path": "src/vault/tokens.ts",
@@ -4731,10 +4855,10 @@
     },
     {
       "path": "tests/source-lane/core/shared-patches-confluence.test.ts",
-      "sha256": "1a5f0db5827473c0ea013af84a7b447eec7c28ed7141bd08f0c7e5f0c2f181c0",
+      "sha256": "e5d6c1fec9d94afe3ad55ed0faa4cebcabd5ba383c0e3e2b93078ababd4ce6e9",
       "status": "new",
       "owner": "coordinator",
-      "reason": "Confluence shared-patch regressions.",
+      "reason": "Confluence + GitHub shared-patch regressions.",
       "tests": [
         "tests/source-lane/core/shared-patches-confluence.test.ts"
       ]
@@ -4894,6 +5018,96 @@
       "reason": "Discord lane regression suite.",
       "tests": [
         "tests/source-lane/providers/discord/discord.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/github/content.test.ts",
+      "sha256": "8ab4ea9853aef6d39076dde8a766aed549382083005864814fde03ab3040c1ce",
+      "status": "new",
+      "owner": "github",
+      "reason": "Content lane behaviour: exact bytes/binary/symlink/submodule, truncated-tree walk + resume, incomplete prefix keep, secondary/primary limits + reserve + resume, no checkpoint advance + no spin, SHA-1 mismatch, auth/permission blocked, deletes/renames/versions, unchanged no-op, size limit, A->B->A, late older scans, scope-out, repo rename, branch delete/retire, tenant isolation, multi-installation.",
+      "tests": [
+        "tests/source-lane/providers/github/content.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/github/fake-github.ts",
+      "sha256": "e25366035da38ad0f459d286ef78af61220ae9b83f52278cf4c025bdc599b9af",
+      "status": "new",
+      "owner": "github",
+      "reason": "Fake GitHub behind a fake Nango proxy: real git blob SHA-1s, recursive/non-recursive trees with truncation, wrapped base64 blobs, renames (301), empty repos (409), per-connection visibility, per_page paging, rate-limit headers, fault injection.",
+      "tests": [
+        "tests/source-lane/providers/github/fake-github.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/github/fixtures.ts",
+      "sha256": "6d7c90cf4c0c1a6c7a4dc273f21ba40ab15ec4e0e91a798da570cc0df28029fc",
+      "status": "new",
+      "owner": "github",
+      "reason": "Shared helpers: production sweep + exporter into the real yc_msaw store.",
+      "tests": [
+        "tests/source-lane/providers/github/fixtures.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/github/harness.ts",
+      "sha256": "1586d517f4b5d3baa298031b298f20d413e3a90fb9c68528aa28adc630474323",
+      "status": "new",
+      "owner": "github",
+      "reason": "PGlite harness with donor source migrations (incl. 0030 github_repo_sync), 9000-9002 and 9300/9301.",
+      "tests": [
+        "tests/source-lane/providers/github/harness.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/github/module.test.ts",
+      "sha256": "1182d51c0c9be6613a6730e97f33e76b7566d07ed077d876ed9e8311046d622f",
+      "status": "new",
+      "owner": "github",
+      "reason": "Registry wiring, 9301 schedule backfill, lifecycle-only updates not journaled, task tenant guard, donor issue/PR processors + default exports next to the content lane.",
+      "tests": [
+        "tests/source-lane/providers/github/module.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/github/real-pg.test.ts",
+      "sha256": "2841ed2017c9eb682b33deacf049b6d83af778a47eaa4f8712afcb030fc0a50c",
+      "status": "new",
+      "owner": "github",
+      "reason": "Real PostgreSQL: full migration plan, bytea chunk round trip (>8 MiB), A->B->A, concurrent commit race under FOR UPDATE, per-installation lease across tenants; own database created/dropped.",
+      "tests": [
+        "tests/source-lane/providers/github/real-pg.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/github/routes.test.ts",
+      "sha256": "d5de8070fabfd8b7742413c2b3528ef02f00f4b5551fe662d886eca6893dbd95",
+      "status": "new",
+      "owner": "github",
+      "reason": "Selection routes through the real core createInternalApp (service token, principal binding, scopes, strict body, paging, scope-out, purge).",
+      "tests": [
+        "tests/source-lane/providers/github/routes.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/github/transport.test.ts",
+      "sha256": "30d39f12d8f7490fe9f445b1fe4bf3020789d6ebff06f7adc8a4b8479b6ee0ad",
+      "status": "new",
+      "owner": "github",
+      "reason": "Client/paths unit tests through production functions.",
+      "tests": [
+        "tests/source-lane/providers/github/transport.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/github/yc-store.ts",
+      "sha256": "6ae3eba47165b4d584d5857c8108232db4a2cfff9b54bf03a2f881f3a98b22f6",
+      "status": "new",
+      "owner": "github",
+      "reason": "Publish target applying the exporter wire protocol to the real yc_msaw SourceStore (pattern of the confluence test helper, own copy).",
+      "tests": [
+        "tests/source-lane/providers/github/yc-store.ts"
       ]
     },
     {

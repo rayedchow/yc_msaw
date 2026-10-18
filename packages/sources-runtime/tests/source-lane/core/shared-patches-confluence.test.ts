@@ -9,6 +9,7 @@ import { db, pg, query, ready } from "../providers/stripe/harness.js";
 import { startNangoPolling } from "../../../src/queue/dispatch.js";
 import { disableNangoPollSchedule } from "../../../src/integrations/nango/tasks.js";
 import { processConfluencePageRecord } from "../../../src/integrations/atlassian/processors.js";
+import { redactProviderPayload } from "../../../src/vault/redaction.js";
 
 /** Regressions for confluence patch requests 1-3 (shared dispatch.ts, nango/tasks.ts, atlassian/processors.ts). PGlite, real SQL. */
 beforeAll(async () => {
@@ -44,5 +45,22 @@ describe("confluence shared patches", () => {
     await processConfluencePageRecord(db as never, { ...page, _nango_metadata: { cursor: "Y3Vyc29yLTM=", last_action: "DELETED", deleted_at: "2026-07-05T00:00:00.000Z" } } as never, { tenantId: "t-cf3" } as never);
     const ids = (await query<{ source_event_id: string }>(`SELECT source_event_id FROM activity_events WHERE user_id = 't-cf3' ORDER BY source_event_id`)).map((r) => r.source_event_id);
     expect(ids).toEqual(["nango:confluence:page:page-7:v7", "nango:confluence:page:page-7:v7:deleted:2026-07-05T00:00:00.000Z"]);
+  });
+
+  it("startNangoPolling schedules the GitHub content sweep in its own group, and disconnect disables it (github requests 1-2)", async () => {
+    await startNangoPolling("t-gh", "github");
+    const rows = await query<{ kind: string; group_key: string }>(`SELECT kind, group_key FROM task_schedules WHERE tenant_id = 't-gh' ORDER BY kind`);
+    expect(rows).toContainEqual({ kind: "github.content_sweep", group_key: "t-gh:github:content" });
+    await startNangoPolling("t-gh", "bitbucket");
+    expect((await query<{ n: number }>(`SELECT count(*)::int AS n FROM task_schedules WHERE kind = 'github.content_sweep'`))[0]!.n).toBe(1);
+    await disableNangoPollSchedule(db as never, "t-gh", "github");
+    expect((await query<{ enabled: boolean }>(`SELECT enabled FROM task_schedules WHERE tenant_id = 't-gh' AND kind = 'github.content_sweep'`))[0]!.enabled).toBe(false);
+  });
+
+  it("redacts GitHub temp_clone_token (github request 4)", () => {
+    const out = redactProviderPayload("github", { id: 1, full_name: "acme/w", temp_clone_token: "AB12", owner: { login: "acme" } }) as Record<string, unknown>;
+    expect(out.temp_clone_token).toBe("[redacted: github credential]");
+    expect(out.full_name).toBe("acme/w");
+    expect(redactProviderPayload("bitbucket", { temp_clone_token: "x" })).toEqual({ temp_clone_token: "x" });
   });
 });

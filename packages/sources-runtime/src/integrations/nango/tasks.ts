@@ -283,6 +283,16 @@ export async function disableNangoPollSchedule(
         AND group_key = ${`${tenantId}:jira:sweep`}
     `);
   }
+  // SOURCE-LANE PATCH (github request 2): the GitHub content sweep has its own group key.
+  if (provider.trim().toLowerCase() === "github") {
+    await executor.execute(sql`
+      UPDATE task_schedules
+      SET enabled = false, updated_at = now()
+      WHERE tenant_id = ${tenantId}
+        AND kind = 'github.content_sweep'
+        AND group_key = ${`${tenantId}:github:content`}
+    `);
+  }
 }
 
 export async function loadStoredCursor(

@@ -94,13 +94,13 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/queue/dispatch.ts": {
     status: "patched",
-    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync. confluence patch request 1: startNangoPolling schedules confluence.sweep (own group) for Confluence. jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira.",
+    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync. confluence patch request 1: startNangoPolling schedules confluence.sweep (own group) for Confluence. jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira. github patch request 1: startNangoPolling schedules github.content_sweep (own group) for GitHub.",
     test: "tests/source-lane/core/shared-patches.test.ts",
     tests: ["tests/source-lane/providers/jira/shared-patches.test.ts", "tests/source-lane/core/shared-patches-confluence.test.ts"],
   },
   "src/integrations/nango/tasks.ts": {
     status: "patched",
-    reason: "confluence patch request 2: disableNangoPollSchedule also disables the Confluence deep sweep schedule (its own group key). jira patch request 2: also disables the Jira deep sweep.",
+    reason: "confluence patch request 2: disableNangoPollSchedule also disables the Confluence deep sweep schedule (its own group key). jira patch request 2: also disables the Jira deep sweep. github patch request 2: also disables the GitHub content sweep.",
     test: "tests/source-lane/core/shared-patches-confluence.test.ts",
     tests: ["tests/source-lane/providers/jira/shared-patches.test.ts"],
   },
@@ -143,8 +143,9 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/vault/redaction.ts": {
     status: "patched",
-    reason: "google-docs patch request 2: Slides image.contentUrl (requester-scoped ~30 min URL, same credential shape as Docs contentUri) is redacted for google-docs payloads by the shared rule.",
+    reason: "google-docs patch request 2: Slides image.contentUrl (requester-scoped ~30 min URL, same credential shape as Docs contentUri) is redacted for google-docs payloads by the shared rule. github patch request 4: GitHub temp_clone_token (short-lived clone credential) is redacted for github payloads.",
     test: "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts",
+    tests: ["tests/source-lane/core/shared-patches-confluence.test.ts"],
   },
   "src/graph/wiring/default-kb.ts": {
     status: "shim",

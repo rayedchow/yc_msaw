@@ -35,6 +35,7 @@ import {
   advanceDir,
   anyDir,
   beginScan,
+  bumpExportEpoch,
   bumpNotFound,
   clearRateStreak,
   commitRefGone,
@@ -402,6 +403,14 @@ export async function reconcileScope(db: DbExecutor, tenantId: string, selection
 export async function markOutOfScope(db: DbExecutor, scope: { tenantId: string; repoUuid: string }, reason: string): Promise<void> {
   await setRepoStatus(db, scope, "out_of_scope", reason);
   await setFilesRetired(db, scope, "bitbucket_repo_out_of_scope", null);
+  await bumpExportEpoch(db, scope, "scope");
+}
+
+/** Back in scope (re-selected): files and branch manifests return to the current view. */
+export async function restoreScope(db: DbExecutor, scope: { tenantId: string; repoUuid: string }): Promise<void> {
+  await setRepoStatus(db, scope, "active", null);
+  await setFilesRetired(db, scope, null, "bitbucket_repo_out_of_scope");
+  await bumpExportEpoch(db, scope, "scope");
 }
 
 async function runQuota(
@@ -535,7 +544,7 @@ async function refreshRepo(ctx: Ctx, sel: SelectionRow, conns: readonly Bitbucke
       await markOutOfScope(ctx.db, { tenantId: ctx.tenantId, repoUuid: known.repo_uuid }, `selection ${sel.full_name} now names a different repository; captured snapshots are kept`);
     }
     const previous = await getRepo(ctx.db, ctx.tenantId, repoUuid);
-    await upsertRepo(ctx.db, {
+    const { renamedFrom } = await upsertRepo(ctx.db, {
       tenantId: ctx.tenantId,
       repoUuid,
       workspaceUuid: workspace && isBitbucketUuid(workspace.uuid) ? String(workspace.uuid) : null,
@@ -548,10 +557,8 @@ async function refreshRepo(ctx: Ctx, sel: SelectionRow, conns: readonly Bitbucke
       isPrivate: typeof raw.is_private === "boolean" ? raw.is_private : null,
       raw,
     });
-    if (previous?.status === "out_of_scope") {
-      await setRepoStatus(ctx.db, { tenantId: ctx.tenantId, repoUuid }, "active", null);
-      await setFilesRetired(ctx.db, { tenantId: ctx.tenantId, repoUuid }, null, "bitbucket_repo_out_of_scope");
-    }
+    if (renamedFrom) await bumpExportEpoch(ctx.db, { tenantId: ctx.tenantId, repoUuid }, "rename");
+    if (previous?.status === "out_of_scope") await restoreScope(ctx.db, { tenantId: ctx.tenantId, repoUuid });
     return getRepo(ctx.db, ctx.tenantId, repoUuid);
   }
   if (!known) return null;

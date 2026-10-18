@@ -53,6 +53,8 @@ function redactStringValue(provider: ProviderRedactionKey, key: string, value: s
       if (isAtlassianCredentialUrlField(key, path, value)) return CREDENTIAL_URL_REDACTION;
       return null;
     case "github":
+      // SOURCE-LANE PATCH (github request 4): private repository payloads carry a short-lived clone credential.
+      if (key === "temp_clone_token" && value !== "") return "[redacted: github credential]";
       return redactGithubCredentialUrls(key, value);
     case "bitbucket":
       return null;

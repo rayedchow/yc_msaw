@@ -543,6 +543,35 @@ export async function jiraSelectionRoute(request: Request, principal: Principal,
   }
 }
 
+const GithubBranch = z
+  .string()
+  .min(1)
+  .max(200)
+  .regex(/^[A-Za-z0-9._/-]+$/)
+  .refine((r) => !r.startsWith("/") && !r.endsWith("/") && !r.endsWith(".lock") && !r.includes("..") && !r.includes("//") && !r.split("/").some((s) => s.startsWith(".")));
+const GithubSelectionSchema = z
+  .object({
+    repo: z.string().regex(/^[A-Za-z0-9](?:[A-Za-z0-9-]{0,38})\/[A-Za-z0-9_.-]{1,100}$/),
+    syncing: z.boolean(),
+    purge: z.boolean().optional(),
+    refs: z.array(GithubBranch).max(20).optional(),
+  })
+  .strict();
+
+/**
+ * GitHub repository selection forwarded to runtime providers/github. Strict body (repository, on/off,
+ * explicit destructive purge, extra branches); tenant and user come from the verified principal, and the
+ * runtime only enables repositories one of that tenant's own grants can read.
+ */
+export async function githubRepositoriesRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: "get" | "put"): Promise<Response> {
+  try {
+    const body = action === "put" ? GithubSelectionSchema.parse(await readOptionalJson(request)) : undefined;
+    return relay(await runtime.githubRepositories(principal, action, body));
+  } catch (e) {
+    return e instanceof SourceError || e instanceof TraceIngestError || e instanceof z.ZodError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
+  }
+}
+
 /** Google provider-grant setup forwarded to runtime providers/google-auth; strict bodies (no tenant/user fields). */
 export async function googleAuthRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: GoogleAuthAction, email?: string): Promise<Response> {
   try {

@@ -27,6 +27,7 @@ import {
   disconnectRoute,
   googleAuthRoute,
   codingSessionsDeviceSetupRoute,
+  githubRepositoriesRoute,
   imessageDeviceSetupRoute,
   jiraSelectionRoute,
   listBindingsRoute,
@@ -588,6 +589,17 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;
         return jiraSelectionRoute(c.req.raw, principal, runtime, "put");
+      });
+      // GitHub repository selection (runtime providers/github; github patch request 3).
+      server.get("/v1/sources/github/repositories", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+        if (principal instanceof Response) return principal;
+        return githubRepositoriesRoute(c.req.raw, principal, runtime, "get");
+      });
+      server.put("/v1/sources/github/repositories/selection", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return githubRepositoriesRoute(c.req.raw, principal, runtime, "put");
       });
       server.post("/v1/sources/devices/:provider", async (c) => {
         // Collection scope (traces:write) or admin; checked in the route.

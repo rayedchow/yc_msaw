@@ -156,6 +156,11 @@ export class SourceRuntimeClient {
     return action === "get" ? this.#call(p, "GET", "/jira/selection") : this.#call(p, "PUT", "/jira/selection", body ?? {});
   }
 
+  /** GitHub repository selection (runtime providers/github/routes.ts; github patch request 3). */
+  githubRepositories(p: Principal, action: "get" | "put", body?: unknown): Promise<RuntimeResponse> {
+    return action === "get" ? this.#call(p, "GET", "/github/repositories") : this.#call(p, "PUT", "/github/repositories/selection", body ?? {});
+  }
+
   /** Device enrolment (e.g. the Mac iMessage uploader token), implemented by the provider's internal route. */
   device(p: Principal, provider: string, body: unknown): Promise<RuntimeResponse> {
     assertProvider(provider);

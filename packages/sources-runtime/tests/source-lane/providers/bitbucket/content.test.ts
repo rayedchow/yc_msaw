@@ -88,7 +88,7 @@ describe("Bitbucket repository content capture", () => {
 
     // Every directory was paged (2 entries per page) and resumed from Bitbucket's own next URLs.
     const root = fake.requestsMatching(new RegExp(`/src/${c1}/$`));
-    expect(root.map((r) => r.params.page ?? "1")).toEqual(["1", "2", "3", "4"]);
+    expect(root.map((r) => r.params.page ?? "1")).toEqual(["1", "2", "3"]); // 6 root entries, 2 per page
     expect(fake.requestsMatching(new RegExp(`/src/${c1}/src/lib/$`)).length).toBe(1);
     // Every upstream call went through this tenant's own Nango connection, never a raw token.
     expect(new Set(fake.requests.map((r) => `${r.connectionId}|${r.providerConfigKey}`))).toEqual(new Set([`${CONN}|bitbucket`]));
@@ -198,6 +198,7 @@ describe("Bitbucket repository content capture", () => {
   it("refuses a late completion of an older scan generation (worker that lost the race), keeping the newer commit", async () => {
     const cA = fake.commit(TREE_A);
     const cB = fake.commit(TREE_B as never);
+    const cC = fake.commit({ ...TREE_A, "docs/c.md": "# C, newest\n" });
     const { exporter, yc } = await makeExporter(T);
     fake.setBranch(repo, "main", cA);
     await sweepUntilQuiet(fake, T);
@@ -208,19 +209,28 @@ describe("Bitbucket repository content capture", () => {
     const scope = { tenantId: T, repoUuid: repo.uuid, ref: "main" };
     expect((await getRef(db as never, scope))!.scan_generation).toBe(2);
 
-    // The branch rolls back to A; worker 2 replaces the stale scan and commits generation 3.
-    fake.setBranch(repo, "main", cA);
+    // The branch moves on to C; worker 2 replaces the stale scan and commits generation 3.
+    fake.setBranch(repo, "main", cC);
     await sweepUntilQuiet(fake, T, { staleScanMs: 0, leaseOwner: "worker-2" });
     const ref = (await getRef(db as never, scope))!;
-    expect(ref).toMatchObject({ committed_generation: 3, committed_commit_sha: cA, scan_generation: null });
+    expect(ref).toMatchObject({ committed_generation: 3, committed_commit_sha: cC, scan_generation: null });
 
     // Worker 1 finally tries to commit generation 2: refused, nothing changes.
     const late = await commitScan(db as unknown as BitbucketDb, scope, 2);
     expect(late.outcome).toBe("superseded");
+    expect((await getRef(db as never, scope))!).toMatchObject({ committed_generation: 3, committed_commit_sha: cC });
     await drain(exporter);
-    expect(await yc.json(headPath(REPO, "main"))).toMatchObject({ commitSha: cA, generation: 3 });
-    expect(await yc.text(codePath(REPO, "main", "README.md"))).toBe(TREE_A["README.md"]);
+    expect(await yc.json(headPath(REPO, "main"))).toMatchObject({ commitSha: cC, generation: 3 });
+    expect(await yc.text(codePath(REPO, "main", "docs/c.md"))).toBe("# C, newest\n");
     expect(await yc.file(codePath(REPO, "main", "docs/new.md"))).toBeNull();
+
+    // Rolling back to the committed-before commit A is a new observation with a new generation.
+    fake.setBranch(repo, "main", cA);
+    await sweepUntilQuiet(fake, T);
+    await drain(exporter);
+    expect(await yc.json(headPath(REPO, "main"))).toMatchObject({ commitSha: cA, generation: 4 });
+    expect((await yc.file(codePath(REPO, "main", "docs/c.md")))!).toMatchObject({ ordinal: 4 });
+    expect(await yc.text(codePath(REPO, "main", "docs/c.md"))).toBe("# C\n");
   });
 
   it("stops on 429 with Retry-After, persists the cooldown and the page checkpoint, then resumes exactly where it stopped", async () => {
@@ -253,7 +263,7 @@ describe("Bitbucket repository content capture", () => {
     await sweepUntilQuiet(fake, T);
     await drain(exporter);
     const root = fake.requestsMatching(new RegExp(`/src/${c1}/$`)).map((r) => r.params.page ?? "1");
-    expect(root).toEqual(["1", "2", "3", "3", "4"]); // page 3 failed once and was retried from the checkpoint
+    expect(root).toEqual(["1", "2", "3", "3"]); // page 3 failed once and was retried from the checkpoint, pages 1-2 never re-read
     expect(await yc.text(codePath(REPO, "main", "docs/c.md"))).toBe("# C\n");
     expect((await bitbucketCoverage({ tenantId: T, executor: db as never })).find((c) => c.scope === `repo:${REPO}@main`)).toMatchObject({ state: "complete" });
   });

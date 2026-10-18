@@ -325,6 +325,18 @@ export async function setRepoStatus(db: DbExecutor, scope: RepoScope, status: st
   await db.execute(sql`UPDATE bitbucket_source_repos SET last_checked_at = now() WHERE tenant_id = ${scope.tenantId} AND repo_uuid = ${scope.repoUuid}`);
 }
 
+/**
+ * Re-export rows whose paths or visibility derive from the repository row: every file,
+ * branch manifest and snapshot after a rename (all paths move), the branch manifests after a
+ * scope change. The exporter deletes the old paths (source_path_changed).
+ */
+export async function bumpExportEpoch(db: DbExecutor, scope: RepoScope, what: "rename" | "scope"): Promise<void> {
+  await db.execute(sql`UPDATE bitbucket_source_refs SET export_epoch = export_epoch + 1 WHERE tenant_id = ${scope.tenantId} AND repo_uuid = ${scope.repoUuid}`);
+  if (what === "scope") return;
+  await db.execute(sql`UPDATE bitbucket_source_files SET export_epoch = export_epoch + 1 WHERE tenant_id = ${scope.tenantId} AND repo_uuid = ${scope.repoUuid}`);
+  await db.execute(sql`UPDATE bitbucket_source_snapshots SET export_epoch = export_epoch + 1 WHERE tenant_id = ${scope.tenantId} AND repo_uuid = ${scope.repoUuid}`);
+}
+
 /** One more consecutive "not found through every grant"; returns the new streak. */
 export async function bumpNotFound(db: DbExecutor, scope: RepoScope): Promise<number> {
   const r = rowsOf<{ n: unknown }>(
