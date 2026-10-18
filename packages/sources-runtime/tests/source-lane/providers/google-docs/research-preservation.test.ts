@@ -34,13 +34,14 @@ describe("F3: preserved Google Docs OT research", () => {
     expect(manifest.files.filter((f) => f.path.startsWith("scripts/"))).toHaveLength(22);
   });
 
-  it("keeps notes and unpatched scripts byte-identical to the donor; exactly the 8 doc-ID scripts differ", () => {
+  it("keeps notes and unpatched scripts byte-identical to the donor; exactly the 8 doc-ID scripts and the README (e-mails) differ", () => {
     for (const f of manifest.files) {
       expect(sha(join(DIR, f.path)), f.path).toBe(f.sha256);
       if (f.status === "verbatim") expect(f.sha256, f.path).toBe(f.donorSha256);
       else expect(f.sha256, f.path).not.toBe(f.donorSha256);
     }
     expect(manifest.files.filter((f) => f.status === "patched").map((f) => f.path).sort()).toEqual([
+      "README.md",
       "scripts/check-latest-entries.ts", "scripts/check-session-tokens.ts", "scripts/check-undo-rvrt.ts", "scripts/test-dc-ops.ts",
       "scripts/test-last-chunks.ts", "scripts/test-nm-parsing.ts", "scripts/test-nm-standalone.ts", "scripts/test-op-types.ts",
     ]);
@@ -51,7 +52,8 @@ describe("F3: preserved Google Docs OT research", () => {
       const text = readFileSync(join(DIR, f.path), "utf8");
       expect(text, f.path).not.toMatch(/["'`]1[A-Za-z0-9_-]{40,45}["'`]/); // Google Drive file ID literal
       expect(text, f.path).not.toMatch(/ya29\.[A-Za-z0-9_-]{10,}|-----BEGIN [A-Z ]*PRIVATE KEY|AIza[0-9A-Za-z_-]{30,}/);
-      if (f.status === "patched") expect(text).toContain('(process.env.GDOCS_RESEARCH_DOC_ID ?? "REDACTED_PRIVATE_DOC_ID")');
+      if (f.status === "patched" && f.path.endsWith(".ts")) expect(text).toContain('(process.env.GDOCS_RESEARCH_DOC_ID ?? "REDACTED_PRIVATE_DOC_ID")');
+      expect(text, f.path).not.toMatch(/@askshepherd\.ai|ishanramrakhiani@/);
     }
   });
 

@@ -24,7 +24,7 @@ checks it.
 | `research/google-docs-ot-operations.md` | `./google-docs-ot-operations.md` | The earlier op catalogue (a sibling of the directory in the donor). |
 | `brain/scripts/*.ts` | `./scripts/*.ts` | 22 live research harnesses that probe `/revisions/tiles` and `/revisions/load` directly. |
 
-All 15 notes and 14 of the 22 scripts are byte-identical to the donor.
+14 of the 15 notes and 14 of the 22 scripts are byte-identical to the donor. In `README.md` two real account e-mail addresses were replaced by role descriptions.
 
 ### Which scripts, and why 22
 

@@ -153,7 +153,7 @@
     },
     {
       "path": "docs/research/google-docs-ot/MANIFEST.json",
-      "sha256": "a2f699d3cac497479bea2ce603244b42984db85d1a6a631c2587918477583a89",
+      "sha256": "9607228105f1c510872b251c5acaea21a00370c2a4ff24373808e0dafc7e4ef3",
       "status": "new",
       "owner": "google-docs-fidelity-fixes",
       "reason": "google-docs-fidelity-fixes F3: machine-readable per-file donor/current hashes for the preserved research",
@@ -163,7 +163,7 @@
     },
     {
       "path": "docs/research/google-docs-ot/PRESERVATION.md",
-      "sha256": "732c3f9fe9bbbc64a0ff7ede501e4723665f48235a552aeadcda2d59379b8e3e",
+      "sha256": "e00e518974cc63d874fc65b68c1eb163878c1eff08008603dfbfb05b11f3053b",
       "status": "new",
       "owner": "google-docs-fidelity-fixes",
       "reason": "google-docs-fidelity-fixes F3: provenance, selection, safety changes and non-runnable-import notes for the preserved research",
@@ -173,14 +173,14 @@
     },
     {
       "path": "docs/research/google-docs-ot/README.md",
-      "sha256": "1944905d3ae53c6d59146bb45a3401e7a082162e89b8baf206c268f246d405f2",
-      "status": "verbatim",
+      "sha256": "ddcec942d5f1099694c0b7d9c94d71696725a91c08f088698cbfd58e3201a68c",
+      "status": "patched",
       "owner": "google-docs-fidelity-fixes",
       "donorRepo": "askshepherd/gigabrain",
       "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
       "donorPath": "research/google-docs-ot/README.md",
       "donorSha256": "1944905d3ae53c6d59146bb45a3401e7a082162e89b8baf206c268f246d405f2",
-      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research note preserved; the coordinator replaced two real account e-mail addresses with role descriptions (personal data). Otherwise byte-identical.",
       "tests": [
         "tests/source-lane/providers/google-docs/research-preservation.test.ts"
       ]

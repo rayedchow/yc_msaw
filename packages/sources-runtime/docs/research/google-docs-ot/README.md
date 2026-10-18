@@ -26,8 +26,8 @@ These endpoints are undocumented but stable — they power the Version History f
 
 ## Data Sources
 
-- **Live testing (workspace)**: 13 Google Workspace docs (`ishan@askshepherd.ai`), 129,427 changelog entries via domain delegation
-- **Live testing (personal)**: 6 personal Google Docs (`ishanramrakhiani@gmail.com`), 12,000 changelog entries via OAuth2
+- **Live testing (workspace)**: 13 Google Workspace docs (the donor team's Workspace account), 129,427 changelog entries via domain delegation
+- **Live testing (personal)**: 6 personal Google Docs (a team member's personal Google account), 12,000 changelog entries via OAuth2
 - **KumoDocs** (kumofx/kumodocs): Most complete reverse-engineering, `mappings.py`
 - **Harvard gdocrevisions** (harvard-vpal/gdocrevisions): Clean Python OT parser
 - **DocuViz2** (neuhai/docuviz2): Chrome extension for changelog visualization
