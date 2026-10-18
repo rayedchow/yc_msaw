@@ -1,0 +1,566 @@
+{
+ "kind": "crm-matrix-manifest",
+ "batch": "crm2",
+ "createdAt": "2026-10-18T00:29:36.798Z",
+ "head": "bf2514f8b80052dddba36f9730b23986723f2a38",
+ "labels": {
+  "customers": "REAL Fireworks models via Pi 1.3 (catalog transport; MiniMax via Fireworks anthropic-messages endpoint)",
+  "upstreams": "SYNTHETIC CONTRACT FIXTURES of HubSpot/Pipedrive/Zoho CRM v8/Attio v2 subsets (not vendor accounts)",
+  "transport": "real MCP protocol; adapters on loopback via LOCAL TEST PUBLISHER (not Manufact)",
+  "builds": "real runMemoryBuild (Kimi root, GLM/MiniMax children, Modal workspaces), integrations OFF for H/M"
+ },
+ "fireworks": {
+  "listed": [
+   {
+    "model": "accounts/fireworks/models/kimi-k3",
+    "listed": true
+   },
+   {
+    "model": "accounts/fireworks/models/glm-5p3",
+    "listed": true
+   },
+   {
+    "model": "accounts/fireworks/models/minimax-m3",
+    "listed": true
+   }
+  ]
+ },
+ "namespaces": {
+  "trainMem": "crmmem-train-crm2",
+  "trainH": "crmtr-h-crm2",
+  "trainM": "crmtr-m-crm2",
+  "memCold": "crmmem-cold-crm2",
+  "memH": "crmmem-h-crm2",
+  "memM": "crmmem-m-crm2",
+  "evalTraces": "crmev-crm2",
+  "adaptFar": "crmad-far-crm2",
+  "adaptCold": "crmad-cold-crm2"
+ },
+ "limits": {
+  "train": {
+   "maxTurns": 16,
+   "maxToolCalls": 40,
+   "timeoutMs": 300000
+  },
+  "matrix": {
+   "maxTurns": 18,
+   "maxToolCalls": 48,
+   "timeoutMs": 240000
+  },
+  "adapt": {
+   "maxTurns": 24,
+   "maxToolCalls": 70,
+   "timeoutMs": 420000
+  }
+ },
+ "budgets": {
+  "customer": {
+   "input": 20000000,
+   "output": 1000000
+  },
+  "builder": {
+   "input": 20000000,
+   "output": 1000000
+  },
+  "note": "two explicit ceilings: customer Pi usage and builder usage are metered separately; exceeding stops new cells/build calls"
+ },
+ "builderBudget": {
+  "maxSessions": 1,
+  "maxDescendants": 3,
+  "maxDepth": 2,
+  "maxConcurrentAgents": 3,
+  "maxTurns": 40,
+  "maxToolCalls": 160,
+  "maxWallClockMs": 900000
+ },
+ "concurrency": 3,
+ "executionOrderSeed": 20261017,
+ "training": [
+  {
+   "id": "trH-1",
+   "curriculum": "H",
+   "model": "kimi",
+   "family": "exec-review",
+   "targets": [
+    "hubspot"
+   ],
+   "org": "Tailspin Logistics"
+  },
+  {
+   "id": "trH-2",
+   "curriculum": "H",
+   "model": "glm",
+   "family": "exec-review",
+   "targets": [
+    "hubspot"
+   ],
+   "org": "Wingtip Outfitters"
+  },
+  {
+   "id": "trH-3",
+   "curriculum": "H",
+   "model": "kimi",
+   "family": "won-closeout",
+   "targets": [
+    "hubspot"
+   ],
+   "org": "Proseware Health"
+  },
+  {
+   "id": "trH-4",
+   "curriculum": "H",
+   "model": "glm",
+   "family": "won-closeout",
+   "targets": [
+    "hubspot"
+   ],
+   "org": "Lucerne Publishing"
+  },
+  {
+   "id": "trM-1",
+   "curriculum": "M",
+   "model": "kimi",
+   "family": "exec-review",
+   "targets": [
+    "hubspot"
+   ],
+   "org": "Tailspin Logistics"
+  },
+  {
+   "id": "trM-2",
+   "curriculum": "M",
+   "model": "glm",
+   "family": "won-closeout",
+   "targets": [
+    "hubspot"
+   ],
+   "org": "Proseware Health"
+  },
+  {
+   "id": "trM-3",
+   "curriculum": "M",
+   "model": "glm",
+   "family": "exec-review",
+   "targets": [
+    "pipedrive"
+   ],
+   "org": "Wingtip Outfitters"
+  },
+  {
+   "id": "trM-4",
+   "curriculum": "M",
+   "model": "kimi",
+   "family": "won-closeout",
+   "targets": [
+    "pipedrive"
+   ],
+   "org": "Lucerne Publishing"
+  }
+ ],
+ "matrix": [
+  {
+   "cellId": "CD-minimax-M",
+   "model": "minimax",
+   "condition": "M",
+   "target": "CD",
+   "role": "multiple unseen CRMs C+D in one task",
+   "org": "Alpine Ski House"
+  },
+  {
+   "cellId": "C-minimax-M",
+   "model": "minimax",
+   "condition": "M",
+   "target": "C",
+   "role": "near held-out C (Zoho CRM v8)",
+   "org": "Litware Analytics"
+  },
+  {
+   "cellId": "D-glm-M",
+   "model": "glm",
+   "condition": "M",
+   "target": "D",
+   "role": "far held-out D (Attio v2)",
+   "org": "Coho Vineyard"
+  },
+  {
+   "cellId": "C-kimi-H",
+   "model": "kimi",
+   "condition": "H",
+   "target": "C",
+   "role": "near held-out C (Zoho CRM v8)",
+   "org": "Litware Analytics"
+  },
+  {
+   "cellId": "A-glm-cold",
+   "model": "glm",
+   "condition": "cold",
+   "target": "A",
+   "role": "familiar A (HubSpot) on a new organization/data",
+   "org": "Fabrikam Robotics"
+  },
+  {
+   "cellId": "A-kimi-M",
+   "model": "kimi",
+   "condition": "M",
+   "target": "A",
+   "role": "familiar A (HubSpot) on a new organization/data",
+   "org": "Fabrikam Robotics"
+  },
+  {
+   "cellId": "CD-kimi-cold",
+   "model": "kimi",
+   "condition": "cold",
+   "target": "CD",
+   "role": "multiple unseen CRMs C+D in one task",
+   "org": "Alpine Ski House"
+  },
+  {
+   "cellId": "CD-glm-M",
+   "model": "glm",
+   "condition": "M",
+   "target": "CD",
+   "role": "multiple unseen CRMs C+D in one task",
+   "org": "Alpine Ski House"
+  },
+  {
+   "cellId": "A-glm-H",
+   "model": "glm",
+   "condition": "H",
+   "target": "A",
+   "role": "familiar A (HubSpot) on a new organization/data",
+   "org": "Fabrikam Robotics"
+  },
+  {
+   "cellId": "D-kimi-cold",
+   "model": "kimi",
+   "condition": "cold",
+   "target": "D",
+   "role": "far held-out D (Attio v2)",
+   "org": "Coho Vineyard"
+  },
+  {
+   "cellId": "D-minimax-H",
+   "model": "minimax",
+   "condition": "H",
+   "target": "D",
+   "role": "far held-out D (Attio v2)",
+   "org": "Coho Vineyard"
+  },
+  {
+   "cellId": "CD-glm-cold",
+   "model": "glm",
+   "condition": "cold",
+   "target": "CD",
+   "role": "multiple unseen CRMs C+D in one task",
+   "org": "Alpine Ski House"
+  },
+  {
+   "cellId": "C-kimi-cold",
+   "model": "kimi",
+   "condition": "cold",
+   "target": "C",
+   "role": "near held-out C (Zoho CRM v8)",
+   "org": "Litware Analytics"
+  },
+  {
+   "cellId": "A-minimax-H",
+   "model": "minimax",
+   "condition": "H",
+   "target": "A",
+   "role": "familiar A (HubSpot) on a new organization/data",
+   "org": "Fabrikam Robotics"
+  },
+  {
+   "cellId": "CD-kimi-H",
+   "model": "kimi",
+   "condition": "H",
+   "target": "CD",
+   "role": "multiple unseen CRMs C+D in one task",
+   "org": "Alpine Ski House"
+  },
+  {
+   "cellId": "D-minimax-cold",
+   "model": "minimax",
+   "condition": "cold",
+   "target": "D",
+   "role": "far held-out D (Attio v2)",
+   "org": "Coho Vineyard"
+  },
+  {
+   "cellId": "C-minimax-H",
+   "model": "minimax",
+   "condition": "H",
+   "target": "C",
+   "role": "near held-out C (Zoho CRM v8)",
+   "org": "Litware Analytics"
+  },
+  {
+   "cellId": "CD-minimax-H",
+   "model": "minimax",
+   "condition": "H",
+   "target": "CD",
+   "role": "multiple unseen CRMs C+D in one task",
+   "org": "Alpine Ski House"
+  },
+  {
+   "cellId": "A-glm-M",
+   "model": "glm",
+   "condition": "M",
+   "target": "A",
+   "role": "familiar A (HubSpot) on a new organization/data",
+   "org": "Fabrikam Robotics"
+  },
+  {
+   "cellId": "C-glm-M",
+   "model": "glm",
+   "condition": "M",
+   "target": "C",
+   "role": "near held-out C (Zoho CRM v8)",
+   "org": "Litware Analytics"
+  },
+  {
+   "cellId": "D-minimax-M",
+   "model": "minimax",
+   "condition": "M",
+   "target": "D",
+   "role": "far held-out D (Attio v2)",
+   "org": "Coho Vineyard"
+  },
+  {
+   "cellId": "D-glm-cold",
+   "model": "glm",
+   "condition": "cold",
+   "target": "D",
+   "role": "far held-out D (Attio v2)",
+   "org": "Coho Vineyard"
+  },
+  {
+   "cellId": "D-glm-H",
+   "model": "glm",
+   "condition": "H",
+   "target": "D",
+   "role": "far held-out D (Attio v2)",
+   "org": "Coho Vineyard"
+  },
+  {
+   "cellId": "A-minimax-M",
+   "model": "minimax",
+   "condition": "M",
+   "target": "A",
+   "role": "familiar A (HubSpot) on a new organization/data",
+   "org": "Fabrikam Robotics"
+  },
+  {
+   "cellId": "D-kimi-H",
+   "model": "kimi",
+   "condition": "H",
+   "target": "D",
+   "role": "far held-out D (Attio v2)",
+   "org": "Coho Vineyard"
+  },
+  {
+   "cellId": "CD-glm-H",
+   "model": "glm",
+   "condition": "H",
+   "target": "CD",
+   "role": "multiple unseen CRMs C+D in one task",
+   "org": "Alpine Ski House"
+  },
+  {
+   "cellId": "CD-kimi-M",
+   "model": "kimi",
+   "condition": "M",
+   "target": "CD",
+   "role": "multiple unseen CRMs C+D in one task",
+   "org": "Alpine Ski House"
+  },
+  {
+   "cellId": "CD-minimax-cold",
+   "model": "minimax",
+   "condition": "cold",
+   "target": "CD",
+   "role": "multiple unseen CRMs C+D in one task",
+   "org": "Alpine Ski House"
+  },
+  {
+   "cellId": "C-glm-cold",
+   "model": "glm",
+   "condition": "cold",
+   "target": "C",
+   "role": "near held-out C (Zoho CRM v8)",
+   "org": "Litware Analytics"
+  },
+  {
+   "cellId": "A-kimi-cold",
+   "model": "kimi",
+   "condition": "cold",
+   "target": "A",
+   "role": "familiar A (HubSpot) on a new organization/data",
+   "org": "Fabrikam Robotics"
+  },
+  {
+   "cellId": "C-minimax-cold",
+   "model": "minimax",
+   "condition": "cold",
+   "target": "C",
+   "role": "near held-out C (Zoho CRM v8)",
+   "org": "Litware Analytics"
+  },
+  {
+   "cellId": "C-kimi-M",
+   "model": "kimi",
+   "condition": "M",
+   "target": "C",
+   "role": "near held-out C (Zoho CRM v8)",
+   "org": "Litware Analytics"
+  },
+  {
+   "cellId": "D-kimi-M",
+   "model": "kimi",
+   "condition": "M",
+   "target": "D",
+   "role": "far held-out D (Attio v2)",
+   "org": "Coho Vineyard"
+  },
+  {
+   "cellId": "A-kimi-H",
+   "model": "kimi",
+   "condition": "H",
+   "target": "A",
+   "role": "familiar A (HubSpot) on a new organization/data",
+   "org": "Fabrikam Robotics"
+  },
+  {
+   "cellId": "C-glm-H",
+   "model": "glm",
+   "condition": "H",
+   "target": "C",
+   "role": "near held-out C (Zoho CRM v8)",
+   "org": "Litware Analytics"
+  },
+  {
+   "cellId": "A-minimax-cold",
+   "model": "minimax",
+   "condition": "cold",
+   "target": "A",
+   "role": "familiar A (HubSpot) on a new organization/data",
+   "org": "Fabrikam Robotics"
+  }
+ ],
+ "adaptation": [
+  {
+   "id": "adapt-far",
+   "memory": "frozen M (cloned)",
+   "adapter": "HOST-SEEDED DEFICIENT crm-attio",
+   "task": "exec-review on Attio",
+   "attempts": 2
+  },
+  {
+   "id": "adapt-cold",
+   "memory": "empty",
+   "adapter": "generic-http + docs only",
+   "task": "exec-review on Zoho+Attio",
+   "attempts": 2
+  }
+ ],
+ "sources": {
+  "adapterFingerprints": {
+   "hubspot": "3464650bbb9d62ace65e4de136ae96cb79a62acc8ff74968924abf2a2b74813b",
+   "pipedrive": "ae939c519cc61e05e40c0b7dbf67444bf3ab59d55243898bcfb0da0e926c2e65",
+   "zoho": "4df6ec3e7dcab5337e5e62756deef04b060a8c44038a6d3a2e40e6f4fc7aecf1",
+   "attio": "9bd65f2e093fb5b818bca643f4f3dea0318bac7ede8bdc1119852192b679bbc7",
+   "docs": "9a4a1bddc757f680c7296581a6ddd60ae7793f4b3f897320f47bb383b15a13d0",
+   "attio-deficient": "2b473ebc0fc29e7133d559edc9f5dd70f0265e486b627b0e8f79dfde3d7ee819",
+   "generic-http": "ce5140ad951c2748169f26b4974861d626c83a4ce3083c8dfe808633a61f1661"
+  },
+  "fixtures": {
+   "templates/integration/harness/fixtures/crm/attio.mjs": "3b3757a71ec9c73540e8db6054fb978529094ecb4a8d81eb17a72d553b18c1f8",
+   "templates/integration/harness/fixtures/crm/common.mjs": "ef62e1c02409fc87a18cc6544767d5fa6d380106785f01b47cfd6aefa830085d",
+   "templates/integration/harness/fixtures/crm/dataset.mjs": "833259075779a5024fcff93b603edbc8161a1f14c88a3e86c32fbc6852574e27",
+   "templates/integration/harness/fixtures/crm/hubspot.mjs": "6eb7e126061511da5a6d93f759177fe64ab2695c78b9a02a0cbdb283fb302474",
+   "templates/integration/harness/fixtures/crm/pipedrive.mjs": "d462524a39ad095cfc641ad121faaa3210d1fdc79eac9d7a74f17cc093f34310",
+   "templates/integration/harness/fixtures/crm/server.mjs": "7c4e9d76541f38fcac681f03b17f65fba16b724f3918247522df8b4ba0a2c586",
+   "templates/integration/harness/fixtures/crm/zoho.mjs": "da41c95b1e08bd56872aa7982c2c1a224b8b85ef11be004001c624ab450ce781",
+   "templates/integration/harness/fixtures/crm-fixture.mjs": "eb0ab53f583a9e13cfb2bb0b595f96dd07742a1074bd696e846d369680dfe1a5",
+   "templates/integration/harness/fixtures/github-contents.mjs": "d013b62b73e3a20c2ee1e8554084cb3c759645e7a1ca4e0c6406868106d8207f",
+   "templates/integration/harness/fixtures/notify-hub.mjs": "6d2433290c8ec6bd5761e06db62b43450b2249686bfc5584baed1713e5c6ef68"
+  },
+  "docs": {
+   "eval/crm/docs/attio/associations.md": "65653cd080049e09bf2e1b5485498c0be810f45d60d3812db532119b88d3a695",
+   "eval/crm/docs/attio/objects-and-fields.md": "4b86b8f504c58c7e54b65ff93ec3b35ccd28419fbb890ccc031e0b48b9530a25",
+   "eval/crm/docs/attio/overview.md": "97743ba6e06a316d3bd4b931b14d42b46f9b7855c9dcfe4878dc2a827539d2b9",
+   "eval/crm/docs/attio/pagination.md": "1c1d70c5b3ba33644d3f31509e874ad836d8982aa4ae5aab2877eb3aa3eb33f4",
+   "eval/crm/docs/attio/pipelines-and-stages.md": "0cfd4d772bbc37fb2a2478e565ebdacf83356d34ae758b79f828ccd456d842a9",
+   "eval/crm/docs/attio/search.md": "e8dc6432a0b506ce08e3d97199d0f0da7ebbb67de957f53d40d660a4d558107d",
+   "eval/crm/docs/attio/updating-records.md": "68a750fbc4519a882d9900503e441da3c9eef38b382823456bc0e6ce512a1b11",
+   "eval/crm/docs/generic/http-connections.md": "dbd9fe23d38f715f5f2868326e5020e412819b3a41e262bafaf8bff7188236dc",
+   "eval/crm/docs/hubspot/associations.md": "0e0be2105084b79a76b66532cace7039af00a844ac72c7883d2ae448454dbc1c",
+   "eval/crm/docs/hubspot/objects-and-fields.md": "ffe44594d1243bae7a90a77274477d6eaae139f930fb1b1a02268f69db6304f7",
+   "eval/crm/docs/hubspot/overview.md": "c9fdf87b10d57b2a83f0a2d627b72d48a7fdeda7457b794a6aebc1689480fa72",
+   "eval/crm/docs/hubspot/pagination.md": "cc51b35b976f0ed8050d39d9f9698391a7138fb868c8ac9c13eb96c55581fb56",
+   "eval/crm/docs/hubspot/pipelines-and-stages.md": "3183fc7ae341748cc1cd659a5bc2f7008475e379c3ec389a4a29abec6f85979e",
+   "eval/crm/docs/hubspot/search.md": "f6092446358df3fc29df286f8721075bdb98de9cc889d54fceedd6ba934eed1c",
+   "eval/crm/docs/hubspot/updating-records.md": "762b047a244c19c7d7b44a1e6a202f414b7311a032d6c72d1558903777d3b1f4",
+   "eval/crm/docs/pipedrive/associations.md": "d7cc76c76dcbb2b1e5dd980550dfbc8e66b0eeef63f3a6aafccb11289bc2e3b4",
+   "eval/crm/docs/pipedrive/objects-and-fields.md": "608b4d8578c317396f0968cd15f4c9c4c12e75aad75e868dd99923d75b5bbf6d",
+   "eval/crm/docs/pipedrive/overview.md": "99c617813d66d2bd81dffe84f3c7f50541bee6965492954b269f2496d9f98495",
+   "eval/crm/docs/pipedrive/pagination.md": "2f18549ad3e0e735d3a773776b7af8a364f418fd94b61d44b43e1a80aa9171fb",
+   "eval/crm/docs/pipedrive/pipelines-and-stages.md": "935567cc620cb7330f985ac67c03ed6a7b50706ab4f36e4c8899203745ca64a9",
+   "eval/crm/docs/pipedrive/search.md": "fb5c7be9b6ee95f36db6b1bea92e7cd58d4d11cd8d991b9b3778745dd2af7204",
+   "eval/crm/docs/pipedrive/updating-records.md": "553629e4efb85e3c07b6a97d85c608f32c15c2a08f7f360f82cf8d54715f63ad",
+   "eval/crm/docs/README.md": "db3eeb4206ea0e663e99504cdad5341d1c9dea8cf04c27932f019f6cd7be87ea",
+   "eval/crm/docs/zoho/associations.md": "66f22334f6e94291b7f0a87cd359888c84311ee51c87022031efb73a03f0bdfe",
+   "eval/crm/docs/zoho/objects-and-fields.md": "1bcf8706aef69eae9949a13951244ff6d1abdfa311ce313df8bec20c48cc1cc5",
+   "eval/crm/docs/zoho/overview.md": "48544900623e14a382f343a66368e7bfb7f5a9fbd71159e2d5405213761fc766",
+   "eval/crm/docs/zoho/pagination.md": "20ad11d5368f39c52067acc94518e35ca5189576ae33adaa3575d82046bf0681",
+   "eval/crm/docs/zoho/pipelines-and-stages.md": "61f8ef48c5a605f5174bd84574841e057339d852a4b4860fb6b81411ce15d399",
+   "eval/crm/docs/zoho/search.md": "1731aeeb26f23f4189507872221ee86a6e0d0320a7ed7a1a5245a174db56c75f",
+   "eval/crm/docs/zoho/updating-records.md": "4a2c79918399a4dc8b65f902de2fdd1c03f3181d7f882cf4cd3b9e3e4c43a1f2"
+  },
+  "runner": {
+   "eval/crm/adapt.ts": "05543b98cc1dc17161fd4d47c4d37e9b6eef13bc0518b12196c68c8f99ddb8f1",
+   "eval/crm/build.ts": "e73cd44e4612f0d4d922209a75ab43f2c5a54645b2db8e83e654b79d995d88e8",
+   "eval/crm/child-main.ts": "8bbe42f64bbf4e92bb659e059217543ee0f500be9c62946bdde82e12bbf6f8e3",
+   "eval/crm/CONTRACTS.md": "c60389fe8f736518dec3e3393f8434bd2f0c1093317604288bf8663fd01970b9",
+   "eval/crm/docs/attio/associations.md": "65653cd080049e09bf2e1b5485498c0be810f45d60d3812db532119b88d3a695",
+   "eval/crm/docs/attio/objects-and-fields.md": "4b86b8f504c58c7e54b65ff93ec3b35ccd28419fbb890ccc031e0b48b9530a25",
+   "eval/crm/docs/attio/overview.md": "97743ba6e06a316d3bd4b931b14d42b46f9b7855c9dcfe4878dc2a827539d2b9",
+   "eval/crm/docs/attio/pagination.md": "1c1d70c5b3ba33644d3f31509e874ad836d8982aa4ae5aab2877eb3aa3eb33f4",
+   "eval/crm/docs/attio/pipelines-and-stages.md": "0cfd4d772bbc37fb2a2478e565ebdacf83356d34ae758b79f828ccd456d842a9",
+   "eval/crm/docs/attio/search.md": "e8dc6432a0b506ce08e3d97199d0f0da7ebbb67de957f53d40d660a4d558107d",
+   "eval/crm/docs/attio/updating-records.md": "68a750fbc4519a882d9900503e441da3c9eef38b382823456bc0e6ce512a1b11",
+   "eval/crm/docs/generic/http-connections.md": "dbd9fe23d38f715f5f2868326e5020e412819b3a41e262bafaf8bff7188236dc",
+   "eval/crm/docs/hubspot/associations.md": "0e0be2105084b79a76b66532cace7039af00a844ac72c7883d2ae448454dbc1c",
+   "eval/crm/docs/hubspot/objects-and-fields.md": "ffe44594d1243bae7a90a77274477d6eaae139f930fb1b1a02268f69db6304f7",
+   "eval/crm/docs/hubspot/overview.md": "c9fdf87b10d57b2a83f0a2d627b72d48a7fdeda7457b794a6aebc1689480fa72",
+   "eval/crm/docs/hubspot/pagination.md": "cc51b35b976f0ed8050d39d9f9698391a7138fb868c8ac9c13eb96c55581fb56",
+   "eval/crm/docs/hubspot/pipelines-and-stages.md": "3183fc7ae341748cc1cd659a5bc2f7008475e379c3ec389a4a29abec6f85979e",
+   "eval/crm/docs/hubspot/search.md": "f6092446358df3fc29df286f8721075bdb98de9cc889d54fceedd6ba934eed1c",
+   "eval/crm/docs/hubspot/updating-records.md": "762b047a244c19c7d7b44a1e6a202f414b7311a032d6c72d1558903777d3b1f4",
+   "eval/crm/docs/pipedrive/associations.md": "d7cc76c76dcbb2b1e5dd980550dfbc8e66b0eeef63f3a6aafccb11289bc2e3b4",
+   "eval/crm/docs/pipedrive/objects-and-fields.md": "608b4d8578c317396f0968cd15f4c9c4c12e75aad75e868dd99923d75b5bbf6d",
+   "eval/crm/docs/pipedrive/overview.md": "99c617813d66d2bd81dffe84f3c7f50541bee6965492954b269f2496d9f98495",
+   "eval/crm/docs/pipedrive/pagination.md": "2f18549ad3e0e735d3a773776b7af8a364f418fd94b61d44b43e1a80aa9171fb",
+   "eval/crm/docs/pipedrive/pipelines-and-stages.md": "935567cc620cb7330f985ac67c03ed6a7b50706ab4f36e4c8899203745ca64a9",
+   "eval/crm/docs/pipedrive/search.md": "fb5c7be9b6ee95f36db6b1bea92e7cd58d4d11cd8d991b9b3778745dd2af7204",
+   "eval/crm/docs/pipedrive/updating-records.md": "553629e4efb85e3c07b6a97d85c608f32c15c2a08f7f360f82cf8d54715f63ad",
+   "eval/crm/docs/README.md": "db3eeb4206ea0e663e99504cdad5341d1c9dea8cf04c27932f019f6cd7be87ea",
+   "eval/crm/docs/zoho/associations.md": "66f22334f6e94291b7f0a87cd359888c84311ee51c87022031efb73a03f0bdfe",
+   "eval/crm/docs/zoho/objects-and-fields.md": "1bcf8706aef69eae9949a13951244ff6d1abdfa311ce313df8bec20c48cc1cc5",
+   "eval/crm/docs/zoho/overview.md": "48544900623e14a382f343a66368e7bfb7f5a9fbd71159e2d5405213761fc766",
+   "eval/crm/docs/zoho/pagination.md": "20ad11d5368f39c52067acc94518e35ca5189576ae33adaa3575d82046bf0681",
+   "eval/crm/docs/zoho/pipelines-and-stages.md": "61f8ef48c5a605f5174bd84574841e057339d852a4b4860fb6b81411ce15d399",
+   "eval/crm/docs/zoho/search.md": "1731aeeb26f23f4189507872221ee86a6e0d0320a7ed7a1a5245a174db56c75f",
+   "eval/crm/docs/zoho/updating-records.md": "4a2c79918399a4dc8b65f902de2fdd1c03f3181d7f882cf4cd3b9e3e4c43a1f2",
+   "eval/crm/infra.ts": "a6af3d4f2cafca86d34c79b33e5895ac20d21181579546a63e08f2f923a17099",
+   "eval/crm/modal-fixture.ts": "e3db6e78c3cd354ed366b77bfdab109470f8550df2e80dbf02f1ab799bc8647a",
+   "eval/crm/oracle.ts": "3b2bd59bfafcfe341db9881201ca1be9b4b4d826931f2f043b7bb347be69af96",
+   "eval/crm/qa/fixture-qa.test.ts": "05bdc291cf866fb3fb3a791cc45cb32031fc3521dc7d79dab9b0f8f79ba7671a",
+   "eval/crm/qa/reference-policies.ts": "b47b8cfa92f4ce901560e073bd99c6d20affb1abc2748fb45b0c04a839dcedf9",
+   "eval/crm/qa/vitest.config.ts": "d1ed32ba1cb1c3b464fdb275a39fff003d7b725916b3591600576af29bf7e251",
+   "eval/crm/scenarios.ts": "d962ed5a26c20b354d61da17ec405028d492348123922a12881c02557b71664d",
+   "eval/crm/session.ts": "969c43e8f6885ef77aff7468ac5e28a5943e945b313e4521d45c55a337b00efe"
+  },
+  "contracts": "c60389fe8f736518dec3e3393f8434bd2f0c1093317604288bf8663fd01970b9"
+ }
+}

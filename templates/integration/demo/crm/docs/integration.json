@@ -1,0 +1,46 @@
+{
+ "slug": "crm-docs",
+ "title": "CRM API docs",
+ "description": "Read-only pinned snapshot of official CRM API documentation (paraphrased) for the organization's connected CRMs.",
+ "version": "1.0.0",
+ "upstream": {
+  "name": "Pinned docs snapshot 2026-10-17",
+  "docs": []
+ },
+ "tools": [
+  "integration_info",
+  "docs_search",
+  "docs_read",
+  "docs_list"
+ ],
+ "env": [
+  {
+   "name": "DOCS_DIR",
+   "required": true,
+   "secret": false
+  },
+  {
+   "name": "DOCS_VENDORS",
+   "required": false,
+   "secret": false
+  }
+ ],
+ "smoke": [
+  {
+   "name": "integration_info responds",
+   "steps": [
+    {
+     "tool": "integration_info",
+     "arguments": {},
+     "expect": [
+      {
+       "path": "structuredContent.slug",
+       "op": "equals",
+       "value": "crm-docs"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

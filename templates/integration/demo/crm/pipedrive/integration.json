@@ -1,0 +1,99 @@
+{
+ "slug": "crm-pipedrive",
+ "title": "Pipedrive",
+ "description": "Pipedrive raw REST contract tool for this organization's Pipedrive instance (synthetic contract fixture upstream in this benchmark).",
+ "version": "1.0.0",
+ "upstream": {
+  "name": "Pipedrive API (v2 organizations/deals/pipelines/stages, v1 fields) — synthetic contract fixture",
+  "docs": [
+   "https://developers.pipedrive.com/docs/api/v1/Deals",
+   "https://pipedrive.readme.io/docs/core-api-concepts-custom-fields"
+  ]
+ },
+ "tools": [
+  "integration_info",
+  "pipedrive_request"
+ ],
+ "env": [
+  {
+   "name": "PIPEDRIVE_BASE_URL",
+   "required": true,
+   "secret": false,
+   "description": "Pipedrive API base URL"
+  },
+  {
+   "name": "PIPEDRIVE_TOKEN",
+   "required": true,
+   "secret": true,
+   "description": "Pipedrive credential (injected by the host)"
+  },
+  {
+   "name": "PIPEDRIVE_INSTANCE_LABEL",
+   "required": false,
+   "secret": false,
+   "description": "Human label of the connected instance"
+  }
+ ],
+ "smoke": [
+  {
+   "name": "integration_info responds",
+   "steps": [
+    {
+     "tool": "integration_info",
+     "arguments": {},
+     "expect": [
+      {
+       "path": "structuredContent.slug",
+       "op": "equals",
+       "value": "crm-pipedrive"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fixture: pipedrive metadata read",
+   "fixture": {
+    "name": "crm-fixture",
+    "config": {
+     "vendor": "pipedrive",
+     "seed": "smoke-pipedrive",
+     "spec": {
+      "instanceLabel": "Smoke Org",
+      "target": {
+       "name": "Smoke Target Co",
+       "domain": "smoke-target.example"
+      },
+      "duplicateDomain": "smoke-target-holdings.example",
+      "fillerNames": [
+       "Filler One",
+       "Filler Two",
+       "Filler Three"
+      ],
+      "family": "exec-review"
+     }
+    }
+   },
+   "env": {
+    "PIPEDRIVE_BASE_URL": "{{fixture.url}}",
+    "PIPEDRIVE_TOKEN": "{{fixture.token}}"
+   },
+   "steps": [
+    {
+     "tool": "pipedrive_request",
+     "arguments": {
+      "method": "GET",
+      "path": "/api/v2/pipelines"
+     },
+     "expect": [
+      {
+       "path": "structuredContent.http_status",
+       "op": "equals",
+       "value": 200
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

@@ -1,0 +1,41 @@
+{
+ "slug": "generic-http",
+ "title": "Generic HTTP connections",
+ "description": "Generic connection-scoped HTTP tool: forwards raw requests to the organization's configured API connections with credentials injected. No vendor-specific logic.",
+ "version": "1.0.0",
+ "upstream": {
+  "name": "Organization API connections (synthetic contract fixtures in this benchmark)",
+  "docs": []
+ },
+ "tools": [
+  "integration_info",
+  "list_connections",
+  "http_request"
+ ],
+ "env": [
+  {
+   "name": "CONNECTIONS_JSON",
+   "required": true,
+   "secret": false,
+   "description": "Connection descriptors (names of credential env vars only)"
+  }
+ ],
+ "smoke": [
+  {
+   "name": "integration_info responds",
+   "steps": [
+    {
+     "tool": "integration_info",
+     "arguments": {},
+     "expect": [
+      {
+       "path": "structuredContent.slug",
+       "op": "equals",
+       "value": "generic-http"
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}

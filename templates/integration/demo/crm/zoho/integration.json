@@ -1,0 +1,99 @@
+{
+ "slug": "crm-zoho",
+ "title": "Zoho CRM",
+ "description": "Zoho CRM raw REST contract tool for this organization's Zoho CRM instance (synthetic contract fixture upstream in this benchmark).",
+ "version": "1.0.0",
+ "upstream": {
+  "name": "Zoho CRM REST API v8 — synthetic contract fixture",
+  "docs": [
+   "https://www.zoho.com/crm/developer/docs/api/v8/get-records.html",
+   "https://www.zoho.com/crm/developer/docs/api/v8/update-records.html"
+  ]
+ },
+ "tools": [
+  "integration_info",
+  "zoho_request"
+ ],
+ "env": [
+  {
+   "name": "ZOHO_BASE_URL",
+   "required": true,
+   "secret": false,
+   "description": "Zoho CRM API base URL"
+  },
+  {
+   "name": "ZOHO_TOKEN",
+   "required": true,
+   "secret": true,
+   "description": "Zoho CRM credential (injected by the host)"
+  },
+  {
+   "name": "ZOHO_INSTANCE_LABEL",
+   "required": false,
+   "secret": false,
+   "description": "Human label of the connected instance"
+  }
+ ],
+ "smoke": [
+  {
+   "name": "integration_info responds",
+   "steps": [
+    {
+     "tool": "integration_info",
+     "arguments": {},
+     "expect": [
+      {
+       "path": "structuredContent.slug",
+       "op": "equals",
+       "value": "crm-zoho"
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "name": "fixture: zoho metadata read",
+   "fixture": {
+    "name": "crm-fixture",
+    "config": {
+     "vendor": "zoho",
+     "seed": "smoke-zoho",
+     "spec": {
+      "instanceLabel": "Smoke Org",
+      "target": {
+       "name": "Smoke Target Co",
+       "domain": "smoke-target.example"
+      },
+      "duplicateDomain": "smoke-target-holdings.example",
+      "fillerNames": [
+       "Filler One",
+       "Filler Two",
+       "Filler Three"
+      ],
+      "family": "exec-review"
+     }
+    }
+   },
+   "env": {
+    "ZOHO_BASE_URL": "{{fixture.url}}",
+    "ZOHO_TOKEN": "{{fixture.token}}"
+   },
+   "steps": [
+    {
+     "tool": "zoho_request",
+     "arguments": {
+      "method": "GET",
+      "path": "/crm/v8/settings/modules"
+     },
+     "expect": [
+      {
+       "path": "structuredContent.http_status",
+       "op": "equals",
+       "value": 200
+      }
+     ]
+    }
+   ]
+  }
+ ]
+}
