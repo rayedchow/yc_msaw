@@ -57,7 +57,7 @@ export function createWalterServer(fleet: Fleet, opts: { auth?: boolean; hash?: 
   server.tool({
     name: "list_templates",
     title: "List system templates",
-    description: "Systems walter can connect right now without credentials: GurtAI's demo CRM + orders inbox, ERP and support inbox. Each was already mined from 22 months of history, so connecting takes seconds. To connect your own system, call connect_system with kind, url and credential instead.",
+    description: "Systems walter can connect right now without credentials: GurtAI's demo CRM + orders inbox, ERP and support inbox. Each was already mined from 22 months of history, so connecting takes under a minute. To connect your own system, call connect_system with kind, url and credential instead.",
     inputSchema: z.object({}),
     annotations: { readOnlyHint: true },
   }, async (_a: unknown, ctx: any) => {
@@ -84,7 +84,7 @@ export function createWalterServer(fleet: Fleet, opts: { auth?: boolean; hash?: 
       const user = userOf(ctx);
       if (a.template) {
         const b = fleet.connectTemplate(user, a.template);
-        return ok({ build_id: b.id, mcp: b.mcp, status: b.status, stage: b.stage, progress: b.progress, log: b.log, next: "Call build_status with this build_id; it waits for the build to go live (about 10 seconds)." });
+        return ok({ build_id: b.id, mcp: b.mcp, status: b.status, stage: b.stage, progress: b.progress, log: b.log, next: "Call build_status with this build_id; it waits while walter discovers the policies (about 40 seconds for a template)." });
       }
       if (!a.kind || !a.name || !a.url || !a.credential) return fail("pass either template, or kind + name + url + credential for your own system. Call list_templates to see templates.");
       const token = /^[A-Z0-9_]+\s*=/m.test(a.credential) ? (/(?:TOKEN|API_KEY|KEY|SECRET)\s*=\s*["']?([^"'\n]+)/i.exec(a.credential)?.[1] ?? "").trim() : a.credential.trim();
@@ -97,14 +97,14 @@ export function createWalterServer(fleet: Fleet, opts: { auth?: boolean; hash?: 
   server.tool({
     name: "build_status",
     title: "Build status",
-    description: "Progress of a build started by connect_system or answer_question: stage, what walter has found so far, and once live the MCP's URL, tools and client setup. Waits up to wait_seconds (default 20) for the build to finish before answering, so one call is usually enough for a template.",
-    inputSchema: z.object({ build_id: z.string().describe("build_id from connect_system or answer_question"), wait_seconds: z.number().min(0).max(50).optional().describe("how long to wait for the build to finish (default 20, 0 = answer now)") }),
+    description: "Progress of a build started by connect_system or answer_question: stage, what walter has found so far, and once live the MCP's URL, tools and client setup. Waits up to wait_seconds (default 30) for the build to finish before answering; call again while it is still running.",
+    inputSchema: z.object({ build_id: z.string().describe("build_id from connect_system or answer_question"), wait_seconds: z.number().min(0).max(50).optional().describe("how long to wait for the build to finish (default 30, 0 = answer now)") }),
     annotations: { readOnlyHint: true },
     outputSchema: BuildOut,
   } as any, async (a: any, ctx: any) => {
     const b = fleet.getBuild(userOf(ctx), a.build_id);
     if (!b) return fail(`no build "${a.build_id}" in your workspace`);
-    await waitFor(() => b.status !== "running", a.wait_seconds ?? 20);
+    await waitFor(() => b.status !== "running", a.wait_seconds ?? 30);
     const m = fleet.get(b.mcp);
     return ok({ build_id: b.id, mcp: b.mcp, status: b.status, stage: b.stage, progress: b.progress, log: b.log, error: b.error ?? null,
       ...(b.status === "live" && m ? { result: { ...summary(m), connect: clientConfig(m) }, next: "Use create_agent to put this MCP to work, or connect it to any MCP client with the config above." } : {}) });

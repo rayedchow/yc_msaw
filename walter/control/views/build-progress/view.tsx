@@ -30,7 +30,7 @@ export default function BuildProgress() {
       </div>
       <div style={{ height: 3, background: C.line, margin: "12px 0 14px" }}><div style={{ height: 3, width: `${b.progress}%`, background: failed ? C.warn : C.accent, transition: "width .6s" }} /></div>
       <div style={{ fontFamily: "ui-monospace, Menlo, monospace", fontSize: 12, lineHeight: 1.7, color: C.muted }}>
-        {b.log.slice(-9).map((l, i, a) => <div key={i} style={{ color: i === a.length - 1 && !live ? C.text : C.muted }}>{l.startsWith("found") ? <span style={{ color: C.accent }}>✓ </span> : "· "}{l}</div>)}
+        {b.log.slice(-9).map((l, i, a) => <div key={i} style={{ color: i === a.length - 1 && !live ? C.text : C.muted }}>{l.startsWith("found") ? <span style={{ color: C.accent }}>✓ </span> : l.startsWith("observed") ? <span style={{ color: C.accent }}>◆ </span> : "· "}{l}</div>)}
       </div>
       {live && b.result && (
         <div style={{ marginTop: 14, paddingTop: 12, borderTop: `1px solid ${C.line}`, fontSize: 13 }}>

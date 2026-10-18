@@ -27,7 +27,7 @@ export interface FleetMcp {
   evals: { tool: string; ok: number; n: number; heldOutOk: number; heldOutN: number }[];
   questions: { index: number; rule_id: string; question: string; options: string[]; evidence: string }[];
   playbook: string;
-  build: { steps: number; seconds: number; log: string[] };
+  build: { steps: number; seconds: number; decisions: number; log: { stage: string; text: string; ms: number }[] };
   template?: { id: string; title: string; description: string };
 }
 export interface Build { id: string; kind: "template" | "custom" | "answer"; mcp: string; status: "running" | "live" | "failed"; stage: string; progress: number; log: string[]; startedAt: string; finishedAt?: string; error?: string }
@@ -59,7 +59,7 @@ export async function snapshotFleet(): Promise<FleetMcp[]> {
       evals: (ev?.summary ?? []).map((s) => ({ tool: s.tool, ok: s.ok, n: s.n, heldOutOk: s.heldOut.ok, heldOutN: s.heldOut.n })),
       questions: open.map(({ q, i }) => ({ index: i, rule_id: q.rule_id, question: q.question, options: q.options, evidence: q.evidence })),
       playbook: playbookMarkdown(k, domain, { name: k.name ?? domain.name, notes, tools: tools.map((t) => t.name) }),
-      build: { steps: (k as any).steps ?? 0, seconds: (k as any).seconds ?? 0, log: buildLog(k) },
+      build: { steps: (k as any).steps ?? 0, seconds: (k as any).seconds ?? 0, decisions: decisionCount(k), log: buildLog(k, domain) },
       ...(id === domain.id && TEMPLATE_COPY[id] ? { template: TEMPLATE_COPY[id] } : {}),
     });
   }
@@ -67,13 +67,19 @@ export async function snapshotFleet(): Promise<FleetMcp[]> {
 }
 
 /** The milestones of a real mining run, in order: what walter found and how well it held on history. */
-function buildLog(k: Knowledge): string[] {
+function buildLog(k: Knowledge, domain: { kinds: Record<string, { unit: string }> }): { stage: string; text: string; ms: number }[] {
   const pct = (x: { n: number; ok: number }) => (x.n ? Math.round((100 * x.ok) / x.n) : 0);
-  return [
-    ...k.rules.filter((r) => r.status !== "retired").map((r) => `${r.id} ${r.title} (agrees on ${pct({ n: r.train.n + r.heldOut.n, ok: r.train.ok + r.heldOut.ok })}% of ${(r.train.n + r.heldOut.n).toLocaleString()} past decisions)`),
-    ...k.questions.filter((q) => !q.answer).map((q) => `question for a human on ${q.rule_id}: ${q.question}`),
-  ];
+  const out: { stage: string; text: string; ms: number }[] = [];
+  for (const r of k.rules.filter((r) => r.status !== "retired")) {
+    const n = r.train.n + r.heldOut.n, unit = domain.kinds[r.kind]?.unit ?? "decisions";
+    out.push({ stage: "discovering policies", text: `testing a hypothesis against ${n.toLocaleString()} past ${unit}…`, ms: 1500 });
+    out.push({ stage: "discovering policies", text: `found ${r.id} ${r.title} (agrees on ${pct({ n, ok: r.train.ok + r.heldOut.ok })}% of them, ${pct(r.heldOut)}% on held-out months)`, ms: 900 });
+  }
+  for (const p of (k.policies ?? []).filter((p) => p.source === "observed")) out.push({ stage: "recording tribal knowledge", text: `observed: ${p.text}`, ms: 1100 });
+  for (const q of k.questions.filter((q) => !q.answer)) out.push({ stage: "discovering policies", text: `question for a human on ${q.rule_id}: ${q.question}`, ms: 1200 });
+  return out;
 }
+const decisionCount = (k: Knowledge) => k.rules.filter((r) => r.status !== "retired").reduce((s, r) => s + r.train.n + r.heldOut.n, 0);
 
 export class Fleet {
   private mcps = new Map<string, FleetMcp>();
@@ -98,12 +104,13 @@ export class Fleet {
     const b: Build = { id: `b_${randomUUID().slice(0, 8)}`, kind: "template", mcp: m.id, status: "running", stage: "connecting", progress: 3, log: [], startedAt: new Date().toISOString() };
     w.builds.set(b.id, b);
     const steps: [string, string, number][] = [
-      ["connecting", `connected to ${m.systems.join(" and ")} (template credentials)`, 600],
-      ["reading history", "reading 22 months of records and change history", 900],
-      ...m.build.log.map((l): [string, string, number] => ["mining", `found ${l}`, 420]),
-      ["compiling", `compiling ${m.rules.length} rules into ${m.tools.length} tools and a playbook`, 700],
-      ["deploying", "deploying to Manufact", 900],
-      ["evals", `replaying history through the MCP: ${m.evals.map((e) => `${e.tool} ${e.ok}/${e.n}`).join(", ")}`, 700],
+      ["connecting", `connected to ${m.systems.join(" and ")} (template credentials)`, 1200],
+      ["reading history", "reading 22 months of records and field-level change history", 2500],
+      ["reading history", `turned history into ${m.build.decisions.toLocaleString()} past decisions people made`, 1800],
+      ...m.build.log.map((l): [string, string, number] => [l.stage, l.text, l.ms]),
+      ["compiling", `compiling ${m.rules.length} rules into ${m.tools.length} tools and a playbook`, 1500],
+      ["deploying", "deploying to Manufact", 2000],
+      ["evals", `replaying history through the MCP: ${m.evals.map((e) => `${e.tool} ${e.ok}/${e.n}`).join(", ")}`, 1800],
     ];
     (async () => {
       for (let i = 0; i < steps.length; i++) {
