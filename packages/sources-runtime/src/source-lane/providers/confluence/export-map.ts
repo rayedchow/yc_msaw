@@ -422,7 +422,16 @@ export async function mapConfluenceMirror(path: string, row: MirrorFileRow | nul
   if (fate) {
     return [{ op: "delete", path, deletedAt: fate.at < journal.enqueuedAt ? fate.at : journal.enqueuedAt, reason: fate.reason, capturedAt: journal.op === "INSERT" ? (isoOrNull(row.updated_at) ?? journal.enqueuedAt) : journal.enqueuedAt, provenance: { provider: PROVIDER, table: "mirror_files", donorMirrorCleanup: true } }];
   }
-  return withOrdinal(defaultMirrorChanges(path, row, journal.enqueuedAt));
+  const changes = withOrdinal(defaultMirrorChanges(path, row, journal.enqueuedAt));
+  // final-audit M2: a comments doc is an aggregate whose donor time is the newest LIVE comment's, so deleting the
+  // newest comment moves it backwards and the store would refuse the re-render as stale (the deleted comment stays
+  // visible). Aggregates are ordered by capture (mirror row / journal order) instead; the time stays in provenance.
+  if (!parsed.comments) return changes;
+  return changes.map((c) =>
+    c.op === "put"
+      ? { ...c, sourceUpdatedAt: null, sourceVersion: undefined, provenance: { ...(c.provenance ?? {}), aggregateNewestLiveItemAt: c.sourceUpdatedAt ?? null, orderedBy: "capture" } }
+      : c,
+  );
 }
 
 /**

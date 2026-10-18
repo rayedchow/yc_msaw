@@ -66,6 +66,24 @@ describe("donor Confluence mirror through the source lane", () => {
     expect((await yc.paths("sources/confluence/_raw")).filter((p) => p.includes("page-7"))).toHaveLength(2);
   });
 
+  it("updates the comments doc when its newest comment is deleted (final-audit M2: aggregate time must not go stale)", async () => {
+    const { exporter, yc } = await makeExporter(T);
+    const comment = (id: string, at: string, text: string, extra: Record<string, unknown> = {}) =>
+      ({ id, pageId: "page-7", version: { number: 1, createdAt: at, authorId: "acct-1" }, body: { storage: { value: `<p>${text}</p>` } }, _nango_metadata: { updated_at: at, ...extra } });
+    await processConfluencePageRecord(db as never, pageRecord("page-7", "ENG", 7, "<p>v7</p>", "2026-07-03T00:00:00.000Z"), ctx);
+    await processConfluenceCommentRecord(db as never, comment("c-1", "2026-07-04T00:00:00.000Z", "First comment"), ctx, "FooterComment");
+    await processConfluenceCommentRecord(db as never, comment("c-2", "2026-07-05T00:00:00.000Z", "Newest comment"), ctx, "FooterComment");
+    await drain(exporter);
+    expect(await yc.text("sources/confluence/ENG/page-7-comments.md")).toContain("Newest comment");
+    // The newest comment is deleted: the donor re-renders the doc with only c-1, whose time is older.
+    await processConfluenceCommentRecord(db as never, comment("c-2", "2026-07-05T00:00:00.000Z", "Newest comment", { last_action: "DELETED", deleted_at: "2026-07-06T00:00:00.000Z" }), ctx, "FooterComment");
+    await drain(exporter);
+    const text = await yc.text("sources/confluence/ENG/page-7-comments.md");
+    expect(text).toContain("First comment");
+    expect(text).not.toContain("Newest comment");
+    expect(yc.results.filter((r) => r.path === "sources/confluence/ENG/page-7-comments.md").map((r) => r.outcome)).toEqual(["created", "updated"]);
+  });
+
   it("removes the page and comments docs at export when a tombstone has no spaceId (the donor cannot), and keeps them removed on backfill", async () => {
     const { exporter, yc } = await makeExporter(T);
     await processConfluencePageRecord(db as never, pageRecord("page-7", "ENG", 7, "<p>v7</p>", "2026-07-03T00:00:00.000Z"), ctx);
