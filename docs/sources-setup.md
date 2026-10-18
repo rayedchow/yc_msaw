@@ -112,6 +112,29 @@ The Mac **coding-sessions** agent (Codex / Claude Code transcripts) uses the sam
 `POST /v1/sources/devices/coding-sessions/setup` with `{"label":"My Mac","intervalSeconds":300}` returns
 `codingSessionsConfig` once (`agentToken` = `gcs_…`), for `shepherd-onboard write-coding-sessions-config`.
 
+The Mac **office-audio** collector stores transcripts only (no audio):
+
+1. `POST /v1/sources/devices/office-audio/setup` with `{"label":"Room 1"}` returns `officeAudioConfig` once
+   (`agentToken` = `goa_…`), for `shepherd-onboard write-office-audio-config`.
+2. Consent is granted per participant by an admin, never by the device. Manage it with:
+   - `POST /v1/sources/office-audio/consents` `{"participantKey":…,"displayName":…}` (`memory:build`) to grant;
+   - `DELETE /v1/sources/office-audio/consents/:participantKey[?deleteCaptured=true]` to revoke;
+   - `GET` on the same route to list.
+3. A session naming any participant without a current grant is rejected and counted in coverage.
+
+Example sequence. `$TOKEN` is the admin's WorkOS/OIDC access token and `$YC` is the yc_msaw origin. The device key
+is printed once and goes only to the Mac, on stdin:
+
+```sh
+curl -sS -X POST "$YC/v1/sources/devices/imessage/setup" -H "authorization: Bearer $TOKEN" \
+  -H 'content-type: application/json' -d '{"label":"My Mac","backfillDays":30}' > imessage-setup.json
+# On the Mac: add the chats to collect, then hand the config to the bundled CLI (key on stdin, never argv).
+jq '.messagesConfig + {allowedChatIds:["iMessage;-;+15550001111"]}' imessage-setup.json \
+  | shepherd-onboard write-messages-config && rm imessage-setup.json
+# Revoke (the device is refused on its next request):
+curl -sS -X DELETE "$YC/v1/sources/bindings/<bindingId>" -H "authorization: Bearer $TOKEN"
+```
+
 ## Tests
 
 ```sh
