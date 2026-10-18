@@ -3044,14 +3044,14 @@
     },
     {
       "path": "src/source-lane/providers/calendar/google-lane.ts",
-      "sha256": "92796120202a97ef16a8bcc6daef71b92d8756c9c83ba1b2c948e41058a1148d",
+      "sha256": "8e7fec0e874cca349181ebb68c8659742548541ebe1383f83ddbc044a0ff700f",
       "status": "new",
-      "owner": "calendar-contacts",
-      "reason": "Shared calendar/contacts plumbing: per-account credential via getGoogleApiCredential + fetchGoogleApi, cooldowns keyed by quotaUser, failure classification, persisted backoff, roster (connections + DWD directory), mailbox status, cursor leases, listing membership, raw JSON diff.",
+      "owner": "calendar-contacts, coordinator",
+      "reason": "Shared calendar/contacts plumbing: per-account credential via getGoogleApiCredential + fetchGoogleApi, cooldowns keyed by quotaUser, failure classification, persisted backoff, roster (connections + DWD directory), mailbox status, cursor leases, listing membership, raw JSON diff. Coordinator (final-audit M1): explicitly disconnected mailboxes stay out of the directory roster.",
       "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts",
         "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
-        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
-        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts"
       ],
       "derivedFrom": [
         {
@@ -5907,9 +5907,9 @@
     },
     {
       "path": "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
-      "sha256": "878dce887737b17adcf3d11b6621238952027f5f6ad7af86cd949193649032af",
+      "sha256": "4a8ae2967fadbdc300654c9eb821810c0ebf2753eca8d24a5d0c38c6134085b2",
       "status": "new",
-      "owner": "calendar-contacts",
+      "owner": "calendar-contacts, coordinator",
       "reason": "Calendar lane tests through production entrypoints and the real exporter. Coordinator: added regressions for patch requests 2 (webhook-targeted calendar.poll) and 3 (disconnect stops channels).",
       "tests": [
         "tests/source-lane/providers/google-calendar/calendar-lane.test.ts"

@@ -517,6 +517,22 @@ describe("per-mailbox auth, quota and retry", () => {
   });
 });
 
+describe("DWD roster and per-mailbox disconnect (final-audit M1)", () => {
+  it("does not re-add a disconnected mailbox from the Workspace directory", async () => {
+    auth.delegationConfigured = true;
+    await seedDwdAdmin(T, "admin@acme.test");
+    fake.directory.set(T, [{ primaryEmail: "dee@acme.test" }, { primaryEmail: "eve@acme.test" }]);
+    for (const m of ["dee@acme.test", "eve@acme.test", "admin@acme.test"]) fake.putCalendar(T, m, { id: m, primary: true, accessRole: "owner" });
+    await query(`INSERT INTO connections (tenant_id, provider, external_account_id, status, metadata) VALUES ($1, 'google', 'dee@acme.test', 'revoked', '{}'::jsonb)`, [T]);
+    auth.scopesSeen.length = 0;
+    const r = await runGoogleCalendarSetup(T);
+    const scoped = auth.scopesSeen.filter((x) => x.scopes.some((sc) => sc.includes("calendar"))).map((x) => x.account);
+    expect(scoped).toContain("eve@acme.test");
+    expect(scoped).not.toContain("dee@acme.test");
+    expect(r.delegatedUsers).toBe(2); // the DWD admin + eve from the directory, never the disconnected dee
+  });
+});
+
 describe("tenant isolation", () => {
   it("keeps same-named mailboxes and calendars of two tenants apart (sync, sweep, channels, export)", async () => {
     fake.pageSize = 50;

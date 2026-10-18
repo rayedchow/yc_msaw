@@ -88,7 +88,10 @@ falls back to another mode.
 
 Revocation limits that stay true:
 
-- Disconnecting a DWD mailbox removes it from the roster, but the domain-level delegation stays in force until a
+- DWD rosters differ by lane: Gmail and Docs/Drive sync only the explicitly connected mailboxes, while Calendar and
+  Contacts also cover every active Workspace directory user (up to `GOOGLE_SOURCE_LANE_MAX_MAILBOXES`, 500).
+- Disconnecting a DWD mailbox removes it from every lane's roster, including the directory-based Calendar/Contacts
+  roster. The domain-level delegation stays in force until a
   Workspace admin removes it in the Admin console and the operator removes the tenant from
   `GOOGLE_DWD_TENANT_APPROVALS`.
 - An OAuth disconnect calls Google's revoke endpoint.

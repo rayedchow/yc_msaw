@@ -275,7 +275,15 @@ export async function resolveGoogleRoster(
   }
   try {
     const listing = await listDirectoryUsers(tenantId, adminEmail, opts.forceRefresh === true);
-    const union = normalizeEmails([...connected, ...listing.users]);
+    // A mailbox the tenant explicitly disconnected (a non-active connection row) stays out even though the directory
+    // still lists it (final-audit M1).
+    const disconnected = new Set(
+      rowsOf<{ email: string }>(await db.execute(sql`
+        SELECT lower(external_account_id) AS email FROM connections
+        WHERE tenant_id = ${tenantId} AND provider = 'google' AND status <> 'active' AND external_account_id IS NOT NULL
+      `)).map((r) => r.email),
+    );
+    const union = normalizeEmails([...connected, ...listing.users.filter((u) => connected.includes(u.toLowerCase()) || !disconnected.has(u.toLowerCase()))]);
     return {
       mailboxes: capRoster(union),
       directory: listing.truncated || union.length > MAX_ROSTER_MAILBOXES ? "truncated" : "listed",
