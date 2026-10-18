@@ -1,6 +1,7 @@
 import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 import { sql } from "drizzle-orm";
+import type { JiraDeepLaneDonorTarget } from "../../../integrations/nango/proxy-details.js";
 import type { TaskHandler } from "../../../queue/queue.js";
 import { redactProviderPayload } from "../../../vault/redaction.js";
 import type { DbExecutor } from "../../core/types.js";
@@ -183,6 +184,20 @@ interface Ctx {
   opts: Opts;
   generation: number;
   selection: Selection;
+  /**
+   * SOURCE-LANE PATCH (jira-efficiency): set on the tenant's first active connection, the one whose sites the
+   * donor `nango.proxy_details` lane covers. Every issue/comment payload fetched here is also written as that
+   * lane's issue_detail / issue_comment rows and mirror, so the donor lane no longer pages the same projects.
+   */
+  donor: JiraDeepLaneDonorTarget | null;
+}
+
+type DonorFeed = typeof import("../../../integrations/nango/proxy-details.js");
+// Loaded on first use: the donor capture pulls in the mirror materializer (and its db client).
+let donorFeedModule: Promise<DonorFeed> | null = null;
+function donorFeed(): Promise<DonorFeed> {
+  donorFeedModule ??= import("../../../integrations/nango/proxy-details.js");
+  return donorFeedModule;
 }
 
 class Budget {
@@ -274,6 +289,7 @@ export async function runJiraSweep(db: DbExecutor, tenantId: string, options: Sw
   if (!conns.length) return report;
   const owner = options.leaseOwner ?? `${hostname().slice(0, 60)}:${process.pid}:${randomBytes(4).toString("hex")}`;
   for (const conn of conns) {
+    const donorConnection = conn === conns[0];
     const discoveryClient = options.client ?? new JiraClient(options.clientOptions);
     try {
       const found = await refreshSites(db, discoveryClient, tenantId, conn, options.siteRefreshMs ?? 60 * 60_000);
@@ -295,7 +311,8 @@ export async function runJiraSweep(db: DbExecutor, tenantId: string, options: Sw
     }
     for (const site of await listSites(db, tenantId, conn.connectionId)) {
       if (site.status !== "active") continue;
-      report.sites.push(await runSite(db, { tenantId, connectionId: conn.connectionId, cloudId: site.cloud_id }, conn, owner, options));
+      const donor = donorConnection ? { tenantId, providerConfigKey: conn.providerConfigKey, connectionId: conn.connectionId, cloudId: site.cloud_id, siteUrl: str(site.site_url) } : null;
+      report.sites.push(await runSite(db, { tenantId, connectionId: conn.connectionId, cloudId: site.cloud_id }, conn, owner, options, donor));
     }
   }
   return report;
@@ -325,7 +342,7 @@ export async function refreshSites(db: DbExecutor, client: JiraClient, tenantId:
   return keep.length;
 }
 
-async function runSite(db: DbExecutor, scope: SiteScope, conn: JiraConnectionRow, owner: string, options: SweepOptions): Promise<SiteRunReport> {
+async function runSite(db: DbExecutor, scope: SiteScope, conn: JiraConnectionRow, owner: string, options: SweepOptions, donor: JiraDeepLaneDonorTarget | null = null): Promise<SiteRunReport> {
   const quotaKey = quotaKeyFor(conn.providerConfigKey, scope.cloudId);
   const base: SiteRunReport = { connectionId: scope.connectionId, cloudId: scope.cloudId, outcome: "ran", requests: 0, items: 0 };
   await ensureSyncState(db, { ...scope, providerConfigKey: conn.providerConfigKey, quotaKey });
@@ -364,7 +381,7 @@ async function runSite(db: DbExecutor, scope: SiteScope, conn: JiraConnectionRow
       changelogPageSize: options.changelogPageSize ?? 100,
       projectPageSize: options.projectPageSize ?? 50,
     };
-    const ctx: Ctx = { db, scope, target, client: counted, budget, opts, generation: state.generation, selection };
+    const ctx: Ctx = { db, scope, target, client: counted, budget, opts, generation: state.generation, selection, donor };
     if (state.generation === 0) {
       await beginGeneration(ctx, "initial", selSha);
     } else if (state.selection_sha !== selSha) {
@@ -705,6 +722,11 @@ export async function captureIssue(ctx: Ctx, payload: Record<string, unknown>, e
     await reconcileChildren(ctx, id, "attachment", new Set(atts.map((a) => str(a.id)).filter((x): x is string => Boolean(x))));
   }
   if (childrenChanged) await bumpChildrenEpoch(ctx.db, ctx.scope, "issue", id);
+  if (ctx.donor) {
+    // Unredacted payload, exactly what the donor sweep passed to its capture (redaction happens at persist there).
+    const donor = await (await donorFeed()).recordJiraIssueDetailFromDeepLane(ctx.db as never, ctx.donor, payload);
+    if (donor.commentsPending) await enqueueWork(ctx.db, ctx.scope, ctx.generation, [commentsItem(id)], { rearm: true });
+  }
   return { id, changed: res.changed, moved: res.moved };
 }
 
@@ -828,6 +850,7 @@ async function listComments(ctx: Ctx, item: WorkRow): Promise<ItemOutcome> {
         if (res.changed) changed = true;
       }
     }
+    if (ctx.donor) await (await donorFeed()).recordJiraIssueCommentsFromDeepLane(ctx.db as never, ctx.donor, { issueId, issueKey: issue.issue_key }, rows);
     const next = startAt + rows.length;
     if (rows.length === 0 || (total !== null && next >= total) || data?.isLast === true) break;
     // The seen set travels with the cursor checkpoint, so a resumed listing still reconciles correctly.
@@ -839,6 +862,11 @@ async function listComments(ctx: Ctx, item: WorkRow): Promise<ItemOutcome> {
     }
   }
   await setObjectFields(ctx.db, ctx.scope.tenantId, issue.row_key, { commentsTotal: total ?? seen.size, commentsStatus: "complete" });
+  if (ctx.donor) {
+    // The donor mirror shows the complete comment set it would have paged itself (an unchanged render is a no-op).
+    const listed = (await listObjects(ctx.db, ctx.scope, { types: ["comment"], containerId: issueId })).filter((c) => seen.has(c.content_id)).map((c) => c.raw);
+    await (await donorFeed()).rematerializeJiraIssueDetailMirror(ctx.db as never, ctx.donor, issueId, listed, total);
+  }
   await reconcileChildren(ctx, issueId, "comment", seen);
   if (changed) await bumpChildrenEpoch(ctx.db, ctx.scope, "issue", issueId);
   return { state: "done", outcome: { comments: seen.size, total } };

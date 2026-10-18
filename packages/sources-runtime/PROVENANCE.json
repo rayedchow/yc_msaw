@@ -2784,15 +2784,17 @@
     },
     {
       "path": "src/integrations/nango/proxy-details.ts",
-      "sha256": "43b4707ef7dbd9693730ed141869df969053dfbe411b40054ca6733216a65d87",
+      "sha256": "7c4e0827ff4f89ea2835874284f05acdbf03079823b2981f152f66c57667eb5b",
       "status": "patched",
-      "owner": "coordinator",
+      "owner": "coordinator, jira-efficiency",
       "donorPath": "src/integrations/nango/proxy-details.ts",
       "donorSha256": "6331fdda628b2d242d0be3cd0242afd22fad44aa26d849035493e846d2e60687",
-      "reason": "jira patch request 5 (see DECLARED_OVERRIDES). coordinator: donor Jira detail sweep honors jira_source_selection (project-filtered JQL, selection-keyed cursor, nothing selected = nothing captured).",
+      "reason": "jira patch request 5 (see DECLARED_OVERRIDES). coordinator: donor Jira detail sweep honors jira_source_selection (project-filtered JQL, selection-keyed cursor, nothing selected = nothing captured). jira-efficiency: while an enabled jira.sweep schedule exists for the tenant, the donor Jira detail sweep no longer pages search/jql or comments itself. The jira.sweep deep lane already fetches the same fields=*all&expand=changelog payloads and every comment page, and it writes this lane's byte-identical issue_detail / issue_comment rows and sources/jira/<PROJECT>/<KEY>.md mirror through the exported recordJiraIssueDetailFromDeepLane / recordJiraIssueCommentsFromDeepLane / rematerializeJiraIssueDetailMirror helpers (comment-overflow paging is left to the deep lane). The hourly deletion reconcile is kept; it loads sites only when due and skips while the deep lane's persisted Retry-After cooldown blocks the Atlassian bucket. Tenants without the schedule keep the original sweep unchanged.",
       "tests": [
         "tests/source-lane/providers/jira/donor-selection.test.ts",
-        "tests/source-lane/providers/jira/shared-patches.test.ts"
+        "tests/source-lane/providers/jira/shared-patches.test.ts",
+        "tests/source-lane/providers/jira/efficiency-dedupe.test.ts",
+        "tests/source-lane/providers/jira/efficiency-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
       ]
     },
     {
@@ -3661,16 +3663,17 @@
     },
     {
       "path": "src/polling/_archived-gdocs/gdocs-api.ts",
-      "sha256": "6c81be76c43abf023973aef212b329bac12be8a20559bc6c6e3fe455d9a172bd",
+      "sha256": "8015b1662ee09ac927ef3c750fa4968ff2398e0462bdc8ee01c1fb3eba2238bc",
       "status": "patched",
       "owner": "coordinator, owner-runtime-fidelity",
       "donorPath": "src/polling/_archived-gdocs/gdocs-api.ts",
       "donorSha256": "f8ae3f0cd5ecef3f4062abd4344b897442640064fdc8c3eabc15dac2cfd2b5ba",
-      "reason": "Coordinator patch: gFetch cools down per credential (sha256-prefix key) for userRateLimitExceeded and keeps the process-wide google-workspace cooldown for project-wide limits, so one mailbox no longer stalls every tenant poll in the process. owner-runtime-fidelity: changes.list fields add file capabilities(canReadRevisions); DriveChange.file.capabilities type.",
+      "reason": "Coordinator patch: gFetch cools down per credential (sha256-prefix key) for userRateLimitExceeded and keeps the process-wide google-workspace cooldown for project-wide limits, so one mailbox no longer stalls every tenant poll in the process. owner-runtime-fidelity: changes.list fields add file capabilities(canReadRevisions); DriveChange.file.capabilities type. Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1).",
       "tests": [
         "tests/source-lane/core/owner-attribution-pg.test.ts",
         "tests/source-lane/core/owner-google-e2e-pg.test.ts",
         "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/account-native-views.test.ts",
         "tests/source-lane/providers/google-docs/gfetch-cooldown.test.ts",
         "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
       ]
@@ -5409,14 +5412,16 @@
     },
     {
       "path": "src/source-lane/providers/jira/sweep.ts",
-      "sha256": "2b1a34ef687c9e353960436102dfe0883587f28ab444e0a9bf1fe5f70580cb03",
+      "sha256": "ae5f3e192bfb229f67e0c72df8ec6605c3c5a06bd88b1701b39b3769cfd97f57",
       "status": "new",
-      "owner": "jira",
-      "reason": "jira.sweep: projects -> bounded per-project JQL (fields=*all, expand=changelog, nextPageToken checkpointed) -> full changelog paging, comment paging + 404-confirmed deletions, attachment bytes; permission-aware confirms (404 is deletion only with BROWSE_PROJECTS and no security level/visibility); relative-JQL delta with watermark advanced only after exhaustion; selection; webhook hints by id; Retry-After cooldown per Atlassian bucket.",
+      "owner": "jira, jira-efficiency",
+      "reason": "jira.sweep: projects -> bounded per-project JQL (fields=*all, expand=changelog, nextPageToken checkpointed) -> full changelog paging, comment paging + 404-confirmed deletions, attachment bytes; permission-aware confirms (404 is deletion only with BROWSE_PROJECTS and no security level/visibility); relative-JQL delta with watermark advanced only after exhaustion; selection; webhook hints by id; Retry-After cooldown per Atlassian bucket. jira-efficiency: on the tenant's first active connection (the one the connection-less donor lane covers), every captured issue payload and comment page is also fed to the donor nango.proxy_details capture (issue_detail / issue_comment rows + donor mirror). After a full comment listing the donor mirror is re-rendered with the listed set. A donor version with paged comments pending re-arms the comment listing. Adds no Atlassian request.",
       "tests": [
         "tests/source-lane/providers/jira/deep-lane.test.ts",
         "tests/source-lane/providers/jira/selection-donor.test.ts",
-        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+        "tests/source-lane/providers/jira/runtime-pg.test.ts (gated on SOURCES_TEST_PG_URL)",
+        "tests/source-lane/providers/jira/efficiency-dedupe.test.ts",
+        "tests/source-lane/providers/jira/efficiency-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
       ],
       "derivedFrom": [
         {
@@ -7632,6 +7637,26 @@
       "reason": "Production sweep/exporter/coverage tests: full capture, paged changelog, exact bytes, moved issue, comment edit/delete/restricted, permission loss vs deletion, Retry-After resume, shared bucket, delta watermark, hints.",
       "tests": [
         "tests/source-lane/providers/jira/deep-lane.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/jira/efficiency-dedupe.test.ts",
+      "sha256": "5f17b9cd2a9fcd20d46499f0d5f2de52eb9044cb69b37ed23363a6e3d150adf6",
+      "status": "new",
+      "owner": "jira-efficiency",
+      "reason": "jira-efficiency: both default Jira schedules against one synthetic site through the production entrypoints (NangoClient/JiraClient over a counting fetch, PGlite). Covers per-lane Atlassian request counts for backfill, idle, change, reconcile and full pass; donor-output parity with the original donor sweep; legacy fallback; Retry-After cooldown; checkpoint resume; second account; auth failure; selection; webhook refresh.",
+      "tests": [
+        "tests/source-lane/providers/jira/efficiency-dedupe.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/jira/efficiency-pg.test.ts",
+      "sha256": "3dcbd62c7afb3c7584635deec346a0e96a58ad41b0a9b16cdf95617c935a49a2",
+      "status": "new",
+      "owner": "jira-efficiency",
+      "reason": "jira-efficiency: the same fix on real PostgreSQL (own throwaway database). Deep-lane-fed donor rows and mirror, a gated donor run with no search, and the production exporter publishing both lanes into the real yc_msaw SourceStore.",
+      "tests": [
+        "tests/source-lane/providers/jira/efficiency-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
       ]
     },
     {

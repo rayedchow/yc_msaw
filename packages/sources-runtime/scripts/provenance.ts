@@ -133,9 +133,9 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/integrations/nango/proxy-details.ts": {
     status: "patched",
-    reason: "jira patch request 5: the Jira deletion-reconcile ids listing uses bounded JQL (created >= 1970-01-01) that the enhanced search/jql accepts, and the captured-issue map takes the newest key instead of max(key) so a moved issue's correct mirror path is deleted (query bound unverified against live Atlassian; reconcile stays fail-soft). coordinator: donor Jira detail sweep honors jira_source_selection (project-filtered JQL, selection-keyed cursor, nothing selected = nothing captured).",
+    reason: "jira patch request 5: the Jira deletion-reconcile ids listing uses bounded JQL (created >= 1970-01-01) that the enhanced search/jql accepts, and the captured-issue map takes the newest key instead of max(key) so a moved issue's correct mirror path is deleted (query bound unverified against live Atlassian; reconcile stays fail-soft). coordinator: donor Jira detail sweep honors jira_source_selection (project-filtered JQL, selection-keyed cursor, nothing selected = nothing captured). jira-efficiency: while an enabled jira.sweep schedule exists for the tenant, the donor Jira detail sweep no longer pages search/jql or comments itself. The jira.sweep deep lane already fetches the same fields=*all&expand=changelog payloads and every comment page, and it writes this lane's byte-identical issue_detail / issue_comment rows and sources/jira/<PROJECT>/<KEY>.md mirror through the exported recordJiraIssueDetailFromDeepLane / recordJiraIssueCommentsFromDeepLane / rematerializeJiraIssueDetailMirror helpers (comment-overflow paging is left to the deep lane). The hourly deletion reconcile is kept; it loads sites only when due and skips while the deep lane's persisted Retry-After cooldown blocks the Atlassian bucket. Tenants without the schedule keep the original sweep unchanged.",
     test: "tests/source-lane/providers/jira/shared-patches.test.ts",
-    tests: ["tests/source-lane/providers/jira/donor-selection.test.ts"],
+    tests: ["tests/source-lane/providers/jira/donor-selection.test.ts", "tests/source-lane/providers/jira/efficiency-dedupe.test.ts"],
   },
   "src/integrations/notion/index.ts": {
     status: "patched",
@@ -175,6 +175,11 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     status: "patched",
     reason: "Valid Retry-After above the donor's 15-minute clamp is honoured (bounded at 24 h); lanes persist it durably.",
     test: "tests/source-lane/core/google-retry-after.test.ts",
+  },
+  "src/polling/_archived-gdocs/gdocs-api.ts": {
+    status: "patched",
+    reason: "Changes feed requests copyRequiresWriterPermission, downloadRestrictions and canCopy/canDownload so a view-only account copy follows a restriction toggled without a new version (final-combined-review N-1).",
+    test: "tests/source-lane/providers/google-docs/account-native-views.test.ts",
   },
   "src/mirror/backfill.ts": {
     status: "patched",

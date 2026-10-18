@@ -16,7 +16,8 @@ import { NangoClient } from "./client.js";
 import { activeConnections, discoverRepos, splitRepoFullName } from "./proxy-issues.js";
 import { loadStoredCursor, saveStoredCursor } from "./tasks.js";
 import type { NangoExecutor, NangoRecord } from "./types.js";
-import { getSelection, selectionSha, type Selection } from "../../source-lane/providers/jira/store.js";
+import { quotaKeyFor } from "../../source-lane/providers/jira/identity.js";
+import { getSelection, quotaBlockedUntil, selectionSha, type Selection } from "../../source-lane/providers/jira/store.js";
 
 /**
  * Deep-content capture via the Nango PROXY API - fills what the sync
@@ -174,6 +175,21 @@ async function sweepJiraIssueDetails(
   client: Pick<NangoClient, "proxy">,
   ctx: ProxyDetailsCtx,
 ): Promise<Record<string, unknown>> {
+  // SOURCE-LANE PATCH (jira-efficiency): while the tenant's `jira.sweep` deep lane is scheduled, it already pages
+  // every selected project with the same `search/jql` `fields=*all&expand=changelog` request, plus every comment page.
+  // It also writes this lane's issue_detail / issue_comment rows and mirror file from those payloads
+  // (recordJiraIssueDetailFromDeepLane below). Re-paging here only doubled the Atlassian requests, so this lane keeps
+  // only its hourly deletion reconcile, which makes no request until it is due.
+  if (await jiraDeepLaneScheduled(executor, ctx.tenantId)) {
+    let siteCount: number | null = null;
+    const deletionReconcile = await maybeReconcileJiraIssueDeletions(executor, client, ctx, async () => {
+      const sites = await jiraAccessibleSites(client, ctx);
+      siteCount = sites.length;
+      return sites;
+    });
+    return { deepLane: true, sites: siteCount, pages: 0, issues: 0, captured: 0, comments: 0, materialized: 0, deletionReconcile };
+  }
+
   const sites = await jiraAccessibleSites(client, ctx);
   let pages = 0;
   let issues = 0;
@@ -237,9 +253,107 @@ async function sweepJiraIssueDetails(
   }
 
   // Deletion reconcile (watermark-gated; null = gated/baselined this run).
-  const deletionReconcile = await maybeReconcileJiraIssueDeletions(executor, client, ctx, sites);
+  const deletionReconcile = await maybeReconcileJiraIssueDeletions(executor, client, ctx, async () => sites);
 
   return { sites: sites.length, pages, issues, captured, comments, materialized, deletionReconcile };
+}
+
+/** SOURCE-LANE PATCH (jira-efficiency): an enabled `jira.sweep` schedule (src/queue/dispatch.ts) for the tenant. */
+async function jiraDeepLaneScheduled(executor: NangoExecutor, tenantId: string): Promise<boolean> {
+  const rows = rowsFromExecute<{ one: number }>(await executor.execute(sql`
+    SELECT 1 AS one FROM task_schedules
+    WHERE tenant_id = ${tenantId} AND kind = 'jira.sweep' AND enabled = true
+    LIMIT 1
+  `));
+  return rows.length > 0;
+}
+
+/** SOURCE-LANE PATCH (jira-efficiency): where the deep lane read a payload (its connection and Atlassian site). */
+export interface JiraDeepLaneDonorTarget {
+  tenantId: string;
+  providerConfigKey: string;
+  connectionId: string;
+  cloudId: string;
+  siteUrl: string | null;
+}
+
+/**
+ * SOURCE-LANE PATCH (jira-efficiency): this lane's capture of one issue (the issue_detail row, the inline comments
+ * and the mirror file), fed with a `search/jql` / `GET issue` payload (`fields=*all&expand=changelog`) that the
+ * `jira.sweep` deep lane already fetched. Keys, raw payload (cloudId + web_url) and mirror are byte-identical to
+ * this lane's own sweep. The comment pages beyond the inline container are NOT fetched here. The deep lane pages
+ * them once (`commentsPending`), feeds them through recordJiraIssueCommentsFromDeepLane, and then re-renders the
+ * mirror with rematerializeJiraIssueDetailMirror.
+ */
+export async function recordJiraIssueDetailFromDeepLane(
+  executor: NangoExecutor,
+  target: JiraDeepLaneDonorTarget,
+  issue: NangoRecord,
+): Promise<{ stored: boolean; commentsPending: boolean }> {
+  const result = await captureJiraIssueDetail(executor, null, donorCtx(target), { cloudId: target.cloudId, url: target.siteUrl }, issue);
+  return { stored: result.captured > 0, commentsPending: result.commentsPending };
+}
+
+/** SOURCE-LANE PATCH (jira-efficiency): this lane's issue_comment rows for comment pages the deep lane fetched. */
+export async function recordJiraIssueCommentsFromDeepLane(
+  executor: NangoExecutor,
+  target: JiraDeepLaneDonorTarget,
+  input: { issueId: string; issueKey: string | null },
+  comments: NangoRecord[],
+): Promise<number> {
+  let captured = 0;
+  for (const comment of comments) {
+    captured += (await captureJiraComment(executor, donorCtx(target), { cloudId: target.cloudId, ...input }, comment)).captured;
+  }
+  return captured;
+}
+
+/**
+ * SOURCE-LANE PATCH (jira-efficiency): re-render the issue mirror from the newest captured issue_detail row with
+ * the complete comment set that the deep lane just listed, which is what this lane's own sweep renders after
+ * paging comments. Returns false when no issue_detail row exists for the issue.
+ */
+export async function rematerializeJiraIssueDetailMirror(
+  executor: NangoExecutor,
+  target: JiraDeepLaneDonorTarget,
+  issueId: string,
+  comments: NangoRecord[],
+  total: number | null,
+): Promise<boolean> {
+  const rows = rowsFromExecute<{ id: string | number; source_event_id: string; raw_payload: unknown }>(await executor.execute(sql`
+    SELECT id, source_event_id, raw_payload FROM activity_events
+    WHERE user_id = ${target.tenantId} AND source = 'jira' AND event_type = 'issue_detail' AND raw_payload->>'id' = ${issueId}
+    ORDER BY COALESCE(source_updated_at, timestamp) DESC, created_at DESC
+    LIMIT 1
+  `));
+  const parent = rows[0];
+  const raw = parent ? (typeof parent.raw_payload === "string" ? JSON.parse(parent.raw_payload) as unknown : parent.raw_payload) : null;
+  if (!parent || !isRecord(raw)) return false;
+  const issueKey = stringValue(raw.key);
+  const commentSourceEvents = comments.flatMap((comment) => {
+    const commentId = stringValue(comment.id);
+    const version = stringValue(comment.updated) ?? stringValue(comment.created);
+    if (!commentId) return [];
+    const record: NangoRecord = { ...comment, cloudId: target.cloudId, issueId, ...(issueKey ? { issueKey } : {}) };
+    return [{ commentId, sourceEventId: `nango:jira:issue_comment:${commentId}:${version ?? nangoRecordVersion(record)}` }];
+  });
+  // Index files list paths only. Re-rendering an existing mirror path cannot change them, so only a recreated
+  // path pays for the tenant-wide index refresh (this runs after every comment listing of a full pass).
+  const existing = issueKey
+    ? rowsFromExecute(await executor.execute(sql`SELECT 1 AS one FROM mirror_files WHERE user_id = ${target.tenantId} AND path LIKE ${`sources/jira/%/${issueKey}.md`} LIMIT 1`))
+    : [];
+  const file = await materializeJiraIssueSourceWiki(target.tenantId, {
+    eventId: String(parent.id),
+    sourceEventId: parent.source_event_id,
+    connectionId: target.connectionId,
+    rawPayload: mergeJiraCommentsIntoIssue(raw, comments, total),
+    commentSourceEvents,
+  }, { refreshIndexes: existing.length === 0 });
+  return file !== null;
+}
+
+function donorCtx(target: JiraDeepLaneDonorTarget): ProxyDetailsCtx {
+  return { tenantId: target.tenantId, providerConfigKey: target.providerConfigKey, connectionId: target.connectionId };
 }
 
 /**
@@ -275,11 +389,12 @@ async function jiraAccessibleSites(
 
 async function captureJiraIssueDetail(
   executor: NangoExecutor,
-  client: Pick<NangoClient, "proxy">,
+  // SOURCE-LANE PATCH (jira-efficiency): null = fed by the deep lane, which pages the comments itself.
+  client: Pick<NangoClient, "proxy"> | null,
   ctx: ProxyDetailsCtx,
   site: { cloudId: string; url: string | null },
   issue: NangoRecord,
-): Promise<{ captured: number; comments: number; materialized: number; updated: string | null }> {
+): Promise<{ captured: number; comments: number; materialized: number; updated: string | null; commentsPending: boolean }> {
   const fields = objectValue(issue.fields);
   const updated = stringValue(fields?.updated);
   const issueId = stringValue(issue.id) ?? stringValue(issue.key) ?? "unknown";
@@ -303,7 +418,7 @@ async function captureJiraIssueDetail(
     sourceUpdatedAt: updated,
   });
   // Already captured this exact issue version → comments/mirror already done.
-  if (!result.stored) return { captured: 0, comments: 0, materialized: 0, updated };
+  if (!result.stored) return { captured: 0, comments: 0, materialized: 0, updated, commentsPending: false };
 
   const comments = await captureJiraIssueComments(executor, client, ctx, site, {
     cloudId: site.cloudId,
@@ -318,12 +433,12 @@ async function captureJiraIssueDetail(
     rawPayload: mergeJiraCommentsIntoIssue(record, comments.records, comments.total),
     commentSourceEvents: comments.sourceEvents,
   });
-  return { captured: 1, comments: comments.captured, materialized: file ? 1 : 0, updated };
+  return { captured: 1, comments: comments.captured, materialized: file ? 1 : 0, updated, commentsPending: comments.pending };
 }
 
 async function captureJiraIssueComments(
   executor: NangoExecutor,
-  client: Pick<NangoClient, "proxy">,
+  client: Pick<NangoClient, "proxy"> | null,
   ctx: ProxyDetailsCtx,
   site: { cloudId: string },
   input: { cloudId: string; issueId: string; issueKey: string | null; container: Record<string, unknown> | null },
@@ -332,6 +447,8 @@ async function captureJiraIssueComments(
   records: NangoRecord[];
   sourceEvents: Array<{ commentId: string; sourceEventId: string }>;
   total: number | null;
+  /** SOURCE-LANE PATCH (jira-efficiency): pages beyond the inline container were left to the deep lane. */
+  pending: boolean;
 }> {
   let captured = 0;
   const sourceEvents = new Map<string, string>();
@@ -351,6 +468,16 @@ async function captureJiraIssueComments(
       records: inline,
       sourceEvents: [...sourceEvents].map(([commentId, sourceEventId]) => ({ commentId, sourceEventId })),
       total,
+      pending: false,
+    };
+  }
+  if (!client) {
+    return {
+      captured,
+      records: inline,
+      sourceEvents: [...sourceEvents].map(([commentId, sourceEventId]) => ({ commentId, sourceEventId })),
+      total,
+      pending: true,
     };
   }
 
@@ -385,6 +512,7 @@ async function captureJiraIssueComments(
     records: [...inline, ...paged],
     sourceEvents: [...sourceEvents].map(([commentId, sourceEventId]) => ({ commentId, sourceEventId })),
     total,
+    pending: false,
   };
 }
 
@@ -454,9 +582,10 @@ async function maybeReconcileJiraIssueDeletions(
   executor: NangoExecutor,
   client: Pick<NangoClient, "proxy">,
   ctx: ProxyDetailsCtx,
-  sites: Array<{ cloudId: string }>,
+  // SOURCE-LANE PATCH (jira-efficiency): sites are loaded only once the reconcile is due, so an idle
+  // tick makes no Atlassian request.
+  loadSites: () => Promise<Array<{ cloudId: string }>>,
 ): Promise<JiraDeletionReconcileResult | null> {
-  if (sites.length === 0) return null;
   const cursorKey = {
     tenantId: ctx.tenantId,
     provider: "jira",
@@ -464,15 +593,23 @@ async function maybeReconcileJiraIssueDeletions(
     model: JIRA_DELETION_SWEEP_MODEL,
   };
   const lastSweepAt = await loadStoredCursor(executor, cursorKey);
+  const lastSweepMs = lastSweepAt ? Date.parse(lastSweepAt) : NaN;
+  if (lastSweepAt && Number.isFinite(lastSweepMs) && Date.now() - lastSweepMs < JIRA_DELETION_SWEEP_INTERVAL_MS) {
+    return null;
+  }
+  const sites = await loadSites();
+  if (sites.length === 0) return null;
   if (!lastSweepAt) {
     // Baseline on the first run (the initial backfill is still filling the
     // captured set); the sweep itself starts one interval later.
     await saveStoredCursor(executor, cursorKey, new Date().toISOString());
     return null;
   }
-  const lastSweepMs = Date.parse(lastSweepAt);
-  if (Number.isFinite(lastSweepMs) && Date.now() - lastSweepMs < JIRA_DELETION_SWEEP_INTERVAL_MS) {
-    return null;
+  // SOURCE-LANE PATCH (jira-efficiency): honour the Retry-After cooldown that the deep lane persisted on the
+  // shared Atlassian bucket (OAuth app x site). The reconcile is retried on the next tick, and the watermark is
+  // not advanced.
+  for (const site of sites) {
+    if (await quotaBlockedUntil(executor as never, quotaKeyFor(ctx.providerConfigKey, site.cloudId))) return null;
   }
 
   try {
