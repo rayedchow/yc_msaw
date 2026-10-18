@@ -238,6 +238,19 @@ export async function startNangoPolling(tenantId: string, provider: string): Pro
       payload: { tenantId },
     });
   }
+  // SOURCE-LANE PATCH (bitbucket request 1): repository CONTENT sweep through the Nango proxy
+  // (src/source-lane/providers/bitbucket/content.ts): /src listings, diffstats and file bytes of
+  // selected repositories, per-scan generations, deletes/renames. Own group so it never blocks
+  // nango.poll / proxy sweeps.
+  if (provider.trim().toLowerCase() === "bitbucket") {
+    await upsertTaskSchedule({
+      tenantId,
+      kind: "bitbucket.content_sweep",
+      frequencySeconds: 300,
+      groupKey: `${tenantId}:bitbucket:content`,
+      payload: { tenantId },
+    });
+  }
 }
 
 function isNangoProxyIssuesProvider(provider: string): boolean {

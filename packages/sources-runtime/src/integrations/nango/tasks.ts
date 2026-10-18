@@ -293,6 +293,16 @@ export async function disableNangoPollSchedule(
         AND group_key = ${`${tenantId}:github:content`}
     `);
   }
+  // SOURCE-LANE PATCH (bitbucket request 2): the Bitbucket content sweep has its own group key.
+  if (provider.trim().toLowerCase() === "bitbucket") {
+    await executor.execute(sql`
+      UPDATE task_schedules
+      SET enabled = false, updated_at = now()
+      WHERE tenant_id = ${tenantId}
+        AND kind = 'bitbucket.content_sweep'
+        AND group_key = ${`${tenantId}:bitbucket:content`}
+    `);
+  }
 }
 
 export async function loadStoredCursor(

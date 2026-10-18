@@ -39,7 +39,7 @@ export async function resetAll(): Promise<void> {
   `);
 }
 
-/** The donor `connections` row Nango connect/reconcile writes (one Bitbucket connection per tenant). */
+/** The donor `connections` row Nango connect/reconcile writes (one row per grant; donor 0020 allows several per tenant). */
 export async function connect(tenantId: string, connectionId: string, providerConfigKey = "bitbucket", status = "active"): Promise<void> {
   await pg.query(`INSERT INTO connections (tenant_id, provider, external_account_id, status, metadata) VALUES ($1, 'bitbucket', $2, $3, $4::jsonb)`, [
     tenantId,

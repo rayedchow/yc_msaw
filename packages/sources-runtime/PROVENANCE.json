@@ -874,6 +874,30 @@
       ]
     },
     {
+      "path": "drizzle/9350_bitbucket_source_lane.sql",
+      "sha256": "cd3c9431192928f445963d199eabe471cb938edb9ff317293651e131b7ae2667",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Bitbucket content-lane tables: quota per Bitbucket account (lease, Retry-After/reset cooldown, near-limit), per-tenant connection identity, opt-in repository selection, repositories by UUID, branches with monotonic scan generations (ordinal) and durable diffstat cursor, per-directory page checkpoints, staged entries, current file set with tombstones/renames, append-only snapshots, per-tenant sha256 byte chunks; journal triggers via source_lane_journal_row with sweep bookkeeping columns ignored; export_epoch re-export on rename/scope change.",
+      "tests": [
+        "tests/source-lane/providers/bitbucket/content.test.ts",
+        "tests/source-lane/providers/bitbucket/access.test.ts",
+        "tests/source-lane/providers/bitbucket/module.test.ts",
+        "tests/source-lane/providers/bitbucket/donor-lane.test.ts",
+        "tests/source-lane/providers/bitbucket/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "drizzle/9351_bitbucket_content_schedules.sql",
+      "sha256": "20f6c0f37814478b982ec101e762d55b11cca7423f7871155fb6b1ff2b5efe79",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Schedules bitbucket.content_sweep (own group <tenant>:bitbucket:content) for tenants already connected at install; idempotent. New connections need patch request bitbucket#1.",
+      "tests": [
+        "tests/source-lane/providers/bitbucket/module.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9550_imessage_device_ingest.sql",
       "sha256": "a90496678f6b14512efca3fceac38d1f7f2804642af7ed9a207d143912fc5349",
       "status": "new",
@@ -1825,13 +1849,14 @@
     },
     {
       "path": "src/integrations/nango/tasks.ts",
-      "sha256": "0f2b6f3724d677fb81f28793042aa2d00eaaacc0af6b7e74d77c270812b44921",
+      "sha256": "349ce0e3de1114835d7851d05699f5e75b66981e33ed1c9f5c0d9c68173746ba",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/integrations/nango/tasks.ts",
       "donorSha256": "91f2cf584be4a011f257429adecc68c4db78c7f912c57e87c9f0dadd3e6ffdea",
-      "reason": "confluence request 2 (see DECLARED_OVERRIDES). jira patch request 2: also disables the Jira deep sweep. github patch request 2: also disables the GitHub content sweep.",
+      "reason": "confluence request 2 (see DECLARED_OVERRIDES). jira patch request 2: also disables the Jira deep sweep. github patch request 2: also disables the GitHub content sweep. bitbucket request 2: disable bitbucket.content_sweep on disconnect/revoked auth.",
       "tests": [
+        "tests/source-lane/core/shared-patches-bitbucket.test.ts",
         "tests/source-lane/core/shared-patches-confluence.test.ts",
         "tests/source-lane/providers/jira/shared-patches.test.ts"
       ]
@@ -2626,13 +2651,14 @@
     },
     {
       "path": "src/queue/dispatch.ts",
-      "sha256": "702e95ee9d3f42bdb178652a11dc13f423c3c8648098695e127eda4abba843ed",
+      "sha256": "b302c5c3b91586a183d73bc212894992f07435b36e3fb78dbe9111e4dd4b9c8e",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/queue/dispatch.ts",
       "donorSha256": "3efb36af346a94abf50a50e44472ab50583eef8379193e2cb15befd9f3548bd0",
-      "reason": "calendar-contacts request 4 + confluence request 1 (see DECLARED_OVERRIDES). jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira. github patch request 1: startNangoPolling schedules github.content_sweep (own group) for GitHub.",
+      "reason": "calendar-contacts request 4 + confluence request 1 (see DECLARED_OVERRIDES). jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira. github patch request 1: startNangoPolling schedules github.content_sweep (own group) for GitHub. bitbucket request 1: bitbucket.content_sweep schedule in its own group.",
       "tests": [
+        "tests/source-lane/core/shared-patches-bitbucket.test.ts",
         "tests/source-lane/core/shared-patches-confluence.test.ts",
         "tests/source-lane/core/shared-patches.test.ts",
         "tests/source-lane/providers/jira/shared-patches.test.ts"
@@ -2707,6 +2733,124 @@
       "reason": "Binary provider module: binary_documents (meta.json + current bytes) and binary_document_versions (immutable history) extraTables, tombstone/restore/purge deletes, gmail-attachment and slack rows left to their own lanes, truthful coverage.",
       "tests": [
         "tests/source-lane/providers/binary/binary.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/bitbucket/api.ts",
+      "sha256": "a755e146ee2de8cba4ca2c88ad349478878e7dc4f924e7a90c3aa96c0bbb88e7",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Bitbucket /2.0 client through the authenticated Nango proxy: exact-bytes file bodies with streaming size cap, 429 -> Retry-After / X-RateLimit-Reset (never sleeps), X-RateLimit-NearLimit observation, Nango auth codes, manual redirects, endpoint allowlist, validated same-endpoint `next` pagination on api.bitbucket.org only.",
+      "tests": [
+        "tests/source-lane/providers/bitbucket/content.test.ts",
+        "tests/source-lane/providers/bitbucket/access.test.ts",
+        "tests/source-lane/providers/bitbucket/module.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/nango/client.ts",
+          "use": "Nango proxy request shape (Provider-Config-Key/Connection-Id headers, secret key bearer) and Retry-After parsing"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/nango/proxy-details.ts",
+          "use": "Bitbucket `next` URL -> proxy endpoint (/2.0 prefix strip), extended with host/endpoint validation"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/bitbucket/content.ts",
+      "sha256": "063429f0cb136f061839a489b523ace32f040c189593ce83b92b68655f0aae2f",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "bitbucket.content_sweep: per-account quota runs, UUID rename-safe repository resolution, confirmed-404 tombstoning, branch HEAD resolution, full paginated /src walk vs verified diffstat incremental scans with fallback, exact byte fetch with size verification/omissions/retries, stale-scan replacement, fair share, no re-poll of backoff-only branches, task handler bound to the task row tenant.",
+      "tests": [
+        "tests/source-lane/providers/bitbucket/content.test.ts",
+        "tests/source-lane/providers/bitbucket/access.test.ts",
+        "tests/source-lane/providers/bitbucket/module.test.ts",
+        "tests/source-lane/providers/bitbucket/donor-lane.test.ts",
+        "tests/source-lane/providers/bitbucket/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/bitbucket/coverage.ts",
+      "sha256": "70b1ad62e0d8652471f665f38c61462b958e5fd20ae95d6659b5bb5ec71ff95f",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Truthful coverage per repo@branch (complete only when HEAD-current, nothing omitted, no incomplete listing/LFS/cooldown/errors, recent check), blocked grants/repositories, pending selection, donor activity always partial.",
+      "tests": [
+        "tests/source-lane/providers/bitbucket/content.test.ts",
+        "tests/source-lane/providers/bitbucket/access.test.ts",
+        "tests/source-lane/providers/bitbucket/donor-lane.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/bitbucket/export-map.ts",
+      "sha256": "fa861aaa858e649fecf776c7bf19024a35fa5b68cec1faadd82c187b9f4cc940",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Extra-table exporters: _repo.json/_head.json/snapshots with stored jsonb raw spliced verbatim, exact chunked file bytes (binary kind for non-text), sourceVersion {commit:sha256, ordinal = generation}, sourceUpdatedAt null, tombstones with reasons, ownership-aware deletes.",
+      "tests": [
+        "tests/source-lane/providers/bitbucket/content.test.ts",
+        "tests/source-lane/providers/bitbucket/access.test.ts",
+        "tests/source-lane/providers/bitbucket/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/bitbucket/index.ts",
+      "sha256": "3c21c77d366eacc643afe9cb4f0237cc2b2e8421f8a5cc703883a393fc07bc9f",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Provider module (baseline by core lead extended): content-lane extra tables, coverage, task handler, internal routes; unknown-repo slim PR projections not exported (cross-repository collisions/flapping, audit defect 1) while raw rows still export.",
+      "tests": [
+        "tests/source-lane/providers/bitbucket/module.test.ts",
+        "tests/source-lane/providers/bitbucket/donor-lane.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/bitbucket/paths.ts",
+      "sha256": "03703596cbf065fe506a170128ae5e75d14c3863dab9743c7bf96c1e38fdffc9",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "sources/bitbucket/<ws>/<repo>/code/ layout next to the donor projections; injective repository-path encoding with overflow; content types.",
+      "tests": [
+        "tests/source-lane/providers/bitbucket/module.test.ts",
+        "tests/source-lane/providers/bitbucket/content.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "gitProviderRepoDirectory/gitProviderPathSegment (private donor helpers) reproduced exactly so code/ sits under the donor repository directory; pinned by module.test.ts against the donor repo.md path"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/bitbucket/routes.ts",
+      "sha256": "38a4d45783578bad0a5f14885816fab529706029009b3d123efad04dc02ddb61",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Internal selection routes (tenant from verified principal, memory:read/memory:build, strict bodies, enable only when one of the tenant's own grants can read the repository, out-of-scope or explicit purge).",
+      "tests": [
+        "tests/source-lane/providers/bitbucket/module.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/bitbucket/store.ts",
+      "sha256": "c796eafdd203157511a7c0ac14b96486f76dbcdba883c31a8a75d222147c731e",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Durable state: quota leases/cooldowns, connections, selection, repos, refs, directory/diffstat checkpoints, staging, per-tenant chunked blobs, transactional commitScan (scan-in-progress + newer-than-committed + ready guards; full and diff modes; renames; incomplete-prefix protection), commitRefGone, purge.",
+      "tests": [
+        "tests/source-lane/providers/bitbucket/content.test.ts",
+        "tests/source-lane/providers/bitbucket/access.test.ts",
+        "tests/source-lane/providers/bitbucket/module.test.ts",
+        "tests/source-lane/providers/bitbucket/donor-lane.test.ts",
+        "tests/source-lane/providers/bitbucket/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
       ]
     },
     {
@@ -4941,6 +5085,69 @@
       "tests": [
         "tests/source-lane/providers/binary/binary.test.ts"
       ]
+    },
+    {
+      "path": "tests/source-lane/providers/bitbucket/access.test.ts",
+      "sha256": "32bc8019c28fe0649b643ca13c91d5eee6dae09022194cd861df4599af9a0a67",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Bitbucket provider tests through production code."
+    },
+    {
+      "path": "tests/source-lane/providers/bitbucket/content.test.ts",
+      "sha256": "047f22f23bbc743294b15d81905fac3cb8a7919a2ae9616351fd404a9b2f67fd",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Bitbucket provider tests through production code."
+    },
+    {
+      "path": "tests/source-lane/providers/bitbucket/donor-lane.test.ts",
+      "sha256": "a44ba11c52e4b24a46a2d3d880342fefbc99d6f4855f2e4c93f6fc43bb31b8a0",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Bitbucket provider tests through production code."
+    },
+    {
+      "path": "tests/source-lane/providers/bitbucket/fake-bitbucket.ts",
+      "sha256": "3ee6432c59cda4c87a4a2dd37c2f843b49001bd3dc31996dbb68203547b320a4",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Fake Bitbucket Cloud /2.0 behind a fake Nango proxy (paginated /src, raw bodies, format=meta, diffstat, branches, /user, injected 429/5xx/403)."
+    },
+    {
+      "path": "tests/source-lane/providers/bitbucket/fixtures.ts",
+      "sha256": "205caf06d75e5f5808c4a035e639513ca4e95574376c4f4b8472dafe878fbe21",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Test fixtures: production client/sweep/exporter wiring."
+    },
+    {
+      "path": "tests/source-lane/providers/bitbucket/harness.ts",
+      "sha256": "a61e61add8c8c746475294a88c3a91cec9636f78e146695466588f8deadf534f",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "PGlite harness with real donor + 9000-9002 + 9350/9351 migrations (synthetic data)."
+    },
+    {
+      "path": "tests/source-lane/providers/bitbucket/module.test.ts",
+      "sha256": "4dceac0180250a0c865956e9036c6124c778d2e8daa50200d2fd4efa429b60d3",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Bitbucket provider tests through production code."
+    },
+    {
+      "path": "tests/source-lane/providers/bitbucket/real-pg.test.ts",
+      "sha256": "2de506a3ae2b1006a99522cfecd79229a43c74789c15f253bf972488477ef42b",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Bitbucket provider tests through production code."
+    },
+    {
+      "path": "tests/source-lane/providers/bitbucket/yc-store.ts",
+      "sha256": "25fe98f2c1b6b361936b0aad7b3b1260297f3b07cd63175aeec614aa07dee9ab",
+      "status": "new",
+      "owner": "bitbucket",
+      "reason": "Publish target applying the exporter wire protocol to the real yc_msaw SourceStore."
     },
     {
       "path": "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",

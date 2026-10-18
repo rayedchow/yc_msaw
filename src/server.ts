@@ -26,6 +26,7 @@ import {
   deviceRoute,
   disconnectRoute,
   googleAuthRoute,
+  bitbucketRepositoriesRoute,
   codingSessionsDeviceSetupRoute,
   githubRepositoriesRoute,
   imessageDeviceSetupRoute,
@@ -623,6 +624,17 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;
         return githubRepositoriesRoute(c.req.raw, principal, runtime, "put");
+      });
+      // Bitbucket repository selection (runtime providers/bitbucket; bitbucket patch request 3).
+      server.get("/v1/sources/bitbucket/repositories", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+        if (principal instanceof Response) return principal;
+        return bitbucketRepositoriesRoute(c.req.raw, principal, runtime, "get");
+      });
+      server.put("/v1/sources/bitbucket/repositories/selection", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return bitbucketRepositoriesRoute(c.req.raw, principal, runtime, "put");
       });
       server.post("/v1/sources/devices/:provider", async (c) => {
         // Collection scope (traces:write) or admin; checked in the route.

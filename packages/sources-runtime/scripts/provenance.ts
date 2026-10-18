@@ -94,15 +94,15 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/queue/dispatch.ts": {
     status: "patched",
-    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync. confluence patch request 1: startNangoPolling schedules confluence.sweep (own group) for Confluence. jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira. github patch request 1: startNangoPolling schedules github.content_sweep (own group) for GitHub.",
+    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync. confluence patch request 1: startNangoPolling schedules confluence.sweep (own group) for Confluence. jira patch request 1: startNangoPolling schedules jira.sweep (own group) for Jira. github patch request 1: startNangoPolling schedules github.content_sweep (own group) for GitHub. bitbucket request 1: bitbucket.content_sweep schedule in its own group.",
     test: "tests/source-lane/core/shared-patches.test.ts",
-    tests: ["tests/source-lane/providers/jira/shared-patches.test.ts", "tests/source-lane/core/shared-patches-confluence.test.ts"],
+    tests: ["tests/source-lane/core/shared-patches-bitbucket.test.ts", "tests/source-lane/providers/jira/shared-patches.test.ts", "tests/source-lane/core/shared-patches-confluence.test.ts"],
   },
   "src/integrations/nango/tasks.ts": {
     status: "patched",
-    reason: "confluence patch request 2: disableNangoPollSchedule also disables the Confluence deep sweep schedule (its own group key). jira patch request 2: also disables the Jira deep sweep. github patch request 2: also disables the GitHub content sweep.",
+    reason: "confluence patch request 2: disableNangoPollSchedule also disables the Confluence deep sweep schedule (its own group key). jira patch request 2: also disables the Jira deep sweep. github patch request 2: also disables the GitHub content sweep. bitbucket request 2: disable bitbucket.content_sweep on disconnect/revoked auth.",
     test: "tests/source-lane/core/shared-patches-confluence.test.ts",
-    tests: ["tests/source-lane/providers/jira/shared-patches.test.ts"],
+    tests: ["tests/source-lane/core/shared-patches-bitbucket.test.ts", "tests/source-lane/providers/jira/shared-patches.test.ts"],
   },
   "src/integrations/atlassian/processors.ts": {
     status: "patched",

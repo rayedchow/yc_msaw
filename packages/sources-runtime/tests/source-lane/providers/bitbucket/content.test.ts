@@ -95,6 +95,15 @@ describe("Bitbucket repository content capture", () => {
 
     const cov = await bitbucketCoverage({ tenantId: T, executor: db as never });
     expect(cov.find((c) => c.scope === `repo:${REPO}@main`)).toMatchObject({ state: "complete", cursor: c1 });
+
+    // No credential ever reaches sources/: not the Nango secret, not a bearer header.
+    for (const p of await yc.paths()) {
+      const f = (await yc.file(p))!;
+      const text = `${f.bytes.toString("latin1")}\n${JSON.stringify(f.provenance)}`;
+      expect(text).not.toContain("nango-test-secret");
+      expect(text).not.toMatch(/Bearer /u);
+    }
+    expect(JSON.stringify(await query(`SELECT * FROM bitbucket_source_repos`))).not.toContain("nango-test-secret");
   });
 
   it("applies an incremental diffstat: edits, deletes and renames become versions and tombstones; unchanged files are not re-versioned", async () => {
@@ -337,6 +346,22 @@ describe("Bitbucket repository content capture", () => {
     expect(new Set(again.map((r) => r.path.split(`/src/${c1}/`)[1]))).toEqual(new Set(["docs/b.md"]));
     expect(await yc.text(codePath(REPO, "main", "docs/b.md"))).toBe("# B\n");
     expect((await bitbucketCoverage({ tenantId: T, executor: db as never })).find((c) => c.scope === `repo:${REPO}@main`)).toMatchObject({ state: "complete" });
+  });
+
+  it("does not spend the run budget re-polling a branch whose remaining work is in retry backoff", async () => {
+    const c1 = fake.commit(TREE_A);
+    fake.setBranch(repo, "main", c1);
+    fake.failNext((p, q) => p.endsWith(`/src/${c1}/docs/b.md`) && q.format === undefined, 500, { times: 1 });
+    const r = await sweep(fake, T, { maxItemAttempts: 3, maxRequestsPerQuota: 300 });
+    expect(r.quotas[0]!.refs[0]).toMatchObject({ outcome: "in_progress" });
+    const heads = fake.requestsMatching(/\/refs\/branches\//).length;
+    expect(heads).toBeLessThanOrEqual(3);
+    expect(r.quotas[0]!.requests).toBeLessThan(40);
+    // After the backoff the same scan finishes; nothing already fetched is fetched again.
+    await query(`UPDATE bitbucket_source_scan_entries SET not_before = NULL`);
+    await sweepUntilQuiet(fake, T);
+    expect(fake.requestsMatching(new RegExp(`/src/${c1}/docs/a.md$`)).length).toBe(1);
+    expect((await getRef(db as never, { tenantId: T, repoUuid: repo.uuid, ref: "main" }))!.committed_generation).toBe(1);
   });
 
   it("never deletes under a directory whose listing failed, and reports the scan partial", async () => {

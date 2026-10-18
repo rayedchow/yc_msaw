@@ -274,8 +274,8 @@ export interface BitbucketConnectionRow extends BitbucketConnectionRef {
 }
 
 /**
- * The tenant's Bitbucket connections (the donor `connections` row, one per tenant; Nango keeps
- * the token). The quota identity is the Bitbucket account the grant acts as when it has been
+ * The tenant's Bitbucket connections (donor `connections` rows, one per grant; Nango keeps the
+ * token). The quota identity is the Bitbucket account the grant acts as when it has been
  * resolved (GET /user), because Bitbucket's limits are per account: two tenants that connect
  * the same account share one budget. Unresolved, it is the Nango connection.
  */
@@ -468,9 +468,12 @@ async function runQuota(
       const again: typeof work = [];
       for (const w of pending) {
         if (budget.exhausted) break;
+        const before = budget.requests;
         const r = await syncRef(ctx, w.repo, w.ref, pass === 0 ? budget.requests + share : Number.POSITIVE_INFINITY);
         latest.set(`${r.repoUuid}\n${r.ref}`, r);
-        if (r.outcome === "in_progress") again.push(w);
+        // Re-run only a branch that made progress beyond its HEAD lookup; one whose remaining work
+        // is all in retry backoff waits for the next scheduled run instead of spending the budget.
+        if (r.outcome === "in_progress" && budget.requests - before > 1) again.push(w);
         await options.heartbeat?.();
         if (!(await renewQuotaLease(db, quotaKey, owner, leaseSeconds))) throw new Error("bitbucket content sweep lease lost");
       }

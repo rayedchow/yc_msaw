@@ -591,6 +591,33 @@ export async function githubRepositoriesRoute(request: Request, principal: Princ
   }
 }
 
+const BitbucketSlug = z.string().regex(/^[A-Za-z0-9_-][A-Za-z0-9_.-]{0,127}$/);
+const BitbucketSelectionSchema = z
+  .object({
+    repo: z.string().refine((r) => {
+      const parts = r.split("/");
+      return parts.length === 2 && parts.every((s) => BitbucketSlug.safeParse(s).success);
+    }),
+    syncing: z.boolean(),
+    purge: z.boolean().optional(),
+    refs: z.array(GithubBranch).max(20).optional(),
+  })
+  .strict();
+
+/**
+ * Bitbucket repository selection forwarded to runtime providers/bitbucket. Strict body (workspace/repository,
+ * on/off, explicit destructive purge, extra branches); tenant and user come from the verified principal, and the
+ * runtime only enables repositories one of that tenant's own Bitbucket grants can read.
+ */
+export async function bitbucketRepositoriesRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: "get" | "put"): Promise<Response> {
+  try {
+    const body = action === "put" ? BitbucketSelectionSchema.parse(await readOptionalJson(request)) : undefined;
+    return relay(await runtime.bitbucketRepositories(principal, action, body));
+  } catch (e) {
+    return e instanceof SourceError || e instanceof TraceIngestError || e instanceof z.ZodError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
+  }
+}
+
 const OfficeAudioConsentSchema = z
   .object({ participantKey: z.string().min(3).max(320), displayName: z.string().max(200).optional(), evidence: z.record(z.string(), z.unknown()).optional() })
   .strict();

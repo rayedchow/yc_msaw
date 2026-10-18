@@ -68,6 +68,31 @@ describe("Bitbucket grants and tenancy", () => {
     expect(fake.requests.slice(m).map((r) => r.path)).toEqual(["/user"]); // identity lookup only
   });
 
+  it("with several Bitbucket grants in one tenant, each repository is read through a grant that can see it", async () => {
+    fake.accounts.set("conn-work", fakeUuid());
+    fake.accounts.set("conn-oss", fakeUuid());
+    const work = fake.addRepo("acme/private-api", { readers: ["conn-work"] });
+    const oss = fake.addRepo("oss/lib", { readers: ["conn-oss"] });
+    fake.setBranch(work, "main", fake.commit({ "a.txt": "work\n" }));
+    fake.setBranch(oss, "main", fake.commit({ "b.txt": "oss\n" }));
+    await connect("t", "conn-work");
+    await connect("t", "conn-oss");
+    await select("t", "acme/private-api");
+    await select("t", "oss/lib");
+    const { exporter, yc } = await makeExporter("t");
+    await sweepUntilQuiet(fake, "t");
+    await drain(exporter);
+    expect(await yc.text(codePath("acme/private-api", "main", "a.txt"))).toBe("work\n");
+    expect(await yc.text(codePath("oss/lib", "main", "b.txt"))).toBe("oss\n");
+    const srcCalls = fake.requests.filter((r) => r.path.includes("/src/"));
+    expect(new Set(srcCalls.filter((r) => r.path.includes("acme/private-api")).map((r) => r.connectionId))).toEqual(new Set(["conn-work"]));
+    expect(new Set(srcCalls.filter((r) => r.path.includes("oss/lib")).map((r) => r.connectionId))).toEqual(new Set(["conn-oss"]));
+    expect((await query(`SELECT full_name, connection_id FROM bitbucket_source_repos ORDER BY full_name`)).map((r) => [r.full_name, r.connection_id])).toEqual([
+      ["acme/private-api", "conn-work"],
+      ["oss/lib", "conn-oss"],
+    ]);
+  });
+
   it("a grant without source access is blocked, never complete, and captured files are kept", async () => {
     fake.accounts.set("conn-1", fakeUuid());
     const repo = fake.addRepo(REPO, { readers: ["conn-1"] });

@@ -170,6 +170,11 @@ export class SourceRuntimeClient {
     return action === "get" ? this.#call(p, "GET", "/github/repositories") : this.#call(p, "PUT", "/github/repositories/selection", body ?? {});
   }
 
+  /** Bitbucket repository selection (runtime providers/bitbucket/routes.ts; bitbucket patch request 3). */
+  bitbucketRepositories(p: Principal, action: "get" | "put", body?: unknown): Promise<RuntimeResponse> {
+    return action === "get" ? this.#call(p, "GET", "/bitbucket/repositories") : this.#call(p, "PUT", "/bitbucket/repositories/selection", body ?? {});
+  }
+
   /** Device enrolment (e.g. the Mac iMessage uploader token), implemented by the provider's internal route. */
   device(p: Principal, provider: string, body: unknown): Promise<RuntimeResponse> {
     assertProvider(provider);
