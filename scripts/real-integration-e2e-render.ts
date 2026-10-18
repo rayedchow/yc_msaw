@@ -13,6 +13,10 @@ export function renderMarkdown(r: Json): string {
   const checks = (r.checks ?? {}) as Record<string, boolean>;
   const p = (r.phases ?? {}) as Json;
   const lines: string[] = [];
+  const cyclesArr = (p.buildCycles ?? []) as Json[];
+  const attemptsArr = (p.attempts ?? []) as Json[];
+  const lastC = cyclesArr.length ? cyclesArr[cyclesArr.length - 1] : undefined;
+  if (lastC && !p.diffs) p.diffs = { source: lastC.source, memory: lastC.memory, deployment: lastC.deployment };
   lines.push(`# Real integration E2E: ${r.ok ? "PASSED" : "FAILED"}`, "", `Run \`${String(r.runId)}\`, finished ${String(r.finishedAt)}.`, "");
   lines.push("## What is real and what is seeded", "");
   for (const [k, v] of Object.entries((r.labels ?? {}) as Json)) lines.push(`- **${k}**: ${String(v)}`);
@@ -44,8 +48,17 @@ export function renderMarkdown(r: Json): string {
     ["SDK detection", get(p, "sdkUpdate.detectedBy")],
   ];
   for (const [k, v] of kv) lines.push(`- **${k}**: ${String(v ?? "n/a")}`);
-  lines.push("", "## Attempt 1 (seeded integration)", "", `Answer:`, "", fence(get(p, "attempt1.answer")), "");
-  lines.push("## Attempt 2 (same session, repaired integration)", "", "Answer:", "", fence(get(p, "attempt2.answer")), "");
+  if (attemptsArr.length) {
+    lines.push("", "## Feedback loop (customer attempts and real build cycles)", "", `Verdict: ${JSON.stringify(r.verdict ?? null)}`, "", `Loop stop: ${JSON.stringify(r.loopStop ?? null)}`, "");
+    for (const a of attemptsArr) {
+      lines.push(`### Attempt ${String(a.attempt)} — ${String(get(a, "classification.outcome"))}${get(a, "classification.failureClass") ? ` (${String(get(a, "classification.failureClass"))})` : ""}`, "", `run ${String(a.runId)} (previous ${String(a.previousRunId)}), trace ${String(get(a, "trace.sessionId"))}, reason: ${String(get(a, "classification.reason"))}`, "", "Answer:", "", fence(a.answer), "");
+      const c = cyclesArr.find((x) => x.afterAttempt === a.attempt);
+      if (c) lines.push(`#### Build cycle ${String(c.cycle)} — ${String(c.status)} (${String(get(c, "classification.reason"))})`, "", `- memory ${String(get(c, "memory.before"))} -> ${String(get(c, "memory.after"))} (${((get(c, "memory.changed") as unknown[]) ?? []).length} files)`, `- source ${String(get(c, "source.beforeCommit"))} -> ${String(get(c, "source.afterCommit"))} (${((get(c, "source.changed") as unknown[]) ?? []).length} files)`, `- deployment ${String(get(c, "deployment.before.deploymentId"))} -> ${String(get(c, "deployment.after.deploymentId"))} new=${String(get(c, "deployment.newDeployment"))}`, `- SDK: ${JSON.stringify({ kind: get(c, "sdk.kind"), sdkAutomatic: get(c, "sdk.sdkAutomatic"), piAutomatic: get(c, "sdk.piAutomatic"), forcedRefreshUsed: get(c, "sdk.forcedRefreshUsed"), manualApplyUsed: get(c, "sdk.manualApplyUsed") })}`, "");
+    }
+  } else {
+    lines.push("", "## Attempt 1 (seeded integration)", "", `Answer:`, "", fence(get(p, "attempt1.answer")), "");
+    lines.push("## Attempt 2 (same session, repaired integration)", "", "Answer:", "", fence(get(p, "attempt2.answer")), "");
+  }
   lines.push("## read_file schema seen by the SDK", "", "Before:", fence(JSON.stringify(get(p, "sdkUpdate.initialSchema"), null, 2)), "After:", fence(JSON.stringify(get(p, "sdkUpdate.newSchema"), null, 2)), "");
   lines.push("## Integration source diff (model-authored repair)", "", fence(get(p, "diffs.source.diff")), "");
   lines.push("## Memory diff (model-authored wiki update)", "", fence(get(p, "diffs.memory.diff")), "");
@@ -63,6 +76,11 @@ export function renderHtml(r: Json): string {
   const events = (r.events ?? []) as Json[];
   const checks = (r.checks ?? {}) as Record<string, boolean>;
   const p = (r.phases ?? {}) as Json;
+  const hc = (p.buildCycles ?? []) as Json[];
+  if (hc.length && !p.diffs) {
+    const last = hc[hc.length - 1]!;
+    p.diffs = { source: { ...(last.source as Json), diff: hc.map((c) => `# build cycle ${String(c.cycle)}\n${String(get(c, "source.diff") ?? "")}`).join("\n") }, memory: { ...(last.memory as Json), diff: hc.map((c) => `# build cycle ${String(c.cycle)}\n${String(get(c, "memory.diff") ?? "")}`).join("\n") }, deployment: last.deployment };
+  }
   const agents = new Map<string, string | null>();
   for (const e of events) if (!agents.has(String(e.agentId))) agents.set(String(e.agentId), (e.parentId as string | null) ?? null);
   const color = (s: unknown) => (s === "succeeded" ? "#1a7f37" : s === "failed" ? "#cf222e" : s === "running" ? "#9a6700" : "#57606a");

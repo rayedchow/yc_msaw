@@ -46,6 +46,8 @@ import {
   createIntegrationRuntime,
   IntegrationStore,
   loadChildAuthFromEnv,
+  restoreIntegration,
+  retireIntegration,
   ManufactApi,
   ManufactPublisher,
   resolveManufactCredentials,
@@ -54,7 +56,9 @@ import {
 } from "../src/integrations/index.js";
 import { overlayFiles, TEMPLATES_ROOT } from "../src/integrations/template.js";
 import { HttpTraceTransport, TraceRecorder, type TraceSession } from "../src/sdk/index.js";
-import { attachPiTraceCapture } from "../src/sdk/pi-adapter.js";
+import { beginPiTrace } from "../src/sdk/pi-adapter.js";
+import { FileTraceOutbox } from "../src/sdk/outbox-file.js";
+import { classifyAttempt, classifyBuildCycle, finalVerdict, mechanismProof, nextStep, upsertFile, type AttemptClassification, type CycleProof, type RecordedFile } from "./real-integration-e2e-controller.js";
 import { LiveToolRegistry } from "../src/sdk/live/index.js";
 import { createPiLiveTools } from "../src/sdk/live/pi.js";
 import { MemoryRepo } from "../src/store/memory.js";
@@ -64,7 +68,13 @@ import { boundEventData, extractGithubFileEvidence, finalizeAgentRows, githubPro
 
 const { values } = parseArgs({
   options: {
-    slug: { type: "string", default: "github-read" },
+    // Fresh seeded slug per execution (the older repaired github-read is hidden from discovery during the run).
+    slug: { type: "string", default: `github-read-${new Date().toISOString().slice(5, 16).replace(/[-:T]/g, "")}` },
+    // Live UI/state files live here; NEVER the original .context/real-demo-{events,state} evidence paths.
+    "data-dir": { type: "string", default: ".context/real-demo-fresh" },
+    "max-cycles": { type: "string", default: "3" },
+    // Other integrations whose read_file could answer the same task; retired (reversible) during the run, restored after.
+    isolate: { type: "string", default: "github-read" },
     customer: { type: "string", default: "kimi" },
     builder: { type: "string", default: "kimi-k3" },
     "max-turns": { type: "string", default: "60" },
@@ -111,9 +121,16 @@ function bounded(v: unknown, max = 6000): unknown {
 
 // ------------------------------------------------------------------ live UI contract
 const RUN_ID = `e2e-${new Date().toISOString().replace(/[-:]/g, "").slice(0, 15)}-${randomBytes(2).toString("hex")}`;
-const EVENTS = ".context/real-demo-events.jsonl";
-const STATE = ".context/real-demo-state.json";
-const PROGRESS = ".context/real-demo-progress.md";
+const DATA_DIR = path.resolve(values["data-dir"]!);
+const PROTECTED = [".context/real-demo-events.jsonl", ".context/real-demo-state.json"].map((f) => path.resolve(f));
+if (DATA_DIR === path.resolve(".context")) throw new Error("--data-dir must not be .context (the original run's evidence files live there)");
+await fs.mkdir(DATA_DIR, { recursive: true });
+const EVENTS = path.join(DATA_DIR, "real-demo-events.jsonl");
+const STATE = path.join(DATA_DIR, "real-demo-state.json");
+const PROGRESS = path.join(DATA_DIR, "progress.md");
+const PROGRESS_MIRROR = `${DATA_DIR}-progress.md`;
+const READY = `${DATA_DIR}-ready`;
+if ([EVENTS, STATE].some((f) => PROTECTED.includes(f))) throw new Error("refusing to write the original evidence paths");
 let evSeq = 0;
 // Event / agent status union (see .context/demo-lifecycle-contract.md):
 //  running = actively working now; waiting = idle between tasks (session alive); pending = known, not started;
@@ -202,7 +219,9 @@ function finalizeAgents(aborted: boolean, runOk: boolean) {
 const progressLines: string[] = [];
 async function progress(line: string) {
   progressLines.push(`- ${new Date().toISOString()} ${scrub(line)}`);
-  await fs.writeFile(PROGRESS, `# Real integration E2E progress (owner: integrations Opus 5.5)\n\nRun ${RUN_ID}, pid ${process.pid}. Live events: ${EVENTS}; state: ${STATE}.\n\n${progressLines.join("\n")}\n`);
+  const body = `# Real integration E2E progress (owner: integrations Opus 5.5)\n\nRun ${RUN_ID}, pid ${process.pid}. Live events: ${path.relative(process.cwd(), EVENTS)}; state: ${path.relative(process.cwd(), STATE)}.\n\n${progressLines.join("\n")}\n`;
+  await fs.writeFile(PROGRESS, body);
+  await fs.writeFile(PROGRESS_MIRROR, body);
 }
 async function phase(name: string, title: string) {
   state.phase = name;
@@ -225,7 +244,10 @@ if (existsSync(EVENTS)) {
   } catch {
     /* keep default */
   }
-  renameSync(EVENTS, `.context/real-demo-events.${prev}-archived-${Date.now()}.jsonl`);
+  // Archive inside the data dir (with the matching state snapshot); originals elsewhere are never touched.
+  const stamp = Date.now();
+  renameSync(EVENTS, path.join(DATA_DIR, `real-demo-events.${prev}-archived-${stamp}.jsonl`));
+  if (existsSync(STATE)) renameSync(STATE, path.join(DATA_DIR, `real-demo-state.${prev}-archived-${stamp}.json`));
 }
 await fs.writeFile(EVENTS, "");
 await writeState();
@@ -334,6 +356,7 @@ const tmpRoot = await fs.mkdtemp(path.join(tmpdir(), "real-e2e-"));
 let registry: LiveToolRegistry | null = null;
 let disposeSession: (() => void) | null = null;
 let ok = false;
+const isolated: string[] = [];
 let aborted = false;
 const transcript: Array<Record<string, unknown>> = [];
 const rawToolResults = new Map<string, { isError: boolean; result: unknown }>();
@@ -400,6 +423,15 @@ try {
   const seeded = (await integrations.get(SLUG))!;
   phases.seed = { promoted: seeded.promoted, manufact: { serverId: seeded.manufact?.serverId, mcpUrl: seeded.manufact?.mcpUrl, dashboardUrl: seeded.manufact?.dashboardUrl, active: seeded.manufact?.active } };
   check("seed.publishedAndProbed", seeded.manufact?.active?.probe === "passed" && seeded.manufact.active.status === "running", phases.seed);
+  // Isolation: an older (already repaired) GitHub child would answer the task without any repair. Hide it from
+  // discovery for the run (reversible tombstone; its repo, history, receipts and deployment are untouched).
+  for (const other of String(values.isolate ?? "").split(",").map((x) => x.trim()).filter((x) => x && x !== SLUG)) {
+    const rec = await integrations.get(other);
+    if (!rec || (rec.lifecycle?.state ?? "active") === "retired") continue;
+    const out = await retireIntegration({ store: integrations, slug: other, buildId: `iso-${RUN_ID.toLowerCase()}`.slice(0, 60), reason: `hidden from discovery during fresh E2E run ${RUN_ID}; restored at the end` });
+    isolated.push(other);
+    emit({ agentId: "host", kind: "message", title: `isolation: retired ${other} from discovery for this run (restored at end)`, data: { slug: other, receiptId: out.receiptId } });
+  }
 
   // ---------------------------------------------------------------- customer session (ONE Pi session for the whole run)
   await phase("customer-session", "Start ONE customer Pi session with SDK live tools (hosted parent) + SDK trace capture");
@@ -482,103 +514,19 @@ try {
       emit({ at, agentId: "customer", kind: "tool_result", title: `${String(e.toolName)}${e.isError ? " (error)" : ""}`, status: e.isError ? "failed" : "succeeded", text, data: { callId: e.toolCallId, tool: e.toolName, source: "Pi tool_execution_end (live)", evidence: evidenceMeta, details: result?.details } });
     }
   });
-  const recorder = new TraceRecorder({ transport: new HttpTraceTransport({ baseUrl: BASE, token: client.keys.trace }), agent: { id: "customer-pi-agent", name: "customer Pi agent", model: resolveModelId(values.customer!), harness: "pi" }, flushIntervalMs: 0 });
+  // Durable outbox: events become crash-safe once flushed; delivery to the hosted parent resumes from it.
+  const recorder = new TraceRecorder({ transport: new HttpTraceTransport({ baseUrl: BASE, token: client.keys.trace }), agent: { id: "customer-pi-agent", name: "customer Pi agent", model: resolveModelId(values.customer!), harness: "pi" }, flushIntervalMs: 0, outbox: new FileTraceOutbox(path.join(DATA_DIR, "outbox")) });
   const lastAssistant = () => [...transcript].reverse().find((t) => t.type === "assistant" && String(t.text ?? "").length > 0)?.text as string | undefined;
   const readFileResults = (from: number) => transcript.slice(from).filter((t) => t.type === "tool_result" && t.name === toolName);
   const readFileCalls = (from: number) => transcript.slice(from).filter((t) => t.type === "tool_call" && t.name === toolName);
   phases.customerSession = { piSessionId, pid: process.pid, model: resolveModelId(values.customer!), initialReadFileSchema: initialSchema, activeTools: session.getActiveToolNames().filter((n) => n.startsWith("memory__") || n.startsWith("integration__")) };
 
-  // ---------------------------------------------------------------- attempt 1 (expected to fail on the real 404)
-  await phase("attempt-1", "Customer attempt 1 with the seeded integration (expected real GitHub 404)");
+  // ---------------------------------------------------------------- feedback loop: attempt -> (real build cycle -> SDK update -> same-session retry)*
   const task = `Task: using the GitHub integration, read ${FILE} from the GitHub repository ${OWNER}/${REPO} at the release tag ${REF}, and tell me the exact shell command that README gives for creating a new TypeScript MCP server. Check memory first for any relevant procedure.`;
-  const t1Start = transcript.length;
-  taskStart(1, task);
-  const trace1: TraceSession = recorder.begin({ objective: task, metadata: { piSessionId, attempt: 1, runId: RUN_ID } });
-  let detach = attachPiTraceCapture(session, trace1);
-  await session.prompt(task).catch((e) => emit({ agentId: "customer", kind: "message", title: "prompt error", status: "failed", text: String(e) }));
-  detach();
-  const historyAfter1 = messages().length;
-  const prefixAfter1 = prefixHash(historyAfter1);
-  const r1 = readFileResults(t1Start);
-  const answer1 = lastAssistant() ?? "";
-  const got404 = r1.some((t) => t.isError === true && /404/.test(String(t.text)) && /No commit found for the ref master/.test(String(t.text)));
-  const fin1 = await trace1.finish({ status: "failed", summary: `customer agent reply: ${answer1}`.slice(0, 2000) });
-  phases.attempt1 = { readFileCalls: readFileCalls(t1Start), readFileResults: r1, answer: answer1, trace: { sessionId: fin1.sessionId, events: fin1.events, chunks: fin1.chunks, deliveryErrors: fin1.errors.length } };
-  taskEnd(1, got404 && !answer1.includes(FACT) ? "failed" : "unknown", { reason: got404 ? "seeded integration returned the real GitHub 404" : "expected 404 not observed", answer: answer1 });
-  check("attempt1.realGithub404ReachedAgent", got404, { results: r1.map((t) => ({ isError: t.isError, text: String(t.text).slice(0, 400) })) });
-  check("attempt1.noInventedAnswer", !answer1.includes(FACT));
-  check("attempt1.traceDelivered", fin1.errors.length === 0 && fin1.chunks > 0, { sessionId: fin1.sessionId, chunks: fin1.chunks });
-  if (!got404) throw new Error("attempt 1 did not hit the seeded 404; refusing to continue");
-
-  // ---------------------------------------------------------------- trace stored in the hosted tenant
-  await phase("trace", "Verify the SDK trace landed in the hosted tenant store");
-  let traceDay = "";
-  for (let i = 0; i < 20 && !traceDay; i++) {
-    for (const d of [new Date().toISOString().slice(0, 10), new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)]) {
-      const keys = await store.list(NS, `traces/${d}/`, { limit: 5000 });
-      if (keys.some((k) => k.includes(fin1.sessionId))) traceDay = d;
-    }
-    if (!traceDay) await new Promise((r) => setTimeout(r, 3000));
-  }
-  const traceKeys = traceDay ? (await store.list(NS, `traces/${traceDay}/`, { limit: 5000 })).filter((k) => k.includes(fin1.sessionId)) : [];
-  const storedEvents: unknown[] = [];
-  for (const [, bytes] of await store.get(NS, traceKeys)) for (const line of gunzipSync(bytes).toString("utf8").split("\n")) if (line) storedEvents.push(JSON.parse(line));
-  phases.trace = { day: traceDay, chunkKeys: traceKeys, storedEvents: storedEvents.length, events: bounded(storedEvents, 60_000) };
-  emit({ agentId: "host", kind: "files", title: `Stored SDK trace ${fin1.sessionId}: ${storedEvents.length} events in ${traceKeys.length} chunk(s) (day ${traceDay})`, status: traceKeys.length ? "succeeded" : "failed", data: { keys: traceKeys } });
-  if (!check("trace.storedInHostedTenant", traceKeys.length > 0 && storedEvents.length > 0)) throw new Error("trace not found in the tenant store");
-
-  // ---------------------------------------------------------------- operator-triggered daily cycle (real build agents)
-  await phase("daily-build", "Operator-triggered daily cycle NOW: real DailyBuildService + recursive build agents");
-  const memBefore = (await repo.head())?.value.revisionId ?? null;
-  const intBefore = (await integrations.get(SLUG))!;
+  const retry = "Retry the same task now. Since your last attempt the organization's memory and integrations may have been updated: call memory__open_memory again to pin the newest memory revision, read what it says about the GitHub integration, then use the integration tools as they are now.";
+  const MAX_CYCLES = Math.max(0, Math.min(3, Number(values["max-cycles"])));
   const config = loadConfig({ ...process.env, PROCMEM_STORE: "modal", PROCMEM_SANDBOX: "modal", HOST: "127.0.0.1", PROCMEM_BUILD_MODEL: values.builder! });
-  const agentParents = new Map<string, string | null>();
-  // Harness AgentStatus -> demo status. Never invents success: anything unrecognized is "unknown".
   const statusOf = harnessStatusToDemo;
-  const builderLog = (raw: unknown) => {
-    if (typeof raw === "string" || !raw || typeof raw !== "object") {
-      emit({ agentId: "builder", kind: "message", title: scrub(String(raw)).slice(0, 280) });
-      return;
-    }
-    const e = raw as { at: string; agentId: string; event: string; detail?: Record<string, unknown> };
-    const parentId = agentParents.get(e.agentId) ?? null;
-    if (e.event === "spawned") for (const c of (e.detail?.children as string[]) ?? []) agentParents.set(c, e.agentId);
-    if (e.event === "agent_started") setAgent(e.agentId, { parentId, name: `${parentId ? "child" : "root"} build agent ${e.agentId} (depth ${String(e.detail?.depth ?? "?")})`, model: String(e.detail?.profile ?? ""), role: "build", status: "running" });
-    if (e.event === "agent_finished") setAgent(e.agentId, { status: statusOf(e.detail?.status) });
-    emit({
-      at: e.at,
-      agentId: e.agentId,
-      parentId,
-      kind: e.event === "agent_started" ? "agent_start" : e.event === "agent_finished" ? "agent_end" : e.event === "tool_call" ? "tool_result" : e.event,
-      title: e.event === "tool_call" ? `${String(e.detail?.tool)} ${e.detail?.ok ? "ok" : `failed${e.detail?.code ? ` (${String(e.detail.code)})` : ""}`}` : e.event,
-      ...(e.event === "tool_call" ? { status: e.detail?.ok ? "succeeded" : "failed" } : e.event === "agent_finished" ? { status: statusOf(e.detail?.status) } : {}),
-      data: { ...(e.detail ?? {}), source: "build logger (live)" },
-    });
-  };
-  let integrationCallSeq = 0;
-  const toolProviders = async (ctx: { ns: string; buildId: string; store: typeof store }): Promise<readonly ToolProviderRegistration[]> => {
-    const regs = await createIntegrationToolProviders({ ns: ctx.ns, store: ctx.store as never, buildId: ctx.buildId, deps: { suites: async () => suitesV2, publisher, childAuth }, allowHostDeploy: true, required: true, log: (m) => emit({ agentId: "builder", kind: "message", title: m.slice(0, 280) }) });
-    for (const r of regs) {
-      const p = r.provider as unknown as { invoke: (name: string, input: unknown, c: { agentId: string }) => Promise<unknown> };
-      const orig = p.invoke.bind(p);
-      p.invoke = async (name, input, c) => {
-        const callId = `int-${++integrationCallSeq}`;
-        emit({ agentId: c.agentId, kind: "tool_call", title: name, status: "running", data: { callId, args: input, source: "integration provider (live)" } });
-        try {
-          const out = await orig(name, input, c);
-          emit({ agentId: c.agentId, kind: "tool_result", title: `${name}: ${String((out as { status?: string }).status ?? "ok")}`, status: "succeeded", data: { callId, result: out } });
-          return out;
-        } catch (error) {
-          emit({ agentId: c.agentId, kind: "tool_result", title: `${name}: failed (${String((error as { code?: string }).code ?? "error")})`, status: "failed", data: { callId, error: { code: (error as { code?: string }).code, message: String((error as Error).message) } } });
-          throw error;
-        }
-      };
-    }
-    return regs;
-  };
-  // Demo-only builder: identical inputs to createConfiguredBuilder (approved profiles, Modal workspaces,
-  // per-build integration runtime) plus an OBSERVING client wrapper that streams each build agent's real
-  // model replies and tool results to the live UI. It never alters requests or responses.
   const profileIdFor = (m: string) => {
     const p = DEFAULT_PROFILES.find((x) => x.model === m || x.id === m);
     if (!p) throw new Error(`no approved build profile for ${m}`);
@@ -588,170 +536,316 @@ try {
   const childProfileIds = [...new Set([rootProfileId, ...config.childModels.map(profileIdFor)])];
   const profiles = createProfileRegistry({ rootProfileId, childProfileIds, defaultChildProfileId: rootProfileId });
   const baseFactory = fireworksClientFactory(FIREWORKS);
+  const budget = { maxTurns: Number(values["max-turns"]), maxToolCalls: Number(values["max-tool-calls"]), maxDescendants: 4 };
+  report.builderConfig = { buildModel: config.buildModel, rootProfileId, childProfileIds, budget, maxCycles: MAX_CYCLES, path: "DailyBuildService -> runMemoryBuild (same profiles/workspace/integration providers as createConfiguredBuilder) + observing client wrapper; one service run per build cycle" };
+  let integrationCallSeq = 0;
+  // Build agent ids restart per build ("root", children...): scope every UI id by cycle so builds never merge.
+  let cyclePrefix = "c0";
+  const sid = (id: string | null | undefined) => (id ? `${cyclePrefix}/${id}` : null);
+  const agentParents = new Map<string, string | null>();
+  const builderLog = (raw: unknown) => {
+    if (typeof raw === "string" || !raw || typeof raw !== "object") {
+      emit({ agentId: `${cyclePrefix}/builder`, kind: "message", title: scrub(String(raw)).slice(0, 280) });
+      return;
+    }
+    const e = raw as { at: string; agentId: string; event: string; detail?: Record<string, unknown> };
+    const id = sid(e.agentId)!;
+    const parentId = agentParents.get(id) ?? null;
+    if (e.event === "spawned") for (const c of (e.detail?.children as string[]) ?? []) agentParents.set(sid(c)!, id);
+    if (e.event === "agent_started") setAgent(id, { parentId, name: `${cyclePrefix} ${parentId ? "child" : "root"} build agent ${e.agentId} (depth ${String(e.detail?.depth ?? "?")})`, model: String(e.detail?.profile ?? ""), role: "build", status: "running" });
+    if (e.event === "agent_finished") setAgent(id, { status: statusOf(e.detail?.status) });
+    emit({
+      at: e.at,
+      agentId: id,
+      parentId,
+      kind: e.event === "agent_started" ? "agent_start" : e.event === "agent_finished" ? "agent_end" : e.event === "tool_call" ? "tool_result" : e.event,
+      title: e.event === "tool_call" ? `${String(e.detail?.tool)} ${e.detail?.ok ? "ok" : `failed${e.detail?.code ? ` (${String(e.detail.code)})` : ""}`}` : e.event,
+      ...(e.event === "tool_call" ? { status: e.detail?.ok ? "succeeded" : "failed" } : e.event === "agent_finished" ? { status: statusOf(e.detail?.status) } : {}),
+      data: { ...(e.detail ?? {}), ...(e.event === "tool_call" ? { tool: e.detail?.tool } : {}), source: "build logger (live)" },
+    });
+  };
+  const toolProviders = async (ctx: { ns: string; buildId: string; store: typeof store }): Promise<readonly ToolProviderRegistration[]> => {
+    const regs = await createIntegrationToolProviders({ ns: ctx.ns, store: ctx.store as never, buildId: ctx.buildId, deps: { suites: async () => suitesV2, publisher, childAuth }, allowHostDeploy: true, required: true, log: (m) => emit({ agentId: `${cyclePrefix}/builder`, kind: "message", title: m.slice(0, 280) }) });
+    for (const r of regs) {
+      const p = r.provider as unknown as { invoke: (name: string, input: unknown, c: { agentId: string }) => Promise<unknown> };
+      const orig = p.invoke.bind(p);
+      p.invoke = async (name, input, c) => {
+        const callId = `${cyclePrefix}-int-${++integrationCallSeq}`;
+        emit({ agentId: sid(c.agentId)!, kind: "tool_call", title: name, status: "running", data: { callId, tool: name, source: "integration provider (live)", args: input } });
+        try {
+          const out = await orig(name, input, c);
+          emit({ agentId: sid(c.agentId)!, kind: "tool_result", title: `${name}: ${String((out as { status?: string }).status ?? "ok")}`, status: "succeeded", data: { callId, tool: name, source: "integration provider (live)", result: out } });
+          return out;
+        } catch (error) {
+          emit({ agentId: sid(c.agentId)!, kind: "tool_result", title: `${name}: failed (${String((error as { code?: string }).code ?? "error")})`, status: "failed", data: { callId, tool: name, source: "integration provider (live)", error: { code: (error as { code?: string }).code, message: String((error as Error).message) } } });
+          throw error;
+        }
+      };
+    }
+    return regs;
+  };
   const observingFactory: ChatClientFactory = (profile, ctx) => {
     const inner = baseFactory(profile, ctx);
     let seen = 0;
+    const aid = sid(ctx.agentId)!;
+    const pid = sid(ctx.parentId);
     return {
       model: inner.model,
       async chat(msgs, tools, opts) {
         for (const m of msgs.slice(seen)) {
-          if (m.role === "tool") emit({ agentId: ctx.agentId, parentId: ctx.parentId ?? null, kind: "tool_result", title: "tool result (as seen by the model)", text: String(m.content ?? ""), data: { callId: m.tool_call_id, source: "build agent model input (live)" } });
-          else if (m.role === "user") emit({ agentId: ctx.agentId, parentId: ctx.parentId ?? null, kind: "message", title: seen === 0 ? "task given to the agent" : "user/harness message", text: String(m.content ?? ""), data: { source: "build agent model input (live)" } });
+          if (m.role === "tool") emit({ agentId: aid, parentId: pid, kind: "tool_result", title: "tool result (as seen by the model)", text: String(m.content ?? ""), data: { callId: m.tool_call_id, source: "build agent model input (live)" } });
+          else if (m.role === "user") emit({ agentId: aid, parentId: pid, kind: "message", title: seen === 0 ? "task given to the agent" : "user/harness message", text: String(m.content ?? ""), data: { source: "build agent model input (live)" } });
         }
         const res = await inner.chat(msgs, tools, opts);
         seen = msgs.length + 1;
         const text = typeof res.message.content === "string" ? res.message.content : "";
-        if (text.trim()) emit({ agentId: ctx.agentId, parentId: ctx.parentId ?? null, kind: "message", title: "assistant", text, data: { source: "build agent model output (live)", model: inner.model, usage: res.usage } });
-        for (const tc of res.message.tool_calls ?? []) emit({ agentId: ctx.agentId, parentId: ctx.parentId ?? null, kind: "tool_call", title: tc.function.name, status: "running", data: { callId: tc.id, args: (() => { try { return JSON.parse(tc.function.arguments || "{}"); } catch { return tc.function.arguments; } })(), source: "build agent model output (live)" } });
+        if (text.trim()) emit({ agentId: aid, parentId: pid, kind: "message", title: "assistant", text, data: { source: "build agent model output (live)", model: inner.model, usage: res.usage } });
+        for (const tc of res.message.tool_calls ?? []) emit({ agentId: aid, parentId: pid, kind: "tool_call", title: tc.function.name, status: "running", data: { callId: tc.id, tool: tc.function.name, source: "build agent model output (live)", args: (() => { try { return JSON.parse(tc.function.arguments || "{}"); } catch { return tc.function.arguments; } })() } });
         return res;
       },
     };
   };
-  const budget = { maxTurns: Number(values["max-turns"]), maxToolCalls: Number(values["max-tool-calls"]), maxDescendants: 4 };
   const builder: MemoryBuilder = async ({ repo: r, ns, buildId, inputs, sources, signal }) => {
-    const receipt = await runMemoryBuild({
-      repo: r,
-      inputs,
-      sources,
-      buildId,
-      profiles,
-      clientFactory: observingFactory,
-      workspaceFactory: createModalBuildWorkspaceFactory({ tags: { purpose: "memory-build" } }),
-      budget,
-      toolProviders: await toolProviders({ ns, buildId, store: r.store as typeof store }),
-      signal,
-      log: builderLog,
-    });
+    const receipt = await runMemoryBuild({ repo: r, inputs, sources, buildId, profiles, clientFactory: observingFactory, workspaceFactory: createModalBuildWorkspaceFactory({ tags: { purpose: "memory-build" } }), budget, toolProviders: await toolProviders({ ns, buildId, store: r.store as typeof store }), signal, log: builderLog });
     return { ...receipt, status: receipt.status, revisionId: receipt.revisionId, ...(receipt.failure ? { error: `${receipt.failure.code}: ${receipt.failure.message}` } : {}) };
   };
-  report.builderConfig = { buildModel: config.buildModel, rootProfileId, childProfileIds, budget, path: "DailyBuildService -> runMemoryBuild (same profiles/workspace/integration providers as createConfiguredBuilder) + observing client wrapper" };
-  const service = new DailyBuildService({ store, builder, buildTimeoutMs: 40 * 60_000, log: (m) => emit({ agentId: "host", kind: "message", title: m.slice(0, 280) }) });
-  setAgent("builder", { name: `Daily build service (operator wrapper, ${values.builder})`, role: "operator", status: "running" });
-  const buildStarted = Date.now();
-  const buildReceipt = (await service.runAndWait(NS, { day: traceDay })) as Record<string, unknown> | null;
-  const buildMs = Date.now() - buildStarted;
-  setAgent("builder", { status: buildReceipt?.status === "published" ? "succeeded" : buildReceipt?.status === "failed" ? "failed" : "unknown" });
-  // Retained per-agent detail (receipts are produced after the run; marked as such).
-  const walk = (a: AgentReceipt) => {
-    // Receipts are authoritative for the final per-agent status.
-    setAgent(a.agentId, { parentId: a.parentId, model: a.model, role: "build", status: statusOf(a.status) });
-    emit({ agentId: a.agentId, parentId: a.parentId, kind: "agent_end", title: `[retained receipt] ${a.agentId} ${a.status}`, status: statusOf(a.status), data: { source: "agent receipt (retained after run)", harnessStatus: a.status, model: a.model, depth: a.depth, objective: a.objective, usage: a.usage, toolCalls: a.toolCalls.map((t) => ({ name: t.name, ok: t.ok, code: t.code, turn: t.turn })), summary: a.result?.summary ?? null, patch: a.result?.patch?.changes ?? null } });
-    for (const c of a.children ?? []) walk(c);
-  };
-  for (const att of ((buildReceipt?.attempts as Array<{ tree: AgentReceipt }> | undefined) ?? [])) walk(att.tree);
-  phases.dailyBuild = { day: traceDay, buildMs, receipt: bounded({ ...(buildReceipt ?? {}), attempts: undefined }, 20_000), status: buildReceipt?.status, revisionId: buildReceipt?.revisionId };
-  emit({ agentId: "builder", kind: "run_end", title: `daily build ${String(buildReceipt?.status)} ${String(buildReceipt?.revisionId ?? "")}`, status: buildReceipt?.status === "published" ? "succeeded" : "failed", data: phases.dailyBuild });
+  const service = new DailyBuildService({ store, builder, buildTimeoutMs: 40 * 60_000, log: (m) => emit({ agentId: `${cyclePrefix}/builder`, kind: "message", title: m.slice(0, 280) }) });
 
-  // ---------------------------------------------------------------- what the build changed (from durable state)
-  await phase("diffs", "Memory revision diff and integration source diff (durable state)");
-  const memAfter = (await repo.head())?.value.revisionId ?? null;
-  const intAfter = (await integrations.get(SLUG))!;
-  const memFilesBefore = memBefore ? await repo.files(memBefore) : new Map<string, string>();
-  const memFilesAfter = memAfter ? await repo.files(memAfter) : new Map<string, string>();
-  await writeTree(path.join(tmpRoot, "mem-before"), memFilesBefore);
-  await writeTree(path.join(tmpRoot, "mem-after"), memFilesAfter);
-  const memDiff = gitDiff(path.join(tmpRoot, "mem-before"), path.join(tmpRoot, "mem-after"));
-  const memChanged = [...new Set([...memFilesBefore.keys(), ...memFilesAfter.keys()])].filter((p) => memFilesBefore.get(p) !== memFilesAfter.get(p)).sort();
   const FILE_MAX = 60_000;
-  const fileEntry = (p: string, kind: "memory" | "source", a?: string, b?: string) => ({
-    path: p,
-    kind,
-    before: a === undefined ? null : a.slice(0, FILE_MAX),
-    after: b === undefined ? null : b.slice(0, FILE_MAX),
-    beforeSha256: a === undefined ? null : sha256(a),
-    afterSha256: b === undefined ? null : sha256(b),
-    truncated: (a?.length ?? 0) > FILE_MAX || (b?.length ?? 0) > FILE_MAX,
-  });
-  for (const p of memChanged) state.files.push(fileEntry(`memory/${p}`, "memory", memFilesBefore.get(p), memFilesAfter.get(p)));
-  emit({ agentId: "host", kind: "memory_diff", title: `Memory ${memBefore} -> ${memAfter}: ${memChanged.length} file(s) changed`, status: memAfter !== memBefore ? "succeeded" : "failed", text: memDiff, data: { before: memBefore, after: memAfter, changed: memChanged } });
-  let srcDiff = "";
-  let srcChanged: string[] = [];
-  if (intBefore.promoted && intAfter.promoted && intAfter.promoted.commit !== intBefore.promoted.commit) {
-    const a = await extractArchive(intBefore.promoted.archiveKey, path.join(tmpRoot, "src-before"));
-    const b = await extractArchive(intAfter.promoted.archiveKey, path.join(tmpRoot, "src-after"));
-    srcDiff = gitDiff(path.join(tmpRoot, "src-before"), path.join(tmpRoot, "src-after"));
-    srcChanged = [...new Set([...a.keys(), ...b.keys()])].filter((p) => a.get(p) !== b.get(p)).sort();
-    for (const p of srcChanged) state.files.push(fileEntry(`mcps/${SLUG}/${p}`, "source", a.get(p), b.get(p)));
-  }
-  emit({ agentId: "host", kind: "source_diff", title: `Integration ${SLUG}: ${intBefore.promoted?.commit?.slice(0, 12)} -> ${intAfter.promoted?.commit?.slice(0, 12)} (${srcChanged.length} file(s))`, status: srcChanged.length ? "succeeded" : "failed", text: srcDiff, data: { before: intBefore.promoted?.commit, after: intAfter.promoted?.commit, changed: srcChanged } });
-  await writeState();
-  phases.diffs = {
-    memory: { before: memBefore, after: memAfter, changed: memChanged, diff: memDiff, pagesAfter: Object.fromEntries([...memFilesAfter].filter(([p]) => memChanged.includes(p)).map(([p, c]) => [p, c.slice(0, 20_000)])) },
-    source: { beforeCommit: intBefore.promoted?.commit, afterCommit: intAfter.promoted?.commit, afterValidation: intAfter.promoted?.validationReceiptId, changed: srcChanged, diff: srcDiff },
-    deployment: { before: intBefore.manufact?.active, after: intAfter.manufact?.active, serverId: intAfter.manufact?.serverId, mcpUrl: intAfter.manufact?.mcpUrl, dashboardUrl: intAfter.manufact?.dashboardUrl },
+  const fileEntry = (p: string, kind: "memory" | "source", a?: string, b?: string) => ({ path: p, kind, before: a === undefined ? null : a.slice(0, FILE_MAX), after: b === undefined ? null : b.slice(0, FILE_MAX), beforeSha256: a === undefined ? null : sha256(a), afterSha256: b === undefined ? null : sha256(b), truncated: (a?.length ?? 0) > FILE_MAX || (b?.length ?? 0) > FILE_MAX });
+  const findTraceDay = async (sessionId: string) => {
+    for (let i = 0; i < 20; i++) {
+      for (const d of [new Date().toISOString().slice(0, 10), new Date(Date.now() - 86_400_000).toISOString().slice(0, 10)]) {
+        const keys = (await store.list(NS, `traces/${d}/`, { limit: 5000 })).filter((k) => k.includes(sessionId));
+        if (keys.length) return { day: d, keys };
+      }
+      await new Promise((r) => setTimeout(r, 3000));
+    }
+    return { day: "", keys: [] as string[] };
   };
-  check("build.memoryRevisionPublished", buildReceipt?.status === "published" && !!memAfter && memAfter !== memBefore, { memBefore, memAfter });
-  check("build.integrationCommitPromoted", srcChanged.length > 0);
-  check("build.newDeploymentActive", !!intAfter.manufact?.active && intAfter.manufact.active.deploymentId !== intBefore.manufact?.active?.deploymentId && intAfter.manufact.active.status === "running" && intAfter.manufact.active.probe === "passed", phases.diffs);
 
-  // ---------------------------------------------------------------- SDK sees the new deployment/schema (no restart)
-  await phase("sdk-update", "SDK detects the repaired child (new deployment and schema) in the running session");
-  let newSchema: Record<string, unknown> | null = null;
-  let forcedRefreshUsed = false;
-  const currentSchema = () => registry!.getTools().find((x) => x.name === toolName)?.inputSchema ?? null;
-  // 1) automatic SDK polling only (pollIntervalMs 15s) for up to 3 minutes
-  for (let i = 0; i < 36 && !newSchema; i++) {
-    const t = currentSchema();
-    if (t && JSON.stringify(t) !== JSON.stringify(initialSchema)) newSchema = t as Record<string, unknown>;
-    else await new Promise((r) => setTimeout(r, 5000));
-  }
-  // 2) explicit operator-forced refresh only if automatic polling did not see it (labelled)
-  for (let i = 0; i < 20 && !newSchema; i++) {
-    forcedRefreshUsed = true;
-    await registry.refresh({ force: true });
-    const t = currentSchema();
-    if (t && JSON.stringify(t) !== JSON.stringify(initialSchema)) newSchema = t as Record<string, unknown>;
-    else await new Promise((r) => setTimeout(r, 10_000));
-  }
-  live.applyNow();
-  const firstSchemaChange = toolEvents.find((e) => Array.isArray((e as { updated?: string[] }).updated) && ((e as { updated: string[] }).updated.includes(toolName) || ((e as { added?: string[] }).added ?? []).includes(toolName)));
-  const cat1 = await catalog();
-  phases.sdkUpdate = { initialSchema, newSchema, detectedBy: forcedRefreshUsed ? "operator-forced refresh (automatic poll did not observe it within 3 min)" : "automatic SDK catalog poll", firstToolsChangedEventForReadFile: firstSchemaChange ?? null, catalogAfter: cat1.integrations.map((i) => ({ slug: i.slug, deploymentId: i.deploymentId, commit: i.commit, tools: i.tools, mcpUrl: i.mcpUrl })), toolEvents, piApplied: applied, activeTools: session.getActiveToolNames().filter((n) => n.startsWith("integration__") || n.startsWith("memory__")) };
-  emit({ agentId: "customer", kind: "sdk_update", title: `read_file schema ${newSchema ? "changed" : "unchanged"} in the live session`, status: newSchema ? "succeeded" : "failed", data: { before: initialSchema, after: newSchema } });
-  check("sdk.schemaUpdatedWithoutRestart", !!newSchema && session.sessionId === piSessionId && (newSchema as { properties?: Record<string, unknown> }).properties?.ref !== undefined, { forcedRefreshUsed });
+  const attempts: Array<Record<string, any>> = [];
+  const cycleProofs: CycleProof[] = [];
+  const cycles: Array<Record<string, any>> = [];
+  const historyMarks: Array<{ attempt: number; length: number; prefixSha256: string }> = [];
+  let previousRunId: string | undefined;
+  let knownSchema: unknown = initialSchema;
+  let knownDeploymentId = (await integrations.get(SLUG))?.manufact?.active?.deploymentId ?? null;
+  let lastBuild: ReturnType<typeof classifyBuildCycle> | null = null;
+  let finalClass: AttemptClassification | null = null;
+  let finalAttemptChecks: Record<string, boolean> = {};
 
-  // ---------------------------------------------------------------- attempt 2 in the SAME session
-  await phase("attempt-2", "Same Pi session: reopen memory, use the repaired tool against real GitHub");
-  const retry = "Retry the same task now. Since your last attempt the organization's memory and integrations may have been updated: call memory__open_memory again to pin the newest memory revision, read what it says about the GitHub integration, then use the integration tools as they are now.";
-  const t2Start = transcript.length;
-  taskStart(2, retry);
-  const trace2 = recorder.begin({ objective: retry, metadata: { piSessionId, attempt: 2, runId: RUN_ID } });
-  detach = attachPiTraceCapture(session, trace2);
-  await session.prompt(retry).catch((e) => emit({ agentId: "customer", kind: "message", title: "prompt error", status: "failed", text: String(e) }));
-  detach();
-  const r2 = readFileResults(t2Start);
-  const c2 = readFileCalls(t2Start);
-  const answer2 = lastAssistant() ?? "";
-  // Verify from the RAW (unbounded) tool results by callId, pairing each with its own call arguments.
-  const okResult = r2.find((t) => {
-    const raw = rawToolResults.get(String(t.callId));
-    const call = c2.find((c) => c.callId === t.callId);
-    return !!raw && raw.isError !== true && githubProofOk(extractGithubFileEvidence((raw.result as { details?: unknown } | undefined)?.details ?? raw.result), { ref: REF, sha: String(truth.sha) }, call?.args);
-  });
-  const okMeta = okResult ? (okResult.evidence as GithubFileEvidence | null) : null;
-  const okCall = okResult ? c2.find((c) => c.callId === okResult.callId) : undefined;
-  const reopened = transcript.slice(t2Start).filter((t) => t.type === "tool_result" && t.name === "memory__open_memory");
-  const seq2 = transcript.slice(t2Start).filter((t) => t.type === "tool_call").map((t) => String(t.name));
-  const iOpen = seq2.indexOf("memory__open_memory");
-  const iFirstRead = seq2.indexOf(toolName);
-  const memoryReadBetween = iOpen >= 0 && iFirstRead > iOpen && seq2.slice(iOpen + 1, iFirstRead).some((n) => ["memory__read", "memory__grep", "memory__find", "memory__ls", "memory__view_file"].includes(n));
-  const historyAfter2 = messages().length;
-  const fin2 = await trace2.finish({ status: okResult && answer2.includes(FACT) ? "succeeded" : "failed", summary: `customer agent reply: ${answer2}`.slice(0, 2000) });
-  phases.attempt2 = { readFileCalls: c2, readFileResults: r2, memoryReopen: reopened, answer: answer2, trace: { sessionId: fin2.sessionId, events: fin2.events, chunks: fin2.chunks, deliveryErrors: fin2.errors.length } };
-  taskEnd(2, okResult && answer2.includes(FACT) ? "succeeded" : "failed", { answer: answer2, githubOk: !!okResult });
-  phases.sameSession = { constructions, piSessionId, sessionIdNow: session.sessionId, sameObject: sessionRef === session, pid: process.pid, historyAfterAttempt1: historyAfter1, historyAfterAttempt2: historyAfter2, prefixSha256AfterAttempt1: prefixAfter1, prefixSha256OfSameRangeAfterAttempt2: prefixHash(historyAfter1), toolSequenceAttempt2: seq2 };
-  check("attempt2.sameSessionAndProcess", constructions === 1 && sessionRef === session && session.sessionId === piSessionId && process.pid === state.pid);
-  check("attempt2.messageHistoryGrewWithExactPrefix", historyAfter2 > historyAfter1 && prefixHash(historyAfter1) === prefixAfter1, phases.sameSession);
-  check("attempt2.memoryReopenedNewRevision", reopened.some((t) => String(t.text).includes(String(memAfter)) || JSON.stringify(t.details ?? "").includes(String(memAfter))), { memAfter });
-  check("attempt2.readMemoryAfterReopenBeforeTool", memoryReadBetween, { sequence: seq2 });
-  check("attempt2.calledRepairedToolWithRef", (okCall?.args as { ref?: string } | undefined)?.ref === REF, { call: okCall ?? c2 });
-  check("attempt2.realGithub200SameShaAsHostCheck", !!okResult, { expectedSha: truth.sha, returned: okMeta });
-  check("attempt2.answerHasFact", answer2.includes(FACT), { answer: answer2.slice(0, 600) });
+  for (let n = 1; ; n++) {
+    await phase(`attempt-${n}`, n === 1 ? "Customer attempt 1 with the seeded integration" : `Same Pi session: attempt ${n} after build cycle ${n - 1}`);
+    const prompt = n === 1 ? task : retry;
+    const tStart = transcript.length;
+    const runId = `${RUN_ID.toLowerCase()}-a${n}`;
+    const toolAvailable = session.getActiveToolNames().includes(toolName);
+    taskStart(n, prompt);
+    const { trace, detach } = beginPiTrace(recorder, session, { objective: prompt, metadata: { piSessionId, attempt: n, demoRunId: RUN_ID }, runId, ...(previousRunId ? { previousRunId } : {}) });
+    let promptError: string | null = null;
+    await session.prompt(prompt).catch((e) => {
+      promptError = scrub(String((e as Error)?.message ?? e)).slice(0, 500);
+      emit({ agentId: "customer", kind: "message", title: "prompt error", status: "failed", text: promptError });
+    });
+    detach();
+    const mark = { attempt: n, length: messages().length, prefixSha256: prefixHash(messages().length) };
+    historyMarks.push(mark);
+    const results = readFileResults(tStart);
+    const calls = readFileCalls(tStart);
+    const answer = lastAssistant() ?? "";
+    // Verification uses the RAW tool results by callId (never the bounded transcript copy).
+    const proofs = results.map((t) => {
+      const raw = rawToolResults.get(String(t.callId));
+      const call = calls.find((c) => c.callId === t.callId);
+      const ev = raw ? extractGithubFileEvidence((raw.result as { details?: unknown } | undefined)?.details ?? raw.result, (x) => sha256(x)) : null;
+      return { callId: t.callId, args: call?.args ?? null, isError: raw?.isError ?? null, evidence: ev, ok: !!raw && raw.isError !== true && githubProofOk(ev, { ref: REF, sha: String(truth.sha) }, call?.args) };
+    });
+    const integrationToolErrors = results.filter((t) => t.isError === true).map((t) => ({ status: Number(/GitHub error (\d{3})/.exec(String(t.text))?.[1] ?? /\b(\d{3})\b/.exec(String(t.text))?.[1] ?? NaN) || null, message: String(t.text).slice(0, 300) }));
+    const proofOk = proofs.some((p) => p.ok);
+    const fin = await trace.finish({ status: proofOk && answer.includes(FACT) ? "succeeded" : "failed", summary: `customer agent reply: ${answer}`.slice(0, 2000) });
+    const traceDelivered = fin.errors.length === 0 && fin.chunks > 0;
+    const cls = classifyAttempt({ promptError, traceDelivered, toolAvailable, integrationToolErrors, proofOk, answerHasFact: answer.includes(FACT), verifierError: null });
+    previousRunId = runId;
+    // Attempt-specific checks (retries must reopen memory at the newest revision and read it before the tool).
+    const seq = transcript.slice(tStart).filter((t) => t.type === "tool_call").map((t) => String(t.name));
+    const memHead = (await repo.head())?.value.revisionId ?? null;
+    const reopened = transcript.slice(tStart).filter((t) => t.type === "tool_result" && t.name === "memory__open_memory");
+    const iOpen = seq.lastIndexOf("memory__open_memory");
+    const firstToolAfterOpen = seq.findIndex((x, i) => i > iOpen && x === toolName);
+    const memoryReadBetween = iOpen >= 0 && firstToolAfterOpen > iOpen && seq.slice(iOpen + 1, firstToolAfterOpen).some((x) => ["memory__read", "memory__grep", "memory__find", "memory__ls", "memory__view_file"].includes(x));
+    const attemptChecks: Record<string, boolean> = n === 1 ? {} : {
+      memoryReopenedNewestRevision: reopened.some((t) => String(t.text).includes(String(memHead)) || JSON.stringify(t.details ?? "").includes(String(memHead))),
+      readMemoryAfterReopenBeforeTool: memoryReadBetween,
+    };
+    const rec = { attempt: n, runId, previousRunId: n === 1 ? null : `${RUN_ID.toLowerCase()}-a${n - 1}`, conversationId: (trace as unknown as { conversationId?: string }).conversationId ?? null, prompt, toolAvailable, promptError, calls, proofs, integrationToolErrors, answer, classification: cls, attemptChecks, memHeadAtEnd: memHead, toolSequence: seq, history: mark, trace: { sessionId: fin.sessionId, events: fin.events, chunks: fin.chunks, deliveryErrors: fin.errors.length } };
+    attempts.push(rec);
+    taskEnd(n, cls.outcome === "succeeded" ? "succeeded" : "failed", { classification: cls, proofOk, traceSessionId: fin.sessionId });
+    emit({ agentId: "host", kind: "check", title: `attempt ${n}: ${cls.outcome}${cls.failureClass ? ` (${cls.failureClass})` : ""}: ${cls.reason}`.slice(0, 290), status: cls.outcome === "succeeded" ? "succeeded" : "failed", data: { attempt: n, classification: cls, proofs: proofs.map((p) => ({ callId: p.callId, ok: p.ok, evidence: p.evidence })) } });
+    await progress(`attempt ${n}: ${cls.outcome} ${cls.failureClass ?? ""} ${cls.reason}`);
+    finalClass = cls;
+    finalAttemptChecks = attemptChecks;
+    const step = nextStep(cls, cycles.length, MAX_CYCLES, lastBuild);
+    if (step.action === "stop") {
+      report.loopStop = step;
+      break;
+    }
+
+    // ---------------------------------------------------------------- real build cycle over the new catch-up cohort
+    const cycle = step.cycle;
+    cyclePrefix = `c${cycle}`;
+    await phase(`build-cycle-${cycle}`, `Build cycle ${cycle}: operator-triggered daily cycle over attempt ${n}'s trace (real recursive build agents)`);
+    const { day: traceDay, keys: traceKeys } = await findTraceDay(fin.sessionId);
+    if (!traceDay) {
+      report.loopStop = { action: "stop", verdict: "failed", reason: `trace ${fin.sessionId} not found in the tenant store`, blockedBy: "infra" };
+      break;
+    }
+    const memBefore = (await repo.head())?.value.revisionId ?? null;
+    const intBefore = (await integrations.get(SLUG))!;
+    const appliedBaseline = applied.length;
+    const toolEventsBaseline = toolEvents.length;
+    setAgent(`${cyclePrefix}/builder`, { name: `Daily build service cycle ${cycle} (operator wrapper, ${values.builder})`, role: "operator", status: "running" });
+    const buildStarted = Date.now();
+    let buildReceipt: Record<string, unknown> | null = null;
+    let buildError: string | null = null;
+    try {
+      buildReceipt = (await service.runAndWait(NS, { day: traceDay })) as Record<string, unknown> | null;
+    } catch (error) {
+      buildError = scrub(String((error as Error)?.message ?? error));
+    }
+    const buildMs = Date.now() - buildStarted;
+    const bStatus = (buildReceipt?.status as string | undefined) ?? null;
+    setAgent(`${cyclePrefix}/builder`, { status: bStatus === "published" ? "succeeded" : bStatus === "failed" || buildError ? "failed" : "unknown" });
+    const walk = (a: AgentReceipt) => {
+      setAgent(sid(a.agentId)!, { parentId: sid(a.parentId), model: a.model, role: "build", status: statusOf(a.status) });
+      emit({ agentId: sid(a.agentId)!, parentId: sid(a.parentId), kind: "agent_end", title: `[retained receipt] ${a.agentId} ${a.status}`, status: statusOf(a.status), data: { source: "agent receipt (retained after run)", harnessStatus: a.status, model: a.model, depth: a.depth, objective: a.objective, usage: a.usage, toolCalls: a.toolCalls.map((t) => ({ name: t.name, ok: t.ok, code: t.code, turn: t.turn })), summary: a.result?.summary ?? null, patch: a.result?.patch?.changes ?? null } });
+      for (const c of a.children ?? []) walk(c);
+    };
+    for (const att of ((buildReceipt?.attempts as Array<{ tree: AgentReceipt }> | undefined) ?? [])) walk(att.tree);
+    const memAfter = (await repo.head())?.value.revisionId ?? null;
+    const intAfter = (await integrations.get(SLUG))!;
+    // Diffs from durable state (memory revision + promoted integration source).
+    const memFilesBefore = memBefore ? await repo.files(memBefore) : new Map<string, string>();
+    const memFilesAfter = memAfter ? await repo.files(memAfter) : new Map<string, string>();
+    const md = path.join(tmpRoot, `c${cycle}`);
+    await writeTree(path.join(md, "mem-before"), memFilesBefore);
+    await writeTree(path.join(md, "mem-after"), memFilesAfter);
+    const memDiff = gitDiff(path.join(md, "mem-before"), path.join(md, "mem-after"));
+    const memChanged = [...new Set([...memFilesBefore.keys(), ...memFilesAfter.keys()])].filter((p) => memFilesBefore.get(p) !== memFilesAfter.get(p)).sort();
+    for (const p of memChanged) upsertFile(state.files as RecordedFile[], fileEntry(`memory/${p}`, "memory", memFilesBefore.get(p), memFilesAfter.get(p)), cycle);
+    emit({ agentId: "host", kind: "memory_diff", title: `cycle ${cycle}: memory ${memBefore} -> ${memAfter}: ${memChanged.length} file(s)`, status: memAfter !== memBefore ? "succeeded" : "partial", text: memDiff, data: { cycle, before: memBefore, after: memAfter, changed: memChanged } });
+    let srcDiff = "";
+    let srcChanged: string[] = [];
+    if (intBefore.promoted && intAfter.promoted && intAfter.promoted.commit !== intBefore.promoted.commit) {
+      const a = await extractArchive(intBefore.promoted.archiveKey, path.join(md, "src-before"));
+      const b = await extractArchive(intAfter.promoted.archiveKey, path.join(md, "src-after"));
+      srcDiff = gitDiff(path.join(md, "src-before"), path.join(md, "src-after"));
+      srcChanged = [...new Set([...a.keys(), ...b.keys()])].filter((p) => a.get(p) !== b.get(p)).sort();
+      for (const p of srcChanged) upsertFile(state.files as RecordedFile[], fileEntry(`mcps/${SLUG}/${p}`, "source", a.get(p), b.get(p)), cycle);
+    }
+    emit({ agentId: "host", kind: "source_diff", title: `cycle ${cycle}: ${SLUG} ${intBefore.promoted?.commit?.slice(0, 12)} -> ${intAfter.promoted?.commit?.slice(0, 12)} (${srcChanged.length} file(s))`, status: srcChanged.length ? "succeeded" : "partial", text: srcDiff, data: { cycle, before: intBefore.promoted?.commit, after: intAfter.promoted?.commit, changed: srcChanged } });
+    const newDeployment = !!intAfter.manufact?.active && intAfter.manufact.active.deploymentId !== intBefore.manufact?.active?.deploymentId && intAfter.manufact.active.status === "running" && intAfter.manufact.active.probe === "passed";
+    lastBuild = classifyBuildCycle({ status: bStatus, error: buildError ?? ((buildReceipt?.error as string | undefined) ?? null), newDeployment, newMemoryRevision: !!memAfter && memAfter !== memBefore });
+
+    // ---------------------------------------------------------------- SDK/Pi observe the change automatically
+    // Integration change: wait (no forced refresh, no manual apply) for the registry's own poll to list the new
+    // deployment and, if the schema changed, for Pi's adapter to apply that exact tool at an idle safe point.
+    // Memory-only change: nothing to wait for here; the customer must explicitly reopen + read the new revision.
+    const expectedDeployment = newDeployment ? intAfter.manufact!.active!.deploymentId : null;
+    const sourceState = () => registry!.getSnapshot().sources.find((x) => String(x.source).includes(SLUG));
+    const schemaNow = () => registry!.getTools().find((x) => x.name === toolName)?.inputSchema ?? null;
+    let sdkAutomatic = false;
+    let piAutomatic: boolean | null = null;
+    let forcedRefreshUsed = false;
+    let manualApplyUsed = false;
+    let sdkObservedAt: string | null = null;
+    let piAppliedEvent: unknown = null;
+    const schemaChanged = () => JSON.stringify(schemaNow()) !== JSON.stringify(knownSchema);
+    const piSawTool = () => applied.slice(appliedBaseline).find((a) => [...((a as { updated?: string[] }).updated ?? []), ...((a as { added?: string[] }).added ?? [])].includes(toolName));
+    if (expectedDeployment) {
+      for (let i = 0; i < 48 && (!sdkAutomatic || (schemaChanged() && !piSawTool())); i++) {
+        const st = sourceState();
+        if (!sdkAutomatic && st?.deploymentId === expectedDeployment && st.state === "ready") {
+          sdkAutomatic = true;
+          sdkObservedAt = new Date().toISOString();
+        }
+        if (!sdkAutomatic || (schemaChanged() && !piSawTool())) await new Promise((r) => setTimeout(r, 5000));
+      }
+      const autoPi = piSawTool();
+      piAutomatic = schemaChanged() || autoPi ? !!autoPi : null; // null = definition identical, nothing for Pi to apply
+      piAppliedEvent = autoPi ?? null;
+      if (!sdkAutomatic) {
+        // Labelled fallback only; never counted as automatic.
+        for (let i = 0; i < 12 && sourceState()?.deploymentId !== expectedDeployment; i++) {
+          forcedRefreshUsed = true;
+          await registry.refresh({ force: true });
+          if (sourceState()?.deploymentId !== expectedDeployment) await new Promise((r) => setTimeout(r, 10_000));
+        }
+      }
+      if (piAutomatic === false) {
+        manualApplyUsed = true;
+        live.applyNow();
+      }
+    }
+    const newSchema = schemaNow();
+    const sdk = {
+      kind: expectedDeployment ? "integration" : lastBuild.changed ? "memory-only" : "none",
+      expectedDeployment,
+      sdkAutomatic,
+      sdkObservedAt,
+      piAutomatic,
+      piAppliedEvent,
+      forcedRefreshUsed,
+      manualApplyUsed,
+      registrySource: sourceState() ?? null,
+      schemaBefore: knownSchema,
+      schemaAfter: newSchema,
+      toolsChangedThisCycle: toolEvents.slice(toolEventsBaseline),
+      piAppliedThisCycle: applied.slice(appliedBaseline),
+    };
+    const observed = expectedDeployment ? sdkAutomatic : lastBuild.changed;
+    emit({ agentId: "customer", kind: "sdk_update", title: `cycle ${cycle}: ${sdk.kind === "integration" ? `SDK ${sdkAutomatic ? "auto-observed" : forcedRefreshUsed ? "saw (FORCED refresh)" : "did NOT observe"} deployment ${String(expectedDeployment).slice(0, 8)}; Pi ${piAutomatic === null ? "no schema change" : piAutomatic ? "auto-applied" : "MANUAL apply"}` : sdk.kind === "memory-only" ? "memory-only change (customer must reopen memory)" : "no change"}`, status: observed ? "succeeded" : "partial", data: { cycle, ...sdk } });
+    knownSchema = newSchema;
+    if (expectedDeployment) knownDeploymentId = expectedDeployment;
+    cycleProofs.push({ cycle, buildOk: lastBuild.ok, memoryChanged: !!memAfter && memAfter !== memBefore, sourceChanged: srcChanged.length > 0, newDeployment, sdkAutomatic, piAutomatic });
+    cycles.push({ cycle, afterAttempt: n, day: traceDay, traceKeys, buildMs, status: bStatus, error: buildError ?? buildReceipt?.error ?? null, revisionId: buildReceipt?.revisionId ?? null, receipt: bounded({ ...(buildReceipt ?? {}), attempts: undefined }, 20_000), classification: lastBuild, memory: { before: memBefore, after: memAfter, changed: memChanged, diff: memDiff, pagesAfter: Object.fromEntries([...memFilesAfter].filter(([p]) => memChanged.includes(p)).map(([p, c]) => [p, c.slice(0, 20_000)])) }, source: { beforeCommit: intBefore.promoted?.commit, afterCommit: intAfter.promoted?.commit, afterValidation: intAfter.promoted?.validationReceiptId, changed: srcChanged, diff: srcDiff }, deployment: { before: intBefore.manufact?.active, after: intAfter.manufact?.active, newDeployment, serverId: intAfter.manufact?.serverId, mcpUrl: intAfter.manufact?.mcpUrl, dashboardUrl: intAfter.manufact?.dashboardUrl }, sdk });
+    emit({ agentId: `${cyclePrefix}/builder`, kind: "run_end", title: `build cycle ${cycle}: ${bStatus ?? "error"} ${String(buildReceipt?.revisionId ?? "")} (${lastBuild.reason})`.slice(0, 290), status: lastBuild.ok ? "succeeded" : "failed", data: { cycle, status: bStatus, revisionId: buildReceipt?.revisionId ?? null, newDeployment, memoryChanged: memChanged.length, sourceChanged: srcChanged.length } });
+    await progress(`build cycle ${cycle}: ${lastBuild.reason}; SDK ${sdk.kind} automatic=${sdk.sdkAutomatic} pi=${String(sdk.piAutomatic)}`);
+    if (!lastBuild.ok || !lastBuild.changed) {
+      report.loopStop = nextStep(cls, cycles.length, MAX_CYCLES, lastBuild);
+      break;
+    }
+  }
+  phases.attempts = attempts;
+  phases.buildCycles = cycles;
+  void knownDeploymentId;
+
+  // ---------------------------------------------------------------- final gates: final validated outcome + run-wide invariants
   const ghAfter = await gh(`/repos/${OWNER}/${REPO}/contents/${FILE}?ref=${REF}`);
   phases.githubAfter = { via: ghAfter.via, status: ghAfter.status, requestId: ghAfter.requestId, sha: ghAfter.body.sha, rateLimitRemaining: ghAfter.rateRemaining };
-  check("github.independentAfterSameSha", ghAfter.status === 200 && ghAfter.body.sha === truth.sha);
-
-  ok = Object.values(state.checks).every(Boolean);
+  const prefixesOk = historyMarks.every((m, i) => i === 0 || (m.length > historyMarks[i - 1]!.length && prefixHash(historyMarks[i - 1]!.length) === historyMarks[i - 1]!.prefixSha256));
+  const invariants: Record<string, boolean> = {
+    sameSessionAndProcess: constructions === 1 && sessionRef === session && session.sessionId === piSessionId && process.pid === state.pid,
+    messageHistoryGrewWithExactPrefixes: prefixesOk,
+    everyAttemptTraceDelivered: attempts.every((a) => a.trace.deliveryErrors === 0 && a.trace.chunks > 0),
+    buildCycleBudgetRespected: cycles.length <= MAX_CYCLES,
+    everyBuildCycleRecorded: cycles.every((c) => c.status !== undefined),
+    independentGithubCheck: ghAfter.status === 200 && ghAfter.body.sha === truth.sha,
+  };
+  const finalChecks: Record<string, boolean> = { ...finalAttemptChecks, finalAttemptRanAfterARealBuild: attempts.length > 1, finalAnswerHasFact: String(attempts[attempts.length - 1]?.answer ?? "").includes(FACT) };
+  for (const [k, v] of Object.entries(invariants)) check(`invariant.${k}`, v);
+  for (const [k, v] of Object.entries(finalChecks)) check(`final.${k}`, v);
+  const taskVerdict = finalVerdict({ finalAttempt: finalClass, invariants, finalChecks });
+  const firstAttempt = attempts[0] ?? null;
+  const expectedInitialFailure = !!firstAttempt && (firstAttempt.integrationToolErrors as Array<{ message: string }>).some((e) => /404/.test(e.message) && /No commit found for the ref master/.test(e.message));
+  const prerequisites = Object.fromEntries(["preflight.orgPinned", "github.masterIs404", "github.refIs200WithFact", "seed.publishedAndProbed", "sdk.seededToolVisible"].map((k) => [k, state.checks[k] === true]));
+  const mechanism = mechanismProof({ prerequisites, firstAttempt: firstAttempt ? firstAttempt.classification : null, expectedInitialFailure, cycles: cycleProofs });
+  check("final.taskSucceeded", taskVerdict.ok, taskVerdict);
+  check("final.requestedMechanismProven", mechanism.ok, mechanism);
+  const verdict = { ok: taskVerdict.ok && mechanism.ok, task: taskVerdict, mechanism, expectedInitialFailure, cycleProofs };
+  phases.sameSession = { constructions, piSessionId, sessionIdNow: session.sessionId, sameObject: sessionRef === session, pid: process.pid, historyMarks };
+  report.verdict = verdict;
+  ok = verdict.ok;
   report.messageHistoryLength = (session.agent.state.messages as unknown[]).length;
 } catch (error) {
   if (error instanceof PreflightDone) {
@@ -769,6 +863,16 @@ try {
   report.error = scrub(String((error as Error).stack ?? error));
   aborted = true;
 } finally {
+  for (const other of isolated) {
+    try {
+      const out = await restoreIntegration({ store: integrations, slug: other, buildId: `iso-${RUN_ID.toLowerCase()}`.slice(0, 60), reason: `restored after fresh E2E run ${RUN_ID}` });
+      emit({ agentId: "host", kind: "message", title: `isolation: restored ${other} (${out.state}, listed=${out.listed})`, data: { slug: other, receiptId: out.receiptId } });
+      (report.isolation as Array<unknown> | undefined)?.push({ slug: other, restored: out.state === "active", listed: out.listed }) ?? (report.isolation = [{ slug: other, restored: out.state === "active", listed: out.listed }]);
+    } catch (error) {
+      ioErrors.push(`restore ${other}: ${String((error as Error).message)}`);
+      emit({ agentId: "host", kind: "message", title: `isolation: FAILED to restore ${other}: ${scrub(String((error as Error).message)).slice(0, 200)}`, status: "failed" });
+    }
+  }
   disposeSession?.();
   await registry?.dispose().catch(() => undefined);
   store.close();
@@ -784,9 +888,12 @@ state.status = ok ? "succeeded" : "failed";
 state.phase = "done";
 finalizeAgents(aborted, ok);
 report.agents = state.agents;
-const suffix = ok ? "" : `-failed-${RUN_ID}`;
-state.reportPath = `reports/real-integration-e2e${suffix}.json`;
-emit({ agentId: "host", kind: "run_end", title: ok ? "ALL CHECKS PASSED" : "CHECKS FAILED", status: ok ? "succeeded" : "failed", data: { checks: state.checks, report: `reports/real-integration-e2e${suffix}.json`, markdown: `reports/real-integration-e2e${suffix}.md`, html: `reports/real-integration-e2e${suffix}.html`, mcpUrl: (report.phases as Record<string, { deployment?: { mcpUrl?: string } }>).diffs?.deployment?.mcpUrl ?? null } });
+// Unique per-run reports + a "latest" canonical alias. The previous canonical alias (the post-run verification
+// correction of run e2e-20261017T232926-fe8d) is archived byte-exact first; nothing else is overwritten.
+const runBase = `reports/real-integration-e2e-${RUN_ID}`;
+state.reportPath = `${runBase}.json`;
+const lastCycle = (phases.buildCycles as Array<Record<string, any>> | undefined)?.at(-1);
+emit({ agentId: "host", kind: "run_end", title: (ok ? "ALL FINAL GATES PASSED (task + requested mechanism)" : `FINAL GATES FAILED: ${[...(((report.verdict as any)?.task?.failing as string[] | undefined) ?? []), ...(((report.verdict as any)?.mechanism?.failing as string[] | undefined) ?? [])].join(", ") || String((report.loopStop as any)?.reason ?? report.error ?? "aborted")}`).slice(0, 290), status: ok ? "succeeded" : "failed", data: { verdict: report.verdict ?? null, loopStop: report.loopStop ?? null, attempts: (phases.attempts as unknown[] | undefined)?.length ?? 0, buildCycles: (phases.buildCycles as unknown[] | undefined)?.length ?? 0, report: `${runBase}.json`, markdown: `${runBase}.md`, html: `${runBase}.html`, mcpUrl: lastCycle?.deployment?.mcpUrl ?? (phases.seed as { manufact?: { mcpUrl?: string } } | undefined)?.manufact?.mcpUrl ?? null } });
 report.events = allEvents;
 await writeChain;
 await writeState();
@@ -795,10 +902,30 @@ report.ioErrors = ioErrors;
 const out = scrub(JSON.stringify(report, null, 2));
 if (SECRETS.some((s) => out.includes(s)) || /eyJ[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}\.[A-Za-z0-9_-]{8,}/.test(out)) throw new Error("report still contains a credential; refusing to write");
 await fs.mkdir("reports", { recursive: true });
-await fs.writeFile(`reports/real-integration-e2e${suffix}.json`, `${out}\n`);
 const { renderMarkdown, renderHtml } = await import("./real-integration-e2e-render.js");
-await fs.writeFile(`reports/real-integration-e2e${suffix}.md`, scrub(renderMarkdown(JSON.parse(out))));
-await fs.writeFile(`reports/real-integration-e2e${suffix}.html`, scrub(renderHtml(JSON.parse(out))));
-await progress(`DONE ok=${ok} report reports/real-integration-e2e${suffix}.json`);
-if (ok) await fs.writeFile(".context/real-demo-ready", `Real integration E2E PASSED ${new Date().toISOString()} run ${RUN_ID}\nreports/real-integration-e2e.json .md .html\nchecks: ${Object.keys(state.checks).length} all passed\n`);
+const md = scrub(renderMarkdown(JSON.parse(out)));
+const html = scrub(renderHtml(JSON.parse(out)));
+await fs.writeFile(`${runBase}.json`, `${out}\n`);
+await fs.writeFile(`${runBase}.md`, md);
+await fs.writeFile(`${runBase}.html`, html);
+const CANON = "reports/real-integration-e2e";
+const OLD_CORRECTION = "reports/real-integration-e2e-corrected-oldrun-e2e-20261017T232926-fe8d";
+if (existsSync(`${CANON}.json`)) {
+  const cur = JSON.parse(await fs.readFile(`${CANON}.json`, "utf8")) as { kind?: string; correction?: unknown };
+  if (cur.correction && !existsSync(`${OLD_CORRECTION}.json`)) {
+    for (const ext of ["json", "md", "html"]) {
+      if (!existsSync(`${CANON}.${ext}`)) continue;
+      const bytes = await fs.readFile(`${CANON}.${ext}`);
+      await fs.writeFile(`${OLD_CORRECTION}.${ext}`, bytes);
+      if (sha256(await fs.readFile(`${OLD_CORRECTION}.${ext}`)) !== sha256(bytes)) throw new Error(`archive of ${CANON}.${ext} is not byte-exact`);
+    }
+  } else if (cur.correction && existsSync(`${OLD_CORRECTION}.json`) && sha256(await fs.readFile(`${OLD_CORRECTION}.json`)) !== sha256(await fs.readFile(`${CANON}.json`))) {
+    throw new Error("canonical alias is an unarchived correction that differs from the archived one; refusing to overwrite");
+  }
+}
+await fs.writeFile(`${CANON}.json`, `${out}\n`);
+await fs.writeFile(`${CANON}.md`, md);
+await fs.writeFile(`${CANON}.html`, html);
+await progress(`DONE ok=${ok} report ${runBase}.json (latest alias ${CANON}.json)`);
+if (ok) await fs.writeFile(READY, `Real integration E2E (fresh, feedback loop) PASSED ${new Date().toISOString()} run ${RUN_ID}\n${runBase}.{json,md,html} (latest alias ${CANON}.*)\nattempts: ${(phases.attempts as unknown[]).length}, build cycles: ${(phases.buildCycles as unknown[]).length}\ntask + requested-mechanism gates passed (${Object.keys(state.checks).filter((k) => k.startsWith("final.") || k.startsWith("invariant.")).length} final/invariant checks)\n`);
 process.exitCode = ok ? 0 : 1;
