@@ -1,0 +1,3707 @@
+{
+  "schema": "procmem.sources-runtime.provenance/v2",
+  "donor": {
+    "repo": "askshepherd/aqueduct",
+    "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf"
+  },
+  "notCopied": [
+    {
+      "path": "src/graph/ (except bridge/session-windows.ts, bridge/chunker.ts; wiring/ingest-hook.ts + default-kb.ts are shims)",
+      "reason": "graph/LLM plane; source lane never builds a graph"
+    },
+    {
+      "path": "src/wiki/, src/chat/, src/answerer/, src/agent/",
+      "reason": "LLM wiki/chat planes"
+    },
+    {
+      "path": "src/api/",
+      "reason": "donor tenant API (aq_ API keys, onboarding, graph builds); replaced by src/source-lane/internal/app.ts behind the yc_msaw service token"
+    },
+    {
+      "path": "src/mcp/",
+      "reason": "donor MCP server; yc_msaw serves the sources/ filesystem"
+    },
+    {
+      "path": "src/entrypoints/",
+      "reason": "donor worker registers graph tasks; replaced by src/source-lane/entrypoints/"
+    },
+    {
+      "path": "tests/{graph,wiki,chat,answerer,agent,api,mcp}/, tests/scripts/v1-v2-parity.test.ts",
+      "reason": "tests of planes not copied"
+    }
+  ],
+  "migrationPlan": "src/source-lane/core/migrations.ts",
+  "files": [
+    {
+      "path": "docs/integrations/README.md",
+      "sha256": "42b8b4e670f7e72bd00e6591dd3880e227e4551dc2d44bf0f39e6ca26f4eeb8f",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/README.md",
+      "donorSha256": "42b8b4e670f7e72bd00e6591dd3880e227e4551dc2d44bf0f39e6ca26f4eeb8f"
+    },
+    {
+      "path": "docs/integrations/bitbucket.md",
+      "sha256": "f0386d8703866710b2e6835b8404083f7e2f22c9a944a34475a2aea755eb3cbf",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/bitbucket.md",
+      "donorSha256": "f0386d8703866710b2e6835b8404083f7e2f22c9a944a34475a2aea755eb3cbf"
+    },
+    {
+      "path": "docs/integrations/confluence.md",
+      "sha256": "4b7524de0ed1a8e0800e74ecd4822827d8817f360ded7178f101d7f4a89fdc0d",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/confluence.md",
+      "donorSha256": "4b7524de0ed1a8e0800e74ecd4822827d8817f360ded7178f101d7f4a89fdc0d"
+    },
+    {
+      "path": "docs/integrations/github.md",
+      "sha256": "92512fd39ebb2ec6288de8214592f776a85125f01e8f7414a9720956ee7324e4",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/github.md",
+      "donorSha256": "92512fd39ebb2ec6288de8214592f776a85125f01e8f7414a9720956ee7324e4"
+    },
+    {
+      "path": "docs/integrations/gmail.md",
+      "sha256": "557075a2bc02b199bc113a5c7b805a55a8f5be30e2ae8a7a27de58deb27fea55",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/gmail.md",
+      "donorSha256": "557075a2bc02b199bc113a5c7b805a55a8f5be30e2ae8a7a27de58deb27fea55"
+    },
+    {
+      "path": "docs/integrations/google-access-matrix.md",
+      "sha256": "8b6cd57ef820acad2e044a2cc45aeaec5bf5df6f09188922c9d54fa6303c0e97",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/google-access-matrix.md",
+      "donorSha256": "8b6cd57ef820acad2e044a2cc45aeaec5bf5df6f09188922c9d54fa6303c0e97"
+    },
+    {
+      "path": "docs/integrations/google-calendar.md",
+      "sha256": "da8e26c43713cadf217e84baf7e27c3568d818fb22ea199b753bd95cd5baf7ec",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/google-calendar.md",
+      "donorSha256": "da8e26c43713cadf217e84baf7e27c3568d818fb22ea199b753bd95cd5baf7ec"
+    },
+    {
+      "path": "docs/integrations/google-contacts.md",
+      "sha256": "969fb7cae8c2a20e047adc11a61de949af11addbb7bd4c1088e5b3b7d9bf6318",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/google-contacts.md",
+      "donorSha256": "969fb7cae8c2a20e047adc11a61de949af11addbb7bd4c1088e5b3b7d9bf6318"
+    },
+    {
+      "path": "docs/integrations/google-docs.md",
+      "sha256": "25b8e780d4fe86f200ca3c9273b43dd692fdef7b23a77285a5e38b880dada20a",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/google-docs.md",
+      "donorSha256": "25b8e780d4fe86f200ca3c9273b43dd692fdef7b23a77285a5e38b880dada20a"
+    },
+    {
+      "path": "docs/integrations/granola.md",
+      "sha256": "9dfad87d541b712ace3cb76d6937e923b311a7aff98741a8a1beed1a15b14435",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/granola.md",
+      "donorSha256": "9dfad87d541b712ace3cb76d6937e923b311a7aff98741a8a1beed1a15b14435"
+    },
+    {
+      "path": "docs/integrations/imessage.md",
+      "sha256": "78b6cb8ea58fe92413c31df64d8f2cd9a29f3de9ccb7f2f9bfd570db23d3d465",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/imessage.md",
+      "donorSha256": "78b6cb8ea58fe92413c31df64d8f2cd9a29f3de9ccb7f2f9bfd570db23d3d465"
+    },
+    {
+      "path": "docs/integrations/jira.md",
+      "sha256": "0cfb3e6d21f6a895748402ae22724e035adefff71382b5b8fc6293370918dcd1",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/jira.md",
+      "donorSha256": "0cfb3e6d21f6a895748402ae22724e035adefff71382b5b8fc6293370918dcd1"
+    },
+    {
+      "path": "docs/integrations/limits.md",
+      "sha256": "70dbdbd408c342446a98da6fb6888d563d9f1743033ca63df3c362528060382a",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/limits.md",
+      "donorSha256": "70dbdbd408c342446a98da6fb6888d563d9f1743033ca63df3c362528060382a"
+    },
+    {
+      "path": "docs/integrations/notion.md",
+      "sha256": "98b5fd6e90cfac0ddfd78f475de346e9720691c2f8834517dc0b8e790aea836f",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/notion.md",
+      "donorSha256": "98b5fd6e90cfac0ddfd78f475de346e9720691c2f8834517dc0b8e790aea836f"
+    },
+    {
+      "path": "docs/integrations/pdf.md",
+      "sha256": "9c39e5ff8305f9fc1a07a337dfa8af8fdbcf6ceed6b869db8e2ae988678d36ee",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/pdf.md",
+      "donorSha256": "9c39e5ff8305f9fc1a07a337dfa8af8fdbcf6ceed6b869db8e2ae988678d36ee"
+    },
+    {
+      "path": "docs/integrations/slack.md",
+      "sha256": "c61ef564e400ec53940fdf9c40b9488fd119cf5691085861e243286377997e81",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/slack.md",
+      "donorSha256": "c61ef564e400ec53940fdf9c40b9488fd119cf5691085861e243286377997e81"
+    },
+    {
+      "path": "docs/integrations/sync-platform.md",
+      "sha256": "c4cbf4b06eddbd558f74d22f0044e62fcff36db77dbc50f63ca06fa23df73291",
+      "status": "verbatim",
+      "donorPath": "docs/integrations/sync-platform.md",
+      "donorSha256": "c4cbf4b06eddbd558f74d22f0044e62fcff36db77dbc50f63ca06fa23df73291"
+    },
+    {
+      "path": "docs/source-pipeline-plan.md",
+      "sha256": "c3dd54160480a072bf39a7c8e313573dd99ca0a1a6336206f9196503d12c8883",
+      "status": "verbatim",
+      "donorPath": "docs/source-pipeline-plan.md",
+      "donorSha256": "c3dd54160480a072bf39a7c8e313573dd99ca0a1a6336206f9196503d12c8883"
+    },
+    {
+      "path": "drizzle/0000_init.sql",
+      "sha256": "6f60dcc8618316baa5f9e38635e3096f1b1c389ef5cca49e3430d9e4e2034965",
+      "status": "verbatim",
+      "donorPath": "drizzle/0000_init.sql",
+      "donorSha256": "6f60dcc8618316baa5f9e38635e3096f1b1c389ef5cca49e3430d9e4e2034965"
+    },
+    {
+      "path": "drizzle/0001_google_actor_identities.sql",
+      "sha256": "005befb79227dc19d3b09f75e1c4a0e2ee2a5968ad6a97abe557ae3cf68f4764",
+      "status": "verbatim",
+      "donorPath": "drizzle/0001_google_actor_identities.sql",
+      "donorSha256": "005befb79227dc19d3b09f75e1c4a0e2ee2a5968ad6a97abe557ae3cf68f4764"
+    },
+    {
+      "path": "drizzle/0002_google_doc_suggestions.sql",
+      "sha256": "d57f56ab91be6fc9a8c252afbcb75032ad8d69717d36ac28439ddb1706976526",
+      "status": "verbatim",
+      "donorPath": "drizzle/0002_google_doc_suggestions.sql",
+      "donorSha256": "d57f56ab91be6fc9a8c252afbcb75032ad8d69717d36ac28439ddb1706976526"
+    },
+    {
+      "path": "drizzle/0003_google_doc_tabs.sql",
+      "sha256": "cf88aca80905cf8a10f1bf196d943e479b0d28a17a61a931787c4676baec166b",
+      "status": "verbatim",
+      "donorPath": "drizzle/0003_google_doc_tabs.sql",
+      "donorSha256": "cf88aca80905cf8a10f1bf196d943e479b0d28a17a61a931787c4676baec166b"
+    },
+    {
+      "path": "drizzle/0004_google_doc_sync_state.sql",
+      "sha256": "d7b0b43a23e7449447725fedfc50fae297f5d07df6a53f2cf70a43a03cf47590",
+      "status": "verbatim",
+      "donorPath": "drizzle/0004_google_doc_sync_state.sql",
+      "donorSha256": "d7b0b43a23e7449447725fedfc50fae297f5d07df6a53f2cf70a43a03cf47590"
+    },
+    {
+      "path": "drizzle/0005_google_doc_images.sql",
+      "sha256": "df3d762504bc3a4fe0dfebcae4a02d1f80a12f8c8e10c718e9e807651d34ca7a",
+      "status": "verbatim",
+      "donorPath": "drizzle/0005_google_doc_images.sql",
+      "donorSha256": "df3d762504bc3a4fe0dfebcae4a02d1f80a12f8c8e10c718e9e807651d34ca7a"
+    },
+    {
+      "path": "drizzle/0006_graph_core.sql",
+      "sha256": "a5c8e38caac0d7b739eaac01ab9b03b7ad13f418c88d996d300dc1e53ed2fe4a",
+      "status": "verbatim",
+      "donorPath": "drizzle/0006_graph_core.sql",
+      "donorSha256": "a5c8e38caac0d7b739eaac01ab9b03b7ad13f418c88d996d300dc1e53ed2fe4a"
+    },
+    {
+      "path": "drizzle/0007_pg_trgm.sql",
+      "sha256": "b6f53858be833d71e8aa31d805219bcac9e21d53f031e441ef51802e140ab9ab",
+      "status": "verbatim",
+      "donorPath": "drizzle/0007_pg_trgm.sql",
+      "donorSha256": "b6f53858be833d71e8aa31d805219bcac9e21d53f031e441ef51802e140ab9ab"
+    },
+    {
+      "path": "drizzle/0008_graph_transactional_claims.sql",
+      "sha256": "6a883c3659ceaf014c6167934eadd1aff7ea30ac01011ce2ef0843bbae091948",
+      "status": "verbatim",
+      "donorPath": "drizzle/0008_graph_transactional_claims.sql",
+      "donorSha256": "6a883c3659ceaf014c6167934eadd1aff7ea30ac01011ce2ef0843bbae091948"
+    },
+    {
+      "path": "drizzle/0009_claim_salience.sql",
+      "sha256": "b35437e2274fc4c40fdaac7f0c65f4dbd3dc056eace1938e50622c2a7225a680",
+      "status": "verbatim",
+      "donorPath": "drizzle/0009_claim_salience.sql",
+      "donorSha256": "b35437e2274fc4c40fdaac7f0c65f4dbd3dc056eace1938e50622c2a7225a680"
+    },
+    {
+      "path": "drizzle/0010_answer_traces.sql",
+      "sha256": "68b6a0d86778ace52ff4b02a1d192a0076e5eb030ad9396fcafb4be9850f1717",
+      "status": "verbatim",
+      "donorPath": "drizzle/0010_answer_traces.sql",
+      "donorSha256": "68b6a0d86778ace52ff4b02a1d192a0076e5eb030ad9396fcafb4be9850f1717"
+    },
+    {
+      "path": "drizzle/0011_wiki_candidates.sql",
+      "sha256": "6ea85a9ef0388592ba3df181a7922c963bb587d158ad18cfe2f91f0786a95d11",
+      "status": "verbatim",
+      "donorPath": "drizzle/0011_wiki_candidates.sql",
+      "donorSha256": "6ea85a9ef0388592ba3df181a7922c963bb587d158ad18cfe2f91f0786a95d11"
+    },
+    {
+      "path": "drizzle/0012_wiki_candidate_pages.sql",
+      "sha256": "6b6f03b3c1bf1a1cc2a7470450607d27520f7b71160da376383976cdb05961d9",
+      "status": "verbatim",
+      "donorPath": "drizzle/0012_wiki_candidate_pages.sql",
+      "donorSha256": "6b6f03b3c1bf1a1cc2a7470450607d27520f7b71160da376383976cdb05961d9"
+    },
+    {
+      "path": "drizzle/0013_claim_modality.sql",
+      "sha256": "9c762cb7b0b54d4da833358a1d7064559a90c93366bfaa634a54fd95ba333711",
+      "status": "verbatim",
+      "donorPath": "drizzle/0013_claim_modality.sql",
+      "donorSha256": "9c762cb7b0b54d4da833358a1d7064559a90c93366bfaa634a54fd95ba333711"
+    },
+    {
+      "path": "drizzle/0014_er_hardening.sql",
+      "sha256": "02d427074f3554205b18adc6a0309b202b095b7ad866bbbdd088fe4d37405105",
+      "status": "verbatim",
+      "donorPath": "drizzle/0014_er_hardening.sql",
+      "donorSha256": "02d427074f3554205b18adc6a0309b202b095b7ad866bbbdd088fe4d37405105"
+    },
+    {
+      "path": "drizzle/0015_gdoc_drive_lineage.sql",
+      "sha256": "dd3a0c773a253392bc7e7cd06b7e85351b64e2c7ee3d1317c58d37f895fc9400",
+      "status": "verbatim",
+      "donorPath": "drizzle/0015_gdoc_drive_lineage.sql",
+      "donorSha256": "dd3a0c773a253392bc7e7cd06b7e85351b64e2c7ee3d1317c58d37f895fc9400"
+    },
+    {
+      "path": "drizzle/0016_wiki_reorg_runs.sql",
+      "sha256": "62cc3597cedb210ed7821890ac3d87e965c98b90168bb536549353d3e994eaf9",
+      "status": "verbatim",
+      "donorPath": "drizzle/0016_wiki_reorg_runs.sql",
+      "donorSha256": "62cc3597cedb210ed7821890ac3d87e965c98b90168bb536549353d3e994eaf9"
+    },
+    {
+      "path": "drizzle/0017_code_file_parses.sql",
+      "sha256": "552e857d942a0433518d9638a8dfd37e65c6c3431a7e3259e82b98006f33d032",
+      "status": "verbatim",
+      "donorPath": "drizzle/0017_code_file_parses.sql",
+      "donorSha256": "552e857d942a0433518d9638a8dfd37e65c6c3431a7e3259e82b98006f33d032"
+    },
+    {
+      "path": "drizzle/0018_synthesis_claims.sql",
+      "sha256": "9e268f83d9c514776ff50be86f5adb07c93cd05caf5a447506e7bf61fde4e324",
+      "status": "verbatim",
+      "donorPath": "drizzle/0018_synthesis_claims.sql",
+      "donorSha256": "9e268f83d9c514776ff50be86f5adb07c93cd05caf5a447506e7bf61fde4e324"
+    },
+    {
+      "path": "drizzle/0019_code_repos.sql",
+      "sha256": "d2d38b3223f2dab26ced9f11ea47cf36ad9ea49865967c840bbace27202979d8",
+      "status": "verbatim",
+      "donorPath": "drizzle/0019_code_repos.sql",
+      "donorSha256": "d2d38b3223f2dab26ced9f11ea47cf36ad9ea49865967c840bbace27202979d8"
+    },
+    {
+      "path": "drizzle/0020_connection_external_accounts.sql",
+      "sha256": "51a0d8177eb482fee26a5df8ca29edc8297fcf1c21424509b58001e91cf62e1b",
+      "status": "verbatim",
+      "donorPath": "drizzle/0020_connection_external_accounts.sql",
+      "donorSha256": "51a0d8177eb482fee26a5df8ca29edc8297fcf1c21424509b58001e91cf62e1b"
+    },
+    {
+      "path": "drizzle/0021_binary_documents.sql",
+      "sha256": "b80e133dd1a9fa6eaf975efaf53d9c905d16b9e32a4c130fa141a22e5c49e576",
+      "status": "verbatim",
+      "donorPath": "drizzle/0021_binary_documents.sql",
+      "donorSha256": "b80e133dd1a9fa6eaf975efaf53d9c905d16b9e32a4c130fa141a22e5c49e576"
+    },
+    {
+      "path": "drizzle/0022_connection_pending_status.sql",
+      "sha256": "d7356a0b8802f39dc200219e3459e8e2ccb03d1ba46d62f7c1c6a870803a7c7d",
+      "status": "verbatim",
+      "donorPath": "drizzle/0022_connection_pending_status.sql",
+      "donorSha256": "d7356a0b8802f39dc200219e3459e8e2ccb03d1ba46d62f7c1c6a870803a7c7d"
+    },
+    {
+      "path": "drizzle/0023_slack_thread_watermarks.sql",
+      "sha256": "ff3410870926a4c7e647c3f7a1f54df882c7b615ecb72588a88bf0b6e6abfd2e",
+      "status": "verbatim",
+      "donorPath": "drizzle/0023_slack_thread_watermarks.sql",
+      "donorSha256": "ff3410870926a4c7e647c3f7a1f54df882c7b615ecb72588a88bf0b6e6abfd2e"
+    },
+    {
+      "path": "drizzle/0024_onboarding_sessions.sql",
+      "sha256": "150b1ada7762432eb90252ae6642f0dc8ebfcf4b502beaceb82270c5123424b8",
+      "status": "verbatim",
+      "donorPath": "drizzle/0024_onboarding_sessions.sql",
+      "donorSha256": "150b1ada7762432eb90252ae6642f0dc8ebfcf4b502beaceb82270c5123424b8"
+    },
+    {
+      "path": "drizzle/0025_notion_block_snapshots.sql",
+      "sha256": "dc449155a9ac55480b4543d36e643b438edce2abcebe4e83f12aecf3500e507d",
+      "status": "verbatim",
+      "donorPath": "drizzle/0025_notion_block_snapshots.sql",
+      "donorSha256": "dc449155a9ac55480b4543d36e643b438edce2abcebe4e83f12aecf3500e507d"
+    },
+    {
+      "path": "drizzle/0026_google_doc_tab_snapshots.sql",
+      "sha256": "72ea3e51263663b8f7d8e51e3b0acbd8cbea4b9e047a69e35eb125d9fbbae424",
+      "status": "verbatim",
+      "donorPath": "drizzle/0026_google_doc_tab_snapshots.sql",
+      "donorSha256": "72ea3e51263663b8f7d8e51e3b0acbd8cbea4b9e047a69e35eb125d9fbbae424"
+    },
+    {
+      "path": "drizzle/0027_mirror_files_meta.sql",
+      "sha256": "e16c03090683509e90cba29ee8f97fccc9a7caf776a0e2c24ba5e50277fc8930",
+      "status": "verbatim",
+      "donorPath": "drizzle/0027_mirror_files_meta.sql",
+      "donorSha256": "e16c03090683509e90cba29ee8f97fccc9a7caf776a0e2c24ba5e50277fc8930"
+    },
+    {
+      "path": "drizzle/0028_slack_binary_documents.sql",
+      "sha256": "2fe134af218ba0dfdb992794ba7d7758d58c5618832e8c2822209ab9380c18cb",
+      "status": "verbatim",
+      "donorPath": "drizzle/0028_slack_binary_documents.sql",
+      "donorSha256": "2fe134af218ba0dfdb992794ba7d7758d58c5618832e8c2822209ab9380c18cb"
+    },
+    {
+      "path": "drizzle/0029_gmail_attachment_binary_provider.sql",
+      "sha256": "2fb9ab39593c135cea9750f913c6137b6a55ef08436bde845bdb62ebab84f141",
+      "status": "verbatim",
+      "donorPath": "drizzle/0029_gmail_attachment_binary_provider.sql",
+      "donorSha256": "2fb9ab39593c135cea9750f913c6137b6a55ef08436bde845bdb62ebab84f141"
+    },
+    {
+      "path": "drizzle/0030_github_repo_sync.sql",
+      "sha256": "b6641c3fcb32950e63b7bd5aa43e89f991164bb7d585c7066681dde17106ab0b",
+      "status": "verbatim",
+      "donorPath": "drizzle/0030_github_repo_sync.sql",
+      "donorSha256": "b6641c3fcb32950e63b7bd5aa43e89f991164bb7d585c7066681dde17106ab0b"
+    },
+    {
+      "path": "drizzle/0031_retrieval_indexes.sql",
+      "sha256": "cbcc4ea2359ee0acab804a6fa7551e31b8605d7a290c349a1c4d66207a9257c5",
+      "status": "verbatim",
+      "donorPath": "drizzle/0031_retrieval_indexes.sql",
+      "donorSha256": "cbcc4ea2359ee0acab804a6fa7551e31b8605d7a290c349a1c4d66207a9257c5"
+    },
+    {
+      "path": "drizzle/0032_claim_first_ingested_at.sql",
+      "sha256": "f442b9db2f023c0bb59c610a4804fde18203f9875db6c3259141184b7dfd4d18",
+      "status": "verbatim",
+      "donorPath": "drizzle/0032_claim_first_ingested_at.sql",
+      "donorSha256": "f442b9db2f023c0bb59c610a4804fde18203f9875db6c3259141184b7dfd4d18"
+    },
+    {
+      "path": "drizzle/0033_hygiene_report.sql",
+      "sha256": "93ad0344f62243470f087de492a3d96ccdff2f6193d5fbf49289abf514f4ed1b",
+      "status": "verbatim",
+      "donorPath": "drizzle/0033_hygiene_report.sql",
+      "donorSha256": "93ad0344f62243470f087de492a3d96ccdff2f6193d5fbf49289abf514f4ed1b"
+    },
+    {
+      "path": "drizzle/0034_contradiction_nominations.sql",
+      "sha256": "bd38b83f7fd8230d941e4f9f3db506d0c971b0dc86615c56f0fe5c09fc15cd74",
+      "status": "verbatim",
+      "donorPath": "drizzle/0034_contradiction_nominations.sql",
+      "donorSha256": "bd38b83f7fd8230d941e4f9f3db506d0c971b0dc86615c56f0fe5c09fc15cd74"
+    },
+    {
+      "path": "drizzle/0035_sweep_runs.sql",
+      "sha256": "78d5190e22623b636754a7b99d67b45d2dab471fbe814ef94a3c0df8de6a4e4c",
+      "status": "verbatim",
+      "donorPath": "drizzle/0035_sweep_runs.sql",
+      "donorSha256": "78d5190e22623b636754a7b99d67b45d2dab471fbe814ef94a3c0df8de6a4e4c"
+    },
+    {
+      "path": "drizzle/0036_page_embeddings.sql",
+      "sha256": "5b0e615b0810818401424844c52bcf0efbea2dc1f0410f756aa53bdeae52d4b3",
+      "status": "verbatim",
+      "donorPath": "drizzle/0036_page_embeddings.sql",
+      "donorSha256": "5b0e615b0810818401424844c52bcf0efbea2dc1f0410f756aa53bdeae52d4b3"
+    },
+    {
+      "path": "drizzle/0037_same_as_adjudication.sql",
+      "sha256": "557b8840211f2ad56bed5bc6f3c9f747a28d49a8a32ff1313113689c0ba8754e",
+      "status": "verbatim",
+      "donorPath": "drizzle/0037_same_as_adjudication.sql",
+      "donorSha256": "557b8840211f2ad56bed5bc6f3c9f747a28d49a8a32ff1313113689c0ba8754e"
+    },
+    {
+      "path": "drizzle/0038_claim_links.sql",
+      "sha256": "a3cf31cdb99fd93fb44157ad5d102e72b640f87a6d835771b72ed1c88b7b1eef",
+      "status": "verbatim",
+      "donorPath": "drizzle/0038_claim_links.sql",
+      "donorSha256": "a3cf31cdb99fd93fb44157ad5d102e72b640f87a6d835771b72ed1c88b7b1eef"
+    },
+    {
+      "path": "drizzle/0039_truth_escalation.sql",
+      "sha256": "c6a593283a7708ce5783a3825c74d037e7af5f6b4bda5c359556a81176e4ed32",
+      "status": "verbatim",
+      "donorPath": "drizzle/0039_truth_escalation.sql",
+      "donorSha256": "c6a593283a7708ce5783a3825c74d037e7af5f6b4bda5c359556a81176e4ed32"
+    },
+    {
+      "path": "drizzle/0040_deep_dive_pages.sql",
+      "sha256": "3591dd6563ed4f1d1299601cea66ac8bbe766e06db2f4d9b4d075b6f27a1b202",
+      "status": "verbatim",
+      "donorPath": "drizzle/0040_deep_dive_pages.sql",
+      "donorSha256": "3591dd6563ed4f1d1299601cea66ac8bbe766e06db2f4d9b4d075b6f27a1b202"
+    },
+    {
+      "path": "drizzle/0041_escalation_backoff.sql",
+      "sha256": "634dbde6f1957de2b5407c3808060170b28aef951d6e5f761540f286140d228e",
+      "status": "verbatim",
+      "donorPath": "drizzle/0041_escalation_backoff.sql",
+      "donorSha256": "634dbde6f1957de2b5407c3808060170b28aef951d6e5f761540f286140d228e"
+    },
+    {
+      "path": "drizzle/0042_wiki_candidate_theme_key.sql",
+      "sha256": "4a6663fb69415a0c0ca6af68e1c2951ff30caacebf8a1cfc64cca02f468424a5",
+      "status": "verbatim",
+      "donorPath": "drizzle/0042_wiki_candidate_theme_key.sql",
+      "donorSha256": "4a6663fb69415a0c0ca6af68e1c2951ff30caacebf8a1cfc64cca02f468424a5"
+    },
+    {
+      "path": "drizzle/0043_interpretive_synthesis.sql",
+      "sha256": "fd8284975dde6d241b5d440b75e73d4e6dfec13f4781e786b8ddb64a8cbb065b",
+      "status": "verbatim",
+      "donorPath": "drizzle/0043_interpretive_synthesis.sql",
+      "donorSha256": "fd8284975dde6d241b5d440b75e73d4e6dfec13f4781e786b8ddb64a8cbb065b"
+    },
+    {
+      "path": "drizzle/0044_source_document_envelope.sql",
+      "sha256": "81bf2ca511d52dd45a12cf567080beb5ea89d01274e9a7cd3e610baa16d194d3",
+      "status": "verbatim",
+      "donorPath": "drizzle/0044_source_document_envelope.sql",
+      "donorSha256": "81bf2ca511d52dd45a12cf567080beb5ea89d01274e9a7cd3e610baa16d194d3"
+    },
+    {
+      "path": "drizzle/0045_chunk_extraction_retries.sql",
+      "sha256": "ac8f7d84aa917d7f9e27f9cc1dbac4dfb308fcc2b77de20012b4ea683bc97121",
+      "status": "verbatim",
+      "donorPath": "drizzle/0045_chunk_extraction_retries.sql",
+      "donorSha256": "ac8f7d84aa917d7f9e27f9cc1dbac4dfb308fcc2b77de20012b4ea683bc97121"
+    },
+    {
+      "path": "drizzle/0046_chat_agent_embeddings.sql",
+      "sha256": "38a509d31496e9dd8f714c3d67f272ef7c70613e00c81002c4bb45a40182180c",
+      "status": "verbatim",
+      "donorPath": "drizzle/0046_chat_agent_embeddings.sql",
+      "donorSha256": "38a509d31496e9dd8f714c3d67f272ef7c70613e00c81002c4bb45a40182180c"
+    },
+    {
+      "path": "drizzle/0047_chat_conversations.sql",
+      "sha256": "5b2a035665401e8b362afb253729d3529b67d637d225d9e0b5608315f02ab096",
+      "status": "verbatim",
+      "donorPath": "drizzle/0047_chat_conversations.sql",
+      "donorSha256": "5b2a035665401e8b362afb253729d3529b67d637d225d9e0b5608315f02ab096"
+    },
+    {
+      "path": "drizzle/0048_wiki_cold_start_readiness.sql",
+      "sha256": "fecd576c74b127a7ac6401c909d2acf1da9e630f9da39f227f12e99a2f8abb51",
+      "status": "verbatim",
+      "donorPath": "drizzle/0048_wiki_cold_start_readiness.sql",
+      "donorSha256": "fecd576c74b127a7ac6401c909d2acf1da9e630f9da39f227f12e99a2f8abb51"
+    },
+    {
+      "path": "drizzle/0049_graph_v2_foundation.sql",
+      "sha256": "3b9d7d986b0e998c9ef6699297d5527813e2b11976bc9e398f3a7d22cbc9c3a4",
+      "status": "verbatim",
+      "donorPath": "drizzle/0049_graph_v2_foundation.sql",
+      "donorSha256": "3b9d7d986b0e998c9ef6699297d5527813e2b11976bc9e398f3a7d22cbc9c3a4"
+    },
+    {
+      "path": "drizzle/0050_v2_entity_aliases.sql",
+      "sha256": "fca4113ae187ef7ca30a2fbf6fd4b4a5ece2a679bf18fc88a12b36bcd1e2aac0",
+      "status": "verbatim",
+      "donorPath": "drizzle/0050_v2_entity_aliases.sql",
+      "donorSha256": "fca4113ae187ef7ca30a2fbf6fd4b4a5ece2a679bf18fc88a12b36bcd1e2aac0"
+    },
+    {
+      "path": "drizzle/0051_v2_source_ref_keys.sql",
+      "sha256": "d50bd2f82d8e1f1e7e34fd144941d327de62b9e925caf3944f04cdbc4094ce2c",
+      "status": "verbatim",
+      "donorPath": "drizzle/0051_v2_source_ref_keys.sql",
+      "donorSha256": "d50bd2f82d8e1f1e7e34fd144941d327de62b9e925caf3944f04cdbc4094ce2c"
+    },
+    {
+      "path": "drizzle/0052_entity_link_human_review.sql",
+      "sha256": "7727d3bf478d38087c038a4f666fde52003f2f807e9c6c755a63419ebd6959a1",
+      "status": "verbatim",
+      "donorPath": "drizzle/0052_entity_link_human_review.sql",
+      "donorSha256": "7727d3bf478d38087c038a4f666fde52003f2f807e9c6c755a63419ebd6959a1"
+    },
+    {
+      "path": "drizzle/0053_v2_entity_hygiene.sql",
+      "sha256": "b7e9961246857abb5ea7bf20d2e86f0fe2ec33316f227e1967d0a1dd947fa1fd",
+      "status": "verbatim",
+      "donorPath": "drizzle/0053_v2_entity_hygiene.sql",
+      "donorSha256": "b7e9961246857abb5ea7bf20d2e86f0fe2ec33316f227e1967d0a1dd947fa1fd"
+    },
+    {
+      "path": "drizzle/0054_v2_relational_same_as.sql",
+      "sha256": "b4f46f77aa8875a820304ac97e8fa5c3e4996b33132411fcc47945a92a8dcbbf",
+      "status": "verbatim",
+      "donorPath": "drizzle/0054_v2_relational_same_as.sql",
+      "donorSha256": "b4f46f77aa8875a820304ac97e8fa5c3e4996b33132411fcc47945a92a8dcbbf"
+    },
+    {
+      "path": "drizzle/0055_v2_replay_shadow_isolation.sql",
+      "sha256": "ffe331c7ba3c4757d17ba0a04607070130214c32b8dc4de8b9bfeaa57ee2d81c",
+      "status": "verbatim",
+      "donorPath": "drizzle/0055_v2_replay_shadow_isolation.sql",
+      "donorSha256": "ffe331c7ba3c4757d17ba0a04607070130214c32b8dc4de8b9bfeaa57ee2d81c"
+    },
+    {
+      "path": "drizzle/0056_kb_graph_version.sql",
+      "sha256": "9a04c96d71a145b296aea3782ca137abf4a8c917c74f337b0ffab1898543e131",
+      "status": "verbatim",
+      "donorPath": "drizzle/0056_kb_graph_version.sql",
+      "donorSha256": "9a04c96d71a145b296aea3782ca137abf4a8c917c74f337b0ffab1898543e131"
+    },
+    {
+      "path": "drizzle/0057_merge_review_audit.sql",
+      "sha256": "bab397628dde85e0b16b487c887f2c96b7d771d2e113fa439287225cc39738b3",
+      "status": "verbatim",
+      "donorPath": "drizzle/0057_merge_review_audit.sql",
+      "donorSha256": "bab397628dde85e0b16b487c887f2c96b7d771d2e113fa439287225cc39738b3"
+    },
+    {
+      "path": "drizzle/0058_v2_bridge_merge.sql",
+      "sha256": "0c93d32fffc729dfeebff7d298784519811aa79ca346803230c4e9eef5ff6458",
+      "status": "verbatim",
+      "donorPath": "drizzle/0058_v2_bridge_merge.sql",
+      "donorSha256": "0c93d32fffc729dfeebff7d298784519811aa79ca346803230c4e9eef5ff6458"
+    },
+    {
+      "path": "drizzle/0059_v2_identity_key_value_hygiene.sql",
+      "sha256": "920e425d593088dac925d231b81bcc6481303c80f16406ed20293af87ee36bda",
+      "status": "verbatim",
+      "donorPath": "drizzle/0059_v2_identity_key_value_hygiene.sql",
+      "donorSha256": "920e425d593088dac925d231b81bcc6481303c80f16406ed20293af87ee36bda"
+    },
+    {
+      "path": "drizzle/0060_graph_structure_refinement.sql",
+      "sha256": "e2b50a55d20f1418139a27ee7141b1f52a8b0f2b5ff9f19a3d0f332d211137f5",
+      "status": "verbatim",
+      "donorPath": "drizzle/0060_graph_structure_refinement.sql",
+      "donorSha256": "e2b50a55d20f1418139a27ee7141b1f52a8b0f2b5ff9f19a3d0f332d211137f5"
+    },
+    {
+      "path": "drizzle/0061_v2_statement_source_anchors.sql",
+      "sha256": "f3ab7505e26bf2d0c8c75cd3cb9295440a7de458e11ea29478fd4dbde3b94e43",
+      "status": "verbatim",
+      "donorPath": "drizzle/0061_v2_statement_source_anchors.sql",
+      "donorSha256": "f3ab7505e26bf2d0c8c75cd3cb9295440a7de458e11ea29478fd4dbde3b94e43"
+    },
+    {
+      "path": "drizzle/0062_fk_delete_indexes.sql",
+      "sha256": "436dafb81636f5e30d59cf2159e8aa081611e6b4f4198a7f1bd8ec0f2b658cc7",
+      "status": "verbatim",
+      "donorPath": "drizzle/0062_fk_delete_indexes.sql",
+      "donorSha256": "436dafb81636f5e30d59cf2159e8aa081611e6b4f4198a7f1bd8ec0f2b658cc7"
+    },
+    {
+      "path": "drizzle/0063_graph_v2_build_snapshots.sql",
+      "sha256": "115fb77a1bd1cb7b2b5667985ca64bce3392c17e182a6938358aed2f63eb43e8",
+      "status": "verbatim",
+      "donorPath": "drizzle/0063_graph_v2_build_snapshots.sql",
+      "donorSha256": "115fb77a1bd1cb7b2b5667985ca64bce3392c17e182a6938358aed2f63eb43e8"
+    },
+    {
+      "path": "drizzle/0064_google_contact_names.sql",
+      "sha256": "2c610abcb23636998372f35c92b3bfd06af66ce879231a0496d79e54749aac7a",
+      "status": "verbatim",
+      "donorPath": "drizzle/0064_google_contact_names.sql",
+      "donorSha256": "2c610abcb23636998372f35c92b3bfd06af66ce879231a0496d79e54749aac7a"
+    },
+    {
+      "path": "drizzle/0065_identity_directory.sql",
+      "sha256": "171ac81b287ef87e3a7373dff748e53600da56dffef4ab09b59e9b34df62a9cd",
+      "status": "verbatim",
+      "donorPath": "drizzle/0065_identity_directory.sql",
+      "donorSha256": "171ac81b287ef87e3a7373dff748e53600da56dffef4ab09b59e9b34df62a9cd"
+    },
+    {
+      "path": "drizzle/0066_source_record_contract.sql",
+      "sha256": "866cd9108c52f6c9da71dbf24aa1ecc788c73892681b466e3118431cb5d6453c",
+      "status": "verbatim",
+      "donorPath": "drizzle/0066_source_record_contract.sql",
+      "donorSha256": "866cd9108c52f6c9da71dbf24aa1ecc788c73892681b466e3118431cb5d6453c"
+    },
+    {
+      "path": "drizzle/0067_dead_vocabulary_cleanup.sql",
+      "sha256": "8fb6014a74cab3128b3c141f7ae66b55ac64e8a0c876adf38231e6a71d91a162",
+      "status": "verbatim",
+      "donorPath": "drizzle/0067_dead_vocabulary_cleanup.sql",
+      "donorSha256": "8fb6014a74cab3128b3c141f7ae66b55ac64e8a0c876adf38231e6a71d91a162"
+    },
+    {
+      "path": "drizzle/0068_ontology_version_default.sql",
+      "sha256": "6a04c77ab93ab2d3706ae3c5509e3e7dc3e0130fa1c246e0c0ead68f38914194",
+      "status": "verbatim",
+      "donorPath": "drizzle/0068_ontology_version_default.sql",
+      "donorSha256": "6a04c77ab93ab2d3706ae3c5509e3e7dc3e0130fa1c246e0c0ead68f38914194"
+    },
+    {
+      "path": "drizzle/0069_bulk_rebuild_staging.sql",
+      "sha256": "e4bbb70552a2bd66109bcf857d14394aa7dee13520bc55284699e191e7c06598",
+      "status": "verbatim",
+      "donorPath": "drizzle/0069_bulk_rebuild_staging.sql",
+      "donorSha256": "e4bbb70552a2bd66109bcf857d14394aa7dee13520bc55284699e191e7c06598"
+    },
+    {
+      "path": "drizzle/0070_google_mailbox_sync_state.sql",
+      "sha256": "fbbaede9f417a6d58294063452ad918c743089fe4e3b6368081ad3d63207092b",
+      "status": "verbatim",
+      "donorPath": "drizzle/0070_google_mailbox_sync_state.sql",
+      "donorSha256": "fbbaede9f417a6d58294063452ad918c743089fe4e3b6368081ad3d63207092b"
+    },
+    {
+      "path": "drizzle/0071_fact_evidence_merge_aware_validation.sql",
+      "sha256": "4d2c9831a4f02bd973c1596ab517f3714a7b91ee7d26ef8a4a74799e3c9b5a1c",
+      "status": "verbatim",
+      "donorPath": "drizzle/0071_fact_evidence_merge_aware_validation.sql",
+      "donorSha256": "4d2c9831a4f02bd973c1596ab517f3714a7b91ee7d26ef8a4a74799e3c9b5a1c"
+    },
+    {
+      "path": "drizzle/0072_has_access_relation.sql",
+      "sha256": "4f061f660653eb18e8054e1942d55b424a9b7451a38126207230fe5cbd0b3848",
+      "status": "verbatim",
+      "donorPath": "drizzle/0072_has_access_relation.sql",
+      "donorSha256": "4f061f660653eb18e8054e1942d55b424a9b7451a38126207230fe5cbd0b3848"
+    },
+    {
+      "path": "drizzle/0073_wiki_agent_windows.sql",
+      "sha256": "ab172b873251db4d2b359b59dcb99feb248d2b79c30eda1e4b6cbe03c18b3824",
+      "status": "verbatim",
+      "donorPath": "drizzle/0073_wiki_agent_windows.sql",
+      "donorSha256": "ab172b873251db4d2b359b59dcb99feb248d2b79c30eda1e4b6cbe03c18b3824"
+    },
+    {
+      "path": "drizzle/0074_wiki_agent_fact_invalidated.sql",
+      "sha256": "facea5ad8c57137cc532979a28f6ab1a43722b0aa162d16a626105f03d73ab92",
+      "status": "verbatim",
+      "donorPath": "drizzle/0074_wiki_agent_fact_invalidated.sql",
+      "donorSha256": "facea5ad8c57137cc532979a28f6ab1a43722b0aa162d16a626105f03d73ab92"
+    },
+    {
+      "path": "drizzle/0075_wiki_agent_entity_merged.sql",
+      "sha256": "41bbe4b98add00f21a5c042083f0e4fe01e779edcc84d61b31ca818604295cb9",
+      "status": "verbatim",
+      "donorPath": "drizzle/0075_wiki_agent_entity_merged.sql",
+      "donorSha256": "41bbe4b98add00f21a5c042083f0e4fe01e779edcc84d61b31ca818604295cb9"
+    },
+    {
+      "path": "drizzle/0076_wiki_agent_document_updated.sql",
+      "sha256": "a1ce76704222a6a3a94044edbb213e2d8a5109f99aed51f1c13aae7d2593f13f",
+      "status": "verbatim",
+      "donorPath": "drizzle/0076_wiki_agent_document_updated.sql",
+      "donorSha256": "a1ce76704222a6a3a94044edbb213e2d8a5109f99aed51f1c13aae7d2593f13f"
+    },
+    {
+      "path": "drizzle/0077_wiki_entity_agent_state.sql",
+      "sha256": "558f1bd2782637cd293f8cad3b5dcebdc8ade949ca6430ebf0bbf41bfc3131a6",
+      "status": "verbatim",
+      "donorPath": "drizzle/0077_wiki_entity_agent_state.sql",
+      "donorSha256": "558f1bd2782637cd293f8cad3b5dcebdc8ade949ca6430ebf0bbf41bfc3131a6"
+    },
+    {
+      "path": "drizzle/0078_repair_has_access_validator.sql",
+      "sha256": "06cb95a0763b07eebd69824a515072e3063944c8f96d11d52a563c44c8ba1b29",
+      "status": "verbatim",
+      "donorPath": "drizzle/0078_repair_has_access_validator.sql",
+      "donorSha256": "06cb95a0763b07eebd69824a515072e3063944c8f96d11d52a563c44c8ba1b29"
+    },
+    {
+      "path": "drizzle/9100_gdocs_source_lane.sql",
+      "sha256": "08df6349521e959a630029d533ebc726a6e4347bdd31d7f78b44cec2ce727b00",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "drizzle/9101_gdocs_drive_inventory.sql",
+      "sha256": "4e7f511b450bf603b3500c8e5b5ca5db700da73597991914e9f0b46886592fea",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "gdocs_drive_inventory bookkeeping table (not exported).",
+      "tests": [
+        "tests/source-lane/providers/google-docs/inventory.test.ts"
+      ]
+    },
+    {
+      "path": "drizzle/9102_gdocs_file_visibility.sql",
+      "sha256": "3c074f9f06ca668d705ddab5ba016bf4daf31ff575d710abe0e8882492e3a5ea",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "gdocs_file_visibility per-mailbox visibility (not exported).",
+      "tests": [
+        "tests/source-lane/providers/google-docs/visibility.test.ts"
+      ]
+    },
+    {
+      "path": "drizzle/9150_google_auth_grants.sql",
+      "sha256": "15000b443fd5e524be3dc25d5e7779dbed848191c745fa54a850a90668a4cf62",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "google_oauth_states + google_oauth_grants (range 9150-9159)."
+    },
+    {
+      "path": "drizzle/9160_gmail_source_lane.sql",
+      "sha256": "30984e5f77c402365a385fc518407331673971649789f05c6b0c28b2471b0f89",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Gmail lane tables (quota, sync state, chunks/blobs, messages, attachments, threads, history pages, pending) + source_lane_journal_row triggers (range 9160-9174).",
+      "tests": [
+        "tests/source-lane/providers/gmail/sync.test.ts (PGlite)",
+        "tests/source-lane/providers/gmail/real-pg.test.ts (real PostgreSQL 18.4, full migration plan)"
+      ]
+    },
+    {
+      "path": "drizzle/9175_google_calendar_contacts_lane.sql",
+      "sha256": "07afe08cedb415d092fd80b0a2618e8465d41887edf5700bd7ab3ee5874ad5c9",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Calendar/contacts lane schema (range 9175-9199): lane cursors (sync token, resumable full-sync checkpoint, lease, backoff, calendar lifecycle), per-mailbox status, full-listing membership, append-only calendar/contact revision ledgers filled by triggers, contact snapshots, and core source_lane_journal_row export triggers ignoring bookkeeping columns.",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ]
+    },
+    {
+      "path": "drizzle/9550_imessage_device_ingest.sql",
+      "sha256": "a90496678f6b14512efca3fceac38d1f7f2804642af7ed9a207d143912fc5349",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Device credentials (hash), donor alias table, identity indexes, commands, contacts, sync progress, mutation and rejection ledgers with source_lane_journal_row triggers, projection dirty marks.",
+      "tests": [
+        "tests/source-lane/providers/imessage/auth-revocation.test.ts",
+        "tests/source-lane/providers/imessage/authority.test.ts",
+        "tests/source-lane/providers/imessage/ingest-identity.test.ts",
+        "tests/source-lane/providers/imessage/history-projection.test.ts",
+        "tests/source-lane/providers/imessage/commands-coverage.test.ts",
+        "tests/source-lane/providers/imessage/export.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/db/schema.ts",
+          "use": "activity_event_source_aliases columns/indexes"
+        }
+      ]
+    },
+    {
+      "path": "scripts/backfill-calcom-aliases.ts",
+      "sha256": "4c329d9c3df1f3409cf427d37dc3db817cc2904cdca4e88c814177d272c8571c",
+      "status": "verbatim",
+      "donorPath": "scripts/backfill-calcom-aliases.ts",
+      "donorSha256": "4c329d9c3df1f3409cf427d37dc3db817cc2904cdca4e88c814177d272c8571c"
+    },
+    {
+      "path": "scripts/migrate.ts",
+      "sha256": "ff7862345ae5db98999ca89cb480d4a4c5d84f1cda9b5f2adf18633182a7c74c",
+      "status": "verbatim",
+      "donorPath": "scripts/migrate.ts",
+      "donorSha256": "ff7862345ae5db98999ca89cb480d4a4c5d84f1cda9b5f2adf18633182a7c74c"
+    },
+    {
+      "path": "scripts/provenance.ts",
+      "sha256": "520c03f2c6045d3818d347ee39276dde597add80eb9aef64380f6bc93aec27da",
+      "status": "new"
+    },
+    {
+      "path": "src/db/activity-event-source.ts",
+      "sha256": "811616171712acd520d0a7e3b705cae13c3000b0a9184e08bf49ff1551d43479",
+      "status": "verbatim",
+      "donorPath": "src/db/activity-event-source.ts",
+      "donorSha256": "811616171712acd520d0a7e3b705cae13c3000b0a9184e08bf49ff1551d43479"
+    },
+    {
+      "path": "src/db/assert-migrations.ts",
+      "sha256": "a16b81ac860451f6b76ebdc18a3cb936bc692bd798ac2da01a914f21e3bb151b",
+      "status": "verbatim",
+      "donorPath": "src/db/assert-migrations.ts",
+      "donorSha256": "a16b81ac860451f6b76ebdc18a3cb936bc692bd798ac2da01a914f21e3bb151b"
+    },
+    {
+      "path": "src/db/client.ts",
+      "sha256": "01bba6275c26383c74fea6e4b40c0231f19163f1202626035b0da95ca70d517d",
+      "status": "verbatim",
+      "donorPath": "src/db/client.ts",
+      "donorSha256": "01bba6275c26383c74fea6e4b40c0231f19163f1202626035b0da95ca70d517d"
+    },
+    {
+      "path": "src/db/connections.ts",
+      "sha256": "5ff747bf449061f924a64409d75b94b994c394fd1cf2609688f823ad5375ab42",
+      "status": "verbatim",
+      "donorPath": "src/db/connections.ts",
+      "donorSha256": "5ff747bf449061f924a64409d75b94b994c394fd1cf2609688f823ad5375ab42"
+    },
+    {
+      "path": "src/db/like.ts",
+      "sha256": "8041072ec0e52d02a6223786f947f9c1169abb871cf4a0f81695f48857037287",
+      "status": "verbatim",
+      "donorPath": "src/db/like.ts",
+      "donorSha256": "8041072ec0e52d02a6223786f947f9c1169abb871cf4a0f81695f48857037287"
+    },
+    {
+      "path": "src/db/schema.ts",
+      "sha256": "08bed331441e80477eecc63f0df2c36a242d70b7d8616cb18456dee43b40b68c",
+      "status": "verbatim",
+      "donorPath": "src/db/schema.ts",
+      "donorSha256": "08bed331441e80477eecc63f0df2c36a242d70b7d8616cb18456dee43b40b68c"
+    },
+    {
+      "path": "src/db/source-sync-runs.ts",
+      "sha256": "1e878786408e0b1ca72b5e1cbcd728101ed0af4ab7fb951dbf12db4072dfd7bd",
+      "status": "verbatim",
+      "donorPath": "src/db/source-sync-runs.ts",
+      "donorSha256": "1e878786408e0b1ca72b5e1cbcd728101ed0af4ab7fb951dbf12db4072dfd7bd"
+    },
+    {
+      "path": "src/db/tenants.ts",
+      "sha256": "81e096b8ab71ed3ade30f03d41149830590d8a9608a1091d3f1065620f2777c9",
+      "status": "verbatim",
+      "donorPath": "src/db/tenants.ts",
+      "donorSha256": "81e096b8ab71ed3ade30f03d41149830590d8a9608a1091d3f1065620f2777c9"
+    },
+    {
+      "path": "src/db/transactions.ts",
+      "sha256": "aa239a595bfe53a90e4798be9a30fc1478c587defefd7fe6d23ece1180d39a05",
+      "status": "verbatim",
+      "donorPath": "src/db/transactions.ts",
+      "donorSha256": "aa239a595bfe53a90e4798be9a30fc1478c587defefd7fe6d23ece1180d39a05"
+    },
+    {
+      "path": "src/env.ts",
+      "sha256": "b483c393bb927fb5f16c0325bd68774cd3d913bb1580d93c6ede6d4f842ae139",
+      "status": "verbatim",
+      "donorPath": "src/env.ts",
+      "donorSha256": "b483c393bb927fb5f16c0325bd68774cd3d913bb1580d93c6ede6d4f842ae139"
+    },
+    {
+      "path": "src/graph/bridge/chunker.ts",
+      "sha256": "afb81de7c905e3b0a17c52fe50961101b9221c3bbcea6c735710656d2d26495d",
+      "status": "verbatim",
+      "donorPath": "src/graph/bridge/chunker.ts",
+      "donorSha256": "afb81de7c905e3b0a17c52fe50961101b9221c3bbcea6c735710656d2d26495d"
+    },
+    {
+      "path": "src/graph/bridge/session-windows.ts",
+      "sha256": "291f3234c251c154f6288c39bdca429785c0d8aebeea02027ec3ccf0272965a8",
+      "status": "verbatim",
+      "donorPath": "src/graph/bridge/session-windows.ts",
+      "donorSha256": "291f3234c251c154f6288c39bdca429785c0d8aebeea02027ec3ccf0272965a8"
+    },
+    {
+      "path": "src/graph/wiring/default-kb.ts",
+      "sha256": "2008b9d903357dc1fae64df9375644804237e74264c25074f1b5e2dcdd9c0308",
+      "status": "shim",
+      "donorPath": "src/graph/wiring/default-kb.ts",
+      "donorSha256": "43b912129bc4a95d77f6cbba000e91f906e2e62b21c7f5581817be659ab2b717",
+      "reason": "No knowledge-base containers in the source lane; returns kbId:null and touches no table.",
+      "test": "tests/source-lane/core/graph-guard.test.ts"
+    },
+    {
+      "path": "src/graph/wiring/ingest-hook.ts",
+      "sha256": "560f248968fab919db87d645c83c8bdb3213cfc63f93da6f7c50afe2cc1352ba",
+      "status": "shim",
+      "donorPath": "src/graph/wiring/ingest-hook.ts",
+      "donorSha256": "0a55f984a385707b670f07de8f896556d28a1c5b2615659dd2d2716077690b90",
+      "reason": "Graph ingestion disabled in the source lane: same export names, no kb reads, no graph.* tasks; mirror changes are exported via source_export_journal triggers.",
+      "test": "tests/source-lane/core/graph-guard.test.ts"
+    },
+    {
+      "path": "src/integrations/atlassian/adf.ts",
+      "sha256": "1c5de77ad280f03da5ca51d77ae2ac078616ae238f3028f82ca399b181ddf791",
+      "status": "verbatim",
+      "donorPath": "src/integrations/atlassian/adf.ts",
+      "donorSha256": "1c5de77ad280f03da5ca51d77ae2ac078616ae238f3028f82ca399b181ddf791"
+    },
+    {
+      "path": "src/integrations/atlassian/index.ts",
+      "sha256": "cdc38a0c685067bb4b3f8187b3b69da21bd0b899fbf5f42ace56dea00762096d",
+      "status": "verbatim",
+      "donorPath": "src/integrations/atlassian/index.ts",
+      "donorSha256": "cdc38a0c685067bb4b3f8187b3b69da21bd0b899fbf5f42ace56dea00762096d"
+    },
+    {
+      "path": "src/integrations/atlassian/processors.ts",
+      "sha256": "a814645a8578e03bbc5e3db415455482c5fef17de241b97d205abd99527689aa",
+      "status": "verbatim",
+      "donorPath": "src/integrations/atlassian/processors.ts",
+      "donorSha256": "a814645a8578e03bbc5e3db415455482c5fef17de241b97d205abd99527689aa"
+    },
+    {
+      "path": "src/integrations/atlassian/storage-format.ts",
+      "sha256": "e2b61ad84602fe0f63e9da54f557300d7924b730e8e25ec8d08a57dc174b8b8a",
+      "status": "verbatim",
+      "donorPath": "src/integrations/atlassian/storage-format.ts",
+      "donorSha256": "e2b61ad84602fe0f63e9da54f557300d7924b730e8e25ec8d08a57dc174b8b8a"
+    },
+    {
+      "path": "src/integrations/binary/intake.ts",
+      "sha256": "7add349ad4e7df53977f7e1002d61aeb367ab0bced53a4cb21c7c3e5460dc85e",
+      "status": "verbatim",
+      "donorPath": "src/integrations/binary/intake.ts",
+      "donorSha256": "7add349ad4e7df53977f7e1002d61aeb367ab0bced53a4cb21c7c3e5460dc85e"
+    },
+    {
+      "path": "src/integrations/bitbucket/index.ts",
+      "sha256": "879d0cb25cac6b82ae8a5066428e32e65cdbea2a8f533a212b8767d3cff75ff3",
+      "status": "verbatim",
+      "donorPath": "src/integrations/bitbucket/index.ts",
+      "donorSha256": "879d0cb25cac6b82ae8a5066428e32e65cdbea2a8f533a212b8767d3cff75ff3"
+    },
+    {
+      "path": "src/integrations/bitbucket/processors.ts",
+      "sha256": "62cdb0bb49c8572a48fb62d9b555e69467265f1f182250b277ba2fd746642628",
+      "status": "verbatim",
+      "donorPath": "src/integrations/bitbucket/processors.ts",
+      "donorSha256": "62cdb0bb49c8572a48fb62d9b555e69467265f1f182250b277ba2fd746642628"
+    },
+    {
+      "path": "src/integrations/github/index.ts",
+      "sha256": "f0a988b72d7aee86c599d52e734c5c11e154ae4c41a569b9894ae0499a004a49",
+      "status": "verbatim",
+      "donorPath": "src/integrations/github/index.ts",
+      "donorSha256": "f0a988b72d7aee86c599d52e734c5c11e154ae4c41a569b9894ae0499a004a49"
+    },
+    {
+      "path": "src/integrations/github/processors.ts",
+      "sha256": "cd03fc9fa2f4bf2cf254451a6de46e5c188d120643dd8412cca31ec76e5cb1a7",
+      "status": "verbatim",
+      "donorPath": "src/integrations/github/processors.ts",
+      "donorSha256": "cd03fc9fa2f4bf2cf254451a6de46e5c188d120643dd8412cca31ec76e5cb1a7"
+    },
+    {
+      "path": "src/integrations/github/repo-sync.ts",
+      "sha256": "37a74efe501a18bfc97a3eafc291fee0a427e76f96db5a74e92048f12e08bc66",
+      "status": "verbatim",
+      "donorPath": "src/integrations/github/repo-sync.ts",
+      "donorSha256": "37a74efe501a18bfc97a3eafc291fee0a427e76f96db5a74e92048f12e08bc66"
+    },
+    {
+      "path": "src/integrations/gmail/body.ts",
+      "sha256": "1f63cf9e427f1f7eae91733262bfa23074f5d9e110a36921a82a811fb7c7f414",
+      "status": "verbatim",
+      "donorPath": "src/integrations/gmail/body.ts",
+      "donorSha256": "1f63cf9e427f1f7eae91733262bfa23074f5d9e110a36921a82a811fb7c7f414"
+    },
+    {
+      "path": "src/integrations/gmail/jobs.ts",
+      "sha256": "1f1257606d7c3362b3f9b2d57a77f1470a43535a7ce9a2a15c0f3f16beadc918",
+      "status": "patched",
+      "owner": "gmail",
+      "donorPath": "src/integrations/gmail/jobs.ts",
+      "donorSha256": "989e95d4b42fbe2e640f5ea62b54bd0cf8602cde3b4ce20af358c1572a18dc65",
+      "reason": "runGmailPoll/runGmailBackfill (signatures used by integrations/google/index.ts unchanged) run the resumable full-mailbox engine (source-sync.ts) instead of the donor bounded bootstrap (30 days/500 messages) and history-404 fallback (7 days/200 messages with the cursor jumped to now), which skipped mail silently; legacy days/maxMessages payloads no longer bound capture; only a roster mailbox is honoured.",
+      "tests": [
+        "tests/source-lane/providers/gmail/sync.test.ts",
+        "tests/source-lane/providers/gmail/export.test.ts",
+        "tests/source-lane/providers/gmail/quota.test.ts",
+        "tests/source-lane/providers/gmail/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/integrations/gmail/poller.ts",
+      "sha256": "09dd7b50a83ef6b5afc78ef57def5c2a53bb5842ea45a29db9947fad3fd10ff7",
+      "status": "patched",
+      "owner": "gmail",
+      "donorPath": "src/integrations/gmail/poller.ts",
+      "donorSha256": "f9e387b9836aa79ee7404b7926ded24be086baa05f454f488b44cdd8143537d5",
+      "reason": "Export-only patch (no behaviour change): MimePart/GmailMessage/HistoryRecord types and the MIME/body/attachment parsers (gmailMessageForRawPayload, getPartHeader, getHeader, extractBodyText, extractHtmlBody, extractAttachments, collectAttachmentParts, base64UrlToBuffer) are exported so the source-lane engine reuses the donor parsers instead of copying them; one SOURCE-LANE PATCH comment. pollGmail/backfillGmailDetailed stay byte-identical but are no longer called by jobs.ts.",
+      "tests": [
+        "tests/integrations/gmail/poller.test.ts (donor, unchanged, passes)",
+        "tests/db/source-record-contract.test.ts (unchanged, passes)",
+        "tests/source-lane/providers/gmail/sync.test.ts",
+        "tests/source-lane/providers/gmail/export.test.ts",
+        "tests/source-lane/providers/gmail/quota.test.ts",
+        "tests/source-lane/providers/gmail/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/integrations/gmail/source-client.ts",
+      "sha256": "e4194015a3ad25605ac37e35b9c867a032c6560dae72545395ff6aadb9d18e31",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Gmail REST client over fetchGoogleApi (DWD/OAuth bearer or Composio), quota-unit accounting, rate-limit detection via donor google-rate-limit helpers keyed by the opaque mailbox quota key, history 404 -> GmailHistoryExpiredError.",
+      "tests": [
+        "tests/source-lane/providers/gmail/sync.test.ts",
+        "tests/source-lane/providers/gmail/export.test.ts",
+        "tests/source-lane/providers/gmail/quota.test.ts",
+        "tests/source-lane/providers/gmail/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/gmail/poller.ts",
+          "use": "gmailFetch/fetchMessage/fetchHistory/fetchProfile request shapes and rate-limit handling (e2c93516 per-mailbox cooldown semantics), rewritten over fetchGoogleApi"
+        }
+      ]
+    },
+    {
+      "path": "src/integrations/gmail/source-config.ts",
+      "sha256": "93b63df834fb9736d993bc746524a0ec5f6d0d3392d49358ad666631b1a4efa4",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Gmail source-lane env configuration (spam/trash listing, RFC822 capture + cap, attachment cap, fetch concurrency, per-run budgets, history pages, stall/blocked retry).",
+      "tests": [
+        "tests/source-lane/providers/gmail/sync.test.ts",
+        "tests/source-lane/providers/gmail/export.test.ts",
+        "tests/source-lane/providers/gmail/quota.test.ts",
+        "tests/source-lane/providers/gmail/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/integrations/gmail/source-quota.ts",
+      "sha256": "5f9403d88622d65fe2feee2bed111ab079d8c4e245413ed1c8f39c4aff9422ad",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Durable per-upstream-mailbox cooldown (Retry-After floor, exponential on repeats, 1h cap) and single active sync lease across tenants/workers; opaque tenant-independent quota key; error backoff.",
+      "tests": [
+        "tests/source-lane/providers/gmail/quota.test.ts",
+        "tests/source-lane/providers/gmail/sync.test.ts",
+        "tests/source-lane/providers/gmail/real-pg.test.ts (gated)"
+      ]
+    },
+    {
+      "path": "src/integrations/gmail/source-store.ts",
+      "sha256": "31e967e6fc89e9a5e57bf7ae19a84bf8b66437aa77b8579baf38017ba8f4d34a",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "SQL for 9160 tables: per-tenant chunked exact-byte blobs, sync state/generations, historyId-ordered message/label/deletion upserts, tombstones for unknown deletions, attachments, threads, raw history pages, pending fetch retries, coverage counts.",
+      "tests": [
+        "tests/source-lane/providers/gmail/sync.test.ts",
+        "tests/source-lane/providers/gmail/export.test.ts",
+        "tests/source-lane/providers/gmail/quota.test.ts",
+        "tests/source-lane/providers/gmail/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/integrations/gmail/source-sync.ts",
+      "sha256": "3699d0fa4a6b9c47feac72e4f7ae4a8637b9a08731b300abbebcc1308492b62f",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Resumable full-mailbox capture: generation anchored on the pre-listing profile historyId, checkpointed messages.list pages, page-checkpointed history.list with out-of-order-safe labels/deletions, history 404 -> new generation with minimal re-verification and absent-message sweep, bounded work per run, continuation chain + poll watchdog, per-mailbox failure isolation (blocked/backoff/cooldown), exact attachment and RFC822 bytes with redaction-safe withholding.",
+      "tests": [
+        "tests/source-lane/providers/gmail/sync.test.ts",
+        "tests/source-lane/providers/gmail/export.test.ts",
+        "tests/source-lane/providers/gmail/quota.test.ts",
+        "tests/source-lane/providers/gmail/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)"
+      ]
+    },
+    {
+      "path": "src/integrations/google/calendar/common.ts",
+      "sha256": "77e0947677df1b4e81e9ab452401c03a65367202f0b88ae5a7227c8783df8eae",
+      "status": "verbatim",
+      "donorPath": "src/integrations/google/calendar/common.ts",
+      "donorSha256": "77e0947677df1b4e81e9ab452401c03a65367202f0b88ae5a7227c8783df8eae"
+    },
+    {
+      "path": "src/integrations/google/calendar/jobs.ts",
+      "sha256": "d1a594902b0c90e3f2de99cd136f0b9b078c59a3e583e31212c5fc620868aec7",
+      "status": "patched",
+      "owner": "calendar-contacts",
+      "donorPath": "src/integrations/google/calendar/jobs.ts",
+      "donorSha256": "8cbafa6553d2ce63a82b523684530cd6a39acf517ffea068b0c7b688543b2912",
+      "reason": "calendar.poll / calendar.setup entrypoints delegate to the source-lane calendar sync (resumable full sync, 410 without snapshot loss, removal tombstones, per-mailbox auth seam, persisted backoff). Signatures kept; result type is the lane result (superset of GoogleCalendarRunResult).",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts",
+        "tests/integrations/google/calendar/poller.test.ts",
+        "tests/integrations/google/calendar/directory-cache.test.ts",
+        "tests/integrations/google/calendar-webhook.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/google/calendar/poller.ts",
+      "sha256": "fcd76f945a707a7861e2d0de73172f16ba65188e32b16c123fba10a0063138d6",
+      "status": "verbatim",
+      "donorPath": "src/integrations/google/calendar/poller.ts",
+      "donorSha256": "fcd76f945a707a7861e2d0de73172f16ba65188e32b16c123fba10a0063138d6"
+    },
+    {
+      "path": "src/integrations/google/calendar/webhook.ts",
+      "sha256": "9002d11868ba64bcbb7810dbe8562c57b15fd1f47c1b15b02eff0551e3f71325",
+      "status": "verbatim",
+      "donorPath": "src/integrations/google/calendar/webhook.ts",
+      "donorSha256": "9002d11868ba64bcbb7810dbe8562c57b15fd1f47c1b15b02eff0551e3f71325"
+    },
+    {
+      "path": "src/integrations/google/connect.ts",
+      "sha256": "63da92d09c6ba619f3020ce3f4441c99850862da3f837722fa587eecad8e555a",
+      "status": "patched",
+      "owner": "google-auth, coordinator",
+      "donorPath": "src/integrations/google/connect.ts",
+      "donorSha256": "e3a714d2c0779e6bfb083af4860a35e0ab827e61c38509c807ef2ed8b6e6f350",
+      "reason": "connectGoogleWorkspace maps DWD allowlist denial to 403 and mode conflict to 409; connectGoogleOAuthAccount activates server-verified OAuth/Composio accounts (connection row with authMode, polling, per-mailbox initial gmail backfill); disconnectGoogleAccount/disconnectAllGoogleAccounts revoke per account (Google revoke / Composio delete / DWD connection revoked + admin marker removed). Raw-token connectGoogle stub kept failing (message updated). Coordinator (gmail patch request 1): gmail.backfill is seeded as {mode:\"full\"} (resumable full-mailbox capture), not the donor 30-day/500-message bootstrap. Coordinator (calendar-contacts patch request 3): calendar push channels are stopped at Google before grants are revoked (per account and tenant-wide).",
+      "tests": [
+        "tests/integrations/google/connect.test.ts",
+        "tests/source-lane/core/shared-patches-gmail.test.ts",
+        "tests/source-lane/providers/google-auth/dwd.test.ts",
+        "tests/source-lane/providers/google-auth/routes.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/google/contacts/jobs.ts",
+      "sha256": "9f50556dde57bf788a5730c6cb41b9b03eacae464b97ebe2b5c2da75e953b854",
+      "status": "patched",
+      "owner": "calendar-contacts",
+      "donorPath": "src/integrations/google/contacts/jobs.ts",
+      "donorSha256": "7336333fa2a0d5e488d06e40ae9ad9d1e6bc6e83102d90047713bdaf0cb775ec",
+      "reason": "google.contacts_sync entrypoint delegates to the source-lane contacts sync (sync tokens, snapshots, deletion/merge tombstones, revisions); donor names table still derived with donor functions.",
+      "tests": [
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts",
+        "tests/integrations/google/contacts/sync.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/google/contacts/sync.ts",
+      "sha256": "53da5204c0fe0898b46389ed8713b7713679dae114639b3e4b0bce55216550d9",
+      "status": "patched",
+      "owner": "calendar-contacts",
+      "donorPath": "src/integrations/google/contacts/sync.ts",
+      "donorSha256": "c15eafa59cb9289ec1a2ceb728e1211bc15cf4e026a8739c94cec3f693da3074",
+      "reason": "Only change: `export` on upsertContactNames (+ comment) so the lane reuses the donor precedence/upsert logic instead of copying it.",
+      "tests": [
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts",
+        "tests/integrations/google/contacts/sync.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/google/gdocs/content-snapshot.ts",
+      "sha256": "cc34d60e499690c818b146d5101a68c2eaab84e0e158f424c4750f32d69d1bf0",
+      "status": "patched",
+      "owner": "google-docs, coordinator",
+      "donorPath": "src/integrations/google/gdocs/content-snapshot.ts",
+      "donorSha256": "45af553cfd33ada906fa719c2e4e495f90869fc8b271ae305a9eee213beddacf",
+      "reason": "Collects image bytes via onImage; forceMaterialize option re-stages the mirror for restored docs; fail-soft source export hook (native JSON, tabs, images, Drive permissions, snapshot diff) with failure recorded on the checkpoint for retry; result carries title. Coordinator (after google-docs finished): one revision's google_doc_tab_snapshots rows are written in a single transaction so the patched backfill (latest revision only) never sees a half-written revision.",
+      "tests": [
+        "tests/mirror/gdocs-content-snapshot.test.ts (unchanged, passes) + doc-content-export.test.ts",
+        "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/google/gdocs/content.ts",
+      "sha256": "f3239c685a2185c8842915d9710516b372b989fd1972db7c5536e499783f6b1c",
+      "status": "verbatim",
+      "donorPath": "src/integrations/google/gdocs/content.ts",
+      "donorSha256": "f3239c685a2185c8842915d9710516b372b989fd1972db7c5536e499783f6b1c"
+    },
+    {
+      "path": "src/integrations/google/gdocs/images.ts",
+      "sha256": "326e376d0608bb8d021e5c06cf625ac7da92be69fd7a33b7a1439cfb463b9079",
+      "status": "patched",
+      "owner": "google-docs",
+      "donorPath": "src/integrations/google/gdocs/images.ts",
+      "donorSha256": "a73896052fc203819ddfa24c1a36493bf58108ca8c9e3fce96101154be93f3cc",
+      "reason": "storeDocImages gains an optional 5th options arg {onImage, refetchFresh}: fetched bytes are handed (without contentUri) to the versioned source export; refetchFresh skips the 24h window on the snapshot path (bytes can change under one object id). Defaults keep donor behaviour.",
+      "tests": [
+        "tests/mirror/gdocs-review-fixes.test.ts + doc-content-export.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/google/gdocs/jobs.ts",
+      "sha256": "061ebd961670b6541cd16d26ddd09b52f978e9a11ce25437dbc45b5406c58961",
+      "status": "patched",
+      "owner": "google-docs, coordinator",
+      "donorPath": "src/integrations/google/gdocs/jobs.ts",
+      "donorSha256": "f8d770a1840360126be60068343f079521a29e8de528649aae782056e45a7f6d",
+      "reason": "runGdocsPoll runs a bounded (5 files / 20s) source sweep for Sheets/Slides/Drive files; runGdocsContentSnapshot honours rematerialize_pending (restore) and runs the OT history export after the snapshot; hourly full runGdocsSuggestionSync runs the full retry sweep (Retry-After/backoff via checkpoint retry times). Coordinator: gdocs.poll also advances the resumable full Drive inventory (inventory.ts) a bounded number of pages per poll.",
+      "tests": [
+        "coverage-and-jobs.test.ts",
+        "tests/source-lane/providers/google-docs/inventory.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/google/gdocs/poller.ts",
+      "sha256": "31bfdc2e4716d64c2c41bf5e8a8aadf4a1aaaa9be6490e970abceee52cdcbf7a",
+      "status": "verbatim",
+      "donorPath": "src/integrations/google/gdocs/poller.ts",
+      "donorSha256": "31bfdc2e4716d64c2c41bf5e8a8aadf4a1aaaa9be6490e970abceee52cdcbf7a"
+    },
+    {
+      "path": "src/integrations/google/gdocs/revisions.ts",
+      "sha256": "7458935bb3c3cb558a1e0016fb1cdccc44161424852377b65592a3b8d6e3f584",
+      "status": "verbatim",
+      "donorPath": "src/integrations/google/gdocs/revisions.ts",
+      "donorSha256": "7458935bb3c3cb558a1e0016fb1cdccc44161424852377b65592a3b8d6e3f584"
+    },
+    {
+      "path": "src/integrations/google/gdocs/suggestion-cards.ts",
+      "sha256": "69c7926b72f51a7ce57727e8aaeba9a930e3d1157163a047cd919f906990e24c",
+      "status": "verbatim",
+      "donorPath": "src/integrations/google/gdocs/suggestion-cards.ts",
+      "donorSha256": "69c7926b72f51a7ce57727e8aaeba9a930e3d1157163a047cd919f906990e24c"
+    },
+    {
+      "path": "src/integrations/google/gdocs/tab-changes.ts",
+      "sha256": "92273ff4adcca7557c2fed6db0165545ba903c1e838e229914ef519e25a80cbd",
+      "status": "verbatim",
+      "donorPath": "src/integrations/google/gdocs/tab-changes.ts",
+      "donorSha256": "92273ff4adcca7557c2fed6db0165545ba903c1e838e229914ef519e25a80cbd"
+    },
+    {
+      "path": "src/integrations/google/index.ts",
+      "sha256": "64e944e94ee585fb31138fd9f66cfde58272a81639969ccf93777a2f14cdc0cb",
+      "status": "patched",
+      "owner": "coordinator",
+      "donorPath": "src/integrations/google/index.ts",
+      "donorSha256": "4a23d843a0fec53b25d634fb78fb3b9f4e1cd78a74710dc0733c606d4334bca4",
+      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. Coordinator (gmail patch request 2): gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds; truthful completeness is the gmail module's mailbox:<email> coverage. Coordinator (calendar-contacts patch request 2): calendar.poll passes the webhook channelId (targeted sync of that channel's calendar); calendar.setup/google.contacts_sync honour forceFull.",
+      "tests": [
+        "tests/source-lane/core/shared-patches-gmail.test.ts",
+        "tests/source-lane/core/shared-patches.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/google/mailboxes.ts",
+      "sha256": "e754b4654a9b90a118d0bef9363f9f1391c2b641512dc413e2db8cbd2457a2b9",
+      "status": "patched",
+      "owner": "google-auth",
+      "donorPath": "src/integrations/google/mailboxes.ts",
+      "donorSha256": "21fe6d6e716453134752e282e5a8ce54f00663b7884efc441706a2841f866921",
+      "reason": "Add listGoogleMailboxAccounts (roster with per-mailbox auth mode). Fix: legacy token-metadata fallback no longer resurrects a mailbox that has an explicit revoked/error connection row (disconnected DWD admin kept being polled/impersonated). Existing exports otherwise unchanged.",
+      "tests": [
+        "tests/source-lane/providers/google-auth/dwd.test.ts",
+        "tests/integrations/gmail/poller.test.ts"
+      ]
+    },
+    {
+      "path": "src/integrations/granola/connect.ts",
+      "sha256": "c17db2a6c9b731e39585e447bebc8a278fda84ee365c8440c3cff2a57f17ae75",
+      "status": "verbatim",
+      "donorPath": "src/integrations/granola/connect.ts",
+      "donorSha256": "c17db2a6c9b731e39585e447bebc8a278fda84ee365c8440c3cff2a57f17ae75"
+    },
+    {
+      "path": "src/integrations/granola/index.ts",
+      "sha256": "16888ced89aa24e8f58bba6b4f0a51765a3b4dfbf9f3dade78360e66fc8c0cd5",
+      "status": "verbatim",
+      "donorPath": "src/integrations/granola/index.ts",
+      "donorSha256": "16888ced89aa24e8f58bba6b4f0a51765a3b4dfbf9f3dade78360e66fc8c0cd5"
+    },
+    {
+      "path": "src/integrations/granola/jobs.ts",
+      "sha256": "12e9a0cdd2bf87f767ccd84a47588f86860f0b41bcdee01af01d285c9227907f",
+      "status": "verbatim",
+      "donorPath": "src/integrations/granola/jobs.ts",
+      "donorSha256": "12e9a0cdd2bf87f767ccd84a47588f86860f0b41bcdee01af01d285c9227907f"
+    },
+    {
+      "path": "src/integrations/granola/mcp-client.ts",
+      "sha256": "4addfc6640b5545d88d7abec5b318948f8bcce6715ea8777788fdd953583683d",
+      "status": "verbatim",
+      "donorPath": "src/integrations/granola/mcp-client.ts",
+      "donorSha256": "4addfc6640b5545d88d7abec5b318948f8bcce6715ea8777788fdd953583683d"
+    },
+    {
+      "path": "src/integrations/granola/oauth.ts",
+      "sha256": "c113f8fc323846356190e85243be7073c74dde5f75708f2302581f2b8ea2c672",
+      "status": "verbatim",
+      "donorPath": "src/integrations/granola/oauth.ts",
+      "donorSha256": "c113f8fc323846356190e85243be7073c74dde5f75708f2302581f2b8ea2c672"
+    },
+    {
+      "path": "src/integrations/granola/poller.ts",
+      "sha256": "796c648c69398419ea22c88f5a78ef06e2a0488574c6279da04615ffa0ac1426",
+      "status": "verbatim",
+      "donorPath": "src/integrations/granola/poller.ts",
+      "donorSha256": "796c648c69398419ea22c88f5a78ef06e2a0488574c6279da04615ffa0ac1426"
+    },
+    {
+      "path": "src/integrations/imessage/auth.ts",
+      "sha256": "d987a87e35b82850ce4737674b51894915f0fe597a4426a074011217535c2742",
+      "status": "verbatim",
+      "donorPath": "src/integrations/imessage/auth.ts",
+      "donorSha256": "d987a87e35b82850ce4737674b51894915f0fe597a4426a074011217535c2742"
+    },
+    {
+      "path": "src/integrations/imessage/blocked-handles.ts",
+      "sha256": "2317d871ba04d882b6efb57544378d6bbe105a048a7f353365758eb0e562d6f5",
+      "status": "verbatim",
+      "donorPath": "src/integrations/imessage/blocked-handles.ts",
+      "donorSha256": "2317d871ba04d882b6efb57544378d6bbe105a048a7f353365758eb0e562d6f5"
+    },
+    {
+      "path": "src/integrations/imessage/connect.ts",
+      "sha256": "9c30f60d0d815d1fd4cb680a26b9c277a5de521d28819c5c5890d773ed88f6c0",
+      "status": "verbatim",
+      "donorPath": "src/integrations/imessage/connect.ts",
+      "donorSha256": "9c30f60d0d815d1fd4cb680a26b9c277a5de521d28819c5c5890d773ed88f6c0"
+    },
+    {
+      "path": "src/integrations/imessage/conversation-identity.ts",
+      "sha256": "09cb7bb54ed177591f687ab15b373299499bac96079a55a69b86014b97deda2b",
+      "status": "verbatim",
+      "donorPath": "src/integrations/imessage/conversation-identity.ts",
+      "donorSha256": "09cb7bb54ed177591f687ab15b373299499bac96079a55a69b86014b97deda2b"
+    },
+    {
+      "path": "src/integrations/imessage/event-identity.ts",
+      "sha256": "cf73637a12a0bdc04df3cfdf26d94080b36c4e77b73ab60e8ac725acd0fb1c39",
+      "status": "verbatim",
+      "donorPath": "src/integrations/imessage/event-identity.ts",
+      "donorSha256": "cf73637a12a0bdc04df3cfdf26d94080b36c4e77b73ab60e8ac725acd0fb1c39"
+    },
+    {
+      "path": "src/integrations/nango/capture.ts",
+      "sha256": "cccc5fc3bbdbd547a3a9e4766a4770a05e40d2e4895ade01ac485d11e1bd2e8b",
+      "status": "verbatim",
+      "donorPath": "src/integrations/nango/capture.ts",
+      "donorSha256": "cccc5fc3bbdbd547a3a9e4766a4770a05e40d2e4895ade01ac485d11e1bd2e8b"
+    },
+    {
+      "path": "src/integrations/nango/client.ts",
+      "sha256": "34e73b5801523b41076ac7d09b586e666147d3738fc31a74bd0154344d44798a",
+      "status": "verbatim",
+      "donorPath": "src/integrations/nango/client.ts",
+      "donorSha256": "34e73b5801523b41076ac7d09b586e666147d3738fc31a74bd0154344d44798a"
+    },
+    {
+      "path": "src/integrations/nango/connect.ts",
+      "sha256": "fca767675757739ffb3260c19274bf619294410cc394cac5277ccbe5098672e9",
+      "status": "verbatim",
+      "donorPath": "src/integrations/nango/connect.ts",
+      "donorSha256": "fca767675757739ffb3260c19274bf619294410cc394cac5277ccbe5098672e9"
+    },
+    {
+      "path": "src/integrations/nango/proxy-details.ts",
+      "sha256": "6331fdda628b2d242d0be3cd0242afd22fad44aa26d849035493e846d2e60687",
+      "status": "verbatim",
+      "donorPath": "src/integrations/nango/proxy-details.ts",
+      "donorSha256": "6331fdda628b2d242d0be3cd0242afd22fad44aa26d849035493e846d2e60687"
+    },
+    {
+      "path": "src/integrations/nango/proxy-issues.ts",
+      "sha256": "1509859e97ef7a8602a89b5809d664434c93081eb2476b8bd587b076d8d46039",
+      "status": "verbatim",
+      "donorPath": "src/integrations/nango/proxy-issues.ts",
+      "donorSha256": "1509859e97ef7a8602a89b5809d664434c93081eb2476b8bd587b076d8d46039"
+    },
+    {
+      "path": "src/integrations/nango/reconcile.ts",
+      "sha256": "22fa43c4d804f7c8640370f0e6ab385a50edb5ecb152841360a01af15b0d7267",
+      "status": "verbatim",
+      "donorPath": "src/integrations/nango/reconcile.ts",
+      "donorSha256": "22fa43c4d804f7c8640370f0e6ab385a50edb5ecb152841360a01af15b0d7267"
+    },
+    {
+      "path": "src/integrations/nango/sync-enqueue.ts",
+      "sha256": "c087e144285e55d857c42ff67047c67590b7fdca4016bedfc5e67c34b23d5239",
+      "status": "verbatim",
+      "donorPath": "src/integrations/nango/sync-enqueue.ts",
+      "donorSha256": "c087e144285e55d857c42ff67047c67590b7fdca4016bedfc5e67c34b23d5239"
+    },
+    {
+      "path": "src/integrations/nango/tasks.ts",
+      "sha256": "91f2cf584be4a011f257429adecc68c4db78c7f912c57e87c9f0dadd3e6ffdea",
+      "status": "verbatim",
+      "donorPath": "src/integrations/nango/tasks.ts",
+      "donorSha256": "91f2cf584be4a011f257429adecc68c4db78c7f912c57e87c9f0dadd3e6ffdea"
+    },
+    {
+      "path": "src/integrations/nango/types.ts",
+      "sha256": "169e028a9c6b6a93d10b821f6e1cca280ad723e7ef4a9d064e7c60acfe745f4b",
+      "status": "verbatim",
+      "donorPath": "src/integrations/nango/types.ts",
+      "donorSha256": "169e028a9c6b6a93d10b821f6e1cca280ad723e7ef4a9d064e7c60acfe745f4b"
+    },
+    {
+      "path": "src/integrations/nango/webhook.ts",
+      "sha256": "2efde81d06638862e4e79c01424364637d8b138b72e7f3ff7b3796dd804c5402",
+      "status": "verbatim",
+      "donorPath": "src/integrations/nango/webhook.ts",
+      "donorSha256": "2efde81d06638862e4e79c01424364637d8b138b72e7f3ff7b3796dd804c5402"
+    },
+    {
+      "path": "src/integrations/notion/block-capabilities.ts",
+      "sha256": "98e68ac463b8e9d7de727566e92dd2b316d2b949f48844d886fd7fcf754632cd",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/block-capabilities.ts",
+      "donorSha256": "98e68ac463b8e9d7de727566e92dd2b316d2b949f48844d886fd7fcf754632cd"
+    },
+    {
+      "path": "src/integrations/notion/client.ts",
+      "sha256": "0068cfbc44973463907ff191bdb32f2469b53d6187d24fc864ceb8dfb1a3f5c5",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/client.ts",
+      "donorSha256": "0068cfbc44973463907ff191bdb32f2469b53d6187d24fc864ceb8dfb1a3f5c5"
+    },
+    {
+      "path": "src/integrations/notion/connect.ts",
+      "sha256": "0bcfe92e0cd939ebd965f01d5a853b1b98a6bb30c6111447e3677ac264eae1ca",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/connect.ts",
+      "donorSha256": "0bcfe92e0cd939ebd965f01d5a853b1b98a6bb30c6111447e3677ac264eae1ca"
+    },
+    {
+      "path": "src/integrations/notion/content.ts",
+      "sha256": "2a3312db39655b813d68d00c5037e88d13fd4c8301f64ae4ea204a3b767f5d2d",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/content.ts",
+      "donorSha256": "2a3312db39655b813d68d00c5037e88d13fd4c8301f64ae4ea204a3b767f5d2d"
+    },
+    {
+      "path": "src/integrations/notion/coverage.ts",
+      "sha256": "a516f7095a2499dfd784b02e3c4529b1112ab3ad3bffc586b8e84d783346d7dc",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/coverage.ts",
+      "donorSha256": "a516f7095a2499dfd784b02e3c4529b1112ab3ad3bffc586b8e84d783346d7dc"
+    },
+    {
+      "path": "src/integrations/notion/index.ts",
+      "sha256": "8cf6222ad976779f89d05805264d25b02bcca469b7112942b2721669b2c21d3f",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/index.ts",
+      "donorSha256": "8cf6222ad976779f89d05805264d25b02bcca469b7112942b2721669b2c21d3f"
+    },
+    {
+      "path": "src/integrations/notion/jobs.ts",
+      "sha256": "718e2b0821e2274c2a1bfb4f0eeb7259e8d2a4ad3059b85520c2253c63759b40",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/jobs.ts",
+      "donorSha256": "718e2b0821e2274c2a1bfb4f0eeb7259e8d2a4ad3059b85520c2253c63759b40"
+    },
+    {
+      "path": "src/integrations/notion/native.ts",
+      "sha256": "02010cb2ba60c429ac987aae22bde6c003ce916ff647aed7b936a0458e3ee0d2",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/native.ts",
+      "donorSha256": "02010cb2ba60c429ac987aae22bde6c003ce916ff647aed7b936a0458e3ee0d2"
+    },
+    {
+      "path": "src/integrations/notion/poller.ts",
+      "sha256": "424d3cd35a33006e1a693ced478ff4d1a672b30caef5eb79d08d8bf756bf4380",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/poller.ts",
+      "donorSha256": "424d3cd35a33006e1a693ced478ff4d1a672b30caef5eb79d08d8bf756bf4380"
+    },
+    {
+      "path": "src/integrations/notion/property-schema.ts",
+      "sha256": "7c48213849ab9d9668c53fb11dfef010647063b3d7346de9d68d5bc6362a9112",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/property-schema.ts",
+      "donorSha256": "7c48213849ab9d9668c53fb11dfef010647063b3d7346de9d68d5bc6362a9112"
+    },
+    {
+      "path": "src/integrations/notion/reconcile.ts",
+      "sha256": "e699bff7774adaf76d15f084019e2efbc6a74d2383c2942f13a797019624e312",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/reconcile.ts",
+      "donorSha256": "e699bff7774adaf76d15f084019e2efbc6a74d2383c2942f13a797019624e312"
+    },
+    {
+      "path": "src/integrations/notion/render.ts",
+      "sha256": "821ea9e20d40b2806e397886e5121214ec4897b976874afbffc29ea5636b2f77",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/render.ts",
+      "donorSha256": "821ea9e20d40b2806e397886e5121214ec4897b976874afbffc29ea5636b2f77"
+    },
+    {
+      "path": "src/integrations/notion/snapshot.ts",
+      "sha256": "caab7357a5d15a57efae30ad02fa3364a791d2cf048062bf79a977d4d848cff4",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/snapshot.ts",
+      "donorSha256": "caab7357a5d15a57efae30ad02fa3364a791d2cf048062bf79a977d4d848cff4"
+    },
+    {
+      "path": "src/integrations/notion/source-wiki.ts",
+      "sha256": "6f1a1496fd72d2d6b7f2fc6d789fa1711c0859032b1bf48a7bb8abe4b769fb44",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/source-wiki.ts",
+      "donorSha256": "6f1a1496fd72d2d6b7f2fc6d789fa1711c0859032b1bf48a7bb8abe4b769fb44"
+    },
+    {
+      "path": "src/integrations/notion/tombstone.ts",
+      "sha256": "7347bc4f7888889e3fc1c2f75b35c16a3b846a51d6b909876804312ca8bb5c57",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/tombstone.ts",
+      "donorSha256": "7347bc4f7888889e3fc1c2f75b35c16a3b846a51d6b909876804312ca8bb5c57"
+    },
+    {
+      "path": "src/integrations/notion/webhook.ts",
+      "sha256": "3c0a843e023234589d924445245a2178ef45e2544e05f445cc4689b98aa8cd06",
+      "status": "verbatim",
+      "donorPath": "src/integrations/notion/webhook.ts",
+      "donorSha256": "3c0a843e023234589d924445245a2178ef45e2544e05f445cc4689b98aa8cd06"
+    },
+    {
+      "path": "src/integrations/registry.ts",
+      "sha256": "7d0076b5c7bca8d5155e320455ff5f7d479fd50939eeb4e1b4f7e64027d1c55b",
+      "status": "verbatim",
+      "donorPath": "src/integrations/registry.ts",
+      "donorSha256": "7d0076b5c7bca8d5155e320455ff5f7d479fd50939eeb4e1b4f7e64027d1c55b"
+    },
+    {
+      "path": "src/integrations/slack/config.ts",
+      "sha256": "d82e2bc010123226976577144faca35714d0a066e22339e20c829eaa0b3f3415",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/config.ts",
+      "donorSha256": "d82e2bc010123226976577144faca35714d0a066e22339e20c829eaa0b3f3415"
+    },
+    {
+      "path": "src/integrations/slack/connect.ts",
+      "sha256": "581c9d9922e23a6f5733448612a4cddfc45a15051b8cb44ecbc1d37982f463a4",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/connect.ts",
+      "donorSha256": "581c9d9922e23a6f5733448612a4cddfc45a15051b8cb44ecbc1d37982f463a4"
+    },
+    {
+      "path": "src/integrations/slack/files.ts",
+      "sha256": "9c8e2d2e2d39fcecf6ab2f23f0fadf707659af8f8d4157f07cf5fef1366a14fd",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/files.ts",
+      "donorSha256": "9c8e2d2e2d39fcecf6ab2f23f0fadf707659af8f8d4157f07cf5fef1366a14fd"
+    },
+    {
+      "path": "src/integrations/slack/index.ts",
+      "sha256": "26514dd65e3e4f4600c9d5c0cb888b4b28a71c11d352622dbbeb981b7578c557",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/index.ts",
+      "donorSha256": "26514dd65e3e4f4600c9d5c0cb888b4b28a71c11d352622dbbeb981b7578c557"
+    },
+    {
+      "path": "src/integrations/slack/jobs.ts",
+      "sha256": "0d5209a4579691ff54eb3d04fba2bbd88628a996ba03653b055d9f154023fd38",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/jobs.ts",
+      "donorSha256": "0d5209a4579691ff54eb3d04fba2bbd88628a996ba03653b055d9f154023fd38"
+    },
+    {
+      "path": "src/integrations/slack/materialize.ts",
+      "sha256": "5fccd553d6d539735c17b82fc348f22cfa6759ca487495c294eea8ed69c48d24",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/materialize.ts",
+      "donorSha256": "5fccd553d6d539735c17b82fc348f22cfa6759ca487495c294eea8ed69c48d24"
+    },
+    {
+      "path": "src/integrations/slack/poller.ts",
+      "sha256": "ca9146d74b339df18d46e8f9bef930a6bacbd1a7fc5780c242d332b0087696eb",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/poller.ts",
+      "donorSha256": "ca9146d74b339df18d46e8f9bef930a6bacbd1a7fc5780c242d332b0087696eb"
+    },
+    {
+      "path": "src/integrations/slack/rate-limit.ts",
+      "sha256": "224453d44bbb820f36ac1a938bf27bd95f62335a98a25fbbb4f3715434a8da70",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/rate-limit.ts",
+      "donorSha256": "224453d44bbb820f36ac1a938bf27bd95f62335a98a25fbbb4f3715434a8da70"
+    },
+    {
+      "path": "src/integrations/slack/realtime.ts",
+      "sha256": "0b9f59541ceaa70b3c46de4adee2fabebf3e747f5df7a32fe1344b86f084bec7",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/realtime.ts",
+      "donorSha256": "0b9f59541ceaa70b3c46de4adee2fabebf3e747f5df7a32fe1344b86f084bec7"
+    },
+    {
+      "path": "src/integrations/slack/skips.ts",
+      "sha256": "413edd453987374d3616881cd1f61e71f0ba1edc7991e9ad672c51fe09e891e8",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/skips.ts",
+      "donorSha256": "413edd453987374d3616881cd1f61e71f0ba1edc7991e9ad672c51fe09e891e8"
+    },
+    {
+      "path": "src/integrations/slack/windows.ts",
+      "sha256": "6b0fdbcc720ac2753faef268837eecb2bfd8bf60af18c5da4350faa067b3c87c",
+      "status": "verbatim",
+      "donorPath": "src/integrations/slack/windows.ts",
+      "donorSha256": "6b0fdbcc720ac2753faef268837eecb2bfd8bf60af18c5da4350faa067b3c87c"
+    },
+    {
+      "path": "src/integrations/source-sync-task.ts",
+      "sha256": "1af4ab1ceba66aaeb131e75a37d82662e6f86426beda1d82b244c736cf688c1a",
+      "status": "verbatim",
+      "donorPath": "src/integrations/source-sync-task.ts",
+      "donorSha256": "1af4ab1ceba66aaeb131e75a37d82662e6f86426beda1d82b244c736cf688c1a"
+    },
+    {
+      "path": "src/integrations/types.ts",
+      "sha256": "a90eaed1ffc869e65b7a536910233c50a5b68974d36975991a31fa2fcd45a5f1",
+      "status": "verbatim",
+      "donorPath": "src/integrations/types.ts",
+      "donorSha256": "a90eaed1ffc869e65b7a536910233c50a5b68974d36975991a31fa2fcd45a5f1"
+    },
+    {
+      "path": "src/lib/activity-event-time.ts",
+      "sha256": "78eba70d0caa8a0bd281ac9fa450e27cd8afd5f53be67a241e8585c714fd4751",
+      "status": "verbatim",
+      "donorPath": "src/lib/activity-event-time.ts",
+      "donorSha256": "78eba70d0caa8a0bd281ac9fa450e27cd8afd5f53be67a241e8585c714fd4751"
+    },
+    {
+      "path": "src/lib/compare.ts",
+      "sha256": "931b3f1e0a8432e004860e30db1efea22b387e4c625c6e9c5ce47d1131428abe",
+      "status": "verbatim",
+      "donorPath": "src/lib/compare.ts",
+      "donorSha256": "931b3f1e0a8432e004860e30db1efea22b387e4c625c6e9c5ce47d1131428abe"
+    },
+    {
+      "path": "src/lib/concurrency.ts",
+      "sha256": "27ebe0d7abc545144a8770ad1b4c87915278faaf4273d2b8be845853742d4284",
+      "status": "verbatim",
+      "donorPath": "src/lib/concurrency.ts",
+      "donorSha256": "27ebe0d7abc545144a8770ad1b4c87915278faaf4273d2b8be845853742d4284"
+    },
+    {
+      "path": "src/lib/imessage-handles.ts",
+      "sha256": "eda8547428aaf6635107cb6dce21f7389f147e3ed18016873e916768775b557b",
+      "status": "verbatim",
+      "donorPath": "src/lib/imessage-handles.ts",
+      "donorSha256": "eda8547428aaf6635107cb6dce21f7389f147e3ed18016873e916768775b557b"
+    },
+    {
+      "path": "src/lib/utils.ts",
+      "sha256": "f18fb77e4e66a00fde10808b870b3f58f8a6874101b26a5cfef6ff80bf4c3f54",
+      "status": "verbatim",
+      "donorPath": "src/lib/utils.ts",
+      "donorSha256": "f18fb77e4e66a00fde10808b870b3f58f8a6874101b26a5cfef6ff80bf4c3f54"
+    },
+    {
+      "path": "src/middleware/auth.ts",
+      "sha256": "b4daf7fd6afad7652c71045474932565ac1a8cbbc39f199092a3a73802b5b4f7",
+      "status": "verbatim",
+      "donorPath": "src/middleware/auth.ts",
+      "donorSha256": "b4daf7fd6afad7652c71045474932565ac1a8cbbc39f199092a3a73802b5b4f7"
+    },
+    {
+      "path": "src/mirror/backfill.ts",
+      "sha256": "3cad6869fcc5b0e58c709b24b2f43cba85d5b7db04a2a526bd3d469ff2a5134b",
+      "status": "patched",
+      "donorPath": "src/mirror/backfill.ts",
+      "donorSha256": "e391aa01ddc5c6ad0d4faf4b1aef5fd02ee6d3e2de011a3cc6c40c8d2977cfc2",
+      "owner": "coordinator",
+      "reason": "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones).",
+      "test": "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts"
+    },
+    {
+      "path": "src/mirror/calcom.ts",
+      "sha256": "f212aa5a115872bf1b39fc304e721a724be5374ddfa313cd81226c9909d3d2f6",
+      "status": "verbatim",
+      "donorPath": "src/mirror/calcom.ts",
+      "donorSha256": "f212aa5a115872bf1b39fc304e721a724be5374ddfa313cd81226c9909d3d2f6"
+    },
+    {
+      "path": "src/mirror/envelope.ts",
+      "sha256": "d734431c03cb8f79a0e4d2ea17b8faaae89dcd9a66bb5070dd6a3a5a0bc90086",
+      "status": "verbatim",
+      "donorPath": "src/mirror/envelope.ts",
+      "donorSha256": "d734431c03cb8f79a0e4d2ea17b8faaae89dcd9a66bb5070dd6a3a5a0bc90086"
+    },
+    {
+      "path": "src/mirror/hashes.ts",
+      "sha256": "5d95aa1ee9084716d9fc3fa58755745f2016f3499683be2bf0cc0821c3765158",
+      "status": "verbatim",
+      "donorPath": "src/mirror/hashes.ts",
+      "donorSha256": "5d95aa1ee9084716d9fc3fa58755745f2016f3499683be2bf0cc0821c3765158"
+    },
+    {
+      "path": "src/mirror/materializer.ts",
+      "sha256": "2c1fe9478519ff72ceb64adc187213c581c3143698b7180808cc1685dc05db96",
+      "status": "verbatim",
+      "donorPath": "src/mirror/materializer.ts",
+      "donorSha256": "2c1fe9478519ff72ceb64adc187213c581c3143698b7180808cc1685dc05db96"
+    },
+    {
+      "path": "src/mirror/slack-payload.ts",
+      "sha256": "b1a84211b3ae655f24a7b64db12f125b824db3ad26606c1f4cab66959a165037",
+      "status": "verbatim",
+      "donorPath": "src/mirror/slack-payload.ts",
+      "donorSha256": "b1a84211b3ae655f24a7b64db12f125b824db3ad26606c1f4cab66959a165037"
+    },
+    {
+      "path": "src/mirror/slack-text.ts",
+      "sha256": "50f855f7ae00f01216604bdb5e4aeb298ec4bb8cac37b59e0a4012941d6e7930",
+      "status": "verbatim",
+      "donorPath": "src/mirror/slack-text.ts",
+      "donorSha256": "50f855f7ae00f01216604bdb5e4aeb298ec4bb8cac37b59e0a4012941d6e7930"
+    },
+    {
+      "path": "src/outbox/dispatcher.ts",
+      "sha256": "1b53d7d6fbf6500c32d142392d40b70d4fe454dd94a79b27bfa2f845ef1b4531",
+      "status": "verbatim",
+      "donorPath": "src/outbox/dispatcher.ts",
+      "donorSha256": "1b53d7d6fbf6500c32d142392d40b70d4fe454dd94a79b27bfa2f845ef1b4531"
+    },
+    {
+      "path": "src/outbox/writer.ts",
+      "sha256": "7167c6d4164bb282eeed0da8b6bbe25a0b9b51daf7cbc71c81fc354adc58787c",
+      "status": "verbatim",
+      "donorPath": "src/outbox/writer.ts",
+      "donorSha256": "7167c6d4164bb282eeed0da8b6bbe25a0b9b51daf7cbc71c81fc354adc58787c"
+    },
+    {
+      "path": "src/polling/_archived-gdocs/document-summary-tracker.ts",
+      "sha256": "a198029f03b8a68cc6857443455a6bc9a05a287962014448541bb9a236327ab2",
+      "status": "verbatim",
+      "donorPath": "src/polling/_archived-gdocs/document-summary-tracker.ts",
+      "donorSha256": "a198029f03b8a68cc6857443455a6bc9a05a287962014448541bb9a236327ab2"
+    },
+    {
+      "path": "src/polling/_archived-gdocs/gdocs-api.ts",
+      "sha256": "28894057e4ca63442196e0de4e76a9df8ce4c15778143140f1e2ccc110a196e4",
+      "status": "patched",
+      "owner": "coordinator",
+      "donorPath": "src/polling/_archived-gdocs/gdocs-api.ts",
+      "donorSha256": "f8ae3f0cd5ecef3f4062abd4344b897442640064fdc8c3eabc15dac2cfd2b5ba",
+      "reason": "Coordinator patch: gFetch cools down per credential (sha256-prefix key) for userRateLimitExceeded and keeps the process-wide google-workspace cooldown for project-wide limits, so one mailbox no longer stalls every tenant poll in the process.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/gfetch-cooldown.test.ts"
+      ]
+    },
+    {
+      "path": "src/polling/_archived-gdocs/gdocs-behavior-detector.ts",
+      "sha256": "74918a090d8a870dd6f2c81cb38615174589142a2083d1a4bdb0a523659ef322",
+      "status": "verbatim",
+      "owner": "google-docs",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/src/polling/_archived-gdocs/gdocs-behavior-detector.ts",
+      "donorSha256": "74918a090d8a870dd6f2c81cb38615174589142a2083d1a4bdb0a523659ef322",
+      "reason": "Pinned gigabrain 5-minute per-user session aggregator (pure; its formatForLLM is never called by the source lane - no LLM/summary side effects) and its behavior-detector dependency; copied byte-for-byte (not present in the Aqueduct donor).",
+      "tests": [
+        "tests/mirror/gdocs-session-aggregator.test.ts, tests/mirror/gdocs-behavior-detector.test.ts, sessions-and-diffs.test.ts"
+      ]
+    },
+    {
+      "path": "src/polling/_archived-gdocs/gdocs-comments.ts",
+      "sha256": "bfa0bfa551aff517640e21146491e5d21f9188cffef3f6dd7c091f7ceacc8206",
+      "status": "verbatim",
+      "donorPath": "src/polling/_archived-gdocs/gdocs-comments.ts",
+      "donorSha256": "bfa0bfa551aff517640e21146491e5d21f9188cffef3f6dd7c091f7ceacc8206"
+    },
+    {
+      "path": "src/polling/_archived-gdocs/gdocs-edits.ts",
+      "sha256": "2e827d8a01cabba5a5f04393b961c84b125bdad5e92e44da66ba7f461fcdf298",
+      "status": "verbatim",
+      "donorPath": "src/polling/_archived-gdocs/gdocs-edits.ts",
+      "donorSha256": "2e827d8a01cabba5a5f04393b961c84b125bdad5e92e44da66ba7f461fcdf298"
+    },
+    {
+      "path": "src/polling/_archived-gdocs/gdocs-revisions-load.ts",
+      "sha256": "e418770af5e2046820c03d441c8bb5afb6bf6920bd9fcf07453a53b523a6914a",
+      "status": "patched",
+      "owner": "google-docs",
+      "donorPath": "src/polling/_archived-gdocs/gdocs-revisions-load.ts",
+      "donorSha256": "27a03b662ca73cc0bd2efa9c255c9202f85b1597976fb6e1b03ea3b18ebf72ea",
+      "reason": "Fail-closed changelog (restores gigabrain 5448774's later fix): any page failure, malformed page, short page vs tile count or page-cap exhaustion returns null instead of a prefix; GoogleRateLimitError rethrown; parse half split into exported pure parseChangelogEntries/collectSnapshotOps (byte-identical logic) and parseXssiJson exported so stored raw pages re-parse through production code. overrideAccessToken kept.",
+      "tests": [
+        "tests/mirror/gdocs-revisions-load.test.ts (208 donor cases unchanged) + tests/source-lane/providers/google-docs/history-export.test.ts 'fetchDocChangelog (patched donor) is fail-closed'"
+      ]
+    },
+    {
+      "path": "src/polling/_archived-gdocs/gdocs-session-aggregator.ts",
+      "sha256": "b3d925541cdaf6ef09c6b9a58a6eff1254df10344d507c6b8eff2f4f9ebf0ee7",
+      "status": "verbatim",
+      "owner": "google-docs",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/src/polling/_archived-gdocs/gdocs-session-aggregator.ts",
+      "donorSha256": "b3d925541cdaf6ef09c6b9a58a6eff1254df10344d507c6b8eff2f4f9ebf0ee7",
+      "reason": "Pinned gigabrain 5-minute per-user session aggregator (pure; its formatForLLM is never called by the source lane - no LLM/summary side effects) and its behavior-detector dependency; copied byte-for-byte (not present in the Aqueduct donor).",
+      "tests": [
+        "tests/mirror/gdocs-session-aggregator.test.ts, tests/mirror/gdocs-behavior-detector.test.ts, sessions-and-diffs.test.ts"
+      ]
+    },
+    {
+      "path": "src/polling/_archived-gdocs/gdocs-style-humanizer.ts",
+      "sha256": "824be887a00ecc9cbf51c02b255f0c8a4f0ad9702e69e99d3ec1bccea09f06ca",
+      "status": "verbatim",
+      "donorPath": "src/polling/_archived-gdocs/gdocs-style-humanizer.ts",
+      "donorSha256": "824be887a00ecc9cbf51c02b255f0c8a4f0ad9702e69e99d3ec1bccea09f06ca"
+    },
+    {
+      "path": "src/polling/_archived-gdocs/gdocs-suggestion-tracker.ts",
+      "sha256": "d964dce102aa012269e8b7a317d54ef59ee181f08fe7f1c9a8bbead33865f7e1",
+      "status": "verbatim",
+      "donorPath": "src/polling/_archived-gdocs/gdocs-suggestion-tracker.ts",
+      "donorSha256": "d964dce102aa012269e8b7a317d54ef59ee181f08fe7f1c9a8bbead33865f7e1"
+    },
+    {
+      "path": "src/polling/_archived-gdocs/gdocs.ts",
+      "sha256": "0cf0870fe87753f50ec83362889042e8066597c58b296708ec7aab59adb25496",
+      "status": "patched",
+      "owner": "google-docs, coordinator",
+      "donorPath": "src/polling/_archived-gdocs/gdocs.ts",
+      "donorSha256": "ac9b327017bb8ddb43a754bad2b318617eac4ed4500617bef215e8097cfbfc31",
+      "reason": "Re-trash/restore tombstone gap: first dead episode keeps the exact donor key gdocs:tombstone:<id>:<kind>, later episodes get :g<generation>; doc_restored events (gdocs:restored:<id>:g<n>); dead transitions tombstone exported source files and the donor mirror directory; per-file source checkpoints recorded for every live non-PDF/non-folder change (writeDocTombstones gains optional mailbox arg; recordSourceLaneLiveChanges added). Coordinator: writeDocTombstones skips tombstone + export retirement when the removal is access loss in one mailbox while another roster mailbox still sees the file (per-mailbox visibility, migration 9102).",
+      "tests": [
+        "tests/mirror/gdocs-discovery.test.ts, gdocs-edit-freshness.test.ts (unchanged, pass) + lifecycle.test.ts",
+        "tests/source-lane/providers/google-docs/lifecycle.test.ts",
+        "tests/source-lane/providers/google-docs/visibility.test.ts"
+      ]
+    },
+    {
+      "path": "src/queue/dispatch.ts",
+      "sha256": "50f25920dc880102d48ed08d17bd48330752c7a6bc00ec83f25c748815bd2ec5",
+      "status": "patched",
+      "owner": "coordinator",
+      "donorPath": "src/queue/dispatch.ts",
+      "donorSha256": "3efb36af346a94abf50a50e44472ab50583eef8379193e2cb15befd9f3548bd0",
+      "reason": "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync.",
+      "tests": [
+        "tests/source-lane/core/shared-patches.test.ts"
+      ]
+    },
+    {
+      "path": "src/queue/queue.ts",
+      "sha256": "9b592a91ad06ac4524c71c5bdd1293ea28cde3ae310ecc0589038629a64d9d2b",
+      "status": "verbatim",
+      "donorPath": "src/queue/queue.ts",
+      "donorSha256": "9b592a91ad06ac4524c71c5bdd1293ea28cde3ae310ecc0589038629a64d9d2b"
+    },
+    {
+      "path": "src/queue/sweeper.ts",
+      "sha256": "fa38c396c73d200a281de09793b8a97897591d6b87b2db2f1fc53786ea57076a",
+      "status": "verbatim",
+      "donorPath": "src/queue/sweeper.ts",
+      "donorSha256": "fa38c396c73d200a281de09793b8a97897591d6b87b2db2f1fc53786ea57076a"
+    },
+    {
+      "path": "src/routes/callback-page.ts",
+      "sha256": "2462ccf6eae7719e46fefe60a6727fc37dde1c3edd861bdb90144c8f3815c5c0",
+      "status": "verbatim",
+      "donorPath": "src/routes/callback-page.ts",
+      "donorSha256": "2462ccf6eae7719e46fefe60a6727fc37dde1c3edd861bdb90144c8f3815c5c0"
+    },
+    {
+      "path": "src/routes/google-callback.ts",
+      "sha256": "09c04ecd9ff28eab138dbddd8ca7b7f0bd29857281236c54f5d3f5446333b1e1",
+      "status": "verbatim",
+      "donorPath": "src/routes/google-callback.ts",
+      "donorSha256": "09c04ecd9ff28eab138dbddd8ca7b7f0bd29857281236c54f5d3f5446333b1e1"
+    },
+    {
+      "path": "src/routes/granola-callback.ts",
+      "sha256": "d58d1d27b0c7cfd4c58ea82008523a2d4ddbd9846d05f5294f7e6734fe51493d",
+      "status": "verbatim",
+      "donorPath": "src/routes/granola-callback.ts",
+      "donorSha256": "d58d1d27b0c7cfd4c58ea82008523a2d4ddbd9846d05f5294f7e6734fe51493d"
+    },
+    {
+      "path": "src/routes/nango-webhook.ts",
+      "sha256": "7b42cf345702395bdd64b8dd038dd53f6b5e7eab1c2e33810864b4a4c5cccda2",
+      "status": "verbatim",
+      "donorPath": "src/routes/nango-webhook.ts",
+      "donorSha256": "7b42cf345702395bdd64b8dd038dd53f6b5e7eab1c2e33810864b4a4c5cccda2"
+    },
+    {
+      "path": "src/routes/notion-callback.ts",
+      "sha256": "e07b7765771421bc03f980ed487189a3bb1e986117b9dec47b20c683adc518ce",
+      "status": "verbatim",
+      "donorPath": "src/routes/notion-callback.ts",
+      "donorSha256": "e07b7765771421bc03f980ed487189a3bb1e986117b9dec47b20c683adc518ce"
+    },
+    {
+      "path": "src/routes/slack-callback.ts",
+      "sha256": "06c381c91fa8152fecca86d780b23c6f101b2637354005890e4bc97ab59e2e36",
+      "status": "verbatim",
+      "donorPath": "src/routes/slack-callback.ts",
+      "donorSha256": "06c381c91fa8152fecca86d780b23c6f101b2637354005890e4bc97ab59e2e36"
+    },
+    {
+      "path": "src/source-lane/providers/calendar/coverage.ts",
+      "sha256": "adad7e84b86d81cfbc8dff42c41601102f62369d7bc75271da5030ec12afaf0a",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Truthful calendar coverage from cursors/status (roster, per mailbox, push); complete only for proven current state, history-from-first-capture stated.",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/calendar/export.ts",
+      "sha256": "3b38034e5d84d2bdc8eca1e8bdce8a8285e38bd5f6c55189c485ddff637516af",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Export mappers: per-mailbox current event snapshot (exact jsonb text, cancelled/removed tombstones), append-only revisions with raw diffs, calendar.json; path helpers.",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/calendar/google-lane.ts",
+      "sha256": "92796120202a97ef16a8bcc6daef71b92d8756c9c83ba1b2c948e41058a1148d",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Shared calendar/contacts plumbing: per-account credential via getGoogleApiCredential + fetchGoogleApi, cooldowns keyed by quotaUser, failure classification, persisted backoff, roster (connections + DWD directory), mailbox status, cursor leases, listing membership, raw JSON diff.",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/google/calendar/poller.ts",
+          "use": "directory listing (listWorkspaceUsers), googleJson error/rate-limit handling, stable JSON"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/calendar/index.ts",
+      "sha256": "979083573657351d48b305bf7a9529ac86f7432dbf3cf104fbfdfd61edd1fa3d",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Calendar provider module (owned from the core baseline; id/eventSources/mirrorRoots unchanged): adds extraTables (snapshots, revisions, calendar cursors) and live coverage.",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/calendar/sync.ts",
+      "sha256": "d1439d2899d828a49b1716f4d85f1ce4357017395662962772debdbb50cb4669",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Calendar lane orchestration replacing donor runGoogleCalendarSetup/Delta: resumable checkpointed full sync, sync token after last page, 410 relist keeping snapshots + removal of unlisted events, calendar-list lifecycle removals, per-mailbox/per-calendar error isolation and backoff, leases; event storage stays donor storeCalendarEvent.",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/semantic-helpers.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/google/calendar/poller.ts",
+          "use": "syncCalendarList / syncCalendarEvents control flow, calendarCanSyncEvents, setup limits (now reported instead of thrown)"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/calendar/watches.ts",
+      "sha256": "f9758fa0a79db54baf06924ac822da8b0560a4e05c24ea3d1e761267eb693140",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Push channels: donor create/unsupported semantics plus renewal inside 24h, channels/stop of replaced channels, expiry marking, https-only, stopCalendarWatches for disconnect.",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/google/calendar/poller.ts",
+          "use": "ensureCalendarListWatch / ensureCalendarEventsWatch / createWatch / storeWatchChannel / storeUnsupportedWatchChannel"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/gmail/coverage.ts",
+      "sha256": "13c750fb43fa2449054308763d803ecca4224b259073ee52cd554559fb7e76aa",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Per-mailbox coverage from durable state: complete only for a finished current generation with fresh history and nothing owed; partial/blocked/pending otherwise with reasons and counts.",
+      "tests": [
+        "tests/source-lane/providers/gmail/quota.test.ts",
+        "tests/source-lane/providers/gmail/sync.test.ts",
+        "tests/source-lane/providers/gmail/export.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/gmail/export-map.ts",
+      "sha256": "1445bdaff93c2243b2289d3ba1e9f2330bf2fe4fb9cf1b98b89d7ef85a6fab38",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "ExtraTableExport maps for messages (raw JSON, RFC822, state.json, projection), attachments (binary, chunked), threads and history pages, with explicit Gmail-reason deletes for moved/excluded/deleted paths and sourceVersion ordering by label historyId.",
+      "tests": [
+        "tests/source-lane/providers/gmail/export.test.ts",
+        "tests/source-lane/providers/gmail/real-pg.test.ts (gated)"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/gmail/index.ts",
+      "sha256": "91ef9a23539cb2c8529caea30310a8cfeeca3cdca43d0933e0c7925a002b4471",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Core baseline module (oldSha256 reconstructed from the core-lead baseline text) extended with the gmail extra tables and truthful coverage; id/eventSources/mirrorRoots unchanged so legacy donor rows still export.",
+      "tests": [
+        "tests/source-lane/providers/gmail/export.test.ts",
+        "tests/source-lane/providers/gmail/sync.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/gmail/paths.ts",
+      "sha256": "43c16b38ab8253590b59619928051cdb42b82ffe753b678e5c95fc593a5a42f8",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "sources/gmail/<mailbox>/ layout; projection placement reuses donor gmailMessageSourcePath under the mailbox segment.",
+      "tests": [
+        "tests/source-lane/providers/gmail/export.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "imports gmailMessageSourcePath (inbox/sent/archive placement) and the GMAIL_EXCLUDED_LABELS TRASH/SPAM policy"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/gmail/render.ts",
+      "sha256": "1394fa35f36c1c895d7728d53b5fc6a3be86684c9e374b7cf2c402fa1dd5b54b",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Untruncated message projection and thread view rendered from the stored post-redaction raw payload with the donor parsers (poller.ts) and body normalizer (body.ts); labels kept out of the body per donor label policy.",
+      "tests": [
+        "tests/source-lane/providers/gmail/export.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "renderGmailMessage metadata/attachments/body layout (without the 60,000-character body truncation)"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-auth/README.md",
+      "sha256": "c2023ef425263173f417b844c2ec49fa8b97126bbcf6248b456d482c171b3d30",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "Operator documentation."
+    },
+    {
+      "path": "src/source-lane/providers/google-auth/index.ts",
+      "sha256": "bc718357e4e0eaeacb6e9e4dddf8eb8884091950e87b05414bbadad6355e7130",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "SourceProviderModule: coverage + public/internal routes."
+    },
+    {
+      "path": "src/source-lane/providers/google-auth/routes.ts",
+      "sha256": "368abf44fe9d1f413114e19ffb0cc0a6238e75203dc3d13def85a0788bbde887",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "Internal setup API + public launch/callback routes.",
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "e3348e568e846c8011c3dbe8c422f27f94721d42",
+          "path": "brain/src/routes/google-callback.ts",
+          "use": "no-referrer, sanitized error logging, escaped pages",
+          "note": "not in local clone; behavior taken from google-auth-history.md and the 21feb713 descendant"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-auth/status.ts",
+      "sha256": "7c69af276385f94f6ef929b880c8fb323a6ec50471f0199bff4ed65b075a6bcd",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "Setup status (no secrets) and live-state coverage reports."
+    },
+    {
+      "path": "src/source-lane/providers/google-contacts/coverage.ts",
+      "sha256": "0b68ffd45286d4e14018b4a4beb28eb04f9c2764887bfc6644a59289e1d51d90",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Truthful contacts coverage per mailbox/endpoint (blocked scopes, rate limit, initial listing progress, lag). Coordinator: default GOOGLE_CONTACTS_COVERAGE_MAX_LAG_SECONDS lowered to 45 min (3x the 15-min schedule from patch request 4).",
+      "tests": [
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-contacts/export.ts",
+      "sha256": "64acb8684ca4c15976d5a457383724fff6541dc360a7f8e78cff4fe302ce949c",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Contacts export: current raw payload + readable card per contact, tombstones with deleted/merged_into/removed reasons, append-only revisions with raw diffs.",
+      "tests": [
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-contacts/index.ts",
+      "sha256": "382241e2c51f2df0308ccfca8d867766240f4cc4ca611542ea720e32adb7b757",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "google-contacts provider module (extraTables + coverage); registration via patch request 1.",
+      "tests": [
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-contacts/sync.ts",
+      "sha256": "db937817b916b1cae5fd3a4315b651d9bccedeecce905aa30135962fbf37459d",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Contacts lane: per (tenant, mailbox, endpoint) People API sync tokens, resumable full listings, expired-token relist, deleted/merged/removed/restored states, per-endpoint scopes, donor names table derived via donor functions.",
+      "tests": [
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/google/contacts/sync.ts",
+          "use": "People endpoints/params (listConnections, listOtherContacts), primary display name, workspace roster pattern"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/auth-mode.ts",
+      "sha256": "f9d05c6815b5f55266e4ac102abdfadc342383892001cfa9bc112ee0550002f3",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/changelog-capture.ts",
+      "sha256": "66a449399449d4cc28a8fc0b9c47f596f52b69ed8bf6a3fe9de2ec4c8344229a",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/checkpoints.ts",
+      "sha256": "c85345322171bce130ca0e3c055e60035734696716142c43eaba0682ea4f7b85",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/coverage.ts",
+      "sha256": "ae742801f80ad8b0fe572aaa9ae97e93aa9306341e66ad1f148d8c6d5c823f0c",
+      "status": "new",
+      "owner": "google-docs, coordinator",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: drive-inventory coverage is computed from the full Drive listing per roster mailbox (complete only after a gap-free listing of every mailbox) instead of a static partial.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/coverage-and-jobs.test.ts",
+        "tests/source-lane/providers/google-docs/inventory.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/doc-export.ts",
+      "sha256": "eef0a473c35710f128de31256624421a7729367d4d94f3b826c528966a16f950",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/drive-export.ts",
+      "sha256": "72999b7f9f36cd62e98efa28b5a0eb7c36622d94fee3a5a256b8ff1bc461d6fb",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/export-map.ts",
+      "sha256": "92c8bb7eb7a1e070b56ed91371fa6d0ddad1c6e3750e14e855e5960da8bccd59",
+      "status": "new",
+      "owner": "google-docs, coordinator",
+      "reason": "google-docs extraTables mapping; coordinator completed patch request 3 (chunk passthrough: multi-chunk versions are exported as their stored chunk list, loaded chunk by chunk).",
+      "tests": [
+        "tests/source-lane/providers/google-docs/export-chunks.test.ts",
+        "tests/source-lane/core/publish-client.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/google-fetch.ts",
+      "sha256": "194a471286dcf574dd46a90ed2a3889168ce8f32a252e23ec12fc494f3d57bac",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/history-export.ts",
+      "sha256": "5c4c22e298aae01a436a1b9ed81b7a425e5cc3a7efb58f620f91e9ace27df02f",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/index.ts",
+      "sha256": "1b40a6afcd8c7f552e58817c5e9e4ee4f43a5520aa75f1e778fb5d3c31499718",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/inventory.ts",
+      "sha256": "0e239c7803e0230e952be03031b3a51f6df16e8d1e4f5bdb611cb458395855be",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Resumable full Drive inventory per mailbox: corpora=user then every shared drive (corpora=drive), page token persisted per page, Retry-After/backoff, credential blocks per mailbox, gaps (incompleteSearch, unlistable drive) reported partial; files flow through donor recordSourceLaneLiveChanges / enqueueContentSnapshotsForDocs / processDrivePdfChanges.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/inventory.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/lifecycle.ts",
+      "sha256": "b5e8bbb9f73a2ded6130df7b169e25f0539bebca6bd647d7cc291736fa125dec",
+      "status": "new",
+      "owner": "google-docs, coordinator",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: per-mailbox visibility (setFileVisibility/otherVisibleMailbox); removed-in-one-mailbox re-points the checkpoint instead of retiring.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/visibility.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/paths.ts",
+      "sha256": "60376532d25032516975bc4d8f789d845ff2f83a396fb716465431f175d5bdf4",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/sessions.ts",
+      "sha256": "0d18c65aadf445d5ab6fb3b87ecace2fd7e25e6b855a4fb1be22a50b67a53a3f",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/snapshot-diff.ts",
+      "sha256": "6d99244d4b05aeaf009f4c4ca65e78886f0631a3adffcd117e4138396ac003d4",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/store.ts",
+      "sha256": "864b250d0815e3da76c39ffd211d9e867024c0bebdf16ae272e2f0c29533dd81",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/sweep.ts",
+      "sha256": "877f3c3609a5ae6d4cce3486c24188835f35f0323983acf15ce19c935614dd95",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/README.md",
+      "sha256": "cf6e38fe4f2918c010dfdf7d992850f1e481aefe769c5957c283744eb6f11d64",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Provider documentation: wire, auth/revocation, storage, layout, setup, coverage, limitations."
+    },
+    {
+      "path": "src/source-lane/providers/imessage/authority.ts",
+      "sha256": "44d6301577a76908333e5c5f643e6c6c5a3d209f23a98441e23f57c41b118d01",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Per-request yc_msaw device-key authority (GET /v1/sources/devices/imessage/verify at the tenant binding publish URL); fail closed (503) when unavailable.",
+      "tests": [
+        "tests/source-lane/providers/imessage/authority.test.ts",
+        "tests/source-lane/providers/imessage/auth-revocation.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/commands.ts",
+      "sha256": "5383ae1f843a5dc5297de4d1c11748079993c3e0f3dc29ca413003c33024e181",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Durable per-device command queue (request/supersede, oldest-first poll, ack-once) and source_sync_runs completion from validated receipts.",
+      "tests": [
+        "tests/source-lane/providers/imessage/commands-coverage.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/routes/imessage-ingest.ts",
+          "use": "donor single command in token metadata; GET /command, POST /command/ack shapes"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "packages/shepherd-onboard/bin/shepherd-onboard.js",
+          "use": "Mac command handling and messagesSourceSyncReceipt shape"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/contacts.ts",
+      "sha256": "b3f79aa9f918a5c7b97d975ed1948a863b0a80e1264e19fbc53ad3d971296e92",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "POST /sync-contacts persisted per tenant (normalized handle + variants) and applied by the renderer; POST /local-status on the device row.",
+      "tests": [
+        "tests/source-lane/providers/imessage/history-projection.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/imessage/contact-sync.ts",
+          "use": "handle matching via imessageHandleVariants; graph renames not ported"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/coverage.ts",
+      "sha256": "fd34e17c73ab566db895bbef8f8c9d9f7ae5e17a015fcc53f6a44645e888db1d",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Truthful coverage: complete only with a validated all-history receipt and idle device; attachments always partial (metadata only).",
+      "tests": [
+        "tests/source-lane/providers/imessage/commands-coverage.test.ts",
+        "tests/source-lane/providers/imessage/auth-revocation.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/device-auth.ts",
+      "sha256": "4865c146ccd2c149c1a67dece74fd178860f9d6c9d44a4c838d5af7096619005",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "gimsg_<tenant>.<binding>.<secret> device key family derived from the yc_msaw psb_ device binding token; constant-time sha256 match.",
+      "tests": [
+        "tests/source-lane/providers/imessage/auth-revocation.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "packages/shepherd-onboard/bin/shepherd-onboard.js",
+          "use": "uploader sends agentToken as x-api-key; only requires a non-empty string (requiredConfigString)"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/integrations/imessage/auth.ts",
+          "use": "donor gimsg_ family; global admin key + client userId override deliberately NOT ported"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/devices.ts",
+      "sha256": "6cc4a683bb6640b460c7a18485d40de3eebe92210263f37e8ede3abe697da302",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "imessage_devices enrolment (hash only), revocation (cancels commands, fails runs), check-1 authentication, last-seen metadata.",
+      "tests": [
+        "tests/source-lane/providers/imessage/auth-revocation.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/setup/imessage-auth.ts",
+          "use": "token issuance flow, replaced by yc_msaw setup + hash enrolment"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/export.ts",
+      "sha256": "5472154e470c9ba77df2bbf8fae8c51f9d6e2b00bd15d40aed9c6e9c89a3851c",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Raw/mutation/rejection export mappers for the core exporter; donor month layout not exported.",
+      "tests": [
+        "tests/source-lane/providers/imessage/export.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/index.ts",
+      "sha256": "c235bb9c3a393d8356b735dbca14d25b5779ceb0e17465e5dae4e35fc6370da4",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "SourceProviderModule for imessage.",
+      "tests": [
+        "tests/source-lane/providers/imessage/auth-revocation.test.ts",
+        "tests/source-lane/providers/imessage/authority.test.ts",
+        "tests/source-lane/providers/imessage/ingest-identity.test.ts",
+        "tests/source-lane/providers/imessage/history-projection.test.ts",
+        "tests/source-lane/providers/imessage/commands-coverage.test.ts",
+        "tests/source-lane/providers/imessage/export.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/ingest.ts",
+      "sha256": "166c8e31bc32210f6fcd149c4324f3f8ec8f9cf46e2317c03b3a9dfa1624d1f3",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Port of the donor POST /api/imessage/ingest receiver: payload shape, event types, canonical/legacy/GUID identity, aliases, duplicate archiving, watermarks, sync progress; adapted to one transaction per batch under a tenant lock, device-scoped local-row ids, stale-observation guard, normalized first-observation payload (replay = skipped), no fake edit on unsend, mutation and rejection ledgers, projection dirty marks; tenant from the key, body userId ignored.",
+      "tests": [
+        "tests/source-lane/providers/imessage/ingest-identity.test.ts",
+        "tests/source-lane/providers/imessage/history-projection.test.ts",
+        "tests/source-lane/providers/imessage/donor-parity.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/routes/imessage-ingest.ts",
+          "use": "receiver logic ported"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/db/schema.ts",
+          "use": "activity_event_source_aliases, conversation_watermarks"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/projector.ts",
+      "sha256": "0cdaad50df7d596ce54c5e177ec97184d135f3f854a077227b125e28b178f2f3",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Renders dirty (conversation, month) projections into mirror_files under the tenant lock; moves/deletes stale paths; collected -> mirrored lifecycle.",
+      "tests": [
+        "tests/source-lane/providers/imessage/history-projection.test.ts",
+        "tests/source-lane/providers/imessage/export.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "upsertSourceWikiFile content/meta sha semantics"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/receipts.ts",
+      "sha256": "436befcc1689ada77ed890b0ebe731f488848245a506bfa6ed23f9df5bdd0f22",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Donor local source-sync receipt validation/sanitizing and localMessagesSyncStatus (provider fixed to imessage).",
+      "tests": [
+        "tests/source-lane/providers/imessage/commands-coverage.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/jobs/local-source-sync-receipts.ts",
+          "use": "receipt validator ported"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/routes/imessage-ingest.ts",
+          "use": "localMessagesSyncStatus, receipt result helpers"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/render.ts",
+      "sha256": "15811c8e585222bb1d486a7441e14032170606377631d78e1c736e9afee740e4",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Pure projection renderer: reactions resolved to targets with current reactions, unsends with pre-unsend text, edit history, attachments metadata-only, membership/rename/reply/effect lines.",
+      "tests": [
+        "tests/source-lane/providers/imessage/history-projection.test.ts",
+        "tests/source-lane/providers/imessage/donor-parity.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/mirror/materializer.ts",
+          "use": "month-file layout and titledEntityDirectory naming; donor reaction/unsend rendering bugs not reproduced"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/routes.ts",
+      "sha256": "d9d2435c69d2ed24ab2b88a4c28a95ec9756c7bf5a99770360125b1c75fd4c75",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Internal admin routes and the five donor wire endpoints on the runtime public host (device row + yc_msaw authority).",
+      "tests": [
+        "tests/source-lane/providers/imessage/auth-revocation.test.ts",
+        "tests/source-lane/providers/imessage/authority.test.ts",
+        "tests/source-lane/providers/imessage/ingest-identity.test.ts",
+        "tests/source-lane/providers/imessage/history-projection.test.ts",
+        "tests/source-lane/providers/imessage/commands-coverage.test.ts",
+        "tests/source-lane/providers/imessage/export.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/routes/imessage-ingest.ts",
+          "use": "route paths, {error} shapes, 10000 batch cap"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/imessage/util.ts",
+      "sha256": "7fcae1f3cabe5cc5f8b0b0325e268f8c45ef146202ce337992e50868e389f771",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Shared helpers (donor stableJson/sanitizeForJsonb extended to keys and lone surrogates; tenant advisory lock).",
+      "tests": [
+        "tests/source-lane/providers/imessage/ingest-identity.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/src/routes/imessage-ingest.ts",
+          "use": "stableJson, sanitizeForJsonb"
+        }
+      ]
+    },
+    {
+      "path": "src/vault/credential-failure.ts",
+      "sha256": "cb67db63ebd776973c8444004380d00d2a0b1ac6c92d5c8daf6bcb601295a473",
+      "status": "verbatim",
+      "donorPath": "src/vault/credential-failure.ts",
+      "donorSha256": "cb67db63ebd776973c8444004380d00d2a0b1ac6c92d5c8daf6bcb601295a473"
+    },
+    {
+      "path": "src/vault/encryption.ts",
+      "sha256": "f488e279b00a94c05292d973a0d98551f88656c0952ef496e5d6bcb65448d77a",
+      "status": "verbatim",
+      "donorPath": "src/vault/encryption.ts",
+      "donorSha256": "f488e279b00a94c05292d973a0d98551f88656c0952ef496e5d6bcb65448d77a"
+    },
+    {
+      "path": "src/vault/google-auth.ts",
+      "sha256": "034712a9651a68af5457eec51b439c82890c46df48c591785a4a264487405e45",
+      "status": "patched",
+      "owner": "google-auth",
+      "donorPath": "src/vault/google-auth.ts",
+      "donorSha256": "84487958f7f205a3415d397ff4f17c6a6bfbed683e81b6f4ee0e27962af1097c",
+      "reason": "Restore OAuth/DWD coexistence: explicit per-(tenant,account) mode resolution (OAuth grant row wins, else DWD), getGoogleApiCredential/fetchGoogleApi seam (gigabrain e3348e568), GoogleBearerUnavailableError for Composio, DWD server-owned allowlist checked before the global token cache, removal of the process-global GOOGLE_WORKSPACE_USER_EMAIL fallback, DWD connect refuses OAuth-connected accounts, real buildGoogleOAuthUrl/exchangeGoogleCode (re-exported from google-oauth.ts) replacing throwing stubs, quota attribution by upstream identity. Consumer signatures getGoogleAccessToken(userId, email?, scopes?, options?) and all *_SCOPES constants unchanged.",
+      "tests": [
+        "tests/source-lane/providers/google-auth/dwd.test.ts",
+        "tests/source-lane/providers/google-auth/oauth-direct.test.ts",
+        "tests/source-lane/providers/google-auth/composio.test.ts"
+      ]
+    },
+    {
+      "path": "src/vault/google-composio.ts",
+      "sha256": "c7bf1c7fcc9933e20e8faeb15bbaf002bd645ce960b512df4b8f2dcc2e5ad4d6",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "Optional Composio proxy lane: Connect Link with tenant-scoped user id, server-side connected-account verification, single-use state, proxy fetch with v3 header params / upstream headers / binary_data downloads.",
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "e3348e568e846c8011c3dbe8c422f27f94721d42",
+          "path": "brain/src/lib/google-auth.ts",
+          "use": "createGoogleComposioOAuthLink, pending-account binding, GoogleApiCredential/fetchGoogleApi",
+          "note": "not in local clone; behavior taken from google-auth-history.md and the 21feb713 descendant"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "21feb7132893710b0c734afc12ac043aad760d55",
+          "path": "brain/src/lib/google-auth.ts",
+          "use": "fetchGoogleApi v3 header params, responseHeadersFromComposio, binaryDownloadUrlFromComposio (ported near-verbatim)",
+          "note": "read from AUDIT/history/recovered/gigabrain/21feb713"
+        }
+      ]
+    },
+    {
+      "path": "src/vault/google-dwd-policy.ts",
+      "sha256": "aa4f139608ae4cd346897d9cc74e9d4735f5c1ac01b951dad349e40144f32345",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "Operator-owned per-tenant DWD domain/mailbox allowlist with cross-tenant conflict refusal."
+    },
+    {
+      "path": "src/vault/google-grant-crypto.ts",
+      "sha256": "c1c60513332f4442bbba80b4989ca5b9e141c5fcb2e12a2048d8531b7f9ca748",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "AES-256-GCM with row-bound AAD for Google grants (same primitive as donor vault/encryption.ts, distinct KDF salt).",
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/vault/encryption.ts",
+          "use": "primitive/key derivation pattern"
+        }
+      ]
+    },
+    {
+      "path": "src/vault/google-oauth.ts",
+      "sha256": "2d61dfcb507f85003b140d4d51451a1987bbdbaa7836c4802f7157064c482aaf",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "Direct 3-legged Google OAuth: hashed single-use DB state bound to tenant/principal/expected account, launch browser binding, PKCE S256, OIDC nonce, ID token claim checks, AAD-encrypted grants, FOR UPDATE refresh with re-read + rotation, reauth marking, revoke.",
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "36b11fed9a65c35663a2bd9bb9206deb895bd407",
+          "path": "brain/src/lib/google-auth.ts",
+          "use": "buildGoogleOAuthUrl params, exchangeGoogleCode, refresh rotation + refreshInFlight (logic ported, state storage replaced)",
+          "note": "read via git show from AUDIT/repos/gigabrain (partial clone, blobs fetched read-only)"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "d0e952ccde1ef1373f831d5b7b9d37112b6ab60b",
+          "path": "brain/src/integrations/jira/client.ts",
+          "use": "refresh re-read + reauth marking pattern",
+          "note": "pattern as documented in AUDIT/implementation/google-auth-history.md; source not re-read by this agent"
+        },
+        {
+          "repo": "askshepherd/silicon",
+          "commit": "932336c846deca747113373bfedc4ba4d09c4597",
+          "path": "src/integrations/service.ts",
+          "use": "hashed single-use state pattern",
+          "note": "pattern as documented in AUDIT/implementation/google-auth-history.md; source not re-read by this agent"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "21feb7132893710b0c734afc12ac043aad760d55",
+          "path": "brain/src/lib/google-auth.ts",
+          "use": "GOOGLE_DWD_ONLY_SCOPES / mirrorable scope classification",
+          "note": "read from AUDIT/history/recovered/gigabrain/21feb713"
+        }
+      ]
+    },
+    {
+      "path": "src/vault/google-rate-limit.ts",
+      "sha256": "5d795a26438d5980a96e87bdc7a47c245701842c23f26e54940461878313ec1e",
+      "status": "verbatim",
+      "donorPath": "src/vault/google-rate-limit.ts",
+      "donorSha256": "5d795a26438d5980a96e87bdc7a47c245701842c23f26e54940461878313ec1e"
+    },
+    {
+      "path": "src/vault/index.ts",
+      "sha256": "d77f988536b657b3b98ad0c51dd903e2e7620a7b48c0072a20f400585d99db78",
+      "status": "verbatim",
+      "donorPath": "src/vault/index.ts",
+      "donorSha256": "d77f988536b657b3b98ad0c51dd903e2e7620a7b48c0072a20f400585d99db78"
+    },
+    {
+      "path": "src/vault/object-store.ts",
+      "sha256": "9f9ee5ec64926454fa972ff7bb0a89beaaef390b5e669b39eef9a897a240c4e1",
+      "status": "verbatim",
+      "donorPath": "src/vault/object-store.ts",
+      "donorSha256": "9f9ee5ec64926454fa972ff7bb0a89beaaef390b5e669b39eef9a897a240c4e1"
+    },
+    {
+      "path": "src/vault/redaction.ts",
+      "sha256": "4629ef5d8818135ac79d48ba4209031e3ca13544d241e4c6a7672de3089963eb",
+      "status": "patched",
+      "donorPath": "src/vault/redaction.ts",
+      "donorSha256": "0964fe82c63d2ecf8ec2d4b5de93ce4590ede00cb886ced6d49a6ce91c82dd5b",
+      "owner": "coordinator",
+      "reason": "google-docs patch request 2: Slides image.contentUrl (requester-scoped ~30 min URL, same credential shape as Docs contentUri) is redacted for google-docs payloads by the shared rule.",
+      "test": "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts"
+    },
+    {
+      "path": "src/vault/tokens.ts",
+      "sha256": "cbf077350447d2154b9b4c360886c86b8a2aec439e37d93aa47b945fabb482be",
+      "status": "verbatim",
+      "donorPath": "src/vault/tokens.ts",
+      "donorSha256": "cbf077350447d2154b9b4c360886c86b8a2aec439e37d93aa47b945fabb482be"
+    },
+    {
+      "path": "src/vault/workos.ts",
+      "sha256": "e040c9b6861fd5d9d15c5ddcf124a6c01d6506d796395972e2c02fbffd326965",
+      "status": "verbatim",
+      "donorPath": "src/vault/workos.ts",
+      "donorSha256": "e040c9b6861fd5d9d15c5ddcf124a6c01d6506d796395972e2c02fbffd326965"
+    },
+    {
+      "path": "tests/db/activity-event-source.test.ts",
+      "sha256": "af8d60c734d67fe624e7cec1ee7995a960f8ecc569fffa71c77df863720de4d2",
+      "status": "verbatim",
+      "donorPath": "tests/db/activity-event-source.test.ts",
+      "donorSha256": "af8d60c734d67fe624e7cec1ee7995a960f8ecc569fffa71c77df863720de4d2"
+    },
+    {
+      "path": "tests/db/connections.test.ts",
+      "sha256": "b183983c0edc37c26fa81e6ebcb058343c5eb0d142dd4307d2fb633d7ff2e844",
+      "status": "verbatim",
+      "donorPath": "tests/db/connections.test.ts",
+      "donorSha256": "b183983c0edc37c26fa81e6ebcb058343c5eb0d142dd4307d2fb633d7ff2e844"
+    },
+    {
+      "path": "tests/db/source-record-contract.test.ts",
+      "sha256": "dbac39185868331bcf4b6473604de283c05eab2c4d7169f03fb8e4ec0b912a68",
+      "status": "verbatim",
+      "donorPath": "tests/db/source-record-contract.test.ts",
+      "donorSha256": "dbac39185868331bcf4b6473604de283c05eab2c4d7169f03fb8e4ec0b912a68"
+    },
+    {
+      "path": "tests/db/source-sync-runs.test.ts",
+      "sha256": "0a1967696ad49fe1e484ec464ed9efed617e0bce9b49feed20867a2a0e1337c8",
+      "status": "verbatim",
+      "donorPath": "tests/db/source-sync-runs.test.ts",
+      "donorSha256": "0a1967696ad49fe1e484ec464ed9efed617e0bce9b49feed20867a2a0e1337c8"
+    },
+    {
+      "path": "tests/integrations/atlassian/adf.test.ts",
+      "sha256": "fe1bfa266ebb49a40396db3d32a786585f29368027edd94d8d88bbde0fda8195",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/atlassian/adf.test.ts",
+      "donorSha256": "fe1bfa266ebb49a40396db3d32a786585f29368027edd94d8d88bbde0fda8195"
+    },
+    {
+      "path": "tests/integrations/atlassian/processors.test.ts",
+      "sha256": "ba4a3cec12d3a4d619f8bbf794ad354bdc0fa9a38386e699d4d432de9be243fe",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/atlassian/processors.test.ts",
+      "donorSha256": "ba4a3cec12d3a4d619f8bbf794ad354bdc0fa9a38386e699d4d432de9be243fe"
+    },
+    {
+      "path": "tests/integrations/atlassian/storage-format.test.ts",
+      "sha256": "491a737f15817031cc2699f7ac5e9116b835244676b6df3516817267be030210",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/atlassian/storage-format.test.ts",
+      "donorSha256": "491a737f15817031cc2699f7ac5e9116b835244676b6df3516817267be030210"
+    },
+    {
+      "path": "tests/integrations/binary/intake.test.ts",
+      "sha256": "53878af74ec45d7dc93fcda2c8f55bf0813c71f4da2990d00484c4e67914f699",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/binary/intake.test.ts",
+      "donorSha256": "53878af74ec45d7dc93fcda2c8f55bf0813c71f4da2990d00484c4e67914f699"
+    },
+    {
+      "path": "tests/integrations/bitbucket/processors.test.ts",
+      "sha256": "05d1fadbcd08f7295b4f8bf7925182a227ac7b495594e13224388583265dcbb2",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/bitbucket/processors.test.ts",
+      "donorSha256": "05d1fadbcd08f7295b4f8bf7925182a227ac7b495594e13224388583265dcbb2"
+    },
+    {
+      "path": "tests/integrations/github/processors.test.ts",
+      "sha256": "cdb8ee4df32f2f37ae19500360b2833529b22c49eaddedb18decc2d7caaf270f",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/github/processors.test.ts",
+      "donorSha256": "cdb8ee4df32f2f37ae19500360b2833529b22c49eaddedb18decc2d7caaf270f"
+    },
+    {
+      "path": "tests/integrations/github/repo-sync.test.ts",
+      "sha256": "09cc43b19918faf6947b5851803fa2120ea85f6671e5c8fb8a551335ee64d624",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/github/repo-sync.test.ts",
+      "donorSha256": "09cc43b19918faf6947b5851803fa2120ea85f6671e5c8fb8a551335ee64d624"
+    },
+    {
+      "path": "tests/integrations/gmail/poller.test.ts",
+      "sha256": "4e5bea7e1d49da438160237cc55d0ee9784e6597d7ccee5b47d206106aca9e95",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/gmail/poller.test.ts",
+      "donorSha256": "4e5bea7e1d49da438160237cc55d0ee9784e6597d7ccee5b47d206106aca9e95"
+    },
+    {
+      "path": "tests/integrations/google/calendar-webhook.test.ts",
+      "sha256": "04936c69b0c2b34945a756482ac05b027cdb38d1ce702cd59daba5c70d0bdfcd",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/google/calendar-webhook.test.ts",
+      "donorSha256": "04936c69b0c2b34945a756482ac05b027cdb38d1ce702cd59daba5c70d0bdfcd"
+    },
+    {
+      "path": "tests/integrations/google/calendar/directory-cache.test.ts",
+      "sha256": "5dacb59a8acf7c7a3586976f1b1572774449faf2488d895b3cbb9a26c6f67d4e",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/google/calendar/directory-cache.test.ts",
+      "donorSha256": "5dacb59a8acf7c7a3586976f1b1572774449faf2488d895b3cbb9a26c6f67d4e"
+    },
+    {
+      "path": "tests/integrations/google/calendar/poller.test.ts",
+      "sha256": "615ca95dd21fbaa856eb63f7b5028efc3bfbc501246d0fe55c5b6d1d39ec2d32",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/google/calendar/poller.test.ts",
+      "donorSha256": "615ca95dd21fbaa856eb63f7b5028efc3bfbc501246d0fe55c5b6d1d39ec2d32"
+    },
+    {
+      "path": "tests/integrations/google/connect.test.ts",
+      "sha256": "0f6eaf5799f3e2ea602df5a9747c2013cb3af2fc6454e6ffd60984b8606e9793",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/google/connect.test.ts",
+      "donorSha256": "0f6eaf5799f3e2ea602df5a9747c2013cb3af2fc6454e6ffd60984b8606e9793"
+    },
+    {
+      "path": "tests/integrations/google/contacts/sync.test.ts",
+      "sha256": "3d2d3a3e3cf356184cd77d5da3ae8b9528d0972d066f4c6f77da436713cf3c65",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/google/contacts/sync.test.ts",
+      "donorSha256": "3d2d3a3e3cf356184cd77d5da3ae8b9528d0972d066f4c6f77da436713cf3c65"
+    },
+    {
+      "path": "tests/integrations/granola/connect.test.ts",
+      "sha256": "d2a73821df5c7c68cf5d53e7dcd6953fcd46a2e563795687ae801095f93ae1dc",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/granola/connect.test.ts",
+      "donorSha256": "d2a73821df5c7c68cf5d53e7dcd6953fcd46a2e563795687ae801095f93ae1dc"
+    },
+    {
+      "path": "tests/integrations/granola/deletion.test.ts",
+      "sha256": "840016baddcfe3b1f800b6c2052789737668ffc0bc9d6d2aa0d14a8b99ae2ff8",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/granola/deletion.test.ts",
+      "donorSha256": "840016baddcfe3b1f800b6c2052789737668ffc0bc9d6d2aa0d14a8b99ae2ff8"
+    },
+    {
+      "path": "tests/integrations/granola/mcp-client.test.ts",
+      "sha256": "53c654c886d14005ae04d5dc529e7a86a6fd3257bcd1eccddc4d1538e601c1d5",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/granola/mcp-client.test.ts",
+      "donorSha256": "53c654c886d14005ae04d5dc529e7a86a6fd3257bcd1eccddc4d1538e601c1d5"
+    },
+    {
+      "path": "tests/integrations/granola/poller.test.ts",
+      "sha256": "0c73bd3b4d3b7d2a003cc633aa8c583a93ab6b681ec17ecf8adf377681b5c6d6",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/granola/poller.test.ts",
+      "donorSha256": "0c73bd3b4d3b7d2a003cc633aa8c583a93ab6b681ec17ecf8adf377681b5c6d6"
+    },
+    {
+      "path": "tests/integrations/granola/tasks.test.ts",
+      "sha256": "5af5a4de3785c71ab12e052a4b0cf75bd19ba8f2f23f38df6fc85307e10d2e2c",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/granola/tasks.test.ts",
+      "donorSha256": "5af5a4de3785c71ab12e052a4b0cf75bd19ba8f2f23f38df6fc85307e10d2e2c"
+    },
+    {
+      "path": "tests/integrations/nango/capture.test.ts",
+      "sha256": "f892ad7414f03cf58b61b3df1cceb6ff2805b66bb5517cb9de3da925795a56bd",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/nango/capture.test.ts",
+      "donorSha256": "f892ad7414f03cf58b61b3df1cceb6ff2805b66bb5517cb9de3da925795a56bd"
+    },
+    {
+      "path": "tests/integrations/nango/client.test.ts",
+      "sha256": "a39aa957b1c200c06926f8175398a0a4952696ae07c4083cc37dcdd8e6177d37",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/nango/client.test.ts",
+      "donorSha256": "a39aa957b1c200c06926f8175398a0a4952696ae07c4083cc37dcdd8e6177d37"
+    },
+    {
+      "path": "tests/integrations/nango/floor.test.ts",
+      "sha256": "00bf277cb81a158d57009f506aabf493de65519ba1958ec60baf0c304edb750d",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/nango/floor.test.ts",
+      "donorSha256": "00bf277cb81a158d57009f506aabf493de65519ba1958ec60baf0c304edb750d"
+    },
+    {
+      "path": "tests/integrations/nango/proxy-details.test.ts",
+      "sha256": "cdd7032f8214809609d84b98cce2542e08aed7bfeaad6c00b8a0fa75f473bc25",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/nango/proxy-details.test.ts",
+      "donorSha256": "cdd7032f8214809609d84b98cce2542e08aed7bfeaad6c00b8a0fa75f473bc25"
+    },
+    {
+      "path": "tests/integrations/nango/proxy-issues.test.ts",
+      "sha256": "9e391967bbd464748c9b07b5287a39d4a075b0c9a65ad16085d7a05e9e0c3b48",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/nango/proxy-issues.test.ts",
+      "donorSha256": "9e391967bbd464748c9b07b5287a39d4a075b0c9a65ad16085d7a05e9e0c3b48"
+    },
+    {
+      "path": "tests/integrations/nango/reconcile.test.ts",
+      "sha256": "09e683f4e571269c5b2a228fc6875d03b8a5ca4baf0eeeef6e16aaece8829c30",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/nango/reconcile.test.ts",
+      "donorSha256": "09e683f4e571269c5b2a228fc6875d03b8a5ca4baf0eeeef6e16aaece8829c30"
+    },
+    {
+      "path": "tests/integrations/nango/tasks.test.ts",
+      "sha256": "3f923ebb9a008c556d7982b515e40dabafbd95a7e41520b334b3eaf7b3b8e156",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/nango/tasks.test.ts",
+      "donorSha256": "3f923ebb9a008c556d7982b515e40dabafbd95a7e41520b334b3eaf7b3b8e156"
+    },
+    {
+      "path": "tests/integrations/nango/webhook.test.ts",
+      "sha256": "35c9aa283c8cf2e0f51636332bc0aa5369c8cc5ff3e035a3a964eb6c7d6b676f",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/nango/webhook.test.ts",
+      "donorSha256": "35c9aa283c8cf2e0f51636332bc0aa5369c8cc5ff3e035a3a964eb6c7d6b676f"
+    },
+    {
+      "path": "tests/integrations/notion/connect.test.ts",
+      "sha256": "f74f42dd55c028012c5b69a44baf97b1ef2ff8cd67e18a05b1a5b208da9fd376",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/notion/connect.test.ts",
+      "donorSha256": "f74f42dd55c028012c5b69a44baf97b1ef2ff8cd67e18a05b1a5b208da9fd376"
+    },
+    {
+      "path": "tests/integrations/notion/native-persist.test.ts",
+      "sha256": "ae0b3abb22ae3bdbe294c6ebab363a5c0f8a26d71315083a4db508f5b4467b6b",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/notion/native-persist.test.ts",
+      "donorSha256": "ae0b3abb22ae3bdbe294c6ebab363a5c0f8a26d71315083a4db508f5b4467b6b"
+    },
+    {
+      "path": "tests/integrations/notion/pacing.test.ts",
+      "sha256": "e66dc6132c637640880ba557dd5b16ebf5025411a3acc7d96269340654062ff2",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/notion/pacing.test.ts",
+      "donorSha256": "e66dc6132c637640880ba557dd5b16ebf5025411a3acc7d96269340654062ff2"
+    },
+    {
+      "path": "tests/integrations/notion/poller-trash-tombstone.test.ts",
+      "sha256": "3bd38ba4b800699e2718fa962e4c174c1c4ccd868e99f0cc3abc09bf3e78c1dd",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/notion/poller-trash-tombstone.test.ts",
+      "donorSha256": "3bd38ba4b800699e2718fa962e4c174c1c4ccd868e99f0cc3abc09bf3e78c1dd"
+    },
+    {
+      "path": "tests/integrations/notion/poller-update-event.test.ts",
+      "sha256": "7bb459f93ee18c75aff9eae0586a8994bf1128bc35113eea7cc8e3ab5995c785",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/notion/poller-update-event.test.ts",
+      "donorSha256": "7bb459f93ee18c75aff9eae0586a8994bf1128bc35113eea7cc8e3ab5995c785"
+    },
+    {
+      "path": "tests/integrations/notion/reconcile.test.ts",
+      "sha256": "66bc7c861b07ed0e27ac73c0a7cd173ef59991dbfa6328d54a62827a49707004",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/notion/reconcile.test.ts",
+      "donorSha256": "66bc7c861b07ed0e27ac73c0a7cd173ef59991dbfa6328d54a62827a49707004"
+    },
+    {
+      "path": "tests/integrations/notion/render.test.ts",
+      "sha256": "f09e22b84fb1c42993e0a4cdd98019327cf20b5beede570c913f3a1fd69dcd4f",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/notion/render.test.ts",
+      "donorSha256": "f09e22b84fb1c42993e0a4cdd98019327cf20b5beede570c913f3a1fd69dcd4f"
+    },
+    {
+      "path": "tests/integrations/notion/tasks.test.ts",
+      "sha256": "3b5a6e9d2023aff4ecc623f32ceced7175669b56c45d7f594d1a60b0c05b795f",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/notion/tasks.test.ts",
+      "donorSha256": "3b5a6e9d2023aff4ecc623f32ceced7175669b56c45d7f594d1a60b0c05b795f"
+    },
+    {
+      "path": "tests/integrations/notion/tombstone.test.ts",
+      "sha256": "1a277ef8482d696fb384c8386e01a9ce9fa7e7899160506dc6eb3017297b6837",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/notion/tombstone.test.ts",
+      "donorSha256": "1a277ef8482d696fb384c8386e01a9ce9fa7e7899160506dc6eb3017297b6837"
+    },
+    {
+      "path": "tests/integrations/notion/webhook.test.ts",
+      "sha256": "de5ce2e79d575aa6dc62e66c27c65edbed71445c2258de86aa08707809a6dbd3",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/notion/webhook.test.ts",
+      "donorSha256": "de5ce2e79d575aa6dc62e66c27c65edbed71445c2258de86aa08707809a6dbd3"
+    },
+    {
+      "path": "tests/integrations/slack/config.test.ts",
+      "sha256": "f5de19519a935b22bd5a5538a6f88d3c426bb82e3f0cac191e2d7103910ebed1",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/slack/config.test.ts",
+      "donorSha256": "f5de19519a935b22bd5a5538a6f88d3c426bb82e3f0cac191e2d7103910ebed1"
+    },
+    {
+      "path": "tests/integrations/slack/connect.test.ts",
+      "sha256": "ca98aea07cdc771872a882dbd931ef8222c5fbc12a05b911b477226d068e27ef",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/slack/connect.test.ts",
+      "donorSha256": "ca98aea07cdc771872a882dbd931ef8222c5fbc12a05b911b477226d068e27ef"
+    },
+    {
+      "path": "tests/integrations/slack/files.test.ts",
+      "sha256": "1efff87e45f69230d97557bcdfa8d7a2af2b71b117fb99e58fdf20447b49ec9c",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/slack/files.test.ts",
+      "donorSha256": "1efff87e45f69230d97557bcdfa8d7a2af2b71b117fb99e58fdf20447b49ec9c"
+    },
+    {
+      "path": "tests/integrations/slack/jobs.test.ts",
+      "sha256": "06decb949c587acabdf8539dacd7768c8a822a3586777e54dc81c85df9a3c06d",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/slack/jobs.test.ts",
+      "donorSha256": "06decb949c587acabdf8539dacd7768c8a822a3586777e54dc81c85df9a3c06d"
+    },
+    {
+      "path": "tests/integrations/slack/poller-backfill.test.ts",
+      "sha256": "c590060e6452de2c5e960fceb557cf69901d64678392aecb94348a0fb1e88866",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/slack/poller-backfill.test.ts",
+      "donorSha256": "c590060e6452de2c5e960fceb557cf69901d64678392aecb94348a0fb1e88866"
+    },
+    {
+      "path": "tests/integrations/slack/poller.test.ts",
+      "sha256": "ed42b17c5c879367cc589442ea255c13a4f13f51d9e873ece0211121b6b40565",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/slack/poller.test.ts",
+      "donorSha256": "ed42b17c5c879367cc589442ea255c13a4f13f51d9e873ece0211121b6b40565"
+    },
+    {
+      "path": "tests/integrations/slack/rate-limit.test.ts",
+      "sha256": "0c5b4e307b7ebf42c4b7a64249f3d5337f3390da9bba947d2edbe1c7f0ee71c0",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/slack/rate-limit.test.ts",
+      "donorSha256": "0c5b4e307b7ebf42c4b7a64249f3d5337f3390da9bba947d2edbe1c7f0ee71c0"
+    },
+    {
+      "path": "tests/integrations/slack/realtime.test.ts",
+      "sha256": "291efad2a7e4dbd60e4bdecb7abf942b85701e1368b9296189ce1b750962bb21",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/slack/realtime.test.ts",
+      "donorSha256": "291efad2a7e4dbd60e4bdecb7abf942b85701e1368b9296189ce1b750962bb21"
+    },
+    {
+      "path": "tests/integrations/slack/windows.test.ts",
+      "sha256": "b632943f9fc95d7470e53b9242dfd53fa2c76e3155fe2c81049dac8d1cf16f41",
+      "status": "verbatim",
+      "donorPath": "tests/integrations/slack/windows.test.ts",
+      "donorSha256": "b632943f9fc95d7470e53b9242dfd53fa2c76e3155fe2c81049dac8d1cf16f41"
+    },
+    {
+      "path": "tests/mirror/backfill.test.ts",
+      "sha256": "f4d2fb553cfb332192996f8570771d8cce3cfc2351c3db2852caad8747b8c567",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/backfill.test.ts",
+      "donorSha256": "f4d2fb553cfb332192996f8570771d8cce3cfc2351c3db2852caad8747b8c567"
+    },
+    {
+      "path": "tests/mirror/bitbucket-rendering.test.ts",
+      "sha256": "d99b7f55f3dc603d86364c1b55216adc26f29eb9a31ef443fe834439842a6cf6",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/bitbucket-rendering.test.ts",
+      "donorSha256": "d99b7f55f3dc603d86364c1b55216adc26f29eb9a31ef443fe834439842a6cf6"
+    },
+    {
+      "path": "tests/mirror/calcom.test.ts",
+      "sha256": "b9e417c6c0a5c79b835362878bdb63d7d4101442bff17711e5fc034493d2a9e5",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/calcom.test.ts",
+      "donorSha256": "b9e417c6c0a5c79b835362878bdb63d7d4101442bff17711e5fc034493d2a9e5"
+    },
+    {
+      "path": "tests/mirror/confluence-comments.test.ts",
+      "sha256": "0812cac36403a07bc588c01e10eaf0c0bde541ee11fa6e012bafbfa57565e452",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/confluence-comments.test.ts",
+      "donorSha256": "0812cac36403a07bc588c01e10eaf0c0bde541ee11fa6e012bafbfa57565e452"
+    },
+    {
+      "path": "tests/mirror/envelope.test.ts",
+      "sha256": "a1e9241a513447489b8a2ed1e3fb83063ece43171bc5387d42947bd98a30decb",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/envelope.test.ts",
+      "donorSha256": "a1e9241a513447489b8a2ed1e3fb83063ece43171bc5387d42947bd98a30decb"
+    },
+    {
+      "path": "tests/mirror/gdocs-activity-dedupe.test.ts",
+      "sha256": "6919caf567bf984e797e3271d695339b3bdf03e6bbe849a485cdfcf442059eef",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/gdocs-activity-dedupe.test.ts",
+      "donorSha256": "6919caf567bf984e797e3271d695339b3bdf03e6bbe849a485cdfcf442059eef"
+    },
+    {
+      "path": "tests/mirror/gdocs-behavior-detector.test.ts",
+      "sha256": "782a97753910e9b661c1045db52b9b3c021e5762d22d259ad4f8c346a44cc0e4",
+      "status": "patched",
+      "owner": "google-docs",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/tests/gdocs-behavior-detector.test.ts",
+      "donorSha256": "17dc1946b072c70e6ad87b554f1650ebcc1f89ffd9419c62416270bcabb5c9af",
+      "reason": "Ported gigabrain test: import paths ../src -> ../../src only.",
+      "tests": [
+        "tests/mirror/gdocs-behavior-detector.test.ts"
+      ]
+    },
+    {
+      "path": "tests/mirror/gdocs-content-render.test.ts",
+      "sha256": "6b28d00f052ef54487117cc1456fd5a7f3080613e0c5b755a2b6424050005022",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/gdocs-content-render.test.ts",
+      "donorSha256": "6b28d00f052ef54487117cc1456fd5a7f3080613e0c5b755a2b6424050005022"
+    },
+    {
+      "path": "tests/mirror/gdocs-content-snapshot.test.ts",
+      "sha256": "a02d31f8fa504f411b77b2051e08bd9c165a1e986c0186f2a1baef2f577c7165",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/gdocs-content-snapshot.test.ts",
+      "donorSha256": "a02d31f8fa504f411b77b2051e08bd9c165a1e986c0186f2a1baef2f577c7165"
+    },
+    {
+      "path": "tests/mirror/gdocs-discovery.test.ts",
+      "sha256": "e58ada2d5b1caab543f330ad9b0cded28037ee9437ead82ed57e0a3082806513",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/gdocs-discovery.test.ts",
+      "donorSha256": "e58ada2d5b1caab543f330ad9b0cded28037ee9437ead82ed57e0a3082806513"
+    },
+    {
+      "path": "tests/mirror/gdocs-edit-freshness.test.ts",
+      "sha256": "221d81ba3511a4b94a4341f6f7d89479164920d375927d54d8839b9646366246",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/gdocs-edit-freshness.test.ts",
+      "donorSha256": "221d81ba3511a4b94a4341f6f7d89479164920d375927d54d8839b9646366246"
+    },
+    {
+      "path": "tests/mirror/gdocs-review-fixes.test.ts",
+      "sha256": "21821315a40e15abe56598c9cdd6b393210f825fa8995c64fbc5c68baa5b0c3f",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/gdocs-review-fixes.test.ts",
+      "donorSha256": "21821315a40e15abe56598c9cdd6b393210f825fa8995c64fbc5c68baa5b0c3f"
+    },
+    {
+      "path": "tests/mirror/gdocs-revisions-load.test.ts",
+      "sha256": "7a70691522f0eb3a94a5f48be35f8edeb482ce864b68a0915bd4f70cfeee566f",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/gdocs-revisions-load.test.ts",
+      "donorSha256": "7a70691522f0eb3a94a5f48be35f8edeb482ce864b68a0915bd4f70cfeee566f"
+    },
+    {
+      "path": "tests/mirror/gdocs-session-aggregator.test.ts",
+      "sha256": "dd24d6aba0591f726ec2a753a70a3aa9cff787ba9392d8a9716d2a2d3c334dbe",
+      "status": "patched",
+      "owner": "google-docs",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/tests/gdocs-session-aggregator.test.ts",
+      "donorSha256": "0dfc6bacf18edc1e0f4ed4c833c33c459f56ea4bfdee3a5624168b0b24121fc5",
+      "reason": "Ported gigabrain test: import paths ../src -> ../../src; makeOp helper dropped keys duplicated before ...overrides (TS2783 under this tsconfig; identical runtime object).",
+      "tests": [
+        "tests/mirror/gdocs-session-aggregator.test.ts"
+      ]
+    },
+    {
+      "path": "tests/mirror/gdocs-suggestion-tracker.test.ts",
+      "sha256": "795d801e32d3d5c195fc6e0f21e1c7f09a9a1e8ccedae5df869af9c5c752abfc",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/gdocs-suggestion-tracker.test.ts",
+      "donorSha256": "795d801e32d3d5c195fc6e0f21e1c7f09a9a1e8ccedae5df869af9c5c752abfc"
+    },
+    {
+      "path": "tests/mirror/github-comments.test.ts",
+      "sha256": "e61f06324254964264c0ca42f4bb591259af90d98f6878ff82589cf34013d4df",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/github-comments.test.ts",
+      "donorSha256": "e61f06324254964264c0ca42f4bb591259af90d98f6878ff82589cf34013d4df"
+    },
+    {
+      "path": "tests/mirror/materializer.test.ts",
+      "sha256": "72dcae004da047b52db70272aabc3c65199926698a1e4999ec42f8da12eb0373",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/materializer.test.ts",
+      "donorSha256": "72dcae004da047b52db70272aabc3c65199926698a1e4999ec42f8da12eb0373"
+    },
+    {
+      "path": "tests/mirror/slack-payload.test.ts",
+      "sha256": "c71767a08155867b447e298c2f2c4924a18db8fbf10773fb3db6c9d70f72b3a3",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/slack-payload.test.ts",
+      "donorSha256": "c71767a08155867b447e298c2f2c4924a18db8fbf10773fb3db6c9d70f72b3a3"
+    },
+    {
+      "path": "tests/mirror/slack-text.test.ts",
+      "sha256": "1e813025410d7a92c3beba6a1cd477df76024dbcd9dba34fc3c1af76f57bb1cc",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/slack-text.test.ts",
+      "donorSha256": "1e813025410d7a92c3beba6a1cd477df76024dbcd9dba34fc3c1af76f57bb1cc"
+    },
+    {
+      "path": "tests/mirror/suggestion-cards.test.ts",
+      "sha256": "2f45423824f67efff0850bffa08bfa5aa49eccde1744c023e21764ce4625c870",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/suggestion-cards.test.ts",
+      "donorSha256": "2f45423824f67efff0850bffa08bfa5aa49eccde1744c023e21764ce4625c870"
+    },
+    {
+      "path": "tests/mirror/tab-changes.test.ts",
+      "sha256": "aea55cbee2cb13ecd495ee6eed44afd9a919a1ebe00b6c7b887a4985b70bf942",
+      "status": "verbatim",
+      "donorPath": "tests/mirror/tab-changes.test.ts",
+      "donorSha256": "aea55cbee2cb13ecd495ee6eed44afd9a919a1ebe00b6c7b887a4985b70bf942"
+    },
+    {
+      "path": "tests/outbox/outbox.test.ts",
+      "sha256": "2e7572ac6be961d10ab997c9b6977cc57c823e43658872da1dd79cda946d326a",
+      "status": "verbatim",
+      "donorPath": "tests/outbox/outbox.test.ts",
+      "donorSha256": "2e7572ac6be961d10ab997c9b6977cc57c823e43658872da1dd79cda946d326a"
+    },
+    {
+      "path": "tests/queue/dispatch.test.ts",
+      "sha256": "7aac36a9e1e8e8f0829a1b34d45bbf2fba6dad284d621da01b898216b697f47e",
+      "status": "verbatim",
+      "donorPath": "tests/queue/dispatch.test.ts",
+      "donorSha256": "7aac36a9e1e8e8f0829a1b34d45bbf2fba6dad284d621da01b898216b697f47e"
+    },
+    {
+      "path": "tests/queue/queue.test.ts",
+      "sha256": "3ec47a354b75565eaaf8a294943ea7565b74c2b7dbbab0918fff24efaf0e2b8a",
+      "status": "verbatim",
+      "donorPath": "tests/queue/queue.test.ts",
+      "donorSha256": "3ec47a354b75565eaaf8a294943ea7565b74c2b7dbbab0918fff24efaf0e2b8a"
+    },
+    {
+      "path": "tests/queue/sweeper.test.ts",
+      "sha256": "722035ebb6cf0d9acc6d9da4e1b031a36073ed448d1a1f29d3172ef37bded2f7",
+      "status": "verbatim",
+      "donorPath": "tests/queue/sweeper.test.ts",
+      "donorSha256": "722035ebb6cf0d9acc6d9da4e1b031a36073ed448d1a1f29d3172ef37bded2f7"
+    },
+    {
+      "path": "tests/scripts/backfill-calcom-aliases.test.ts",
+      "sha256": "0d8d5f36fefad66d4872edb14551cf3a0fe9a834689d56b686c8f8449f707c02",
+      "status": "verbatim",
+      "donorPath": "tests/scripts/backfill-calcom-aliases.test.ts",
+      "donorSha256": "0d8d5f36fefad66d4872edb14551cf3a0fe9a834689d56b686c8f8449f707c02"
+    },
+    {
+      "path": "tests/setup-env.ts",
+      "sha256": "fee5f0c912e41f2d6e9ec1ade9cc9a32b48f201734d0aed58571616925569453",
+      "status": "verbatim",
+      "donorPath": "tests/setup-env.ts",
+      "donorSha256": "fee5f0c912e41f2d6e9ec1ade9cc9a32b48f201734d0aed58571616925569453"
+    },
+    {
+      "path": "tests/source-lane/providers/gmail/export.test.ts",
+      "sha256": "b000c69c6d62621d0e041c4ee6b9b0c44414fe928487bf06f3c02144a0201f29",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Real SourceExporter: exact raw/RFC822/attachment bytes, untruncated projections, label moves, TRASH, deletions, rebuild stability, shared-mailbox tenant separation."
+    },
+    {
+      "path": "tests/source-lane/providers/gmail/fake-gmail.ts",
+      "sha256": "70ce9dfeb064f3b0ebae7dd63ebc4565628de3864357b3998bc547dbd6d83c16",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Synthetic Gmail API (history stream, paging, expiry, rate limits, attachments, RFC822)."
+    },
+    {
+      "path": "tests/source-lane/providers/gmail/harness-publish.ts",
+      "sha256": "ff1e4c4b6176b4962b98f8991d106e3828501eed795a05cda8dcf5972d932a43",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Fake yc_msaw publish endpoint applying the exporter wire protocol with sha verification."
+    },
+    {
+      "path": "tests/source-lane/providers/gmail/harness.ts",
+      "sha256": "6c173c8d92f8f616c053aa58178382ab2bfd0dc07e0d64c81c4fa31acdad5e62",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "PGlite with real donor + 9000-9002 + 9160 migrations."
+    },
+    {
+      "path": "tests/source-lane/providers/gmail/quota.test.ts",
+      "sha256": "175e7a42f0875de13dc6fd38def732f78968fe47541ca68f29ee7047d8608b3e",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Upstream-mailbox quota identity, cross-tenant cooldown, exponential backoff, 403 quota reasons, lease, coverage decisions."
+    },
+    {
+      "path": "tests/source-lane/providers/gmail/real-pg.test.ts",
+      "sha256": "91a3fe82fe0d8726d66c433c0a27cbb9d210e7007901331f2d9e4ca240d2d44e",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Real PostgreSQL: full plan, numeric history ids, concurrent cross-tenant lease, journal + exporter."
+    },
+    {
+      "path": "tests/source-lane/providers/gmail/sync.test.ts",
+      "sha256": "ea734fe0999f169add537c46399c911714fd3989cd7cea1701308edec5aa6c89",
+      "status": "new",
+      "owner": "gmail",
+      "reason": "Capture semantics: multi-page bounded runs + continuation, mail during listing, interruption/429/5xx, out-of-order/replayed history, unknown deletions, 404 re-sync, owed attachment retries, blocked/identity isolation, roster scoping."
+    },
+    {
+      "path": "tests/source-lane/providers/google-auth/composio.test.ts",
+      "sha256": "952c99d3a52b9b23458aebc9778515080f22907c6e029955a8e50f464b043b93",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "Composio lane tests.",
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "21feb7132893710b0c734afc12ac043aad760d55",
+          "path": "brain/tests/lib/google-auth.test.ts",
+          "use": "pending-account binding, no bearer to direct callers, header params, binary download cases",
+          "note": "read from AUDIT/history/recovered/gigabrain/21feb713"
+        }
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-auth/dwd.test.ts",
+      "sha256": "867bfc0e9081c548f0735c0ba85d6cc25bea816687a41ab1ea0ab253b1d74e9f",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "DWD allowlist/denied mailbox/no global fallback/mode conflict tests."
+    },
+    {
+      "path": "tests/source-lane/providers/google-auth/fake-google.ts",
+      "sha256": "5ebcad9faf1da91658c3754dc8fcf98e13e15e1bc0e11b1a3152dc1b9c10737e",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "Synthetic Google token endpoint for tests."
+    },
+    {
+      "path": "tests/source-lane/providers/google-auth/oauth-direct.test.ts",
+      "sha256": "bfde77a634f7ea5773653856de34fb5e30145d977df9483d34ebc6a7ded1dd44",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "Direct OAuth tests (state/PKCE/nonce/replay/tamper/expiry/browser binding/account+tenant mismatch/scopes/refresh/reauth/revoke).",
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "36b11fed9a65c35663a2bd9bb9206deb895bd407",
+          "path": "brain/tests/lib/google-auth.test.ts",
+          "use": "case list: consumed state, rotated refresh token, refresh failure",
+          "note": "read via git show from AUDIT/repos/gigabrain (partial clone, blobs fetched read-only)"
+        }
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-auth/pglite-db.ts",
+      "sha256": "857b9803757868e150538e7325036497f3c72a1d5bc890ca8bab040f9c3f8956",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "PGlite harness applying real donor + 9150 migrations."
+    },
+    {
+      "path": "tests/source-lane/providers/google-auth/routes.test.ts",
+      "sha256": "3fbb58ab8a78bf263683abebb4679389b9bb31954f004fa1a06c299024f2312f",
+      "status": "new",
+      "owner": "google-auth",
+      "reason": "HTTP route tests (principal/scope enforcement, browser flow, replay, status without secrets, coverage)."
+    },
+    {
+      "path": "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts",
+      "sha256": "eb94c575577e4e00819c63314378179d42fa49f508762867f7f36639b564e52b",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Real PostgreSQL (postgres.js) lane test; own database created and dropped.",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-contacts-pg.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+      "sha256": "878dce887737b17adcf3d11b6621238952027f5f6ad7af86cd949193649032af",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Calendar lane tests through production entrypoints and the real exporter. Coordinator: added regressions for patch requests 2 (webhook-targeted calendar.poll) and 3 (disconnect stops channels).",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-calendar/fake-google.ts",
+      "sha256": "ed2d5b71d4c277609ecacb67e08f8013c1d33b42aa225ccc5c5ea147be5fff1f",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Synthetic credentials, stateful fake Calendar/People/Directory APIs, publish-protocol stub.",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-calendar/harness.ts",
+      "sha256": "b09686947a6efb0bf97291bf7d7a786d7187c5d0191cdc964d12eb4c3913ec49",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "PGlite harness with the full migration plan (+ re-export of the fake Google).",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-calendar/semantic-helpers.test.ts",
+      "sha256": "59973dcae1457317738b9445c55f75a4c9a79462077700a809613ed3d9c36c46",
+      "status": "patched",
+      "owner": "calendar-contacts",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/tests/integrations/google-calendar.test.ts",
+      "donorSha256": "ac71823c108b3bfc336450918dc202130402707e6c45cb5c01d34559d4d427a9",
+      "reason": "Ported from gigabrain: test bodies unchanged; import paths re-rooted and gigabrain-only env/jobs mocks replaced by a db client mock. Verifies the Aqueduct poller keeps the gigabrain semantic-diff / normalization / timezone / hash behaviour.",
+      "tests": [
+        "tests/source-lane/providers/google-calendar/semantic-helpers.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-contacts/contacts-lane.test.ts",
+      "sha256": "c0fe54a14ba0d13d47cd8de3a66706cbb26943abbfda239a5477200922755314",
+      "status": "new",
+      "owner": "calendar-contacts",
+      "reason": "Contacts lane tests through production entrypoints and the real exporter.",
+      "tests": [
+        "tests/source-lane/providers/google-contacts/contacts-lane.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/coverage-and-jobs.test.ts",
+      "sha256": "df5f1061d0fa3bbfe6fe8f7d963fbdd356997d4a4d3c0718d11b7c1519bc53c7",
+      "status": "new",
+      "owner": "google-docs, coordinator",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: drive-inventory with no roster/listing is pending (was static partial).",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/coverage-and-jobs.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/doc-content-export.test.ts",
+      "sha256": "36f5d59f5ec3ca90fb7440785bd290a1baaaf930958f0154278761e4dd896b5b",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/drive-export.test.ts",
+      "sha256": "b0afea9ff90cdc9fe60a2dd3f4ba6a2279ee33aee152bdc2a93fc94f0a9e2db3",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/gfetch-cooldown.test.ts",
+      "sha256": "ba2623680cedd6fc4b98077e30f0f5550c48aee6489f9d31c5b17efd543d7509",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Coordinator regression: gFetch cooldown scope.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/gfetch-cooldown.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/harness.ts",
+      "sha256": "f57e85e861c5e58f55a1ebe3d79473f39869760ecca64a16ed5a604116406d2f",
+      "status": "new",
+      "owner": "google-docs, coordinator",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: resetTenant also clears inventory/visibility tables.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/history-export.test.ts",
+      "sha256": "70684ca346e073831f10ba125377f99d7341f01d81030023ea4cb8cdb0669358",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/inventory.test.ts",
+      "sha256": "f1b9f3273e9f8939ac1ff96d3ad3a0df38029d099197d037baa62f70b11c4d5c",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Coordinator regression: full Drive inventory.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/inventory.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/lifecycle.test.ts",
+      "sha256": "20f98d795cdea3922a79bdb7dfeb1845dc015100d548474357f1f2a6804372f3",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/sessions-and-diffs.test.ts",
+      "sha256": "f49aa5f638121c979b6bce03101ceda8581569b194625660c2bdaf16893a87d8",
+      "status": "new",
+      "owner": "google-docs",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/visibility.test.ts",
+      "sha256": "3c00d0eb704c62b25aa2738c63ace16ba8042831f7da59c007f84e8eb1827cd6",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Coordinator regression: per-mailbox lifecycle.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/visibility.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/imessage/auth-revocation.test.ts",
+      "sha256": "38cf5dd17f2799ec95faf6e647d72218f9dde4dab0920fa37f36bcb25c9aea35",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Test of the production iMessage receiver.",
+      "tests": [
+        "tests/source-lane/providers/imessage/auth-revocation.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/imessage/authority.test.ts",
+      "sha256": "c30ee64c4e1e3129f7f1511a5f0f390015c051255c191892a5387f3316c81c66",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Test of the production iMessage receiver.",
+      "tests": [
+        "tests/source-lane/providers/imessage/authority.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/imessage/commands-coverage.test.ts",
+      "sha256": "755e2fffffb2e387389b9a8895eba11d17cb5c6ef3366fd50e0ffb80a4642310",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Test of the production iMessage receiver.",
+      "tests": [
+        "tests/source-lane/providers/imessage/commands-coverage.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/imessage/donor-parity.test.ts",
+      "sha256": "f0134738d9e91138c3d41cbfe0f0fd1dcf8806602ed1e145559ab584a655a3c4",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Test of the production iMessage receiver.",
+      "tests": [
+        "tests/source-lane/providers/imessage/donor-parity.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "brain/tests/routes/imessage-ingest.test.ts",
+          "use": "donor cases"
+        }
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/imessage/export.test.ts",
+      "sha256": "087e25fed1bd2a66ff3da181e9c4e1a54bcb7d1617f2ccae41a607a9a7153e98",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Test of the production iMessage receiver.",
+      "tests": [
+        "tests/source-lane/providers/imessage/export.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/imessage/harness.ts",
+      "sha256": "4abe667f4d4dd64b3d64129f40a3ee6a4b6a4c6a558a99e6b3f20fe06fdc097d",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "PGlite + real migration plan + real runtime app; fake authority; serveApp for yc_msaw e2e.",
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "packages/shepherd-onboard/bin/shepherd-onboard.js",
+          "use": "message() mirrors the uploader serializer field set"
+        }
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/imessage/history-projection.test.ts",
+      "sha256": "693ad94cf1f6587154a7a18f4a3c3b68de6b88ccdc1a2dae4a8218ec0cc7063e",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Test of the production iMessage receiver.",
+      "tests": [
+        "tests/source-lane/providers/imessage/history-projection.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/imessage/ingest-identity.test.ts",
+      "sha256": "4d911b601d68d80f3f164bd7c4fe380238955568fea7e1d4a2ab2d840952a81f",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Test of the production iMessage receiver.",
+      "tests": [
+        "tests/source-lane/providers/imessage/ingest-identity.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/imessage/mac-config.test.ts",
+      "sha256": "203792c8902ee8ee9df75f5b01647b01f1be1c37442749bc3925c97c70fc86b8",
+      "status": "new",
+      "owner": "imessage",
+      "reason": "Test of the production iMessage receiver.",
+      "tests": [
+        "tests/source-lane/providers/imessage/mac-config.test.ts"
+      ]
+    },
+    {
+      "path": "tests/vault/credential-failure.test.ts",
+      "sha256": "19005c97e71f5299b11fa68ad71dd12c77bf061ddec9f8812ad318130c0fb55b",
+      "status": "verbatim",
+      "donorPath": "tests/vault/credential-failure.test.ts",
+      "donorSha256": "19005c97e71f5299b11fa68ad71dd12c77bf061ddec9f8812ad318130c0fb55b"
+    },
+    {
+      "path": "tests/vault/redaction.test.ts",
+      "sha256": "578c081effdc2ba3602d74f4cd50eeba3f94a5ea1f984f7a607d8b7c4ea04092",
+      "status": "verbatim",
+      "donorPath": "tests/vault/redaction.test.ts",
+      "donorSha256": "578c081effdc2ba3602d74f4cd50eeba3f94a5ea1f984f7a607d8b7c4ea04092"
+    },
+    {
+      "path": "tests/vault/workos.test.ts",
+      "sha256": "35ab4cdf8a93b0ce313506c595f1b3e23ae67cccc8e41cf4f162d9106aa545c9",
+      "status": "verbatim",
+      "donorPath": "tests/vault/workos.test.ts",
+      "donorSha256": "35ab4cdf8a93b0ce313506c595f1b3e23ae67cccc8e41cf4f162d9106aa545c9"
+    }
+  ]
+}

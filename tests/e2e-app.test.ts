@@ -146,7 +146,8 @@ describe("procmem end-to-end", () => {
     const client = await mcp(tenantA.key);
     try {
       const names = (await client.listTools()).tools.map((t) => t.name).sort();
-      expect(names).toEqual(["cancel_command", "edit", "find", "grep", "ls", "open_memory", "poll_command", "read", "shell", "view_file", "write", "write_command"]);
+      // sources_status / sources_history: the server-side $SOURCES filesystem (PROCMEM_SOURCES, on by default).
+      expect(names).toEqual(["cancel_command", "edit", "find", "grep", "ls", "open_memory", "poll_command", "read", "shell", "sources_history", "sources_status", "view_file", "write", "write_command"]);
       const opened = body(await client.callTool({ name: "open_memory", arguments: {} }));
       expect(opened).toMatchObject({ status: "opened", entrypoint: "$KNOWLEDGE/index.md", revision: { id: receipt.revisionId } });
       const workspaceId = String(opened.workspaceId);

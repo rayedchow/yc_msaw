@@ -1,4 +1,34 @@
-# procmem: procedural memory for agents
+# Shepherd sources: an updated filesystem for agents
+
+Connected applications feed a persistent server-side `sources/` tree. Agents use the existing authenticated MCP to list, find, grep and read that stored data, with source timestamps, immutable versions and deletion history. Provider collectors keep running independently of agent reads.
+
+```mermaid
+flowchart LR
+  P[Provider OAuth / Google DWD / Mac devices] --> R[Source collector runtime]
+  R --> D[Postgres raw ledger + projections + object storage]
+  D --> E[Durable export journal]
+  E --> S[Tenant source filesystem]
+  A[Agent with existing WorkOS / OIDC identity] --> M[Filesystem MCP]
+  M --> S
+```
+
+The runtime reuses Shepherd's existing integration code and preserves its donor provenance. Google Docs retains its OT revision, tab, suggestion and session behavior; provider-specific adapters describe any access or historical coverage limits. A configured Nango lane extends raw-record capture to additional providers. A catalog entry alone does not indicate a connected source.
+
+Use these MCP tools directly; `$SOURCES` reads need no sandbox workspace:
+
+```json
+{"name":"ls","arguments":{"path":"$SOURCES"}}
+{"name":"sources_status","arguments":{}}
+{"name":"find","arguments":{"path":"$SOURCES","pattern":"*.md"}}
+{"name":"read","arguments":{"path":"$SOURCES/github/repo/README.md"}}
+{"name":"sources_history","arguments":{"path":"$SOURCES/github/repo/README.md"}}
+```
+
+Each tenant uses the application's existing WorkOS/OIDC resource-server identity and scopes. Provider OAuth, Google domain-wide delegation and device credentials are separate collection grants. Runtime publish credentials are restricted to their tenant and provider directories. Binary data is stored exactly in chunks and can be read by byte range.
+
+Read [source operations and coverage](docs/sources.md), [setup and configuration](docs/sources-setup.md), [what each provider captures](docs/source-providers.md), [the collector runtime](packages/sources-runtime/README.md), and [donor repositories and history](docs/source-donors.md). Integration tests use synthetic local fixtures. The source pivot has not been deployed or connected to live provider accounts; existing staging evidence below describes the preceding application. Mac notarization is deferred.
+
+## Existing procedural-memory application
 
 Agents keep relearning the same lessons: pagination quirks, retry rules, which call creates duplicates. procmem captures what your agents actually did, and **once a day a recursive multi-agent build** turns those traces into two things:
 1. a navigable **procedural-memory wiki**, which any agent on any model reads through a **filesystem-only MCP server**;

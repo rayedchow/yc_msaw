@@ -18,6 +18,8 @@ export interface ProcmemConfig {
   buildModel: string;
   childModels: string[];
   timezoneOffsetMinutes: number;
+  /** Host the server-side sources/ filesystem ($SOURCES tools + /v1/sources routes). PROCMEM_SOURCES=0 disables it. */
+  sources: boolean;
 }
 
 export const DEFAULT_BUILD_MODEL = "accounts/fireworks/models/kimi-k3";
@@ -45,6 +47,7 @@ export function loadConfig(env: NodeJS.ProcessEnv = process.env): ProcmemConfig 
       .map((s) => s.trim())
       .filter(Boolean),
     timezoneOffsetMinutes: Number(env.PROCMEM_DAY_OFFSET_MINUTES ?? 0),
+    sources: !/^(0|false|no|off)$/i.test(env.PROCMEM_SOURCES?.trim() ?? ""),
   };
   if (isPublicBinding(cfg) && (cfg.sandbox !== "modal" || cfg.store !== "modal")) {
     throw new Error(

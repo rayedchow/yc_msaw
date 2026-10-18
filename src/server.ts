@@ -18,6 +18,27 @@ import {
   dispatchCustomerTool,
   toolErrorReceipt,
 } from "./customer/index.js";
+import { SourceFs, SOURCE_ROUTED_TOOLS, SOURCES_ORIENTATION, SourcesHistorySchema, SourcesStatusSchema, type SourceRoutedTool } from "./sources/fs.js";
+import {
+  connectRoute,
+  createBindingRoute,
+  deviceKeyVerifyRoute,
+  deviceRoute,
+  disconnectRoute,
+  googleAuthRoute,
+  imessageDeviceSetupRoute,
+  listBindingsRoute,
+  provisionRuntimeRoute,
+  runtimeStatusRoute,
+  publishRoute,
+  putBlobRoute,
+  revokeBindingRoute,
+  statusReportRoute,
+  statusRoute,
+} from "./sources/http.js";
+import { isSourcesPath } from "./sources/paths.js";
+import type { SourceRuntimeClient } from "./sources/runtime-client.js";
+import type { SourceService } from "./sources/service.js";
 import { MemoryRepo } from "./store/memory.js";
 import type { ObjectStore } from "./store/objects.js";
 import { handleTraceRequest, type TraceIngestor } from "./traces/index.js";
@@ -56,6 +77,10 @@ export interface ServerDeps {
   builds: BuildController;
   /** Optional catalog of published integration MCPs, served over HTTP (separate from the memory filesystem MCP). */
   integrationCatalog?: IntegrationCatalogPort;
+  /** Server-side sources/ filesystem ($SOURCES). When unset, $SOURCES paths and source routes are absent. */
+  sources?: SourceService;
+  /** Internal client for the source collector runtime (SOURCES_RUNTIME_URL); enables connect/provision/device routes. */
+  sourceRuntime?: SourceRuntimeClient;
   /** Optional explicit Host allowlist (MCP_ALLOWED_HOSTS). Unset on edge-hosted deployments. */
   allowedHosts?: string[];
   log?: (msg: string) => void;
@@ -66,6 +91,16 @@ export const SERVER_INSTRUCTIONS = [
   "Call open_memory once at the start of a task: it only pins the latest published memory revision into a workspace and returns a small receipt with the workspaceId (no file contents). Then read $KNOWLEDGE/index.md and follow its links with read/ls/find/grep before acting on unfamiliar systems.",
   "$KNOWLEDGE is immutable. Use $WORK/scratch for notes or scripts; shell runs in an isolated, network-blocked sandbox. Memory is rebuilt daily from captured traces; you do not need to write memory yourself.",
 ].join("\n");
+
+/** Added to the instructions when the server hosts the sources/ filesystem. */
+export const SOURCES_INSTRUCTIONS = SOURCES_ORIENTATION;
+
+const SourceLsAfterField = z
+  .string()
+  .min(1)
+  .max(255)
+  .optional()
+  .describe("$SOURCES only: continue a truncated directory listing after this entry name (nextAfter).");
 
 const WorkspaceIdField = z
   .string()
@@ -104,7 +139,7 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
     title: "Procedural Memory",
     version: SERVER_VERSION,
     description: "Daily-built procedural memory wiki for agents, served as a read-only filesystem with private scratch.",
-    instructions: SERVER_INSTRUCTIONS,
+    instructions: deps.sources ? `${SERVER_INSTRUCTIONS}\n${SOURCES_INSTRUCTIONS}` : SERVER_INSTRUCTIONS,
     basePath: auth.basePath,
     ...(oauth ? { oauth } : {}),
     // Host validation: mcp-use keeps its localhost DNS-rebinding protection on loopback binds by
@@ -230,20 +265,37 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
     },
   );
 
+  const sourceFs = deps.sources ? new SourceFs(deps.sources) : null;
+  const routedToSources = (name: string, input: Record<string, unknown>): name is SourceRoutedTool =>
+    sourceFs !== null && (SOURCE_ROUTED_TOOLS as readonly string[]).includes(name) && isSourcesPath(input.path);
+
   for (const def of CUSTOMER_TOOL_DEFINITIONS) {
+    const sourcesNote = sourceFs && (SOURCE_ROUTED_TOOLS as readonly string[]).includes(def.name)
+      ? " Paths below $SOURCES read the server-side sources/ mirror directly (no workspace needed)."
+      : "";
     server.tool(
       {
         name: def.name,
         title: def.title,
-        description: def.description,
-        inputSchema: def.inputSchema.extend({ workspaceId: WorkspaceIdField }),
+        description: def.description + sourcesNote,
+        inputSchema: def.inputSchema.extend({
+          workspaceId: WorkspaceIdField,
+          ...(sourceFs && def.name === "ls" ? { after: SourceLsAfterField } : {}),
+        }),
         annotations: { readOnlyHint: def.readOnly, destructiveHint: false, openWorldHint: false },
         ...securityFor(SCOPES.memoryRead),
       },
       async (input: Record<string, unknown>, ctx) => {
         try {
           const p = principalOf(ctx, SCOPES.memoryRead);
-          const { workspaceId, ...toolInput } = input;
+          const { workspaceId, after, ...toolInput } = input;
+          // $SOURCES reads are host-side over the tenant's source store; they never open a sandbox.
+          if (routedToSources(def.name, toolInput)) {
+            return json(await sourceFs!.run(p.tenantNs, def.name, { ...toolInput, ...(after !== undefined ? { after } : {}) }));
+          }
+          if (after !== undefined) {
+            return json(toolErrorReceipt(def.name, Object.assign(new Error("after is only supported for $SOURCES directories"), { code: "invalid_input" })), true);
+          }
           const id = await resolveWorkspace(p, workspaceId as string | undefined);
           const receipt = await dispatchCustomerTool(deps.workspaces, p.tenantNs, id, def.name, toolInput);
           return json({ workspaceId: id, ...receipt }, receipt.ok === false);
@@ -280,6 +332,47 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       }
     },
   );
+
+  if (sourceFs) {
+    server.tool(
+      {
+        name: "sources_status",
+        title: "Source freshness and coverage",
+        description:
+          "Per-provider freshness and coverage of the server-side $SOURCES mirror: file counts, newest capture time, age, and each collector's reported state (complete/partial/blocked/pending) with reasons. Check this before trusting that $SOURCES is complete.",
+        inputSchema: SourcesStatusSchema,
+        annotations: { readOnlyHint: true, openWorldHint: false },
+        ...securityFor(SCOPES.memoryRead),
+      },
+      async (input, ctx) => {
+        try {
+          const p = principalOf(ctx, SCOPES.memoryRead);
+          return json(await sourceFs.status(p.tenantNs, SourcesStatusSchema.parse(input ?? {})));
+        } catch (error) {
+          return json(toolErrorReceipt("sources_status", error), true);
+        }
+      },
+    );
+    server.tool(
+      {
+        name: "sources_history",
+        title: "Source file history",
+        description:
+          "List the immutable versions of one $SOURCES file (newest first, including deletion tombstones), or read an exact prior version by versionId with byteOffset/byteLimit.",
+        inputSchema: SourcesHistorySchema,
+        annotations: { readOnlyHint: true, openWorldHint: false },
+        ...securityFor(SCOPES.memoryRead),
+      },
+      async (input, ctx) => {
+        try {
+          const p = principalOf(ctx, SCOPES.memoryRead);
+          return json(await sourceFs.history(p.tenantNs, SourcesHistorySchema.parse(input)));
+        } catch (error) {
+          return json(toolErrorReceipt("sources_history", error), true);
+        }
+      },
+    );
+  }
 
   // ------------------------------------------------------------ HTTP routes
   // Public liveness probes: Manufact's platform health check uses /health; /healthz is kept for other probes.
@@ -367,6 +460,97 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
     const receipt = await deps.builds.get(principal.tenantNs, id);
     return receipt ? c.json(receipt) : c.json({ error: { code: "not_found", message: `No build ${id}` } }, 404);
   });
+
+  if (deps.sources) {
+    const sources = deps.sources;
+    // Admin surface: the existing authenticateHttp authority; namespace = principal.tenantNs.
+    server.post("/v1/sources/bindings", async (c) => {
+      // Scope depends on the binding kind (runtime: memory:build, device: traces:write); checked in the route.
+      const principal = await authenticateHttp(c.req.raw, auth, undefined);
+      if (principal instanceof Response) return principal;
+      return createBindingRoute(c.req.raw, principal, sources);
+    });
+    server.get("/v1/sources/bindings", async (c) => {
+      const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+      if (principal instanceof Response) return principal;
+      return listBindingsRoute(principal, sources);
+    });
+    server.delete("/v1/sources/bindings/:id", async (c) => {
+      const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+      if (principal instanceof Response) return principal;
+      return revokeBindingRoute(principal, sources, c.req.param("id"), deps.sourceRuntime);
+    });
+    server.get("/v1/sources/status", async (c) => {
+      const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+      if (principal instanceof Response) return principal;
+      return statusRoute(principal, sources);
+    });
+    // Publish surface: binding tokens only (never OAuth/static keys); namespace comes from the binding record.
+    server.put("/v1/sources/blobs/:sha", (c) => putBlobRoute(c.req.raw, sources, c.req.param("sha")));
+    server.post("/v1/sources/publish", (c) => publishRoute(c.req.raw, sources));
+    server.post("/v1/sources/status-report", (c) => statusReportRoute(c.req.raw, sources));
+    // Device-key authority the source runtime asks on every uploader request (key only, no body).
+    server.get("/v1/sources/devices/:provider/verify", (c) => deviceKeyVerifyRoute(c.req.raw, sources, c.req.param("provider")));
+
+    // Collector runtime control: forwarded with the verified principal; the tenant is never caller-chosen.
+    const runtime = deps.sourceRuntime;
+    if (runtime) {
+      server.post("/v1/sources/runtime/provision", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return provisionRuntimeRoute(principal, sources, runtime);
+      });
+      server.get("/v1/sources/runtime/status", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+        if (principal instanceof Response) return principal;
+        return runtimeStatusRoute(principal, runtime);
+      });
+      server.post("/v1/sources/connect/:provider", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return connectRoute(c.req.raw, principal, runtime, c.req.param("provider"));
+      });
+      server.delete("/v1/sources/connections/:provider", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return disconnectRoute(principal, runtime, c.req.param("provider"));
+      });
+      // Google provider grants (OAuth / Composio / DWD allowlist) live in the runtime's google-auth module.
+      server.get("/v1/sources/google/auth", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+        if (principal instanceof Response) return principal;
+        return googleAuthRoute(c.req.raw, principal, runtime, "status");
+      });
+      server.post("/v1/sources/google/auth/oauth/start", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return googleAuthRoute(c.req.raw, principal, runtime, "oauth.start");
+      });
+      server.post("/v1/sources/google/auth/dwd/mailboxes", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return googleAuthRoute(c.req.raw, principal, runtime, "dwd.add");
+      });
+      server.delete("/v1/sources/google/auth/accounts/:email", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        if (principal instanceof Response) return principal;
+        return googleAuthRoute(c.req.raw, principal, runtime, "account.delete", c.req.param("email"));
+      });
+      // Mac iMessage uploader: one-time setup with a server-minted device binding.
+      server.post("/v1/sources/devices/imessage/setup", async (c) => {
+        // Collection scope (traces:write) or admin; checked in the route.
+        const principal = await authenticateHttp(c.req.raw, auth, undefined);
+        if (principal instanceof Response) return principal;
+        return imessageDeviceSetupRoute(c.req.raw, principal, sources, runtime);
+      });
+      server.post("/v1/sources/devices/:provider", async (c) => {
+        // Collection scope (traces:write) or admin; checked in the route.
+        const principal = await authenticateHttp(c.req.raw, auth, undefined);
+        if (principal instanceof Response) return principal;
+        return deviceRoute(c.req.raw, principal, runtime, c.req.param("provider"));
+      });
+    }
+  }
 
   return server;
 }

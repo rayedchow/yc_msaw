@@ -1,0 +1,158 @@
+/**
+ * Truthful coverage for the Docs/Drive source lane, computed from durable
+ * checkpoints (never static claims):
+ *
+ *  - drive-inventory      from the resumable full Drive listing per mailbox
+ *                         (inventory.ts): `complete` only once every roster
+ *                         mailbox finished a gap-free listing; until then files
+ *                         untouched since connect may be absent (`partial`/`pending`).
+ *  - docs-content         documents.get native JSON / tabs / images per tracked Doc.
+ *  - docs-history         OT changelog (undocumented, writer+-gated). `blocked`
+ *                         with `ot_requires_bearer` for Composio connections;
+ *                         `partial` whenever any doc's capture is partial/blocked/error.
+ *  - drive-files          Sheets/Slides (files.export + native JSON) and binary
+ *                         files (alt=media) with their explicit size limits.
+ *
+ * Lag is reported as counts of not-yet-exported files and the oldest pending age.
+ */
+import { sql } from "drizzle-orm";
+import type { CoverageReport, CoverageState, ExportContext } from "../../core/types.js";
+import { docsHistoryCapability, googleAuthModeFromMetadata } from "./auth-mode.js";
+import { DRIVE_EXPORT_MAX_BYTES, DRIVE_FILE_MAX_BYTES, DRIVE_NATIVE_JSON_MAX_BYTES, FILES_EXPORT_LIMIT_BYTES, GOOGLE_DOC_MIME } from "./drive-export.js";
+import { GOOGLE_DOCS_PROVIDER_ID, rowsOf, type SqlDatabase } from "./store.js";
+import { inventoryCoverage, listInventory } from "./inventory.js";
+
+interface Row {
+  mime_type: string | null;
+  lifecycle_state: string;
+  content_state: string;
+  content_reason: string | null;
+  content_exported_at: Date | string | null;
+  history_state: string;
+  history_reason: string | null;
+  history_complete_at: Date | string | null;
+  history_attempted_at: Date | string | null;
+  updated_at: Date | string;
+}
+
+function iso(v: unknown): string | undefined {
+  if (v == null) return undefined;
+  const d = v instanceof Date ? v : new Date(String(v));
+  return Number.isNaN(d.getTime()) ? undefined : d.toISOString();
+}
+
+function maxIso(values: unknown[]): string | undefined {
+  let best: number | null = null;
+  for (const v of values) {
+    const s = iso(v);
+    if (!s) continue;
+    const t = Date.parse(s);
+    if (best == null || t > best) best = t;
+  }
+  return best == null ? undefined : new Date(best).toISOString();
+}
+
+function tally<T extends string>(values: T[]): Record<string, number> {
+  const out: Record<string, number> = {};
+  for (const v of values) out[v] = (out[v] ?? 0) + 1;
+  return out;
+}
+
+/** Collapse per-file states into one scope state; any gap => not complete. */
+export function scopeState(counts: Record<string, number>, total: number): CoverageState {
+  if (total === 0) return "pending";
+  if ((counts.complete ?? 0) + (counts.not_applicable ?? 0) === total) return "complete";
+  if ((counts.blocked ?? 0) === total) return "blocked";
+  if ((counts.partial ?? 0) + (counts.error ?? 0) + (counts.blocked ?? 0) + (counts.unsupported ?? 0) > 0) return "partial";
+  return "pending";
+}
+
+export async function googleDocsCoverage(ctx: ExportContext, now: Date = new Date()): Promise<CoverageReport[]> {
+  const rows = rowsOf<Row>(await ctx.executor.execute(sql`
+    SELECT mime_type, lifecycle_state, content_state, content_reason, content_exported_at,
+           history_state, history_reason, history_complete_at, history_attempted_at, updated_at
+    FROM gdocs_file_checkpoints WHERE tenant_id = ${ctx.tenantId}
+  `));
+  const [token] = rowsOf<{ metadata: Record<string, unknown> | string | null }>(await ctx.executor.execute(sql`
+    SELECT metadata FROM integration_tokens WHERE user_id = ${ctx.tenantId} AND provider = 'google' LIMIT 1
+  `).catch(() => []));
+  const metadata = typeof token?.metadata === "string" ? JSON.parse(token.metadata) as Record<string, unknown> : token?.metadata ?? null;
+  const mode = googleAuthModeFromMetadata(metadata);
+  const capability = docsHistoryCapability(mode);
+
+  const live = rows.filter((r) => r.lifecycle_state === "active");
+  const docs = live.filter((r) => r.mime_type === GOOGLE_DOC_MIME);
+  const drive = live.filter((r) => r.mime_type !== GOOGLE_DOC_MIME);
+  const oldestPendingSeconds = (list: Row[], field: "content_state" | "history_state") => {
+    const pending = list.filter((r) => r[field] === "pending").map((r) => Date.parse(iso(r.updated_at) ?? ""));
+    return pending.length ? Math.max(0, Math.round((now.getTime() - Math.min(...pending)) / 1000)) : 0;
+  };
+  const reasons = (list: Row[], field: "content_reason" | "history_reason") =>
+    [...new Set(list.map((r) => r[field]).filter((r): r is string => Boolean(r)))].slice(0, 10).join("; ") || undefined;
+
+  const reports: CoverageReport[] = [];
+  const inventoryRows = await listInventory(ctx.tenantId, { db: ctx.executor as unknown as SqlDatabase }).catch(() => []);
+  let roster: string[] | null = null;
+  try {
+    const { listGoogleMailboxes } = await import("../../../integrations/google/mailboxes.js");
+    roster = await listGoogleMailboxes(ctx.tenantId, ctx.executor as never);
+  } catch {
+    roster = null;
+  }
+  const inventory = inventoryCoverage(inventoryRows, roster);
+  reports.push({
+    provider: GOOGLE_DOCS_PROVIDER_ID,
+    scope: "drive-inventory",
+    state: inventory.state,
+    reason: inventory.reason,
+    ...(inventory.lastSuccessAt ? { lastSuccessAt: inventory.lastSuccessAt } : {}),
+    counts: {
+      ...inventory.counts,
+      trackedFiles: rows.length,
+      active: live.length,
+      trashed: rows.filter((r) => r.lifecycle_state === "trashed").length,
+      removed: rows.filter((r) => r.lifecycle_state === "removed").length,
+    },
+  });
+
+  const docContent = tally(docs.map((r) => r.content_state));
+  reports.push({
+    provider: GOOGLE_DOCS_PROVIDER_ID,
+    scope: "docs-content",
+    state: scopeState(docContent, docs.length),
+    reason: reasons(docs, "content_reason") ?? "documents.get native JSON, per-tab JSON, image bytes (contentUri never stored)",
+    lastSuccessAt: maxIso(docs.map((r) => r.content_exported_at)),
+    counts: { ...docContent, docs: docs.length, oldestPendingSeconds: oldestPendingSeconds(docs, "content_state") },
+  });
+
+  const historyCounts = tally(docs.map((r) => r.history_state));
+  let historyState = scopeState(historyCounts, docs.length);
+  // Even a fully complete set is history of an undocumented endpoint; keep
+  // that visible, and never let Composio claim it.
+  if (!capability.changelog) historyState = "blocked";
+  reports.push({
+    provider: GOOGLE_DOCS_PROVIDER_ID,
+    scope: "docs-history",
+    state: historyState,
+    reason: !capability.changelog
+      ? `${capability.reason}: auth mode ${mode} cannot call the private /revisions/load changelog; snapshot diffs only`
+      : `undocumented /revisions/load (writer+ role, no SLA); auth mode ${mode}${reasons(docs, "history_reason") ? `; ${reasons(docs, "history_reason")}` : ""}`,
+    lastSuccessAt: maxIso(docs.map((r) => r.history_complete_at)),
+    counts: { ...historyCounts, docs: docs.length, oldestPendingSeconds: oldestPendingSeconds(docs, "history_state") },
+  });
+
+  const driveCounts = tally(drive.map((r) => r.content_state));
+  reports.push({
+    provider: GOOGLE_DOCS_PROVIDER_ID,
+    scope: "drive-files",
+    state: scopeState(driveCounts, drive.length),
+    reason: [
+      `limits: files.export documented ${FILES_EXPORT_LIMIT_BYTES} bytes (exportLinks fallback), export cap ${DRIVE_EXPORT_MAX_BYTES}, media cap ${DRIVE_FILE_MAX_BYTES}, native JSON cap ${DRIVE_NATIVE_JSON_MAX_BYTES}`,
+      "PDFs are exported by the drive-pdf binary lane, not here",
+      reasons(drive, "content_reason"),
+    ].filter(Boolean).join("; "),
+    lastSuccessAt: maxIso(drive.map((r) => r.content_exported_at)),
+    counts: { ...driveCounts, files: drive.length, oldestPendingSeconds: oldestPendingSeconds(drive, "content_state") },
+  });
+  return reports;
+}

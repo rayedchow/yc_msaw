@@ -1,0 +1,46 @@
+{
+  "name": "@procmem/sources-runtime",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Source-only collector runtime for the procmem sources/ filesystem: Aqueduct sourcing transport (askshepherd/aqueduct@b26d3f46) copied verbatim, graph/LLM lanes removed, exported to yc_msaw over the binding-token publish protocol.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run",
+    "provenance": "tsx scripts/provenance.ts",
+    "provenance:check": "tsx scripts/provenance.ts --check",
+    "db:migrate": "tsx scripts/migrate-source-lane.ts",
+    "start:api": "tsx src/source-lane/entrypoints/api.ts",
+    "start:worker": "tsx src/source-lane/entrypoints/worker.ts",
+    "start:sweeper": "tsx src/source-lane/entrypoints/sweeper.ts",
+    "start:exporter": "tsx src/source-lane/entrypoints/exporter.ts"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1081.0",
+    "@aws-sdk/s3-request-presigner": "3.1081.0",
+    "@hono/node-server": "1.19.14",
+    "@types/html-to-text": "9.0.4",
+    "@types/turndown": "5.0.6",
+    "@workos-inc/node": "10.7.0",
+    "drizzle-orm": "0.44.7",
+    "hono": "4.12.27",
+    "html-to-text": "10.0.0",
+    "postgres": "3.4.9",
+    "turndown": "7.2.4",
+    "ws": "8.21.0",
+    "zod": "3.25.76"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "0.5.10",
+    "@electric-sql/pglite-socket": "0.2.13",
+    "@types/node": "22.20.0",
+    "@types/ws": "8.18.1",
+    "tsx": "4.22.5",
+    "typescript": "5.9.3",
+    "vitest": "3.2.6"
+  }
+}

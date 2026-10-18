@@ -1,0 +1,15 @@
+export {
+  backfillGoogleDocs,
+  backfillGoogleDocsDetailed,
+  deactivateDocConversations,
+  discoverGoogleDocs,
+  pollGoogleDocs,
+  refreshCommentEdits,
+  repairUnresolvedActors,
+  snapshotDoc,
+  sweepCommentActivity,
+  trackDocConversation,
+  type GoogleDocsBackfillResult,
+  type GoogleDocsDiscoveryOptions,
+  type GoogleDocsDiscoveryResult,
+} from "../../../polling/_archived-gdocs/gdocs.js";

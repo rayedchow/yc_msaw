@@ -1,0 +1,450 @@
+import { createHash } from "node:crypto";
+import { execFileSync } from "node:child_process";
+import { existsSync, readFileSync, readdirSync, statSync, writeFileSync } from "node:fs";
+import { dirname, join, relative } from "node:path";
+import { fileURLToPath } from "node:url";
+
+/**
+ * Provenance manifest for the copied Aqueduct sourcing subsystem and every later import.
+ *
+ *   tsx scripts/provenance.ts                       regenerate PROVENANCE.json (needs AQUEDUCT_DONOR_DIR or ../../../aqueduct)
+ *   tsx scripts/provenance.ts --check               verify the tree against PROVENANCE.json (no donor checkout needed)
+ *   tsx scripts/provenance.ts --merge <frag.json>…  merge integration-agent provenance fragments (validated, see mergeFragment)
+ *   tsx scripts/provenance.ts --verify-donors <dir> re-hash every recorded donor blob from git clones under <dir>/<repo name>
+ *
+ * Every file under a donor-mirrored root must be recorded. `verbatim` files must hash to the
+ * recorded donor hash; `shim`/`patched` files carry a reason; `new` files may only live under
+ * source-lane paths or package configuration unless recorded with a reason. Files that come from a
+ * donor other than the pinned Aqueduct commit carry their own `donorRepo`/`donorCommit` (full sha).
+ */
+
+export const DONOR = {
+  repo: "askshepherd/aqueduct",
+  commit: "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+} as const;
+
+export type ProvenanceStatus = "verbatim" | "shim" | "patched" | "new";
+
+/** A donor the file was adapted from without being a byte copy (informational, still pinned). */
+export interface DerivedFrom {
+  repo: string;
+  commit: string;
+  path?: string;
+  use?: string;
+  note?: string;
+}
+
+export interface ProvenanceEntry {
+  path: string;
+  sha256: string;
+  status: ProvenanceStatus;
+  /** Absent = the pinned global DONOR. Present = an external donor (another repo or another Aqueduct commit). */
+  donorRepo?: string;
+  donorCommit?: string;
+  donorPath?: string;
+  donorSha256?: string;
+  reason?: string;
+  test?: string;
+  tests?: string[];
+  /** Integration agent (or "core"/"coordinator") that owns the file. */
+  owner?: string;
+  derivedFrom?: DerivedFrom[];
+}
+
+export interface ProvenanceManifest {
+  schema: "procmem.sources-runtime.provenance/v2";
+  donor: typeof DONOR;
+  /** Donor roots deliberately not copied (graph/LLM/chat planes and donor entrypoints). */
+  notCopied?: Array<{ path: string; reason: string }>;
+  /** Donor migrations are all copied verbatim; which ones run is decided (and justified) here. */
+  migrationPlan?: string;
+  files: ProvenanceEntry[];
+}
+
+export const NOT_COPIED: ReadonlyArray<{ path: string; reason: string }> = [
+  { path: "src/graph/ (except bridge/session-windows.ts, bridge/chunker.ts; wiring/ingest-hook.ts + default-kb.ts are shims)", reason: "graph/LLM plane; source lane never builds a graph" },
+  { path: "src/wiki/, src/chat/, src/answerer/, src/agent/", reason: "LLM wiki/chat planes" },
+  { path: "src/api/", reason: "donor tenant API (aq_ API keys, onboarding, graph builds); replaced by src/source-lane/internal/app.ts behind the yc_msaw service token" },
+  { path: "src/mcp/", reason: "donor MCP server; yc_msaw serves the sources/ filesystem" },
+  { path: "src/entrypoints/", reason: "donor worker registers graph tasks; replaced by src/source-lane/entrypoints/" },
+  { path: "tests/{graph,wiki,chat,answerer,agent,api,mcp}/, tests/scripts/v1-v2-parity.test.ts", reason: "tests of planes not copied" },
+];
+
+/** Roots whose files come from the donor (anything here must be recorded). */
+const TRACKED_ROOTS = ["src", "tests", "drizzle", "scripts", "docs"];
+const IGNORED = new Set(["node_modules", ".DS_Store"]);
+/** Files that are new by design (core-owned or integration-agent-owned source-lane code). */
+const NEW_PREFIXES = ["src/source-lane/", "tests/source-lane/", "scripts/provenance.ts", "scripts/migrate-source-lane.ts", "docs/source-lane"];
+/** Source-lane migrations: 9000-9999 and five-digit ids (>= 10000) assigned to later integration agents. */
+const NEW_MIGRATION = /^drizzle\/(9\d{3}|[1-9]\d{4})_[a-z0-9_]+\.sql$/;
+const FULL_SHA = /^[0-9a-f]{40}$/;
+const REPO = /^[a-z0-9_.-]+\/[a-z0-9_.-]+$/i;
+
+/** Donor files intentionally replaced in the source lane. Keep in sync with CONTRACT.md §0. */
+export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; reason: string; test?: string }> = {
+  "src/graph/wiring/ingest-hook.ts": {
+    status: "shim",
+    reason: "Graph ingestion disabled in the source lane: same export names, no kb reads, no graph.* tasks; mirror changes are exported via source_export_journal triggers.",
+    test: "tests/source-lane/core/graph-guard.test.ts",
+  },
+  "src/integrations/google/index.ts": {
+    status: "patched",
+    reason: "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds.",
+    test: "tests/source-lane/core/shared-patches.test.ts",
+  },
+  "src/queue/dispatch.ts": {
+    status: "patched",
+    reason: "calendar-contacts patch request 4: google.contacts_sync every 900 s (the lane is incremental via People API sync tokens) instead of the donor's 6 h full resync.",
+    test: "tests/source-lane/core/shared-patches.test.ts",
+  },
+  "src/mirror/backfill.ts": {
+    status: "patched",
+    reason: "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones).",
+    test: "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts",
+  },
+  "src/vault/redaction.ts": {
+    status: "patched",
+    reason: "google-docs patch request 2: Slides image.contentUrl (requester-scoped ~30 min URL, same credential shape as Docs contentUri) is redacted for google-docs payloads by the shared rule.",
+    test: "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts",
+  },
+  "src/graph/wiring/default-kb.ts": {
+    status: "shim",
+    reason: "No knowledge-base containers in the source lane; returns kbId:null and touches no table.",
+    test: "tests/source-lane/core/graph-guard.test.ts",
+  },
+};
+
+const here = dirname(fileURLToPath(import.meta.url));
+export const PACKAGE_ROOT = join(here, "..");
+const MANIFEST_PATH = join(PACKAGE_ROOT, "PROVENANCE.json");
+
+export function sha256File(path: string): string {
+  return createHash("sha256").update(readFileSync(path)).digest("hex");
+}
+
+export function listTrackedFiles(root = PACKAGE_ROOT): string[] {
+  const out: string[] = [];
+  const walk = (dir: string) => {
+    for (const name of readdirSync(dir).sort()) {
+      if (IGNORED.has(name)) continue;
+      const full = join(dir, name);
+      const st = statSync(full);
+      if (st.isDirectory()) walk(full);
+      else if (st.isFile()) out.push(relative(root, full).split("\\").join("/"));
+    }
+  };
+  for (const r of TRACKED_ROOTS) if (existsSync(join(root, r))) walk(join(root, r));
+  return out.sort();
+}
+
+export function isNewPathAllowed(path: string): boolean {
+  return NEW_PREFIXES.some((p) => path.startsWith(p)) || NEW_MIGRATION.test(path);
+}
+
+/** Metadata that survives regeneration (everything except the recomputed hashes/status). */
+function carriedMetadata(e: ProvenanceEntry | undefined): Partial<ProvenanceEntry> {
+  if (!e) return {};
+  const out: Partial<ProvenanceEntry> = {};
+  for (const k of ["donorRepo", "donorCommit", "donorPath", "donorSha256", "reason", "test", "tests", "owner", "derivedFrom"] as const) {
+    if (e[k] !== undefined) (out as Record<string, unknown>)[k] = e[k];
+  }
+  return out;
+}
+
+export function isExternal(e: Pick<ProvenanceEntry, "donorRepo" | "donorCommit">): boolean {
+  return e.donorRepo !== undefined && (e.donorRepo !== DONOR.repo || e.donorCommit !== DONOR.commit);
+}
+
+export function generate(donorDir: string, root = PACKAGE_ROOT, previous?: ProvenanceManifest): ProvenanceManifest {
+  const prior = new Map((previous?.files ?? []).map((f) => [f.path, f]));
+  const files: ProvenanceEntry[] = [];
+  const errors: string[] = [];
+  for (const path of listTrackedFiles(root)) {
+    const sha = sha256File(join(root, path));
+    const before = prior.get(path);
+    if (before && isExternal(before)) {
+      // External donors are not in the Aqueduct checkout; keep their recorded donor hash and recompute ours.
+      files.push({ ...carriedMetadata(before), path, sha256: sha, status: before.status } as ProvenanceEntry);
+      continue;
+    }
+    const donorFile = join(donorDir, path);
+    const override = DECLARED_OVERRIDES[path] ?? (before?.status === "patched" ? (before as ProvenanceEntry & { status: "patched"; reason: string }) : undefined);
+    if (existsSync(donorFile)) {
+      const donorSha = sha256File(donorFile);
+      if (donorSha === sha && !DECLARED_OVERRIDES[path]) {
+        files.push({ path, sha256: sha, status: "verbatim", donorPath: path, donorSha256: donorSha });
+      } else if (override) {
+        files.push({ ...carriedMetadata(before), path, sha256: sha, status: override.status, donorPath: path, donorSha256: donorSha, reason: override.reason, ...(override.test ? { test: override.test } : {}) });
+      } else {
+        errors.push(`${path}: differs from donor but has no declared shim/patch (add it to DECLARED_OVERRIDES or record a patch)`);
+      }
+    } else if (override) {
+      files.push({ ...carriedMetadata(before), path, sha256: sha, status: override.status, donorPath: path, reason: override.reason, ...(override.test ? { test: override.test } : {}) });
+    } else if (isNewPathAllowed(path) || (before?.status === "new" && before.reason)) {
+      files.push({ ...carriedMetadata(before), path, sha256: sha, status: "new" });
+    } else {
+      errors.push(`${path}: not in donor and not under a source-lane path`);
+    }
+  }
+  if (errors.length) throw new Error(`provenance generation failed:\n${errors.join("\n")}`);
+  return { schema: "procmem.sources-runtime.provenance/v2", donor: DONOR, notCopied: [...NOT_COPIED], migrationPlan: "src/source-lane/core/migrations.ts", files };
+}
+
+export interface CheckResult {
+  ok: boolean;
+  errors: string[];
+  counts: Record<ProvenanceStatus, number>;
+}
+
+function checkDonorFields(entry: ProvenanceEntry, errors: string[]): void {
+  if (entry.donorRepo === undefined && entry.donorCommit === undefined) return;
+  if (!entry.donorRepo || !REPO.test(entry.donorRepo)) errors.push(`${entry.path}: invalid donorRepo ${String(entry.donorRepo)}`);
+  if (!entry.donorCommit || !FULL_SHA.test(entry.donorCommit)) errors.push(`${entry.path}: donorCommit must be a full 40-hex sha (got ${String(entry.donorCommit)})`);
+  if (!entry.donorPath) errors.push(`${entry.path}: external donor entry without donorPath`);
+  if (entry.status !== "new" && !entry.donorSha256) errors.push(`${entry.path}: external donor entry without donorSha256`);
+}
+
+/**
+ * Verify the package tree against the manifest. `new` files under source-lane paths are
+ * allowed to change (they are this repo's code); every donor-derived file must match.
+ */
+export function check(manifest: ProvenanceManifest, root = PACKAGE_ROOT): CheckResult {
+  const errors: string[] = [];
+  const counts: Record<ProvenanceStatus, number> = { verbatim: 0, shim: 0, patched: 0, new: 0 };
+  const recorded = new Map(manifest.files.map((f) => [f.path, f]));
+  if (manifest.donor.commit !== DONOR.commit) errors.push(`manifest donor commit ${manifest.donor.commit} != ${DONOR.commit}`);
+  for (const path of listTrackedFiles(root)) {
+    const entry = recorded.get(path);
+    if (!entry) {
+      if (isNewPathAllowed(path)) {
+        counts.new += 1;
+        continue;
+      }
+      errors.push(`${path}: unrecorded file under a donor root`);
+      continue;
+    }
+    counts[entry.status] += 1;
+    checkDonorFields(entry, errors);
+    for (const d of entry.derivedFrom ?? []) {
+      if (!REPO.test(d.repo) || !FULL_SHA.test(d.commit)) errors.push(`${path}: derivedFrom ${d.repo}@${d.commit} must name a repo and a full 40-hex commit`);
+    }
+    const sha = sha256File(join(root, path));
+    if (entry.status === "verbatim") {
+      if (sha !== entry.sha256 || entry.donorSha256 !== entry.sha256) errors.push(`${path}: verbatim donor file was modified (record a patch)`);
+    } else if (entry.status === "shim" || entry.status === "patched") {
+      if (!entry.reason) errors.push(`${path}: ${entry.status} without reason`);
+      if (!entry.test && !entry.tests?.length) errors.push(`${path}: ${entry.status} without a regression test`);
+      if (sha !== entry.sha256) errors.push(`${path}: ${entry.status} file changed since provenance was recorded (regenerate)`);
+    } else if (!isNewPathAllowed(path) && !entry.reason) {
+      errors.push(`${path}: new file under a donor root needs a reason`);
+    }
+  }
+  for (const entry of manifest.files) {
+    if (!existsSync(join(root, entry.path))) {
+      if (entry.status !== "new") errors.push(`${entry.path}: recorded donor file is missing`);
+    }
+  }
+  return { ok: errors.length === 0, errors, counts };
+}
+
+export function readManifest(path = MANIFEST_PATH): ProvenanceManifest {
+  return JSON.parse(readFileSync(path, "utf8")) as ProvenanceManifest;
+}
+
+/** Fragment entry as written by integration agents (two historical spellings of the donor are accepted). */
+export interface FragmentEntry extends Partial<ProvenanceEntry> {
+  path: string;
+  status: ProvenanceStatus;
+  /** "owner/repo@sha" (older fragments) */
+  donor?: string;
+  oldSha256?: string | null;
+  tests?: string[];
+}
+
+export interface FragmentLike {
+  agent: string;
+  /**
+   * Set by the coordinator when it takes over a finished agent's file (e.g. applying a cross-agent patch request).
+   * The entry then records both owners instead of failing the ownership check.
+   */
+  takeover?: boolean;
+  files: FragmentEntry[];
+}
+
+/** Resolve abbreviated / `^`-suffixed commits (a fragment may say `c9c55105a^`). */
+export type CommitResolver = (repo: string, commit: string) => string;
+
+/**
+ * Merge an agent fragment into the manifest. Rules (each violation is an error, nothing is blessed silently):
+ * - the file's current sha must equal the fragment's recorded sha256 (the agent recorded what is on disk);
+ * - a `patched` donor file must name the hash it was patched from, and that hash must equal the manifest's
+ *   prior donor hash for the same path (the patch is against the pinned donor, not an unrecorded edit);
+ * - `verbatim` external files must hash to their donor hash;
+ * - donor commits are normalised to full shas via `resolve`.
+ */
+export function mergeFragment(manifest: ProvenanceManifest, fragment: FragmentLike, resolve: CommitResolver, root = PACKAGE_ROOT): string[] {
+  const errors: string[] = [];
+  const byPath = new Map(manifest.files.map((f, i) => [f.path, i]));
+  for (const raw of fragment.files) {
+    const path = raw.path;
+    const full = join(root, path);
+    if (!existsSync(full)) {
+      errors.push(`${fragment.agent}: ${path} does not exist`);
+      continue;
+    }
+    const sha = sha256File(full);
+    if (raw.sha256 && raw.sha256 !== sha) {
+      errors.push(`${fragment.agent}: ${path} changed after the fragment was written (recorded ${raw.sha256.slice(0, 12)}, now ${sha.slice(0, 12)})`);
+      continue;
+    }
+    let donorRepo = raw.donorRepo;
+    let donorCommit = raw.donorCommit;
+    if (raw.donor && !donorRepo) {
+      const at = raw.donor.lastIndexOf("@");
+      donorRepo = raw.donor.slice(0, at);
+      donorCommit = raw.donor.slice(at + 1);
+    }
+    const prior = byPath.has(path) ? manifest.files[byPath.get(path) as number] : undefined;
+    const entry: ProvenanceEntry = { path, sha256: sha, status: raw.status, owner: fragment.agent };
+    if (donorRepo && donorCommit) {
+      const commit = resolve(donorRepo, donorCommit);
+      if (donorRepo !== DONOR.repo || commit !== DONOR.commit) {
+        entry.donorRepo = donorRepo;
+        entry.donorCommit = commit;
+      }
+    }
+    if (raw.donorPath) entry.donorPath = raw.donorPath;
+    if (raw.donorSha256) entry.donorSha256 = raw.donorSha256;
+    if (raw.reason) entry.reason = raw.reason;
+    const tests = [...(raw.tests ?? []), ...(raw.test && raw.test !== "self" ? [raw.test] : raw.test === "self" ? [path] : [])];
+    if (tests.length) entry.tests = tests;
+    if (raw.derivedFrom?.length) entry.derivedFrom = raw.derivedFrom.map((d) => ({ ...d, commit: resolve(d.repo, d.commit) }));
+    if (raw.status === "patched" && !entry.donorRepo) {
+      if (!prior || prior.donorSha256 === undefined) errors.push(`${fragment.agent}: ${path} patched but the pinned donor has no such file`);
+      else if (raw.donorSha256 !== prior.donorSha256 || (raw.oldSha256 && raw.oldSha256 !== prior.donorSha256)) {
+        errors.push(`${fragment.agent}: ${path} patched from ${String(raw.oldSha256 ?? raw.donorSha256).slice(0, 12)} but the pinned donor hash is ${prior.donorSha256.slice(0, 12)}`);
+      }
+    }
+    if (raw.status === "verbatim" && entry.donorSha256 !== sha) errors.push(`${fragment.agent}: ${path} declared verbatim but differs from its donor hash`);
+    if ((raw.status === "patched" || raw.status === "shim") && !entry.reason) errors.push(`${fragment.agent}: ${path} ${raw.status} without reason`);
+    if (prior && prior.status !== "verbatim" && prior.owner && !prior.owner.split(", ").includes(fragment.agent)) {
+      if (fragment.takeover) entry.owner = `${prior.owner}, ${fragment.agent}`;
+      else errors.push(`${fragment.agent}: ${path} is already owned by ${prior.owner}`);
+    } else if (prior?.owner) entry.owner = prior.owner;
+    if (byPath.has(path)) manifest.files[byPath.get(path) as number] = entry;
+    else {
+      byPath.set(path, manifest.files.length);
+      manifest.files.push(entry);
+    }
+  }
+  manifest.files.sort((a, b) => (a.path < b.path ? -1 : a.path > b.path ? 1 : 0));
+  return errors;
+}
+
+/**
+ * Resolve via the local clone first; branch-only commits (not in a main-only clone) fall back to the audit's
+ * recorded ref/branch listings (`historyDir/<repo>-*.txt`), and must match exactly one full sha there.
+ */
+function gitResolver(reposDir: string, historyDir?: string): CommitResolver {
+  const cache = new Map<string, string>();
+  return (repo, commit) => {
+    if (FULL_SHA.test(commit)) return commit;
+    const key = `${repo}@${commit}`;
+    const hit = cache.get(key);
+    if (hit) return hit;
+    const name = repo.split("/")[1] ?? repo;
+    let full: string | undefined;
+    try {
+      full = execFileSync("git", ["-C", join(reposDir, name), "rev-parse", "--verify", "--quiet", `${commit}^{commit}`], { encoding: "utf8", stdio: ["ignore", "pipe", "ignore"] }).trim();
+    } catch {
+      full = undefined;
+    }
+    if (!full && historyDir && /^[0-9a-f]{7,39}$/.test(commit) && existsSync(historyDir)) {
+      const found = new Set<string>();
+      for (const f of readdirSync(historyDir).filter((n) => n.startsWith(`${name}-`) && n.endsWith(".txt"))) {
+        for (const m of readFileSync(join(historyDir, f), "utf8").matchAll(new RegExp(`\\b${commit}[0-9a-f]{${40 - commit.length}}\\b`, "g"))) found.add(m[0]);
+      }
+      if (found.size === 1) full = [...found][0];
+    }
+    if (!full || !FULL_SHA.test(full)) throw new Error(`cannot resolve ${repo}@${commit} to a full commit`);
+    cache.set(key, full);
+    return full;
+  };
+}
+
+/**
+ * Re-hash every recorded donor blob straight from git (`<reposDir>/<repo name>`), so donor hashes are evidence and
+ * not just claims. Missing commits are fetched by sha (read-only from the remote) when `fetch` is set.
+ */
+export function verifyDonors(manifest: ProvenanceManifest, reposDir: string, opts: { fetch?: boolean; gitArgs?: string[] } = {}): string[] {
+  const errors: string[] = [];
+  const git = (dir: string, args: string[]) => execFileSync("git", [...(opts.gitArgs ?? []), "-C", dir, ...args], { maxBuffer: 256 * 1024 * 1024 });
+  const fetched = new Set<string>();
+  for (const e of manifest.files) {
+    if (!e.donorSha256 || !e.donorPath) continue;
+    const repo = e.donorRepo ?? DONOR.repo;
+    const commit = e.donorCommit ?? DONOR.commit;
+    const dir = join(reposDir, repo.split("/")[1] ?? repo);
+    if (!existsSync(dir)) {
+      errors.push(`${e.path}: no clone for ${repo} under ${reposDir}`);
+      continue;
+    }
+    try {
+      try {
+        git(dir, ["cat-file", "-e", `${commit}^{commit}`]);
+      } catch {
+        if (!opts.fetch || fetched.has(`${repo}@${commit}`)) throw new Error(`commit ${commit} not present`);
+        fetched.add(`${repo}@${commit}`);
+        git(dir, ["fetch", "--quiet", "origin", commit]);
+      }
+      const bytes = git(dir, ["cat-file", "blob", `${commit}:${e.donorPath}`]);
+      const sha = createHash("sha256").update(bytes).digest("hex");
+      if (sha !== e.donorSha256) errors.push(`${e.path}: donor ${repo}@${commit.slice(0, 9)}:${e.donorPath} hashes ${sha.slice(0, 12)}, recorded ${e.donorSha256.slice(0, 12)}`);
+    } catch (err) {
+      errors.push(`${e.path}: cannot read ${repo}@${commit.slice(0, 9)}:${e.donorPath} (${(err as Error).message.split("\n")[0]})`);
+    }
+  }
+  return errors;
+}
+
+if (process.argv[1] && fileURLToPath(import.meta.url) === process.argv[1]) {
+  const argv = process.argv.slice(2);
+  const reposDir = process.env.PROVENANCE_REPOS_DIR ?? join(PACKAGE_ROOT, "..", "..", "..");
+  if (argv.includes("--check")) {
+    const result = check(readManifest());
+    console.log(JSON.stringify(result.counts));
+    if (!result.ok) {
+      console.error(result.errors.join("\n"));
+      process.exit(1);
+    }
+  } else if (argv[0] === "--merge") {
+    const manifest = readManifest();
+    const resolve = gitResolver(reposDir, process.env.PROVENANCE_HISTORY_DIR ?? join(reposDir, "..", "history"));
+    const errors = argv.slice(1).flatMap((f) => mergeFragment(manifest, JSON.parse(readFileSync(f, "utf8")) as FragmentLike, resolve));
+    if (errors.length) {
+      console.error(errors.join("\n"));
+      process.exit(1);
+    }
+    manifest.schema = "procmem.sources-runtime.provenance/v2";
+    writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
+    console.log(`merged ${argv.length - 1} fragment(s) into ${MANIFEST_PATH}`);
+  } else if (argv[0] === "--verify-donors") {
+    const dir = argv[1] ?? reposDir;
+    const errors = verifyDonors(readManifest(), dir, { fetch: argv.includes("--fetch") });
+    if (errors.length) {
+      console.error(errors.join("\n"));
+      process.exit(1);
+    }
+    console.log(`all recorded donor hashes re-verified from git under ${dir}`);
+  } else {
+    const donorDir = process.env.AQUEDUCT_DONOR_DIR ?? join(PACKAGE_ROOT, "..", "..", "..", "aqueduct");
+    const head = execFileSync("git", ["-C", donorDir, "rev-parse", "HEAD"], { encoding: "utf8" }).trim();
+    const dirty = execFileSync("git", ["-C", donorDir, "status", "--porcelain"], { encoding: "utf8" }).trim();
+    if (head !== DONOR.commit || dirty) throw new Error(`donor checkout ${donorDir} must be clean at ${DONOR.commit} (HEAD ${head}${dirty ? ", dirty" : ""})`);
+    const previous = existsSync(MANIFEST_PATH) ? readManifest() : undefined;
+    const manifest = generate(donorDir, PACKAGE_ROOT, previous);
+    writeFileSync(MANIFEST_PATH, `${JSON.stringify(manifest, null, 2)}\n`);
+    const counts = manifest.files.reduce<Record<string, number>>((acc, f) => ((acc[f.status] = (acc[f.status] ?? 0) + 1), acc), {});
+    console.log(`wrote ${MANIFEST_PATH}: ${JSON.stringify(counts)}`);
+  }
+}
