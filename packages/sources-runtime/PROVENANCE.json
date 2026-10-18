@@ -152,6 +152,544 @@
       "donorSha256": "c4cbf4b06eddbd558f74d22f0044e62fcff36db77dbc50f63ca06fa23df73291"
     },
     {
+      "path": "docs/research/google-docs-ot/MANIFEST.json",
+      "sha256": "a2f699d3cac497479bea2ce603244b42984db85d1a6a631c2587918477583a89",
+      "status": "new",
+      "owner": "google-docs-fidelity-fixes",
+      "reason": "google-docs-fidelity-fixes F3: machine-readable per-file donor/current hashes for the preserved research",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/PRESERVATION.md",
+      "sha256": "732c3f9fe9bbbc64a0ff7ede501e4723665f48235a552aeadcda2d59379b8e3e",
+      "status": "new",
+      "owner": "google-docs-fidelity-fixes",
+      "reason": "google-docs-fidelity-fixes F3: provenance, selection, safety changes and non-runnable-import notes for the preserved research",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/README.md",
+      "sha256": "1944905d3ae53c6d59146bb45a3401e7a082162e89b8baf206c268f246d405f2",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/README.md",
+      "donorSha256": "1944905d3ae53c6d59146bb45a3401e7a082162e89b8baf206c268f246d405f2",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/agent-architecture-research.md",
+      "sha256": "edb1a953beb9ebb26d92afdf637d4c0a564e9edd9dd9d3b2376224b1c196b3b6",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/agent-architecture-research.md",
+      "donorSha256": "edb1a953beb9ebb26d92afdf637d4c0a564e9edd9dd9d3b2376224b1c196b3b6",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/changelog-format.md",
+      "sha256": "c534e02d3932ff1690262ab59b924984998fc7c6ae57d07fac59af6403f5bdf6",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/changelog-format.md",
+      "donorSha256": "c534e02d3932ff1690262ab59b924984998fc7c6ae57d07fac59af6403f5bdf6",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/google-docs-ot-operations.md",
+      "sha256": "3b3bc3c0e599568f9add3bee070bff024ef247de7a98e0d3b52838e84c64728e",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot-operations.md",
+      "donorSha256": "3b3bc3c0e599568f9add3bee070bff024ef247de7a98e0d3b52838e84c64728e",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/named-ranges.md",
+      "sha256": "3a7ed6065b8c00ae5d5badc19778cc6758a18734ee4aada6cf3576832ecf1ad6",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/named-ranges.md",
+      "donorSha256": "3a7ed6065b8c00ae5d5badc19778cc6758a18734ee4aada6cf3576832ecf1ad6",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/nesting-patterns.md",
+      "sha256": "eb648857950f01dc0a4e19e8faf78582047b6b00551b1239859927dab9114f99",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/nesting-patterns.md",
+      "donorSha256": "eb648857950f01dc0a4e19e8faf78582047b6b00551b1239859927dab9114f99",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/operation-types.md",
+      "sha256": "331686abbf043f6ad5994a16f2626e104b9275ebff7f6f1ad28335a57e9e4965",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/operation-types.md",
+      "donorSha256": "331686abbf043f6ad5994a16f2626e104b9275ebff7f6f1ad28335a57e9e4965",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/reliability.md",
+      "sha256": "4b6a0b4eab5e837ba0d5c50b1168d03e475a019c87437fb48a1b849f472f9574",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/reliability.md",
+      "donorSha256": "4b6a0b4eab5e837ba0d5c50b1168d03e475a019c87437fb48a1b849f472f9574",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/replay.md",
+      "sha256": "d5e5b65d8263359c4487e5bcd9087adec5fc65d9225eb449867be5ed043a6965",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/replay.md",
+      "donorSha256": "d5e5b65d8263359c4487e5bcd9087adec5fc65d9225eb449867be5ed043a6965",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/check-latest-entries.ts",
+      "sha256": "f877aead238800d3bff75563693c4b894ef5b03da2b7ce72e8a1dd959c95c2fd",
+      "status": "patched",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/check-latest-entries.ts",
+      "donorSha256": "b6cd5981840a9a37dee41392a057e2ff7426b12de8eab02a19d376968e6e1cb8",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research harness preserved; only the hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (doc IDs act as link-sharing capabilities). Archived, not runnable as-is (gigabrain-relative imports), outside the runtime.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/check-session-tokens.ts",
+      "sha256": "1109a4752583ce678468c3b9bddc25a387f2ae394bfb34cc646ebc4bf344dd8d",
+      "status": "patched",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/check-session-tokens.ts",
+      "donorSha256": "93809e76d08a58842d7f8c848cdab05194c8c546d05bcbb1ba968ed835bde5a5",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research harness preserved; only the hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (doc IDs act as link-sharing capabilities). Archived, not runnable as-is (gigabrain-relative imports), outside the runtime.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/check-subtabs.ts",
+      "sha256": "6726d88c39ef21cef96d9e8370719eda81c90aa7448184d0455c68fa4a7c282d",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/check-subtabs.ts",
+      "donorSha256": "6726d88c39ef21cef96d9e8370719eda81c90aa7448184d0455c68fa4a7c282d",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/check-tab-ops.ts",
+      "sha256": "11716d8a59acffe9a7fd713df96fe806e084dcec59e735fb33c44da1e720f415",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/check-tab-ops.ts",
+      "donorSha256": "11716d8a59acffe9a7fd713df96fe806e084dcec59e735fb33c44da1e720f415",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/check-undo-rvrt.ts",
+      "sha256": "fb0f35ffb6b1338b22599c04819f0f8bd89c94598c1f25ea28e4e21fe453fdc4",
+      "status": "patched",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/check-undo-rvrt.ts",
+      "donorSha256": "f9e4c8ecce3898bc1a159da7274d42e15e7dad0568917e7be60803c32232de5c",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research harness preserved; only the hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (doc IDs act as link-sharing capabilities). Archived, not runnable as-is (gigabrain-relative imports), outside the runtime.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-chunked-diffs-v2.ts",
+      "sha256": "6b76294547029770f3dcc4041b3634cd1f798feb4990a72fa2d2c44319653f04",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-chunked-diffs-v2.ts",
+      "donorSha256": "6b76294547029770f3dcc4041b3634cd1f798feb4990a72fa2d2c44319653f04",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-chunked-diffs-v3.ts",
+      "sha256": "44131ffdd4135fa1ad9ef549a743bd55fde51c97bd7c6ca9441892b17159dae7",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-chunked-diffs-v3.ts",
+      "donorSha256": "44131ffdd4135fa1ad9ef549a743bd55fde51c97bd7c6ca9441892b17159dae7",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-chunked-diffs.ts",
+      "sha256": "f67777ff0245417d8ae7ddb61d265ca7dc17ef2f0c9ce5c582e5f1c78e7fdd49",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-chunked-diffs.ts",
+      "donorSha256": "f67777ff0245417d8ae7ddb61d265ca7dc17ef2f0c9ce5c582e5f1c78e7fdd49",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-dc-ops.ts",
+      "sha256": "35e981e9bf2f56350d4c13925c0e1275190f4b7e15f82fa09832d9737af2610a",
+      "status": "patched",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-dc-ops.ts",
+      "donorSha256": "2624a29c69289e86d250f410d02bcf75f68dce6d092e99f8ecc45d578fd1e131",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research harness preserved; only the hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (doc IDs act as link-sharing capabilities). Archived, not runnable as-is (gigabrain-relative imports), outside the runtime.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-deep-ot-analysis.ts",
+      "sha256": "214b29b30b3a3da74711fbaf4b0ff30adaeb87a7c90e705636ef6bb154391492",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-deep-ot-analysis.ts",
+      "donorSha256": "214b29b30b3a3da74711fbaf4b0ff30adaeb87a7c90e705636ef6bb154391492",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-exhaustive-revisions-load.ts",
+      "sha256": "49dfee0878d159ccdf8cb321047410259f9b35cc9737646751c1c037dfd98f37",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-exhaustive-revisions-load.ts",
+      "donorSha256": "49dfee0878d159ccdf8cb321047410259f9b35cc9737646751c1c037dfd98f37",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-exhaustive-scan.ts",
+      "sha256": "3454081767ef4e25b3f5176ffe9b3c49e879550606bfbf10a46a42452dc0de4b",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-exhaustive-scan.ts",
+      "donorSha256": "3454081767ef4e25b3f5176ffe9b3c49e879550606bfbf10a46a42452dc0de4b",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-last-chunks.ts",
+      "sha256": "046a250510e378e962b267b8c9bce964a1a1350bbfcac9dfb5fc26fb1867a468",
+      "status": "patched",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-last-chunks.ts",
+      "donorSha256": "e1b5788e08ea123ff9f4a5c9c6df6f9e212da0341fc4b7ca8d035340a3e04bbe",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research harness preserved; only the hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (doc IDs act as link-sharing capabilities). Archived, not runnable as-is (gigabrain-relative imports), outside the runtime.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-multi-doc-validation.ts",
+      "sha256": "d398aa3be9580d5afecff0ecb5bc6f3a4b9776b2fa3324c3b57d48ba01bacb96",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-multi-doc-validation.ts",
+      "donorSha256": "d398aa3be9580d5afecff0ecb5bc6f3a4b9776b2fa3324c3b57d48ba01bacb96",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-nm-parsing.ts",
+      "sha256": "c9e73dcb931fba5b46200e5481a173728626aaa18cdadc9ecfb121883b41c92c",
+      "status": "patched",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-nm-parsing.ts",
+      "donorSha256": "6469fed6648e99e47e263d7ae34abe533dfe4466ae363b7e78b546e8c8c63cc1",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research harness preserved; only the hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (doc IDs act as link-sharing capabilities). Archived, not runnable as-is (gigabrain-relative imports), outside the runtime.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-nm-standalone.ts",
+      "sha256": "a48d40d9dcbeeb5dbba944e58045ad47120ddb40dfd32a0f15691624c64d8e20",
+      "status": "patched",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-nm-standalone.ts",
+      "donorSha256": "7796c9654b929ba141a2068b2237381ee628e6c6a46011f43d8abdf3438d8eb9",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research harness preserved; only the hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (doc IDs act as link-sharing capabilities). Archived, not runnable as-is (gigabrain-relative imports), outside the runtime.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-op-types.ts",
+      "sha256": "590e90867a136f3794eb6e93761a2bce8eb8c31487e01b516658d971c18b5cd5",
+      "status": "patched",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-op-types.ts",
+      "donorSha256": "15e89eb031978ef1dc51a5dcadb9e5fbc1a7b5ddc00f826d61f6335d37c47ec5",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research harness preserved; only the hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (doc IDs act as link-sharing capabilities). Archived, not runnable as-is (gigabrain-relative imports), outside the runtime.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-revisions-load.ts",
+      "sha256": "9dadf6175f9435f271aa11d3364e810f7674bec2437d0959acc5c8432f596e87",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-revisions-load.ts",
+      "donorSha256": "9dadf6175f9435f271aa11d3364e810f7674bec2437d0959acc5c8432f596e87",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-tabs-ops.ts",
+      "sha256": "dcd3ceb95fbd21a6feca4400c30c6a7522839c8e0bd9cea5e8423994da0e75f2",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-tabs-ops.ts",
+      "donorSha256": "dcd3ceb95fbd21a6feca4400c30c6a7522839c8e0bd9cea5e8423994da0e75f2",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-tabs-standalone.ts",
+      "sha256": "751d52b6569eb0562a9c2756ca9c3af651187f6156a58fc28bc89bdfd8ce5e9c",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-tabs-standalone.ts",
+      "donorSha256": "751d52b6569eb0562a9c2756ca9c3af651187f6156a58fc28bc89bdfd8ce5e9c",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/test-tiles.ts",
+      "sha256": "069af710f7aa904360d805cc262e0aa56475d9d97eb553ddce509e493f8d452c",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/test-tiles.ts",
+      "donorSha256": "069af710f7aa904360d805cc262e0aa56475d9d97eb553ddce509e493f8d452c",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/scripts/verify-uncertain-fields.ts",
+      "sha256": "ce0f5a6d8e02840d71f2ff6c2b64bdb862c155e8e742fff3b4345c5b6d013311",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "brain/scripts/verify-uncertain-fields.ts",
+      "donorSha256": "ce0f5a6d8e02840d71f2ff6c2b64bdb862c155e8e742fff3b4345c5b6d013311",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/synthesis-design.md",
+      "sha256": "fa65320cc10471a1c1de85ebca1cad01f8c1ea803e28d6314ff3aff14d2ca006",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/synthesis-design.md",
+      "donorSha256": "fa65320cc10471a1c1de85ebca1cad01f8c1ea803e28d6314ff3aff14d2ca006",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/synthesis-incremental-editing.md",
+      "sha256": "2413f6d620eb79b3cc9e6941f011caed09a3a28665b05ed55c02c4ba6865538b",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/synthesis-incremental-editing.md",
+      "donorSha256": "2413f6d620eb79b3cc9e6941f011caed09a3a28665b05ed55c02c4ba6865538b",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/synthesis-open-questions.md",
+      "sha256": "7e44dd34a172446ac5c6d433dae95deeadb13ad4fe2809c2260812820e870335",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/synthesis-open-questions.md",
+      "donorSha256": "7e44dd34a172446ac5c6d433dae95deeadb13ad4fe2809c2260812820e870335",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/synthesis-pipeline-plan.md",
+      "sha256": "4c09cec6444e3ee6b7522d8adbc9cbe5f58005c07b3119a33d5f1da32b08eada",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/synthesis-pipeline-plan.md",
+      "donorSha256": "4c09cec6444e3ee6b7522d8adbc9cbe5f58005c07b3119a33d5f1da32b08eada",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/synthesis-research.md",
+      "sha256": "78ec63cf8cce41e9fb17adb15c715d69e049ef66bfec41acdbd7cb064dfc3155",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/synthesis-research.md",
+      "donorSha256": "78ec63cf8cce41e9fb17adb15c715d69e049ef66bfec41acdbd7cb064dfc3155",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
+      "path": "docs/research/google-docs-ot/tabs.md",
+      "sha256": "242eda13504df9c4e767b45be7ddeeee221131d9254011ac88248c65443cf59b",
+      "status": "verbatim",
+      "owner": "google-docs-fidelity-fixes",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "research/google-docs-ot/tabs.md",
+      "donorSha256": "242eda13504df9c4e767b45be7ddeeee221131d9254011ac88248c65443cf59b",
+      "reason": "google-docs-fidelity-fixes F3: donor OT research preserved verbatim (documentation; outside the runtime)",
+      "tests": [
+        "tests/source-lane/providers/google-docs/research-preservation.test.ts"
+      ]
+    },
+    {
       "path": "docs/source-pipeline-plan.md",
       "sha256": "c3dd54160480a072bf39a7c8e313573dd99ca0a1a6336206f9196503d12c8883",
       "status": "verbatim",
@@ -2842,14 +3380,23 @@
     },
     {
       "path": "src/polling/_archived-gdocs/gdocs-revisions-load.ts",
-      "sha256": "e418770af5e2046820c03d441c8bb5afb6bf6920bd9fcf07453a53b523a6914a",
+      "sha256": "dcc08873b48a1b05d61c44a14346f605c08bad7fc850e22de4c222870ab290f4",
       "status": "patched",
-      "owner": "google-docs",
+      "owner": "google-docs, google-docs-fidelity-fixes",
       "donorPath": "src/polling/_archived-gdocs/gdocs-revisions-load.ts",
       "donorSha256": "27a03b662ca73cc0bd2efa9c255c9202f85b1597976fb6e1b03ea3b18ebf72ea",
-      "reason": "Fail-closed changelog (restores gigabrain 5448774's later fix): any page failure, malformed page, short page vs tile count or page-cap exhaustion returns null instead of a prefix; GoogleRateLimitError rethrown; parse half split into exported pure parseChangelogEntries/collectSnapshotOps (byte-identical logic) and parseXssiJson exported so stored raw pages re-parse through production code. overrideAccessToken kept.",
+      "reason": "Fail-closed changelog (restores gigabrain 5448774's later fix): any page failure, malformed page, short page vs tile count or page-cap exhaustion returns null instead of a prefix; GoogleRateLimitError rethrown; parse half split into exported pure parseChangelogEntries/collectSnapshotOps (byte-identical logic) and parseXssiJson exported so stored raw pages re-parse through production code. overrideAccessToken kept. | google-docs-fidelity-fixes F4: fetchDocChangelog network path only - known-total ranges fetched through the source-lane bounded fail-closed pool (gigabrain 4a4d68fc #657 page concurrency, GDOCS_CHANGELOG_PAGE_CONCURRENCY default 8 max 20) with per-credential pacing (GDOCS_CHANGELOG_MAX_RPS default 5) and no dispatch past the first failing range; open-ended pagination stays serial; any sibling GoogleRateLimitError is rethrown; malformed-page log no longer prints response bytes. Parser/replay/attribution regions byte-identical (parseOperation..parseChangelogEntries, getOperationsSince..fetchRevisionTiles, replayWithDiffs..end).",
       "tests": [
-        "tests/mirror/gdocs-revisions-load.test.ts (208 donor cases unchanged) + tests/source-lane/providers/google-docs/history-export.test.ts 'fetchDocChangelog (patched donor) is fail-closed'"
+        "tests/mirror/gdocs-revisions-load.test.ts (208 donor cases unchanged) + tests/source-lane/providers/google-docs/history-export.test.ts 'fetchDocChangelog (patched donor) is fail-closed'",
+        "tests/source-lane/providers/google-docs/changelog-concurrency.test.ts 'fetchDocChangelog (donor path) uses the same bounded fail-closed pool'"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "4a4d68fcd6fb317c7a65c58dc394ac8c2c094e75",
+          "path": "brain/src/polling/_archived-gdocs/gdocs-revisions-load.ts",
+          "use": "known-total concurrent page fetch (mapWithConcurrency, GDOCS_CHANGELOG_PAGE_CONCURRENCY=8, max 20)"
+        }
       ]
     },
     {
@@ -3671,22 +4218,76 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/auth-mode.ts",
-      "sha256": "f9d05c6815b5f55266e4ac102abdfadc342383892001cfa9bc112ee0550002f3",
+      "sha256": "05677cc745cc47daca0b73e91e663d3de83ed1c8b3a5d755d52b07a77fbd66f8",
       "status": "new",
-      "owner": "google-docs",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "owner": "google-docs, google-docs-fidelity-fixes",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) | google-docs-fidelity-fixes F5/F6: capability gains content/contentReason (Composio: docs_content_requires_bearer); changelogRefusalReason/changelogRefusalNote separate 401 credential failures from the 403 writer+ gate (DWD) and from unverified per-user OAuth acceptance; header states donor evidence (Aqueduct live test + gigabrain May research observed OAuth; gigabrain 21feb713 lists it as not reliably mirrorable) instead of claiming support.",
       "tests": [
-        "tests/source-lane/providers/google-docs/*"
+        "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/history-redaction-fidelity.test.ts",
+        "tests/source-lane/providers/google-docs/auth-mode.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "21feb7132893710b0c734afc12ac043aad760d55",
+          "path": "brain/evals/research/google-oauth-composio/README.md",
+          "use": "per-user OAuth caveat for private revisions/load (wording only)"
+        }
       ]
     },
     {
       "path": "src/source-lane/providers/google-docs/changelog-capture.ts",
-      "sha256": "66a449399449d4cc28a8fc0b9c47f596f52b69ed8bf6a3fe9de2ec4c8344229a",
+      "sha256": "10bea76d5f3489950a59ac4efa3847c46152e5e4a4df7b28186eacaa043d3516",
       "status": "new",
-      "owner": "google-docs",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "owner": "google-docs, google-docs-fidelity-fixes",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) | google-docs-fidelity-fixes F2/F4/F6: normalizeResponse applied to every fetched page before reuse comparison/storage; known-total ranges via bounded paced fail-closed pool (output identical to serial); refusal reasons changelog_unauthorized / changelog_forbidden_writer_role_required (DWD) / changelog_forbidden_writer_role_or_oauth_unsupported; longest sibling Retry-After kept; request stats.",
       "tests": [
-        "tests/source-lane/providers/google-docs/*"
+        "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/history-redaction-fidelity.test.ts",
+        "tests/source-lane/providers/google-docs/changelog-concurrency.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "4a4d68fcd6fb317c7a65c58dc394ac8c2c094e75",
+          "path": "brain/src/polling/_archived-gdocs/gdocs-revisions-load.ts",
+          "use": "concurrent known-total page fetch semantics"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/changelog-page-pool.ts",
+      "sha256": "e94e14dd1ea29e26b81ee09ee240909cfc528f2333d5cef34062cc2b22f1c330",
+      "status": "new",
+      "owner": "google-docs-fidelity-fixes",
+      "reason": "google-docs-fidelity-fixes F4: bounded fail-closed contiguous-prefix page pool (no dispatch past the first failed/short/thrown range) + process-local per-credential request pacer for the private changelog endpoint; used by captureChangelogPages and fetchDocChangelog.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/changelog-concurrency.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "4a4d68fcd6fb317c7a65c58dc394ac8c2c094e75",
+          "path": "brain/src/lib/concurrency.ts",
+          "use": "mapWithConcurrency worker-pool shape and parseConcurrencyEnv limits"
+        },
+        {
+          "repo": "askshepherd/gigabrain",
+          "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+          "path": "research/google-docs-ot/reliability.md",
+          "use": "self-imposed 5-10 req/s per user"
+        }
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-docs/changelog-redaction.ts",
+      "sha256": "cd5d12e4681f4bb0da6e99de54db75be36e1da2f768095a050f1a9fc43395be2",
+      "status": "new",
+      "owner": "google-docs-fidelity-fixes",
+      "reason": "google-docs-fidelity-fixes F1/F2: length-preserving changelog redaction (shared redactProviderPayload policy decides what is a credential; each redacted string inside changelog/chunkedSnapshot keeps its UTF-16 length and surrounding whitespace) + legacy fixed-length placeholder detection. No change to shared src/vault/redaction.ts.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/history-redaction-fidelity.test.ts"
       ]
     },
     {
@@ -3754,12 +4355,14 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/history-export.ts",
-      "sha256": "5c4c22e298aae01a436a1b9ed81b7a425e5cc3a7efb58f620f91e9ace27df02f",
+      "sha256": "bc9eec7aa04ca4d064ed8b346675a3c97b773f27ecc4016f68b1fd85668b1800",
       "status": "new",
-      "owner": "google-docs",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "owner": "google-docs, google-docs-fidelity-fixes",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) | google-docs-fidelity-fixes F1/F2/F5/F6: pages stored, reuse-compared and replayed in one length-preserving redacted representation (redactChangelogResponse, marker google-docs/length-preserving-v1); legacy fixed-length-redacted stored pages are never reused, are refetched, and the status carries an honest legacyRedaction warning until a complete recapture (legacyRedactionRepaired); Composio blocked note no longer claims content/snapshot diffs; 401/403 notes per auth mode; fetchStats in status; donor suggestion cards redacted before export.",
       "tests": [
-        "tests/source-lane/providers/google-docs/*"
+        "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/history-redaction-fidelity.test.ts",
+        "tests/source-lane/providers/google-docs/changelog-concurrency.test.ts"
       ]
     },
     {
@@ -6124,6 +6727,16 @@
       ]
     },
     {
+      "path": "tests/source-lane/providers/google-docs/changelog-concurrency.test.ts",
+      "sha256": "ebdd830b2f328b71b47075f4992930fd696ccd8317ca2e9bc0b5d95a37e0e363",
+      "status": "new",
+      "owner": "google-docs-fidelity-fixes",
+      "reason": "google-docs-fidelity-fixes F4 regressions: concurrency bound, serial-identical output, middle failure/short page, 429 Retry-After/cooldown, pacing, resume, donor fetchDocChangelog path",
+      "tests": [
+        "self"
+      ]
+    },
+    {
       "path": "tests/source-lane/providers/google-docs/coverage-and-jobs.test.ts",
       "sha256": "df5f1061d0fa3bbfe6fe8f7d963fbdd356997d4a4d3c0718d11b7c1519bc53c7",
       "status": "new",
@@ -6185,6 +6798,16 @@
       ]
     },
     {
+      "path": "tests/source-lane/providers/google-docs/history-redaction-fidelity.test.ts",
+      "sha256": "e572b631ee569385ccb61baa0c2ccb672671e58fecab41176756cc78dd1fb698",
+      "status": "new",
+      "owner": "google-docs-fidelity-fixes",
+      "reason": "google-docs-fidelity-fixes F1/F2/F5/F6 regressions through exportDocHistory (reviewer repro, nested ops/snapshot/suggestions/revision chunks vs production replay, resumed stored pages, legacy pages, 401/403/Composio wording)",
+      "tests": [
+        "self"
+      ]
+    },
+    {
       "path": "tests/source-lane/providers/google-docs/image-cap.test.ts",
       "sha256": "babdefdc160a48701b9e7d0e2b628c4c8fdd14f3ae63cafae90db35f9d78af1c",
       "status": "new",
@@ -6212,6 +6835,16 @@
       "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
       "tests": [
         "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/research-preservation.test.ts",
+      "sha256": "f3391924ee921a391a4a5be78534a4bf694e67b00633c1b75400ac0ab74510ad",
+      "status": "new",
+      "owner": "google-docs-fidelity-fixes",
+      "reason": "google-docs-fidelity-fixes F3: preserved research hashes, doc-ID redaction, outside runtime closure",
+      "tests": [
+        "self"
       ]
     },
     {

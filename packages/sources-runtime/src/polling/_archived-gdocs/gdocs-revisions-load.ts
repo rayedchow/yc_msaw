@@ -49,6 +49,14 @@
 import { getGoogleAccessToken, GOOGLE_DOCS_DELEGATION_SCOPES } from "../../vault/google-auth.js";
 import { GoogleRateLimitError } from "../../vault/google-rate-limit.js";
 import { gFetch } from "./gdocs-api.js";
+import {
+  changelogPaceKey,
+  changelogPacer,
+  changelogPageConcurrency,
+  changelogRequestsPerSecond,
+  fetchContiguousPages,
+  knownTotalRanges,
+} from "../../source-lane/providers/google-docs/changelog-page-pool.js";
 
 // ---------------------------------------------------------------------------
 // Types
@@ -833,6 +841,13 @@ export function parseChangelogEntries(
  * misclassifies suggestion status and would advance sync watermarks).
  * Google rate limits are rethrown so callers can honor Retry-After.
  *
+ * Known-total ranges are fetched concurrently again (gigabrain 4a4d68fc,
+ * GDOCS_CHANGELOG_PAGE_CONCURRENCY default 8), through the source lane's
+ * fail-closed pool: per-credential pacing of the burst (GDOCS_CHANGELOG_MAX_RPS
+ * default 5), no dispatch after the first failing range, and the same
+ * contiguous-prefix outcome as the serial loop. Open-ended pagination stays
+ * serial.
+ *
  * Returns null on any other failure (network, auth, malformed response).
  */
 export async function fetchDocChangelog(
@@ -884,73 +899,103 @@ export async function fetchDocChangelog(
     const MAX_PAGES = 500; // safety valve: 500 pages × 1000 entries = 500K max entries
     const allEntries: unknown[][] = [];
     let snapshotOps: Array<Record<string, unknown>> = [];
-    let start = 1;
-    let pageCount = 0;
-    let reachedEnd = false;
 
-    while (pageCount < MAX_PAGES) {
-      if (totalKnown && start > totalEntries) {
-        reachedEnd = true;
-        break;
-      }
-      pageCount++;
-      const end = !totalKnown
-        ? start + CHANGELOG_PAGE_SIZE - 1
-        : Math.min(start + CHANGELOG_PAGE_SIZE - 1, totalEntries);
+    type LoadedPage = { start: number; end: number; changelog: unknown[][]; chunkedSnapshot?: unknown };
+    type LoadFailure = { status: number; message: string };
+    const loadPage = async (start: number, end: number): Promise<{ ok: true; page: LoadedPage } | { ok: false; failure: LoadFailure }> => {
       const loadUrl =
         `https://docs.google.com/document/d/${fileId}/revisions/load` +
         `?id=${fileId}&start=${start}&end=${end}`;
       const response = await gFetch(loadUrl, accessToken);
-
       if (!response.ok) {
-        if (allEntries.length === 0 && response.status === 400) {
-          // No changelog at all (empty or imported doc)
-          return { fileId, totalRevisions: 0, userMap, operations: [], tabs: [] };
-        }
-        console.error(
-          `fetchDocChangelog: /revisions/load failed (${response.status}) for ${fileId} [${start}-${end}]; refusing partial changelog`,
-        );
-        return null;
+        return { ok: false, failure: { status: response.status, message: `/revisions/load failed (${response.status}) for ${fileId} [${start}-${end}]` } };
       }
-
       const rawText = await response.text();
       const data = parseXssiJson(rawText);
-
       if (!data) {
+        // Response bytes are provider data; log only their size.
+        return { ok: false, failure: { status: 0, message: `malformed JSON for ${fileId} [${start}-${end}] (${rawText.length} chars)` } };
+      }
+      return { ok: true, page: { start, end, changelog: (data.changelog as unknown[][] | undefined) ?? [], chunkedSnapshot: data.chunkedSnapshot } };
+    };
+    const emptyChangelog = (): DocChangelog => ({ fileId, totalRevisions: 0, userMap, operations: [], tabs: [] });
+
+    if (totalKnown) {
+      const ranges = knownTotalRanges(1, totalEntries, CHANGELOG_PAGE_SIZE, MAX_PAGES);
+      const pool = await fetchContiguousPages<LoadedPage, LoadFailure>(
+        ranges,
+        async (range) => {
+          const loaded = await loadPage(range.start, range.end);
+          if (!loaded.ok) return loaded;
+          return { ok: true, page: loaded.page, complete: loaded.page.changelog.length === range.end - range.start + 1 };
+        },
+        // Per-credential pacing of the concurrent burst, shared with the source lane's capture of the same token.
+        { concurrency: changelogPageConcurrency(), pace: changelogPacer(changelogPaceKey(accessToken), changelogRequestsPerSecond()) },
+      );
+      const rateLimit = pool.errors.find((err) => err instanceof GoogleRateLimitError);
+      if (rateLimit) throw rateLimit;
+      if (pool.stop) {
+        const range = ranges[pool.stoppedAt as number];
+        if (pool.stop.kind === "failure" && pool.stoppedAt === 0 && pool.stop.failure.status === 400) {
+          // No changelog at all (empty or imported doc)
+          return emptyChangelog();
+        }
+        if (pool.stop.kind === "error") throw pool.stop.error;
+        const detail = pool.stop.kind === "failure"
+          ? pool.stop.failure.message
+          : `incomplete /revisions/load page for ${fileId} [${range.start}-${range.end}] expected ${range.end - range.start + 1} entries, got ${pool.pages[pool.pages.length - 1].changelog.length}`;
+        console.error(`fetchDocChangelog: ${detail}; refusing partial changelog`);
+        return null;
+      }
+      if (ranges.length * CHANGELOG_PAGE_SIZE < totalEntries) {
         console.error(
-          `fetchDocChangelog: malformed JSON for ${fileId} [${start}-${end}] (first 100 chars: ${rawText.slice(0, 100)}); refusing partial changelog`,
+          `fetchDocChangelog: page cap (${MAX_PAGES}) reached for ${fileId} before the end of the changelog; refusing partial changelog`,
         );
         return null;
       }
-
-      const pageChangelog = (data.changelog as unknown[][] | undefined) ?? [];
-      allEntries.push(...pageChangelog);
-
+      for (const page of pool.pages) allEntries.push(...page.changelog);
       // Capture chunkedSnapshot from first page (initial document state)
-      if (start === 1 && snapshotOps.length === 0) {
-        snapshotOps = collectSnapshotOps(data.chunkedSnapshot);
-      }
+      snapshotOps = collectSnapshotOps(pool.pages[0]?.chunkedSnapshot);
+    } else {
+      let start = 1;
+      let pageCount = 0;
+      let reachedEnd = false;
 
-      if (totalKnown) {
-        const expectedEntries = end - start + 1;
-        if (pageChangelog.length !== expectedEntries) {
-          console.error(
-            `fetchDocChangelog: incomplete /revisions/load page for ${fileId} [${start}-${end}] expected ${expectedEntries} entries, got ${pageChangelog.length}; refusing partial changelog`,
-          );
+      while (pageCount < MAX_PAGES) {
+        pageCount++;
+        const end = start + CHANGELOG_PAGE_SIZE - 1;
+        const loaded = await loadPage(start, end);
+
+        if (!loaded.ok) {
+          if (allEntries.length === 0 && loaded.failure.status === 400) {
+            // No changelog at all (empty or imported doc)
+            return emptyChangelog();
+          }
+          console.error(`fetchDocChangelog: ${loaded.failure.message}; refusing partial changelog`);
           return null;
         }
-      } else if (pageChangelog.length < CHANGELOG_PAGE_SIZE) {
-        reachedEnd = true;
-        break;
-      }
-      start = end + 1;
-    }
 
-    if (!reachedEnd && !(totalKnown && start > totalEntries)) {
-      console.error(
-        `fetchDocChangelog: page cap (${MAX_PAGES}) reached for ${fileId} before the end of the changelog; refusing partial changelog`,
-      );
-      return null;
+        const pageChangelog = loaded.page.changelog;
+        allEntries.push(...pageChangelog);
+
+        // Capture chunkedSnapshot from first page (initial document state)
+        if (start === 1 && snapshotOps.length === 0) {
+          snapshotOps = collectSnapshotOps(loaded.page.chunkedSnapshot);
+        }
+
+        if (pageChangelog.length < CHANGELOG_PAGE_SIZE) {
+          reachedEnd = true;
+          break;
+        }
+        start = end + 1;
+      }
+
+      if (!reachedEnd) {
+        console.error(
+          `fetchDocChangelog: page cap (${MAX_PAGES}) reached for ${fileId} before the end of the changelog; refusing partial changelog`,
+        );
+        return null;
+      }
     }
 
     return parseChangelogEntries(fileId, allEntries, snapshotOps, userMap);

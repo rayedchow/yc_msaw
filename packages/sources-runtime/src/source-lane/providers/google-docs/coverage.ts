@@ -127,8 +127,11 @@ export async function googleDocsCoverage(ctx: ExportContext, now: Date = new Dat
   reports.push({
     provider: GOOGLE_DOCS_PROVIDER_ID,
     scope: "docs-content",
-    state: scopeState(docContent, docs.length),
-    reason: reasons(docs, "content_reason") ?? "documents.get native JSON, per-tab JSON, image bytes (contentUri never stored)",
+    // Composio never hands out a bearer, and the Docs content path needs one.
+    state: capability.content ? scopeState(docContent, docs.length) : "blocked",
+    reason: !capability.content
+      ? `${capability.contentReason}: auth mode ${mode} has no Google bearer; documents.get content, images and snapshot diffs are not captured`
+      : reasons(docs, "content_reason") ?? "documents.get native JSON, per-tab JSON, image bytes (contentUri never stored)",
     lastSuccessAt: maxIso(docs.map((r) => r.content_exported_at)),
     counts: { ...docContent, docs: docs.length, oldestPendingSeconds: oldestPendingSeconds(docs, "content_state") },
   });
@@ -143,7 +146,7 @@ export async function googleDocsCoverage(ctx: ExportContext, now: Date = new Dat
     scope: "docs-history",
     state: historyState,
     reason: !capability.changelog
-      ? `${capability.reason}: auth mode ${mode} cannot call the private /revisions/load changelog; snapshot diffs only`
+      ? `${capability.reason}: auth mode ${mode} cannot call the private /revisions/load changelog${capability.content ? "; snapshot diffs only" : "; Docs content and snapshot diffs are unavailable too (bearer-only lane)"}`
       : `undocumented /revisions/load (writer+ role, no SLA); auth mode ${mode}${reasons(docs, "history_reason") ? `; ${reasons(docs, "history_reason")}` : ""}`,
     lastSuccessAt: maxIso(docs.map((r) => r.history_complete_at)),
     counts: { ...historyCounts, docs: docs.length, oldestPendingSeconds: oldestPendingSeconds(docs, "history_state") },

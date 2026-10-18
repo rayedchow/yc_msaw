@@ -1,0 +1,312 @@
+{
+  "schema": "procmem.research-preservation/v1",
+  "donorRepo": "askshepherd/gigabrain",
+  "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+  "note": "Byte copies of the Google Docs OT reverse-engineering notes and research harness scripts. Not product code: nothing under src/ imports them and no tsconfig includes docs/.",
+  "files": [
+    {
+      "path": "README.md",
+      "donorPath": "research/google-docs-ot/README.md",
+      "status": "verbatim",
+      "sha256": "1944905d3ae53c6d59146bb45a3401e7a082162e89b8baf206c268f246d405f2",
+      "donorSha256": "1944905d3ae53c6d59146bb45a3401e7a082162e89b8baf206c268f246d405f2",
+      "lastDonorChange": "d87314e1b6301de8cac9fa41914a66cbd1a30608"
+    },
+    {
+      "path": "agent-architecture-research.md",
+      "donorPath": "research/google-docs-ot/agent-architecture-research.md",
+      "status": "verbatim",
+      "sha256": "edb1a953beb9ebb26d92afdf637d4c0a564e9edd9dd9d3b2376224b1c196b3b6",
+      "donorSha256": "edb1a953beb9ebb26d92afdf637d4c0a564e9edd9dd9d3b2376224b1c196b3b6",
+      "lastDonorChange": "d2ce6c3304f0c7918b61976c6a22190b25cdb216"
+    },
+    {
+      "path": "changelog-format.md",
+      "donorPath": "research/google-docs-ot/changelog-format.md",
+      "status": "verbatim",
+      "sha256": "c534e02d3932ff1690262ab59b924984998fc7c6ae57d07fac59af6403f5bdf6",
+      "donorSha256": "c534e02d3932ff1690262ab59b924984998fc7c6ae57d07fac59af6403f5bdf6",
+      "lastDonorChange": "c9c55105a90e45dbaac8be017fe0bd5726d451b6"
+    },
+    {
+      "path": "google-docs-ot-operations.md",
+      "donorPath": "research/google-docs-ot-operations.md",
+      "status": "verbatim",
+      "sha256": "3b3bc3c0e599568f9add3bee070bff024ef247de7a98e0d3b52838e84c64728e",
+      "donorSha256": "3b3bc3c0e599568f9add3bee070bff024ef247de7a98e0d3b52838e84c64728e",
+      "lastDonorChange": "e7e029465740bd2324ed6624b62cfd0a854fe7f3"
+    },
+    {
+      "path": "named-ranges.md",
+      "donorPath": "research/google-docs-ot/named-ranges.md",
+      "status": "verbatim",
+      "sha256": "3a7ed6065b8c00ae5d5badc19778cc6758a18734ee4aada6cf3576832ecf1ad6",
+      "donorSha256": "3a7ed6065b8c00ae5d5badc19778cc6758a18734ee4aada6cf3576832ecf1ad6",
+      "lastDonorChange": "0b50ce2c4dc4330751b8a261fdc9b47926cd16b0"
+    },
+    {
+      "path": "nesting-patterns.md",
+      "donorPath": "research/google-docs-ot/nesting-patterns.md",
+      "status": "verbatim",
+      "sha256": "eb648857950f01dc0a4e19e8faf78582047b6b00551b1239859927dab9114f99",
+      "donorSha256": "eb648857950f01dc0a4e19e8faf78582047b6b00551b1239859927dab9114f99",
+      "lastDonorChange": "329f008986ea3ab391d1adaf68d493a5961edd23"
+    },
+    {
+      "path": "operation-types.md",
+      "donorPath": "research/google-docs-ot/operation-types.md",
+      "status": "verbatim",
+      "sha256": "331686abbf043f6ad5994a16f2626e104b9275ebff7f6f1ad28335a57e9e4965",
+      "donorSha256": "331686abbf043f6ad5994a16f2626e104b9275ebff7f6f1ad28335a57e9e4965",
+      "lastDonorChange": "1ff7605626efd439f50c623d06f7c05c549dda1e"
+    },
+    {
+      "path": "reliability.md",
+      "donorPath": "research/google-docs-ot/reliability.md",
+      "status": "verbatim",
+      "sha256": "4b6a0b4eab5e837ba0d5c50b1168d03e475a019c87437fb48a1b849f472f9574",
+      "donorSha256": "4b6a0b4eab5e837ba0d5c50b1168d03e475a019c87437fb48a1b849f472f9574",
+      "lastDonorChange": "2c48497213969626ea836342613d2e9b3f9f42b7"
+    },
+    {
+      "path": "replay.md",
+      "donorPath": "research/google-docs-ot/replay.md",
+      "status": "verbatim",
+      "sha256": "d5e5b65d8263359c4487e5bcd9087adec5fc65d9225eb449867be5ed043a6965",
+      "donorSha256": "d5e5b65d8263359c4487e5bcd9087adec5fc65d9225eb449867be5ed043a6965",
+      "lastDonorChange": "9da259e25ced21bc5685fc37e8d462a9397f5c60"
+    },
+    {
+      "path": "synthesis-design.md",
+      "donorPath": "research/google-docs-ot/synthesis-design.md",
+      "status": "verbatim",
+      "sha256": "fa65320cc10471a1c1de85ebca1cad01f8c1ea803e28d6314ff3aff14d2ca006",
+      "donorSha256": "fa65320cc10471a1c1de85ebca1cad01f8c1ea803e28d6314ff3aff14d2ca006",
+      "lastDonorChange": "d164fde7d44ef14f55a6a39c284886e237cb2de6"
+    },
+    {
+      "path": "synthesis-incremental-editing.md",
+      "donorPath": "research/google-docs-ot/synthesis-incremental-editing.md",
+      "status": "verbatim",
+      "sha256": "2413f6d620eb79b3cc9e6941f011caed09a3a28665b05ed55c02c4ba6865538b",
+      "donorSha256": "2413f6d620eb79b3cc9e6941f011caed09a3a28665b05ed55c02c4ba6865538b",
+      "lastDonorChange": "c4b99b28b489667f2f1bd2e2ef2af1042387441d"
+    },
+    {
+      "path": "synthesis-open-questions.md",
+      "donorPath": "research/google-docs-ot/synthesis-open-questions.md",
+      "status": "verbatim",
+      "sha256": "7e44dd34a172446ac5c6d433dae95deeadb13ad4fe2809c2260812820e870335",
+      "donorSha256": "7e44dd34a172446ac5c6d433dae95deeadb13ad4fe2809c2260812820e870335",
+      "lastDonorChange": "322e59b0144c8273dc08d4f5905f5b0895ae3c4f"
+    },
+    {
+      "path": "synthesis-pipeline-plan.md",
+      "donorPath": "research/google-docs-ot/synthesis-pipeline-plan.md",
+      "status": "verbatim",
+      "sha256": "4c09cec6444e3ee6b7522d8adbc9cbe5f58005c07b3119a33d5f1da32b08eada",
+      "donorSha256": "4c09cec6444e3ee6b7522d8adbc9cbe5f58005c07b3119a33d5f1da32b08eada",
+      "lastDonorChange": "69636651cf47b8ad75fc5ab5feee61b8f6a650a3"
+    },
+    {
+      "path": "synthesis-research.md",
+      "donorPath": "research/google-docs-ot/synthesis-research.md",
+      "status": "verbatim",
+      "sha256": "78ec63cf8cce41e9fb17adb15c715d69e049ef66bfec41acdbd7cb064dfc3155",
+      "donorSha256": "78ec63cf8cce41e9fb17adb15c715d69e049ef66bfec41acdbd7cb064dfc3155",
+      "lastDonorChange": "37f8910b883c237cb1e5f896aad9128e47ccc89a"
+    },
+    {
+      "path": "tabs.md",
+      "donorPath": "research/google-docs-ot/tabs.md",
+      "status": "verbatim",
+      "sha256": "242eda13504df9c4e767b45be7ddeeee221131d9254011ac88248c65443cf59b",
+      "donorSha256": "242eda13504df9c4e767b45be7ddeeee221131d9254011ac88248c65443cf59b",
+      "lastDonorChange": "46cb3310c84e812d0cf732f5f4ef52b857a27cc3"
+    },
+    {
+      "path": "scripts/check-latest-entries.ts",
+      "donorPath": "brain/scripts/check-latest-entries.ts",
+      "status": "patched",
+      "sha256": "f877aead238800d3bff75563693c4b894ef5b03da2b7ce72e8a1dd959c95c2fd",
+      "donorSha256": "b6cd5981840a9a37dee41392a057e2ff7426b12de8eab02a19d376968e6e1cb8",
+      "lastDonorChange": "dcb92a6e507146e8dc85e32a72a665b54f6b6518",
+      "change": "hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (link-shared doc IDs act as access capabilities)"
+    },
+    {
+      "path": "scripts/check-session-tokens.ts",
+      "donorPath": "brain/scripts/check-session-tokens.ts",
+      "status": "patched",
+      "sha256": "1109a4752583ce678468c3b9bddc25a387f2ae394bfb34cc646ebc4bf344dd8d",
+      "donorSha256": "93809e76d08a58842d7f8c848cdab05194c8c546d05bcbb1ba968ed835bde5a5",
+      "lastDonorChange": "c4b99b28b489667f2f1bd2e2ef2af1042387441d",
+      "change": "hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (link-shared doc IDs act as access capabilities)"
+    },
+    {
+      "path": "scripts/check-subtabs.ts",
+      "donorPath": "brain/scripts/check-subtabs.ts",
+      "status": "verbatim",
+      "sha256": "6726d88c39ef21cef96d9e8370719eda81c90aa7448184d0455c68fa4a7c282d",
+      "donorSha256": "6726d88c39ef21cef96d9e8370719eda81c90aa7448184d0455c68fa4a7c282d",
+      "lastDonorChange": "40e173e2f62b7acab52ae68f7593cee14365bfad"
+    },
+    {
+      "path": "scripts/check-tab-ops.ts",
+      "donorPath": "brain/scripts/check-tab-ops.ts",
+      "status": "verbatim",
+      "sha256": "11716d8a59acffe9a7fd713df96fe806e084dcec59e735fb33c44da1e720f415",
+      "donorSha256": "11716d8a59acffe9a7fd713df96fe806e084dcec59e735fb33c44da1e720f415",
+      "lastDonorChange": "47fd11f5974be97b1104f1878f9a3bab194a4ac1"
+    },
+    {
+      "path": "scripts/check-undo-rvrt.ts",
+      "donorPath": "brain/scripts/check-undo-rvrt.ts",
+      "status": "patched",
+      "sha256": "fb0f35ffb6b1338b22599c04819f0f8bd89c94598c1f25ea28e4e21fe453fdc4",
+      "donorSha256": "f9e4c8ecce3898bc1a159da7274d42e15e7dad0568917e7be60803c32232de5c",
+      "lastDonorChange": "e1c45293ca5c778640be5fd2880106c72d46b18e",
+      "change": "hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (link-shared doc IDs act as access capabilities)"
+    },
+    {
+      "path": "scripts/test-chunked-diffs-v2.ts",
+      "donorPath": "brain/scripts/test-chunked-diffs-v2.ts",
+      "status": "verbatim",
+      "sha256": "6b76294547029770f3dcc4041b3634cd1f798feb4990a72fa2d2c44319653f04",
+      "donorSha256": "6b76294547029770f3dcc4041b3634cd1f798feb4990a72fa2d2c44319653f04",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3"
+    },
+    {
+      "path": "scripts/test-chunked-diffs-v3.ts",
+      "donorPath": "brain/scripts/test-chunked-diffs-v3.ts",
+      "status": "verbatim",
+      "sha256": "44131ffdd4135fa1ad9ef549a743bd55fde51c97bd7c6ca9441892b17159dae7",
+      "donorSha256": "44131ffdd4135fa1ad9ef549a743bd55fde51c97bd7c6ca9441892b17159dae7",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3"
+    },
+    {
+      "path": "scripts/test-chunked-diffs.ts",
+      "donorPath": "brain/scripts/test-chunked-diffs.ts",
+      "status": "verbatim",
+      "sha256": "f67777ff0245417d8ae7ddb61d265ca7dc17ef2f0c9ce5c582e5f1c78e7fdd49",
+      "donorSha256": "f67777ff0245417d8ae7ddb61d265ca7dc17ef2f0c9ce5c582e5f1c78e7fdd49",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3"
+    },
+    {
+      "path": "scripts/test-dc-ops.ts",
+      "donorPath": "brain/scripts/test-dc-ops.ts",
+      "status": "patched",
+      "sha256": "35e981e9bf2f56350d4c13925c0e1275190f4b7e15f82fa09832d9737af2610a",
+      "donorSha256": "2624a29c69289e86d250f410d02bcf75f68dce6d092e99f8ecc45d578fd1e131",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3",
+      "change": "hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (link-shared doc IDs act as access capabilities)"
+    },
+    {
+      "path": "scripts/test-deep-ot-analysis.ts",
+      "donorPath": "brain/scripts/test-deep-ot-analysis.ts",
+      "status": "verbatim",
+      "sha256": "214b29b30b3a3da74711fbaf4b0ff30adaeb87a7c90e705636ef6bb154391492",
+      "donorSha256": "214b29b30b3a3da74711fbaf4b0ff30adaeb87a7c90e705636ef6bb154391492",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3"
+    },
+    {
+      "path": "scripts/test-exhaustive-revisions-load.ts",
+      "donorPath": "brain/scripts/test-exhaustive-revisions-load.ts",
+      "status": "verbatim",
+      "sha256": "49dfee0878d159ccdf8cb321047410259f9b35cc9737646751c1c037dfd98f37",
+      "donorSha256": "49dfee0878d159ccdf8cb321047410259f9b35cc9737646751c1c037dfd98f37",
+      "lastDonorChange": "ad636f93ecab7c3b81bc9ff0122690725abde995"
+    },
+    {
+      "path": "scripts/test-exhaustive-scan.ts",
+      "donorPath": "brain/scripts/test-exhaustive-scan.ts",
+      "status": "verbatim",
+      "sha256": "3454081767ef4e25b3f5176ffe9b3c49e879550606bfbf10a46a42452dc0de4b",
+      "donorSha256": "3454081767ef4e25b3f5176ffe9b3c49e879550606bfbf10a46a42452dc0de4b",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3"
+    },
+    {
+      "path": "scripts/test-last-chunks.ts",
+      "donorPath": "brain/scripts/test-last-chunks.ts",
+      "status": "patched",
+      "sha256": "046a250510e378e962b267b8c9bce964a1a1350bbfcac9dfb5fc26fb1867a468",
+      "donorSha256": "e1b5788e08ea123ff9f4a5c9c6df6f9e212da0341fc4b7ca8d035340a3e04bbe",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3",
+      "change": "hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (link-shared doc IDs act as access capabilities)"
+    },
+    {
+      "path": "scripts/test-multi-doc-validation.ts",
+      "donorPath": "brain/scripts/test-multi-doc-validation.ts",
+      "status": "verbatim",
+      "sha256": "d398aa3be9580d5afecff0ecb5bc6f3a4b9776b2fa3324c3b57d48ba01bacb96",
+      "donorSha256": "d398aa3be9580d5afecff0ecb5bc6f3a4b9776b2fa3324c3b57d48ba01bacb96",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3"
+    },
+    {
+      "path": "scripts/test-nm-parsing.ts",
+      "donorPath": "brain/scripts/test-nm-parsing.ts",
+      "status": "patched",
+      "sha256": "c9e73dcb931fba5b46200e5481a173728626aaa18cdadc9ecfb121883b41c92c",
+      "donorSha256": "6469fed6648e99e47e263d7ae34abe533dfe4466ae363b7e78b546e8c8c63cc1",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3",
+      "change": "hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (link-shared doc IDs act as access capabilities)"
+    },
+    {
+      "path": "scripts/test-nm-standalone.ts",
+      "donorPath": "brain/scripts/test-nm-standalone.ts",
+      "status": "patched",
+      "sha256": "a48d40d9dcbeeb5dbba944e58045ad47120ddb40dfd32a0f15691624c64d8e20",
+      "donorSha256": "7796c9654b929ba141a2068b2237381ee628e6c6a46011f43d8abdf3438d8eb9",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3",
+      "change": "hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (link-shared doc IDs act as access capabilities)"
+    },
+    {
+      "path": "scripts/test-op-types.ts",
+      "donorPath": "brain/scripts/test-op-types.ts",
+      "status": "patched",
+      "sha256": "590e90867a136f3794eb6e93761a2bce8eb8c31487e01b516658d971c18b5cd5",
+      "donorSha256": "15e89eb031978ef1dc51a5dcadb9e5fbc1a7b5ddc00f826d61f6335d37c47ec5",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3",
+      "change": "hardcoded private Google Doc ID literal replaced by process.env.GDOCS_RESEARCH_DOC_ID (link-shared doc IDs act as access capabilities)"
+    },
+    {
+      "path": "scripts/test-revisions-load.ts",
+      "donorPath": "brain/scripts/test-revisions-load.ts",
+      "status": "verbatim",
+      "sha256": "9dadf6175f9435f271aa11d3364e810f7674bec2437d0959acc5c8432f596e87",
+      "donorSha256": "9dadf6175f9435f271aa11d3364e810f7674bec2437d0959acc5c8432f596e87",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3"
+    },
+    {
+      "path": "scripts/test-tabs-ops.ts",
+      "donorPath": "brain/scripts/test-tabs-ops.ts",
+      "status": "verbatim",
+      "sha256": "dcd3ceb95fbd21a6feca4400c30c6a7522839c8e0bd9cea5e8423994da0e75f2",
+      "donorSha256": "dcd3ceb95fbd21a6feca4400c30c6a7522839c8e0bd9cea5e8423994da0e75f2",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3"
+    },
+    {
+      "path": "scripts/test-tabs-standalone.ts",
+      "donorPath": "brain/scripts/test-tabs-standalone.ts",
+      "status": "verbatim",
+      "sha256": "751d52b6569eb0562a9c2756ca9c3af651187f6156a58fc28bc89bdfd8ce5e9c",
+      "donorSha256": "751d52b6569eb0562a9c2756ca9c3af651187f6156a58fc28bc89bdfd8ce5e9c",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3"
+    },
+    {
+      "path": "scripts/test-tiles.ts",
+      "donorPath": "brain/scripts/test-tiles.ts",
+      "status": "verbatim",
+      "sha256": "069af710f7aa904360d805cc262e0aa56475d9d97eb553ddce509e493f8d452c",
+      "donorSha256": "069af710f7aa904360d805cc262e0aa56475d9d97eb553ddce509e493f8d452c",
+      "lastDonorChange": "b95c64526c2abea230850c4d5892df2b6e2672b3"
+    },
+    {
+      "path": "scripts/verify-uncertain-fields.ts",
+      "donorPath": "brain/scripts/verify-uncertain-fields.ts",
+      "status": "verbatim",
+      "sha256": "ce0f5a6d8e02840d71f2ff6c2b64bdb862c155e8e742fff3b4345c5b6d013311",
+      "donorSha256": "ce0f5a6d8e02840d71f2ff6c2b64bdb862c155e8e742fff3b4345c5b6d013311",
+      "lastDonorChange": "cec6bf443c0d09db9a8a1a9effe55b96f6b025ea"
+    }
+  ]
+}

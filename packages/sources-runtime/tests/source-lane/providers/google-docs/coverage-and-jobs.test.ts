@@ -96,9 +96,16 @@ describe("coverage reflects checkpoints, errors and auth mode (never a static co
     await seedToken({ authMode: "composio_proxy", composioConnectedAccountId: "ca_1" });
     await recordDriveFileSeen(TENANT, { fileId: "d1", mailbox: "m", mimeType: DOC_MIME, name: "d1", version: "v", modifiedTime: null }, deps);
     await setHistoryState(TENANT, "d1", { state: "complete", completeEntries: 1 }, deps);
-    const history = (await coverage()).find((r) => r.scope === "docs-history")!;
+    const reports = await coverage();
+    const history = reports.find((r) => r.scope === "docs-history")!;
     expect(history.state).toBe("blocked");
     expect(history.reason).toMatch(/^ot_requires_bearer/);
+    // F5: a Composio account has no Docs content or snapshot diffs either.
+    expect(history.reason).toMatch(/Docs content and snapshot diffs are unavailable too/);
+    expect(history.reason).not.toMatch(/snapshot diffs only/);
+    const content = reports.find((r) => r.scope === "docs-content")!;
+    expect(content.state).toBe("blocked");
+    expect(content.reason).toMatch(/^docs_content_requires_bearer/);
   });
 });
 

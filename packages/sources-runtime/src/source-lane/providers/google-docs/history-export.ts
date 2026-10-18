@@ -9,6 +9,11 @@
  * pages it did get plus a `partial` status, keeps the last complete
  * checkpoint, and schedules a retry honoring Retry-After. Composio-proxied
  * connections are `blocked` with `ot_requires_bearer` and never attempted.
+ *
+ * Pages are stored, compared for reuse, and replayed in ONE representation:
+ * `redactChangelogResponse` (shared google-docs redaction, length-preserving
+ * inside the positional OT data), so a redacted credential never shifts OT
+ * indices and stored pages are byte-for-byte what the parser saw.
  */
 import { sql } from "drizzle-orm";
 import {
@@ -20,8 +25,9 @@ import {
 import { trackSuggestions } from "../../../polling/_archived-gdocs/gdocs-suggestion-tracker.js";
 import { extractTabChanges } from "../../../integrations/google/gdocs/tab-changes.js";
 import { redactProviderPayload } from "../../../vault/redaction.js";
-import { docsHistoryCapability, loadGoogleAuthMode, type GoogleAuthMode } from "./auth-mode.js";
+import { changelogRefusalNote, docsHistoryBlockedNote, docsHistoryCapability, loadGoogleAuthMode, type GoogleAuthMode } from "./auth-mode.js";
 import { captureChangelogPages, entriesFromPages, type ChangelogCaptureResult, type RawChangelogPage } from "./changelog-capture.js";
+import { CHANGELOG_REDACTION_SCHEME, hasLegacyFixedLengthRedaction, redactChangelogResponse } from "./changelog-redaction.js";
 import { getCheckpoint, retryDelaySeconds, setExportDirectory, setHistoryState, type FileCheckpoint } from "./checkpoints.js";
 import type { FetchImpl } from "./google-fetch.js";
 import { docDirectory, docPaths } from "./paths.js";
@@ -52,6 +58,8 @@ export interface DocHistoryExportInput {
   fetchImpl?: FetchImpl;
   now?: Date;
   deps?: StoreDeps;
+  /** Overrides for the known-total page pool (defaults: GDOCS_CHANGELOG_PAGE_CONCURRENCY / GDOCS_CHANGELOG_MAX_RPS). */
+  changelogFetch?: { pageConcurrency?: number; requestsPerSecond?: number };
 }
 
 export interface DocHistoryExportResult {
@@ -77,25 +85,45 @@ function pageFileBody(docId: string, page: RawChangelogPage): Record<string, unk
     end: page.end,
     entryCount: page.changelog.length,
     endpoint: "docs.google.com/document/d/<id>/revisions/load (undocumented; anti-XSSI prefix stripped)",
-    response: redactProviderPayload("google-docs", response),
+    // Credentialed strings in changelog/chunkedSnapshot are replaced by
+    // placeholders of the same UTF-16 length, so OT positions stay exact.
+    redaction: CHANGELOG_REDACTION_SCHEME,
+    // Idempotent: pages from the capture are already in this representation.
+    response: redactChangelogResponse(response),
   };
 }
 
-async function loadStoredPages(tenantId: string, docId: string, dir: string, deps?: StoreDeps): Promise<RawChangelogPage[]> {
+type StoredPage = RawChangelogPage & { legacyFixedLengthRedaction: boolean };
+type PageRange = { start: number; end: number };
+
+async function readHeadJson<T>(tenantId: string, head: { path: string; seq: number }, deps?: StoreDeps): Promise<T | null> {
+  const db = await resolveDb(deps);
+  const [row] = rowsOf<{ chunks: string[] | string }>(await db.execute(sql`
+    SELECT chunks FROM gdocs_source_file_versions
+    WHERE tenant_id = ${tenantId} AND path = ${head.path} AND seq = ${head.seq}
+  `));
+  if (!row) return null;
+  const chunks = typeof row.chunks === "string" ? JSON.parse(row.chunks) as string[] : row.chunks;
+  return JSON.parse((await readBlobBytes(tenantId, chunks, deps)).toString("utf8")) as T;
+}
+
+/** Legacy pages named by the previous status: derived history stays legacy-derived until a complete capture. */
+async function priorLegacyPages(tenantId: string, docId: string, statusPath: string, deps?: StoreDeps): Promise<PageRange[]> {
+  const head = (await listLiveHeads(tenantId, docId, deps)).find((h) => h.path === statusPath);
+  if (!head) return [];
+  const status = await readHeadJson<{ legacyRedaction?: { pages?: PageRange[] } }>(tenantId, head, deps).catch(() => null);
+  return Array.isArray(status?.legacyRedaction?.pages) ? status.legacyRedaction.pages : [];
+}
+
+async function loadStoredPages(tenantId: string, docId: string, dir: string, deps?: StoreDeps): Promise<StoredPage[]> {
   const prefix = `${docPaths(dir).changelogPagesDir}/`;
   const heads = (await listLiveHeads(tenantId, docId, deps)).filter((h) => h.path.startsWith(prefix));
-  const db = await resolveDb(deps);
-  const pages: RawChangelogPage[] = [];
+  const pages: StoredPage[] = [];
   for (const head of heads) {
-    const [row] = rowsOf<{ chunks: string[] | string }>(await db.execute(sql`
-      SELECT chunks FROM gdocs_source_file_versions
-      WHERE tenant_id = ${tenantId} AND path = ${head.path} AND seq = ${head.seq}
-    `));
-    if (!row) continue;
-    const chunks = typeof row.chunks === "string" ? JSON.parse(row.chunks) as string[] : row.chunks;
-    const body = JSON.parse((await readBlobBytes(tenantId, chunks, deps)).toString("utf8")) as {
-      start: number; end: number; response: Record<string, unknown>;
-    };
+    const body = await readHeadJson<{
+      start: number; end: number; redaction?: string; response: Record<string, unknown>;
+    }>(tenantId, head, deps);
+    if (!body) continue;
     const changelog = Array.isArray(body.response?.changelog) ? body.response.changelog as unknown[][] : [];
     pages.push({
       start: body.start,
@@ -104,6 +132,7 @@ async function loadStoredPages(tenantId: string, docId: string, dir: string, dep
       ...(body.start === 1 ? { chunkedSnapshot: body.response.chunkedSnapshot ?? null } : {}),
       response: body.response,
       fetchedAt: "stored",
+      legacyFixedLengthRedaction: hasLegacyFixedLengthRedaction(body),
     });
   }
   return pages.sort((a, b) => a.start - b.start);
@@ -178,7 +207,8 @@ export async function exportDocHistory(input: DocHistoryExportInput): Promise<Do
 
   if (!capability.changelog) {
     await writeStatus(input, dir, { ...base, state: "blocked", reason: capability.reason,
-      note: "This connection's credential lane cannot call the private changelog endpoint; per-author OT history, sessions and changelog suggestions are not captured. Snapshot diffs (documents.get) still are." }, now);
+      ...(capability.content ? {} : { contentReason: capability.contentReason }),
+      note: docsHistoryBlockedNote(capability) }, now);
     await setHistoryState(input.tenantId, input.docId, { state: "blocked", reason: capability.reason }, deps);
     return result("blocked", { reason: capability.reason });
   }
@@ -197,13 +227,33 @@ export async function exportDocHistory(input: DocHistoryExportInput): Promise<Do
     }
   }
 
-  const reusablePages = checkpoint && checkpoint.historyCompleteEntries > 0
+  const storedPages = checkpoint && checkpoint.historyCompleteEntries > 0
     ? await loadStoredPages(input.tenantId, input.docId, dir, deps)
     : [];
+  // A page stored with the old fixed-length placeholder cannot be replayed
+  // faithfully (the original length is gone): offer only the clean prefix
+  // before it, so that page and everything after it are fetched again.
+  const firstLegacy = storedPages.findIndex((p) => p.legacyFixedLengthRedaction);
+  const reusablePages = firstLegacy < 0 ? storedPages : storedPages.slice(0, firstLegacy);
+  const legacyPages: PageRange[] = [];
+  for (const p of [
+    ...(storedPages.length > 0 ? await priorLegacyPages(input.tenantId, input.docId, paths.changelogStatus, deps) : []),
+    ...storedPages.filter((sp) => sp.legacyFixedLengthRedaction),
+  ]) {
+    if (!legacyPages.some((l) => l.start === p.start)) legacyPages.push({ start: p.start, end: p.end });
+  }
+  legacyPages.sort((a, b) => a.start - b.start);
   const capture = await captureChangelogPages(
     { tenantId: input.tenantId, mailbox: input.mailbox ?? null, accessToken, fetchImpl: input.fetchImpl },
     input.docId,
-    { reusablePages, now: () => now },
+    {
+      reusablePages,
+      now: () => now,
+      normalizeResponse: redactChangelogResponse,
+      authMode: mode,
+      pageConcurrency: input.changelogFetch?.pageConcurrency,
+      requestsPerSecond: input.changelogFetch?.requestsPerSecond,
+    },
   );
 
   // Raw pages are real data in every outcome: store what was fetched.
@@ -235,18 +285,22 @@ export async function exportDocHistory(input: DocHistoryExportInput): Promise<Do
     }, deps);
   }
 
+  const fetchStats = { ...capture.stats, reusedPages: capture.reusedPages, fetchedPages: capture.fetchedPages.length };
   if (capture.state !== "complete") {
-    return recordIncomplete(input, dir, capture, checkpoint, base, now, result);
+    // The previous complete history was derived from legacy fixed-length
+    // redacted pages: positions after a redacted insertion may be shifted, and
+    // that stays true until a complete recapture replaces those pages.
+    const legacy = legacyPages.length > 0
+      ? { legacyRedaction: { pages: legacyPages, note: "lastComplete derived history (operations, sessions, revision chunks, suggestions) was replayed from pages stored with a fixed-length credential placeholder; text positions after that insertion may be shifted until a complete recapture succeeds. Original lengths are not recoverable from the stored pages." } }
+      : {};
+    return recordIncomplete(input, dir, capture, checkpoint, { ...base, ...legacy, fetchStats }, now, result);
   }
 
-  // Parse from the REDACTED stored representation so derived files are
-  // exactly reproducible from the published raw pages.
-  const redactedPages = capture.pages.map((p) => {
-    const body = pageFileBody(input.docId, p).response as Record<string, unknown>;
-    return { ...p, changelog: Array.isArray(body.changelog) ? body.changelog as unknown[][] : [], chunkedSnapshot: body.chunkedSnapshot };
-  });
-  const entries = entriesFromPages(redactedPages);
-  const firstPage = redactedPages.find((p) => p.start === 1);
+  // Parse the stored representation (length-preserving redaction, applied by
+  // the capture) so derived files are exactly reproducible from the published
+  // raw pages, and positions match the unredacted history.
+  const entries = entriesFromPages(capture.pages);
+  const firstPage = capture.pages.find((p) => p.start === 1);
   const userMap = userMapFrom(redactProviderPayload("google-docs", capture.userMap) as Record<string, Record<string, unknown>>);
   const changelog = parseChangelogEntries(input.docId, entries, collectSnapshotOps(firstPage?.chunkedSnapshot), userMap);
   const totalEntries = entries.length;
@@ -302,7 +356,8 @@ export async function exportDocHistory(input: DocHistoryExportInput): Promise<Do
   });
 
   const cards = await loadSuggestionCards(input.tenantId, input.docId, deps).catch(() => null);
-  if (cards) await derived(paths.suggestionCards, { schema: "procmem.gdocs.suggestion-cards/v1", docId: input.docId, cards });
+  // Donor cards are built from the unredacted in-memory changelog and content: apply the provider policy before export.
+  if (cards) await derived(paths.suggestionCards, { schema: "procmem.gdocs.suggestion-cards/v1", docId: input.docId, cards: redactProviderPayload("google-docs", cards) });
 
   // Sessions + referenced text states (within an explicit byte budget).
   const sessionResult = buildSessionDiffEvents(changelog, now);
@@ -350,6 +405,8 @@ export async function exportDocHistory(input: DocHistoryExportInput): Promise<Do
     pages: capture.pages.length,
     reusedPages: capture.reusedPages,
     fetchedPages: capture.fetchedPages.length,
+    fetchStats,
+    ...(legacyPages.length > 0 ? { legacyRedactionRepaired: { pages: legacyPages } } : {}),
     sessions: sessionResult.sessions.length,
     pendingSessionOps: sessionResult.pendingOps,
     pendingSessionsCompleteAt: sessionResult.pendingCompleteAt,
@@ -402,7 +459,7 @@ async function recordIncomplete(
     note: state === "partial"
       ? "Changelog capture stopped before the end. Raw pages fetched so far are stored, but operations, sessions, suggestions and tab history still reflect lastComplete (if any) and must not be read as full history."
       : state === "blocked"
-        ? "The changelog endpoint refused this identity (writer+ role required, endpoint blocked, or access lost)."
+        ? changelogRefusalNote(capture.reason)
         : "Changelog capture failed before any page.",
   }, now);
   await setHistoryState(input.tenantId, input.docId, {
