@@ -170,7 +170,8 @@ export class SourceFs {
     const stored = agentToStored(input.path);
     const path = displaySourcePath(stored);
     const store = this.service.storeFor(ns);
-    const r = viewer.access(stored) === "deny" ? null : await store.resolve(stored);
+    // One head read per call: every lookup below resolves against this root (a hosted head read is a round trip).
+    const r = viewer.access(stored) === "deny" ? null : await store.resolve(stored, (await store.head()).value.root);
     if (!r || (r.type === "file" && (await isWithheld(store, r.entry)))) throw new SourceError("not_found", `No such file or directory: ${path}`);
     if (r.type === "dir") throw new SourceError("not_a_file", `${path} is a directory; use ls or find`);
     if (r.entry.t === "x") {
@@ -186,7 +187,8 @@ export class SourceFs {
     const stored = agentToStored(input.path);
     const path = displaySourcePath(stored);
     const store = this.service.storeFor(ns);
-    const r = viewer.access(stored) === "deny" ? null : await store.resolve(stored);
+    const root = viewer.access(stored) === "deny" ? null : (await store.head()).value.root;
+    const r = root === null ? null : await store.resolve(stored, root);
     if (!r) throw new SourceError("not_found", `No such file or directory: ${path}`);
     const match = globMatcher(input.pattern);
     const cap = Math.min(input.limit, MAX_LIST_LIMIT);
@@ -197,7 +199,7 @@ export class SourceFs {
       return { path, pattern: input.pattern, matches, truncated };
     }
     let visited = 0;
-    for await (const item of store.walk(stored, { skip: (p) => viewer.access(p) === "deny" })) {
+    for await (const item of store.walk(stored, { skip: (p) => viewer.access(p) === "deny" }, root!)) {
       if (++visited > MAX_WALK_ENTRIES) {
         truncated = true;
         break;
@@ -217,7 +219,8 @@ export class SourceFs {
     const stored = agentToStored(input.path);
     const path = displaySourcePath(stored);
     const store = this.service.storeFor(ns);
-    const r = viewer.access(stored) === "deny" ? null : await store.resolve(stored);
+    const root = viewer.access(stored) === "deny" ? null : (await store.head()).value.root;
+    const r = root === null ? null : await store.resolve(stored, root);
     if (!r) throw new SourceError("not_found", `No such file or directory: ${path}`);
     const globMatch = input.glob && r.type === "dir" ? globMatcher(input.glob) : null;
     const files = new Map<string, Buffer>();
@@ -229,7 +232,7 @@ export class SourceFs {
     if (r.type === "file") {
       if (r.entry.t === "f") candidates.push({ path: stored, entry: r.entry });
     } else {
-      for await (const item of store.walk(stored, { skip: (p) => viewer.access(p) === "deny" })) {
+      for await (const item of store.walk(stored, { skip: (p) => viewer.access(p) === "deny" }, root!)) {
         if (++visited > MAX_WALK_ENTRIES) {
           truncated = true;
           break;
@@ -239,19 +242,22 @@ export class SourceFs {
         candidates.push({ path: item.path, entry: item.entry });
       }
     }
+    // Select first (sizes are in the tree entries), then load versions and bytes with batched reads.
+    const selected: Array<{ path: string; entry: FileEntry }> = [];
     for (const c of candidates) {
       if (!isTextualContentType(c.entry.contentType) || c.entry.size > MAX_SOURCE_LINE_LOAD_BYTES) {
         filesSkipped++;
         continue;
       }
-      if (scanned + c.entry.size > MAX_GREP_SCAN_BYTES || files.size >= MAX_GREP_FILES) {
+      if (scanned + c.entry.size > MAX_GREP_SCAN_BYTES || selected.length >= MAX_GREP_FILES) {
         truncated = true;
         break;
       }
-      const version = await store.version(c.entry.v);
-      files.set(c.path, await store.readRange(version, 0, version.size));
+      selected.push(c);
       scanned += c.entry.size;
     }
+    const contents = await store.readWholeMany(await store.versions(selected.map((c) => c.entry.v)));
+    selected.forEach((c, i) => files.set(c.path, contents[i]!));
     // Reuse the customer tree grep (literal/regex worker with timeout) over the loaded files.
     const tree = new VTree("knowledge");
     for (const [p, buf] of files) tree.add(p, { type: "file", size: buf.byteLength, content: buf });

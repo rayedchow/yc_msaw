@@ -73,6 +73,8 @@ export interface SlackSyncDeps {
   now?: () => number;
   sleep?: (ms: number) => Promise<void>;
   rpm?: (method: string) => number;
+  /** Longest in-process quota/Retry-After wait (default SLACK_MAX_INLINE_WAIT_MS); longer waits end the run and re-queue. */
+  maxInlineWaitMs?: number;
   /** Queue a `slack.poll` continuation when work remains (default true). */
   enqueueContinuation?: boolean;
 }
@@ -231,6 +233,7 @@ function newClient(ws: Workspace, deps: SlackSyncDeps, deadline: Date): SlackWeb
     ...(deps.now ? { now: deps.now } : {}),
     ...(deps.sleep ? { sleep: deps.sleep } : {}),
     ...(deps.rpm ? { rpm: deps.rpm } : {}),
+    ...(deps.maxInlineWaitMs !== undefined ? { maxInlineWaitMs: deps.maxInlineWaitMs } : {}),
   });
 }
 
@@ -962,7 +965,7 @@ export async function syncSlackThreads(tenantId: string, options: SlackThreadSyn
             lastReplyTs = maxSlackTs(lastReplyTs, pageMax);
             // Per-page checkpoint: an interrupted thread resumes after the last stored reply.
             await executor.execute(sql`
-              UPDATE thread_watermarks SET last_reply_ts = ${lastReplyTs}, updated_at = now() WHERE id::text = ${tw.id}
+              UPDATE thread_watermarks SET last_reply_ts = ${lastReplyTs}, updated_at = now() WHERE id = ${tw.id}::uuid
             `);
           }
           cursor = typeof data.response_metadata?.next_cursor === "string" && data.response_metadata.next_cursor ? data.response_metadata.next_cursor : undefined;
@@ -977,7 +980,7 @@ export async function syncSlackThreads(tenantId: string, options: SlackThreadSyn
         } else if (err instanceof SlackApiError && SLACK_AUTH_ERRORS.has(err.code)) {
           await failAuth({ executor, tenantId, teamId: ws.teamId }, err);
         } else if (err instanceof SlackApiError && (err.code === "thread_not_found" || err.code === "channel_not_found" || SLACK_CONVERSATION_ACCESS_ERRORS[err.code])) {
-          await executor.execute(sql`UPDATE thread_watermarks SET is_active = false, last_polled_at = now(), updated_at = now() WHERE id::text = ${tw.id}`);
+          await executor.execute(sql`UPDATE thread_watermarks SET is_active = false, last_polled_at = now(), updated_at = now() WHERE id = ${tw.id}::uuid`);
           continue;
         } else if (err instanceof SlackApiError && err.code === "invalid_cursor") {
           continue; // checkpoint is last_reply_ts; the next run restarts from it without a cursor
@@ -995,7 +998,7 @@ export async function syncSlackThreads(tenantId: string, options: SlackThreadSyn
       await executor.execute(sql`
         UPDATE thread_watermarks
         SET last_reply_ts = COALESCE(${lastReplyTs}, last_reply_ts), last_polled_at = now(), is_active = ${stillActive}, updated_at = now()
-        WHERE id::text = ${tw.id}
+        WHERE id = ${tw.id}::uuid
       `);
     }
     result.pendingThreads = rowsOf<{ n: number }>(await executor.execute(sql`

@@ -37,7 +37,10 @@ export const MAX_PROVENANCE_BYTES = 64 * 1024;
 /** Clock skew tolerated on runtime-supplied capture times; later times would block all future updates. */
 export const MAX_FUTURE_SKEW_MS = 5 * 60_000;
 const MAX_CAS_ATTEMPTS = 16;
-const NODE_CACHE_ENTRIES = 20_000;
+/** Entry cap of the node cache; the byte budget is the real bound (per-message directories need one node each). */
+const NODE_CACHE_ENTRIES = 250_000;
+/** Keys per batched object-store read (one round trip each on the hosted store; Modal accepts up to 1000). */
+const PREFETCH_KEYS = 256;
 /** Default metadata cache budget for one process (all tenants together). */
 export const DEFAULT_NODE_CACHE_BYTES = 64 * 1024 * 1024;
 
@@ -433,6 +436,24 @@ export class SourceStore {
     return value;
   }
 
+  /**
+   * Load every not-yet-cached metadata object in `shas` with batched reads (PREFETCH_KEYS per round trip) instead
+   * of one round trip each; later node()/#page() calls hit the cache. Digests are verified exactly as in #object.
+   */
+  async prefetchNodes(shas: readonly string[]): Promise<void> {
+    const want = [...new Set(shas)].filter((sha) => sha !== EMPTY_TREE_SHA && this.#cache.get(`${this.ns}\u0000${treeKey(sha)}`) === undefined);
+    for (let i = 0; i < want.length; i += PREFETCH_KEYS) {
+      const part = want.slice(i, i + PREFETCH_KEYS);
+      const got = await this.store.get(this.ns, part.map(treeKey));
+      for (const sha of part) {
+        const bytes = got.get(treeKey(sha));
+        if (!bytes) continue; // node() reports the missing object when it is actually needed
+        if (sha256(bytes) !== sha) throw new SourceError("integrity", `Directory node ${sha} failed its digest check`);
+        this.#cache.set(`${this.ns}\u0000${treeKey(sha)}`, parseJsonDict<DirNode>(bytes.toString("utf8")), bytes.length * 2);
+      }
+    }
+  }
+
   async node(sha: string): Promise<DirNode> {
     if (sha === EMPTY_TREE_SHA) return EMPTY_LEAF;
     return this.#object<DirNode>(treeKey(sha), sha, "Directory node");
@@ -522,13 +543,27 @@ export class SourceStore {
     }
     const self = this;
     const visit = async function* (dir: string, sha: string): AsyncGenerator<WalkItem> {
+      // A walk reads every page and every child directory: fetch them in batches, not one round trip each.
+      const node = await self.node(sha);
+      if (node.schema === "procmem.source-tree-pages/v1") await self.prefetchNodes(node.pages.map((p) => p.sha));
+      let pending: WalkItem[] = [];
+      const drain = async function* (): AsyncGenerator<WalkItem> {
+        const batch = pending;
+        pending = [];
+        await self.prefetchNodes(batch.flatMap((i) => (i.entry.t === "d" ? [i.entry.tree] : [])));
+        for (const item of batch) {
+          yield item;
+          if (item.entry.t === "d") yield* visit(item.path, item.entry.tree);
+        }
+      };
       for await (const [name, entry] of self.children(sha)) {
         if (!opts.includeDeleted && !isLive(entry)) continue;
         const path = dir ? `${dir}/${name}` : name;
         if (opts.skip?.(path)) continue;
-        yield { path, entry };
-        if (entry.t === "d") yield* visit(path, entry.tree);
+        pending.push({ path, entry });
+        if (pending.length >= PREFETCH_KEYS) yield* drain();
       }
+      yield* drain();
     };
     yield* visit(stored, r.sha);
   }
@@ -541,11 +576,54 @@ export class SourceStore {
 
   async version(versionId: string): Promise<SourceVersion> {
     if (!isVersionId(versionId)) throw new SourceError("invalid_input", `Invalid versionId ${JSON.stringify(versionId)}`);
+    const cached = this.#cache.get<SourceVersion>(`${this.ns}\u0000${versionKey(versionId)}`);
+    if (cached !== undefined) return cached;
     const bytes = (await this.store.get(this.ns, [versionKey(versionId)])).get(versionKey(versionId));
     if (!bytes) throw new SourceError("not_found", `No source version ${versionId}`);
+    return this.#cacheVersion(versionId, bytes);
+  }
+
+  /** Versions are immutable and content-addressed: verified once, then cached like directory nodes. */
+  #cacheVersion(versionId: string, bytes: Buffer): SourceVersion {
     const body = parseJsonDict<SourceVersionBody>(bytes.toString("utf8"));
     if (versionIdFor(body) !== versionId) throw new SourceError("integrity", `Source version ${versionId} failed its digest check`);
-    return { ...body, versionId };
+    const v = { ...body, versionId };
+    this.#cache.set(`${this.ns}\u0000${versionKey(versionId)}`, v, bytes.length * 2);
+    return v;
+  }
+
+  /** Many versions with batched reads (PREFETCH_KEYS per round trip); same verification as version(). */
+  async versions(ids: readonly string[]): Promise<SourceVersion[]> {
+    const missing = [...new Set(ids)].filter((id) => this.#cache.get(`${this.ns}\u0000${versionKey(id)}`) === undefined);
+    for (const id of missing) if (!isVersionId(id)) throw new SourceError("invalid_input", `Invalid versionId ${JSON.stringify(id)}`);
+    for (let i = 0; i < missing.length; i += PREFETCH_KEYS) {
+      const part = missing.slice(i, i + PREFETCH_KEYS);
+      const got = await this.store.get(this.ns, part.map(versionKey));
+      for (const id of part) {
+        const bytes = got.get(versionKey(id));
+        if (bytes) this.#cacheVersion(id, bytes);
+      }
+    }
+    return Promise.all(ids.map((id) => this.version(id)));
+  }
+
+  /** Whole contents of many versions with batched, digest-verified chunk reads (content bytes are not cached). */
+  async readWholeMany(versions: readonly SourceVersion[]): Promise<Buffer[]> {
+    const keys = [...new Set(versions.flatMap((v) => v.chunks.map((c) => `blobs/${c.sha256}`)))];
+    const chunks = new Map<string, Buffer>();
+    for (let i = 0; i < keys.length; i += PREFETCH_KEYS) {
+      const got = await this.store.get(this.ns, keys.slice(i, i + PREFETCH_KEYS));
+      for (const [k, b] of got) chunks.set(k, b);
+    }
+    return versions.map((v) => {
+      const parts = v.chunks.map((c) => {
+        const bytes = chunks.get(`blobs/${c.sha256}`);
+        if (!bytes) throw new SourceError("integrity", `Content chunk ${c.sha256} of ${v.versionId} is missing`);
+        if (bytes.length !== c.size || sha256(bytes) !== c.sha256) throw new SourceError("integrity", `Content chunk ${c.sha256} of ${v.versionId} failed its digest check`);
+        return bytes;
+      });
+      return Buffer.concat(parts);
+    });
   }
 
   /** Exact bytes [start, start+length) of a version; every chunk is digest-verified. */
@@ -658,6 +736,8 @@ export class SourceStore {
     const batchKey = sha256(`${identity.bindingId}\n${batch.batchId}`);
     const requestDigest = sha256(canonicalJson({ bindingId: identity.bindingId, batchId: batch.batchId, changes: batch.changes }));
     let prepared: Prepared[] | null = null;
+    // Inline content is written with the batch's other immutable objects (one batched put), not one put per change.
+    const inlineBlobs = new Map<string, Buffer>();
 
     for (let attempt = 1; attempt <= MAX_CAS_ATTEMPTS; attempt++) {
       const head = await this.head();
@@ -669,7 +749,7 @@ export class SourceStore {
         const receipt = await this.#object<BatchReceipt>(receiptKey(prior.receipt), prior.receipt, "Batch receipt");
         return { ...receipt, replayed: true };
       }
-      prepared ??= await this.#prepare(identity, batch.changes);
+      prepared ??= await this.#prepare(identity, batch.changes, inlineBlobs);
 
       const overlay = new Overlay(this, head.value.root);
       const results: ChangeResult[] = [];
@@ -722,6 +802,7 @@ export class SourceStore {
       const index = await this.#indexPut(head.value.batches, batchKey, { t: "b", requestDigest, commitId, seq: commitBody.seq, receipt: receiptSha });
       // Everything the new head references is written before the head moves.
       await this.store.put(this.ns, [
+        ...[...inlineBlobs].map(([digest, bytes]) => ({ key: `blobs/${digest}`, bytes })),
         ...versions,
         ...nodes.map(([sha, node]) => ({ key: treeKey(sha), bytes: jsonBytes(node) })),
         ...index.nodes.map(([sha, node]) => ({ key: indexKey(sha), bytes: jsonBytes(node) })),
@@ -737,7 +818,7 @@ export class SourceStore {
     throw new SourceError("conflict", "The sources head kept moving; retry the batch", { reason: "head_contention" });
   }
 
-  async #prepare(identity: PublishIdentity, changes: SourceChange[]): Promise<Prepared[]> {
+  async #prepare(identity: PublishIdentity, changes: SourceChange[], inlineBlobs: Map<string, Buffer>): Promise<Prepared[]> {
     const seen = new Set<string>();
     const out: Prepared[] = [];
     const nowMs = this.#now().getTime();
@@ -796,7 +877,7 @@ export class SourceStore {
       if (typeof change.sha256 !== "string" || !SHA_RE.test(change.sha256)) throw new SourceError("invalid_input", `${label}.sha256 must be lowercase hex sha256`);
       if (!Number.isSafeInteger(change.size) || change.size < 0) throw new SourceError("invalid_input", `${label}.size must be a non-negative integer`);
       const sourceVersion = normalizeSourceVersion(change.sourceVersion, label);
-      const chunks = await this.#content(label, change);
+      const chunks = await this.#content(label, change, inlineBlobs);
       out.push({
         op: "put",
         stored,
@@ -818,7 +899,7 @@ export class SourceStore {
   }
 
   /** Materialize inline content or verify referenced chunks; the whole-file digest and size must match exactly. */
-  async #content(label: string, change: PutChange): Promise<ChunkRef[]> {
+  async #content(label: string, change: PutChange, inlineBlobs: Map<string, Buffer>): Promise<ChunkRef[]> {
     if (change.inline !== undefined && change.chunks !== undefined) throw new SourceError("invalid_input", `${label}: give inline or chunks, not both`);
     if (change.inline !== undefined) {
       if (typeof change.inline !== "string" || !/^[A-Za-z0-9+/]*={0,2}$/.test(change.inline) || change.inline.length % 4 !== 0) {
@@ -828,7 +909,8 @@ export class SourceStore {
       if (bytes.length > MAX_INLINE_BYTES) throw new SourceError("too_large", `${label}.inline exceeds ${MAX_INLINE_BYTES} bytes; upload chunks to /v1/sources/blobs`);
       if (bytes.length !== change.size || sha256(bytes) !== change.sha256) throw new SourceError("integrity", `${label}: inline content does not match sha256/size`);
       if (bytes.length === 0) return [];
-      return [await this.putBlob(bytes)];
+      inlineBlobs.set(change.sha256, bytes);
+      return [{ sha256: change.sha256, size: bytes.length }];
     }
     const shas = change.chunks ?? [];
     if (!Array.isArray(shas) || shas.length > 100_000 || shas.some((s) => typeof s !== "string" || !SHA_RE.test(s))) {
@@ -838,9 +920,15 @@ export class SourceStore {
     const refs: ChunkRef[] = [];
     const missing: string[] = [];
     let total = 0;
+    // Referenced chunks are read in batches (one round trip per PREFETCH_KEYS), then verified in order.
+    const loaded = new Map<string, Buffer>();
+    const uniq = [...new Set(shas)];
+    for (let i = 0; i < uniq.length; i += PREFETCH_KEYS) {
+      for (const [k, b] of await this.store.get(this.ns, uniq.slice(i, i + PREFETCH_KEYS).map((sha) => `blobs/${sha}`))) loaded.set(k, b);
+    }
     for (const sha of shas) {
       const key = `blobs/${sha}`;
-      const bytes = (await this.store.get(this.ns, [key])).get(key);
+      const bytes = loaded.get(key);
       if (!bytes) {
         missing.push(sha);
         continue;

@@ -73,6 +73,11 @@ export const SLACK_API_BASE = "https://slack.com/api/";
 const DEFAULT_RETRY_AFTER_SECONDS = 60;
 const MAX_DEFAULT_BACKOFF_SECONDS = 15 * 60;
 const MAX_RATE_LIMIT_RETRIES = 2;
+/**
+ * Longest in-process wait for a quota slot or Retry-After. Longer waits defer (SlackDeferredError) so the run returns
+ * and re-queues at the slot time instead of holding one of the worker's few task loops asleep for its whole budget.
+ */
+export const SLACK_MAX_INLINE_WAIT_MS = Number(process.env.SLACK_MAX_INLINE_WAIT_MS ?? 5_000);
 const MAX_TRANSIENT_RETRIES = 1;
 
 export interface SlackWebClientOptions {
@@ -86,6 +91,8 @@ export interface SlackWebClientOptions {
   sleep?: (ms: number) => Promise<void>;
   /** Override the per-minute tier of a method (tests, Marketplace/internal-app regimes use env). */
   rpm?: (method: string) => number;
+  /** Longest in-process wait (default SLACK_MAX_INLINE_WAIT_MS); Infinity waits up to the deadline. */
+  maxInlineWaitMs?: number;
 }
 
 export interface SlackCallStats {
@@ -115,6 +122,7 @@ export class SlackWebClient {
   readonly #now: () => number;
   readonly #sleep: (ms: number) => Promise<void>;
   readonly #rpm: (method: string) => number;
+  readonly #maxInlineWaitMs: number;
 
   constructor(opts: SlackWebClientOptions) {
     this.#token = opts.token;
@@ -125,6 +133,7 @@ export class SlackWebClient {
     this.#now = opts.now ?? Date.now;
     this.#sleep = opts.sleep ?? ((ms) => new Promise((r) => setTimeout(r, ms)));
     this.#rpm = opts.rpm ?? slackMethodRpm;
+    this.#maxInlineWaitMs = opts.maxInlineWaitMs ?? SLACK_MAX_INLINE_WAIT_MS;
   }
 
   get deadline(): Date {
@@ -140,10 +149,15 @@ export class SlackWebClient {
     return Math.max(0, this.#deadline.getTime() - this.#now());
   }
 
+  /** Latest start this run waits for in-process: the run deadline, capped at maxInlineWaitMs from now. */
+  #waitLimit(): Date {
+    return new Date(Math.min(this.#deadline.getTime(), this.#now() + this.#maxInlineWaitMs));
+  }
+
   async #waitForSlot(method: string): Promise<void> {
     const intervalMs = Math.ceil(60_000 / Math.max(1, this.#rpm(method)));
     const now = new Date(this.#now());
-    const slot = await claimQuotaSlot(this.#executor, this.#quotaKey, method, intervalMs, now, this.#deadline);
+    const slot = await claimQuotaSlot(this.#executor, this.#quotaKey, method, intervalMs, now, this.#waitLimit());
     if (!slot) {
       const quota = await getQuota(this.#executor, this.#quotaKey, method);
       const blocked = quota?.blocked_until ? new Date(String(quota.blocked_until instanceof Date ? quota.blocked_until.toISOString() : quota.blocked_until)) : null;
@@ -195,7 +209,7 @@ export class SlackWebClient {
         const now = new Date(this.#now());
         const until = await recordRateLimited(this.#executor, this.#quotaKey, method, retryAfter, now);
         // Wait out Retry-After only when the run can still use the slot afterwards.
-        if (rateRetries < MAX_RATE_LIMIT_RETRIES && until.getTime() < this.#deadline.getTime()) {
+        if (rateRetries < MAX_RATE_LIMIT_RETRIES && until.getTime() < this.#waitLimit().getTime()) {
           rateRetries += 1;
           continue; // the next slot claim starts no earlier than blocked_until
         }

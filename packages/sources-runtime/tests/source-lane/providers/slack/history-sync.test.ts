@@ -24,7 +24,8 @@ const START = Date.parse("2027-01-20T12:00:00.000Z");
 const HOUR = 3_600_000;
 
 function deps(extra: Record<string, unknown> = {}) {
-  return { now: clock.now, sleep: clock.sleep, enqueueContinuation: false, budgetMs: 60 * 60_000, ...extra };
+  // One long simulated run: waits up to the deadline in-process (production caps inline waits, see web-api.test.ts).
+  return { now: clock.now, sleep: clock.sleep, enqueueContinuation: false, budgetMs: 60 * 60_000, maxInlineWaitMs: Infinity, ...extra };
 }
 
 /** n messages one minute apart ending an hour before START. */

@@ -72,6 +72,13 @@ interface Fence {
   fence: number;
 }
 
+/** Row state and exported paths of one export pass, read with one query per table instead of one per row. */
+interface PassRows {
+  events: Map<string, ActivityEventRow>;
+  mirror: Map<string, MirrorFileRow>;
+  previous: Map<string, string[]>;
+}
+
 const MAX_BATCH_CHANGES = 1_000;
 const MAX_BATCH_JSON_BYTES = 3 * 1024 * 1024;
 const DEAD_LETTER_RETRY_SECONDS = 3_600;
@@ -88,6 +95,11 @@ function feedsFrom(m: { id: string; connectionProviders?: readonly string[] }): 
 function idArray(ids: readonly string[]): string {
   if (ids.some((id) => !/^\d+$/.test(id))) throw new Error("journal ids must be numeric");
   return `{${ids.join(",")}}`;
+}
+
+/** Postgres text[] literal (every element quoted; backslash and double quote escaped). */
+function textArray(values: readonly string[]): string {
+  return `{${values.map((v) => `"${v.replace(/\\/g, "\\\\").replace(/"/g, '\\"')}"`).join(",")}}`;
 }
 
 function rows<T>(result: unknown): T[] {
@@ -250,14 +262,16 @@ export class SourceExporter {
     counts.mirror_files = rows(
       await this.db.execute(sql`
         INSERT INTO source_lane_journal (tenant_id, table_name, row_key, op)
-        SELECT user_id, 'mirror_files', path, 'INSERT' FROM mirror_files WHERE user_id = ${tenantId}
+        SELECT m.user_id, 'mirror_files', m.path, 'INSERT' FROM mirror_files m WHERE m.user_id = ${tenantId}
+          AND NOT EXISTS (SELECT 1 FROM source_lane_journal j WHERE j.tenant_id = m.user_id AND j.table_name = 'mirror_files' AND j.row_key = m.path AND j.dead_lettered_at IS NULL)
         RETURNING id
       `),
     ).length;
     counts.activity_events = rows(
       await this.db.execute(sql`
         INSERT INTO source_lane_journal (tenant_id, table_name, row_key, op)
-        SELECT user_id, 'activity_events', id::text, 'INSERT' FROM activity_events WHERE user_id = ${tenantId}
+        SELECT a.user_id, 'activity_events', a.id::text, 'INSERT' FROM activity_events a WHERE a.user_id = ${tenantId}
+          AND NOT EXISTS (SELECT 1 FROM source_lane_journal j WHERE j.tenant_id = a.user_id AND j.table_name = 'activity_events' AND j.row_key = a.id::text AND j.dead_lettered_at IS NULL)
         RETURNING id
       `),
     ).length;
@@ -279,7 +293,42 @@ export class SourceExporter {
 
   // ---------------------------------------------------------------- mapping
 
-  async #previousPaths(tenantId: string, table: string, rowKey: string): Promise<string[]> {
+  /** Prefetch the pass's activity_events / mirror_files rows and the previous paths of its activity_events keys. */
+  async #prefetch(tenantId: string, groups: Iterable<KeyGroup>): Promise<PassRows> {
+    const eventIds: string[] = [];
+    const paths: string[] = [];
+    for (const g of groups) {
+      if (g.table === "activity_events" && UUID_RE.test(g.rowKey)) eventIds.push(g.rowKey);
+      else if (g.table === "mirror_files") paths.push(g.rowKey);
+    }
+    const out: PassRows = { events: new Map(), mirror: new Map(), previous: new Map() };
+    if (eventIds.length) {
+      const list = `{${eventIds.join(",")}}`;
+      for (const r of rows<ActivityEventRow>(
+        await this.db.execute(sql`
+          SELECT id::text AS id, user_id, source, source_namespace, source_object_id, record_kind, event_type,
+                 timestamp, source_updated_at, raw_payload, raw_payload::text AS raw_payload_text,
+                 extracted_entities, extracted_entities::text AS extracted_entities_text, source_event_id, created_at
+          FROM activity_events WHERE user_id = ${tenantId} AND id = ANY(${list}::uuid[])
+        `),
+      )) out.events.set(r.id, r);
+      for (const r of rows<{ row_key: string; path: string }>(
+        await this.db.execute(sql`
+          SELECT row_key, path FROM source_lane_exported
+          WHERE tenant_id = ${tenantId} AND table_name = 'activity_events' AND row_key = ANY(${list}::text[]) ORDER BY row_key, path
+        `),
+      )) out.previous.set(r.row_key, [...(out.previous.get(r.row_key) ?? []), r.path]);
+    }
+    if (paths.length) {
+      for (const r of rows<MirrorFileRow>(
+        await this.db.execute(sql`SELECT path, user_id, content, content_sha, meta, meta_sha, updated_at FROM mirror_files WHERE user_id = ${tenantId} AND path = ANY(${textArray(paths)}::text[])`),
+      )) out.mirror.set(r.path, r);
+    }
+    return out;
+  }
+
+  async #previousPaths(tenantId: string, table: string, rowKey: string, pass?: PassRows): Promise<string[]> {
+    if (pass && table === "activity_events" && UUID_RE.test(rowKey)) return pass.previous.get(rowKey) ?? [];
     return rows<{ path: string }>(
       await this.db.execute(sql`SELECT path FROM source_lane_exported WHERE tenant_id = ${tenantId} AND table_name = ${table} AND row_key = ${rowKey} ORDER BY path`),
     ).map((r) => r.path);
@@ -289,12 +338,12 @@ export class SourceExporter {
    * Current changes for a row plus deletes for paths this row exported before but no longer
    * produces (its provider path moved), unless another row now owns that path.
    */
-  async #mapWithMoves(ctx: ExportContext, g: KeyGroup): Promise<SourceFileChange[]> {
-    const changes = await this.#map(ctx, g);
+  async #mapWithMoves(ctx: ExportContext, g: KeyGroup, pass?: PassRows): Promise<SourceFileChange[]> {
+    const changes = await this.#map(ctx, g, pass);
     if (g.table === "mirror_files") return changes; // key == path: a move is a delete of the old row
     const produced = new Set(changes.map((c) => c.path));
     if (!changes.some((c) => c.op === "put")) return changes;
-    const previous = await this.#previousPaths(ctx.tenantId, g.table, g.rowKey);
+    const previous = await this.#previousPaths(ctx.tenantId, g.table, g.rowKey, pass);
     const extra: SourceFileChange[] = [];
     for (const path of previous) {
       if (produced.has(path)) continue;
@@ -311,18 +360,20 @@ export class SourceExporter {
     return [...changes, ...extra];
   }
 
-  async #map(ctx: ExportContext, g: KeyGroup): Promise<SourceFileChange[]> {
+  async #map(ctx: ExportContext, g: KeyGroup, pass?: PassRows): Promise<SourceFileChange[]> {
     if (g.table === "mirror_files") {
-      const row = rows<MirrorFileRow>(
-        await this.db.execute(sql`SELECT path, user_id, content, content_sha, meta, meta_sha, updated_at FROM mirror_files WHERE user_id = ${ctx.tenantId} AND path = ${g.rowKey}`),
-      )[0] ?? null;
+      const row = pass
+        ? (pass.mirror.get(g.rowKey) ?? null)
+        : (rows<MirrorFileRow>(
+            await this.db.execute(sql`SELECT path, user_id, content, content_sha, meta, meta_sha, updated_at FROM mirror_files WHERE user_id = ${ctx.tenantId} AND path = ${g.rowKey}`),
+          )[0] ?? null);
       const norm = row ? { ...row, updated_at: iso(row.updated_at) } : null;
       const module = this.registry.forMirrorPath(g.rowKey);
       const custom = module?.mapMirror ? await module.mapMirror(g.rowKey, norm, ctx, g.journal) : null;
       return custom ?? defaultMirrorChanges(g.rowKey, norm, g.journal.enqueuedAt);
     }
     if (g.table === "activity_events") {
-      const row = rows<ActivityEventRow>(
+      const row = pass ? pass.events.get(g.rowKey) : rows<ActivityEventRow>(
         await this.db.execute(sql`
           SELECT id::text AS id, user_id, source, source_namespace, source_object_id, record_kind, event_type,
                  timestamp, source_updated_at, raw_payload, raw_payload::text AS raw_payload_text,
@@ -332,7 +383,7 @@ export class SourceExporter {
       )[0];
       if (!row) {
         // Raw ledger rows are append-only in the donor; if one is removed, remove exactly what it produced.
-        return (await this.#previousPaths(ctx.tenantId, g.table, g.rowKey)).map((path) => ({
+        return (await this.#previousPaths(ctx.tenantId, g.table, g.rowKey, pass)).map((path) => ({
           op: "delete" as const,
           path,
           deletedAt: g.journal.enqueuedAt,
@@ -369,21 +420,25 @@ export class SourceExporter {
     return c.chunked ? client.preparePutChunked(head, c.chunked) : client.preparePut(head, c.content);
   }
 
-  /** Path ownership of this row only; a delete never erases another row's ownership of the same path. */
-  async #recordExported(f: Fence, item: MappedItem): Promise<void> {
-    for (const c of item.changes) {
-      if (c.op === "put") {
-        await this.db.execute(sql`
-          INSERT INTO source_lane_exported (tenant_id, table_name, row_key, path)
-          SELECT ${f.tenantId}, ${item.group.table}, ${item.group.rowKey}, ${c.path} WHERE ${this.#held(f)}
-          ON CONFLICT (tenant_id, table_name, row_key, path) DO UPDATE SET exported_at = now()
-        `);
-      } else {
-        await this.db.execute(sql`
-          DELETE FROM source_lane_exported
-          WHERE tenant_id = ${f.tenantId} AND table_name = ${item.group.table} AND row_key = ${item.group.rowKey} AND path = ${c.path} AND ${this.#held(f)}
-        `);
-      }
+  /** Path ownership of many rows in two statements (puts upserted, deletes removed); same semantics as #recordExported. */
+  async #recordExportedMany(f: Fence, items: MappedItem[]): Promise<void> {
+    const put: Array<[string, string, string]> = [];
+    const del: Array<[string, string, string]> = [];
+    for (const item of items) for (const c of item.changes) (c.op === "put" ? put : del).push([item.group.table, item.group.rowKey, c.path]);
+    const cols = (list: Array<[string, string, string]>, i: number) => list.map((x) => x[i]!);
+    if (put.length) {
+      await this.db.execute(sql`
+        INSERT INTO source_lane_exported (tenant_id, table_name, row_key, path)
+        SELECT DISTINCT ${f.tenantId}, t, k, p FROM unnest(${textArray(cols(put, 0))}::text[], ${textArray(cols(put, 1))}::text[], ${textArray(cols(put, 2))}::text[]) AS u(t, k, p) WHERE ${this.#held(f)}
+        ON CONFLICT (tenant_id, table_name, row_key, path) DO UPDATE SET exported_at = now()
+      `);
+    }
+    if (del.length) {
+      await this.db.execute(sql`
+        DELETE FROM source_lane_exported e
+        USING unnest(${textArray(cols(del, 0))}::text[], ${textArray(cols(del, 1))}::text[], ${textArray(cols(del, 2))}::text[]) AS u(t, k, p)
+        WHERE e.tenant_id = ${f.tenantId} AND e.table_name = u.t AND e.row_key = u.k AND e.path = u.p AND ${this.#held(f)}
+      `);
     }
   }
 
@@ -456,9 +511,10 @@ export class SourceExporter {
     }
 
     const items: MappedItem[] = [];
+    const pass = await this.#prefetch(tenantId, groups.values());
     for (const g of groups.values()) {
       try {
-        items.push({ group: g, changes: await this.#mapWithMoves(ctx, g) });
+        items.push({ group: g, changes: await this.#mapWithMoves(ctx, g, pass) });
       } catch (error) {
         out.deadLettered += await this.#deadLetter(g.ids, `map failed: ${errText(error)}`, f);
       }
@@ -539,6 +595,7 @@ export class SourceExporter {
       return out;
     }
     let index = 0;
+    const accepted: MappedItem[] = [];
     for (const item of items) {
       const results = receipt.results.slice(index, index + item.changes.length);
       index += item.changes.length;
@@ -548,9 +605,11 @@ export class SourceExporter {
         out.deadLettered += await this.#deadLetter(item.group.ids, `rejected by sources store: ${why}`, f);
         continue;
       }
-      await this.#recordExported(f, item);
-      out.acked += await this.#ack(item.group.ids, f);
+      accepted.push(item);
     }
+    // Ownership first, then the ack: a crash in between re-publishes (unchanged) instead of losing ownership.
+    await this.#recordExportedMany(f, accepted);
+    out.acked += await this.#ack(accepted.flatMap((i) => i.group.ids), f);
     return out;
   }
 

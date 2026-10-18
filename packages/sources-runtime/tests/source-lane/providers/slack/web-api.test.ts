@@ -33,7 +33,7 @@ describe("Slack Web API client", () => {
 
   it("two workers sharing a quota key are spaced by the method tier (no per-process bursts)", async () => {
     const fetchImpl = vi.fn(async () => Response.json({ ok: true, messages: [] }));
-    const opts = { token: "xoxp-x", quotaKey: "qk-1", deadline: new Date(clock.t + 10 * 60_000), executor: db as never, fetchImpl, now: clock.now, sleep: clock.sleep, rpm: () => 1 };
+    const opts = { token: "xoxp-x", quotaKey: "qk-1", deadline: new Date(clock.t + 10 * 60_000), executor: db as never, fetchImpl, now: clock.now, sleep: clock.sleep, rpm: () => 1, maxInlineWaitMs: Infinity };
     const w1 = new SlackWebClient(opts);
     const w2 = new SlackWebClient(opts);
     const start = clock.t;
@@ -44,6 +44,21 @@ describe("Slack Web API client", () => {
     // A different method has its own bucket.
     await w2.call("conversations.replies", { channel: "C1", ts: "1.0" });
     expect(clock.t - start).toBe(120_000);
+  });
+
+  it("never sleeps longer than maxInlineWaitMs in-process: a 1/min slot defers so the worker loop is freed (perf-verification)", async () => {
+    const fetchImpl = vi.fn(async () => Response.json({ ok: true }));
+    const client = new SlackWebClient({ token: "xoxp-x", quotaKey: "qk-inline", deadline: new Date(clock.t + 5 * 60_000), executor: db as never, fetchImpl, now: clock.now, sleep: clock.sleep, rpm: () => 1, maxInlineWaitMs: 5_000 });
+    const start = clock.t;
+    await client.call("conversations.history");
+    const deferred = await client.call("conversations.history").catch((e: unknown) => e);
+    expect(deferred).toBeInstanceOf(SlackDeferredError);
+    expect((deferred as SlackDeferredError).until?.getTime()).toBe(start + 60_000); // the caller re-queues at the slot
+    expect(clock.t - start).toBe(0); // no in-process sleep while the slot is a minute away
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    // The slot was not reserved by the deferred call: the next run gets it exactly at start + 60 s.
+    const [q] = await query<{ next_slot_at: Date }>(`SELECT next_slot_at FROM slack_source_quota WHERE quota_key = 'qk-inline'`);
+    expect(new Date(q!.next_slot_at).getTime()).toBe(start + 60_000);
   });
 
   it("defers instead of waiting past the run deadline, without reserving a slot", async () => {

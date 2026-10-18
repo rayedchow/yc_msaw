@@ -102,7 +102,8 @@ describe.skipIf(!PG)("slack source lane on real PostgreSQL", () => {
     await sql`INSERT INTO integration_tokens (user_id, provider, access_token) VALUES (${T}, 'slack', 'synthetic')`;
     await sql`INSERT INTO connections (tenant_id, provider, external_account_id, status) VALUES (${T}, 'slack', ${TEAM}, 'active')`;
     let t = Date.parse("2027-01-20T12:00:00.000Z");
-    const clock = { now: () => t, sleep: async (ms: number) => { t += ms; } };
+    // One long simulated run (fake clock): wait in-process up to the deadline instead of deferring after the first slot.
+    const clock = { now: () => t, sleep: async (ms: number) => { t += ms; }, maxInlineWaitMs: Infinity };
     await mods.sync.discoverSlackConversations(T, clock);
     const runs = await Promise.all([
       mods.sync.syncSlackHistory(T, { ...clock, enqueueContinuation: false }),
