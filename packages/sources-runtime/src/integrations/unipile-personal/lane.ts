@@ -76,7 +76,9 @@ const intEnv = (env: NodeJS.ProcessEnv, name: string, fallback: number, min: num
 };
 const sha256 = (s: string | Buffer) => createHash("sha256").update(s).digest("hex");
 const CONNECTION_ID = /^up_[0-9a-f]{24}$/;
+const LINK_ID = /^upl_[0-9a-f]{24}$/;
 export const UNIPILE_SYNC_FREQUENCY_SECONDS = 120;
+export const UNIPILE_HOSTED_LINK_TTL_SECONDS = 15 * 60; // donor LINK_TTL_MS
 
 export function personalConnectorsEnabled(env: NodeJS.ProcessEnv = process.env): boolean {
   return /^(1|true|yes|on)$/i.test(env.UNIPILE_PERSONAL_CONNECTORS_ENABLED?.trim() ?? "");
@@ -177,9 +179,18 @@ export class UnipileLane {
     const env = deps.env ?? process.env;
     const bad = (message: string, code = "invalid_input", status = 400): ConnectResult => ({ status, body: { error: { code, message } } });
     const body = rec(input.body);
-    const unknown = Object.keys(body).filter((k) => !["apiKey", "accountId", "apiBase", "selectedChatIds", "connectionId", "list"].includes(k));
+    const unknown = Object.keys(body).filter((k) => !["apiKey", "accountId", "apiBase", "selectedChatIds", "connectionId", "list", "linkId"].includes(k));
     if (unknown.length) return bad(`Unknown field(s): ${unknown.join(", ")}`);
     if (body.list === true) return { status: 200, body: { connections: await this.listConnections(input.tenantId, ex) } };
+    // SOURCE-LANE PATCH (owner-acl-reaudit-2 NEW-3): a Unipile API key is a workspace credential that reads every
+    // account linked in that workspace, so a key plus an account id never proves whose account it is. Accounts are
+    // attached only through a hosted-auth link this member started (the request shape follows gigabrain 33055e3d2
+    // brain/src/integrations/whatsapp-personal/hosted-auth.ts; here the link is single-use and bound to the caller's
+    // own scope tenant, and the notify must echo a per-link secret `name` instead of the user id).
+    if (body.accountId !== undefined) {
+      return bad(`Connect ${this.cfg.label} through Unipile hosted auth: send {apiKey} without accountId and sign in at the returned link. An API key and an account id do not prove the account is yours.`, "hosted_auth_required");
+    }
+    if (typeof body.linkId === "string") return this.#linkStatus(input.tenantId, body.linkId, ex);
     const selected = body.selectedChatIds === undefined ? undefined
       : Array.isArray(body.selectedChatIds) && body.selectedChatIds.every((x) => typeof x === "string" && x.trim() && x.length <= 300) && body.selectedChatIds.length <= 5000
         ? [...new Set((body.selectedChatIds as string[]).map((x) => x.trim()))] : null;
@@ -196,59 +207,123 @@ export class UnipileLane {
       return bad(`The ${this.cfg.label} personal connector is disabled. It automates a personal account through Unipile's unofficial client (Terms of Service risk); an operator must opt in with UNIPILE_PERSONAL_CONNECTORS_ENABLED=1.`, "experimental_connector_disabled", 403);
     }
     if (typeof body.apiKey !== "string" || body.apiKey.trim().length < 8 || body.apiKey.length > 500) return bad("apiKey (Unipile API key) is required");
-    if (typeof body.accountId !== "string" || !/^[A-Za-z0-9_-]{4,200}$/.test(body.accountId)) return bad("accountId (the Unipile account id of the linked account) is required");
     let apiBase: string;
     try {
       apiBase = normalizeUnipileApiBase(typeof body.apiBase === "string" ? body.apiBase : DEFAULT_UNIPILE_API_BASE);
     } catch (err) {
       return bad(err instanceof Error ? err.message : String(err));
     }
-    const client = new UnipileClient(body.apiKey.trim(), apiBase, deps.fetchImpl);
-    let profile: Record<string, unknown>;
-    try {
-      profile = await client.account(body.accountId);
-    } catch (err) {
-      if (err instanceof UnipileApiError && err.authFailed) return bad("Unipile rejected the API key for this account", "unipile_auth_failed");
-      if (err instanceof UnipileApiError && err.status === 404) return bad("Unipile account not found", "account_not_found", 404);
-      return bad(`Could not verify the account: ${err instanceof Error ? err.message : String(err)}`, "unipile_unreachable", 502);
-    }
-    const type = str(profile.type) ?? str(profile.provider);
-    if (type && type.toUpperCase() !== this.cfg.accountType) return bad(`Unipile account is ${type}, not ${this.cfg.accountType}`, "account_type_mismatch", 409);
-    // SOURCE-LANE PATCH (personal-connection-attribution): one Unipile workspace key can reach every account linked
-    // in it, so holding the key does not prove whose account this is. An account another member of this
-    // organization already connected (their owner scope) cannot be attached by someone else.
-    const scope = await personalScopeOf(ex, input.tenantId);
-    if (scope) {
-      const taken = rowsOf(await ex.execute(sql`
-        SELECT 1 FROM ${sql.identifier(this.t.connections)}
-        WHERE account_id = ${body.accountId} AND tenant_id <> ${input.tenantId} AND tenant_id LIKE ${`${scope.parentTenantId}.%`}
-        LIMIT 1
-      `));
-      if (taken.length) return bad("This account is connected by another member of your organization", "account_connected_by_another_member", 409);
-    }
-    const id = `up_${randomBytes(12).toString("hex")}`;
-    const webhookSecret = randomBytes(32).toString("base64url");
-    await ex.execute(sql`
-      INSERT INTO ${sql.identifier(this.t.connections)} (id, tenant_id, account_id, account_user_id, display_name, api_base, api_key_ciphertext,
-        webhook_secret_sha256, sync_mode, selected_chat_ids, source_status, initial_sync_status)
-      VALUES (${id}, ${input.tenantId}, ${body.accountId}, ${accountUserIdOf(profile) ?? null}, ${accountDisplayName(profile) ?? null}, ${apiBase},
-        ${this.#seal(id, input.tenantId, body.apiKey.trim())}, ${sha256(webhookSecret)},
-        ${selected?.length ? "selected_conversations" : "all_accessible"}, ${JSON.stringify(selected ?? [])}::jsonb,
-        ${sourceStatusFromAccount(profile)}, ${accountInitialSyncStatus(profile)})
-    `);
-    await upsertConnection({ tenantId: input.tenantId, provider: this.cfg.provider, externalAccountId: body.accountId, status: "active", metadata: { connectionId: id, ingestionMode: "unipile_personal_read_only", sendsEnabled: false } }, ex);
-    const kind = `${this.cfg.provider}.sync`;
-    await upsertTaskSchedule({ tenantId: input.tenantId, kind, frequencySeconds: UNIPILE_SYNC_FREQUENCY_SECONDS, queue: "sync", groupKey: `${input.tenantId}:${this.cfg.provider}` }, ex);
-    await enqueueTask({ queue: "backfill", tenantId: input.tenantId, kind, groupKey: `${input.tenantId}:${this.cfg.provider}`, dedupeKey: `${input.tenantId}:${kind}:${id}`, payload: {} }, ex);
     const base = (env.SOURCES_RUNTIME_PUBLIC_URL ?? env.WEBHOOK_BASE_URL)?.trim().replace(/\/+$/, "");
+    if (!base || !/^https:\/\//.test(base)) {
+      return bad("SOURCES_RUNTIME_PUBLIC_URL (https) must be set: Unipile delivers the linked account to the runtime's notify URL", "public_url_required", 503);
+    }
+    const linkId = `upl_${randomBytes(12).toString("hex")}`;
+    const id = `up_${randomBytes(12).toString("hex")}`;
+    // Only Unipile learns `name` (sent server to server); its notify callback must echo it for this single link.
+    const name = randomBytes(32).toString("base64url");
+    const webhookSecret = randomBytes(32).toString("base64url");
+    const expiresAt = new Date(Date.now() + UNIPILE_HOSTED_LINK_TTL_SECONDS * 1000);
+    let url: string;
+    try {
+      url = await new UnipileClient(body.apiKey.trim(), apiBase, deps.fetchImpl).hostedLink({
+        provider: this.cfg.accountType, expiresOn: expiresAt, notifyUrl: `${base}/webhooks/${this.cfg.sourceDir}/hosted/${linkId}`, name,
+      });
+    } catch (err) {
+      if (err instanceof UnipileApiError && err.authFailed) return bad("Unipile rejected the API key", "unipile_auth_failed");
+      return bad(`Could not start Unipile hosted auth: ${err instanceof Error ? err.message : String(err)}`, "unipile_unreachable", 502);
+    }
+    await ex.execute(sql`
+      INSERT INTO unipile_personal_hosted_links (id, provider, tenant_id, connection_id, name_sha256, api_base, api_key_ciphertext, webhook_secret_sha256, selected_chat_ids, expires_at)
+      VALUES (${linkId}, ${this.cfg.provider}, ${input.tenantId}, ${id}, ${sha256(name)}, ${apiBase}, ${this.#seal(id, input.tenantId, body.apiKey.trim())},
+        ${sha256(webhookSecret)}, ${JSON.stringify(selected ?? [])}::jsonb, ${expiresAt.toISOString()}::timestamptz)
+    `);
     return {
       status: 201,
       body: {
-        connection: (await this.listConnections(input.tenantId, ex)).find((c) => c.id === id),
-        webhook: base ? { url: `${base}/webhooks/${this.cfg.sourceDir}/${id}`, header: "x-unipile-secret", secret: webhookSecret, events: ["message_received", "message_edited", "message_deleted", "message_reaction", "account_status"] } : null,
-        note: `Shown once: configure the Unipile webhook with this URL and header. ${this.cfg.historyLimit}`,
+        link: { id: linkId, url, expiresAt: expiresAt.toISOString(), status: "pending" },
+        webhook: { url: `${base}/webhooks/${this.cfg.sourceDir}/${id}`, header: "x-unipile-secret", secret: webhookSecret, events: ["message_received", "message_edited", "message_deleted", "message_reaction", "account_status"] },
+        note: `Open link.url and sign in to your own ${this.cfg.label} account there; the account is connected when Unipile reports it (poll with {linkId}). Shown once: configure the Unipile webhook with this URL and header. ${this.cfg.historyLimit}`,
       },
     };
+  }
+
+  async #linkStatus(tenantId: string, linkId: string, ex: Executor): Promise<ConnectResult> {
+    const [l] = LINK_ID.test(linkId) ? rowsOf<Record<string, unknown>>(await ex.execute(sql`
+      SELECT status, failure, connection_id, expires_at FROM unipile_personal_hosted_links WHERE id = ${linkId} AND tenant_id = ${tenantId} AND provider = ${this.cfg.provider}
+    `)) : [];
+    if (!l) return { status: 404, body: { error: { code: "not_found", message: "No hosted-auth link with that id" } } };
+    const expired = l.status === "pending" && Date.parse(String(iso(l.expires_at))) <= Date.now();
+    return {
+      status: 200,
+      body: {
+        link: { id: linkId, status: expired ? "expired" : String(l.status), failure: (l.failure as string | null) ?? null, expiresAt: iso(l.expires_at) },
+        connection: l.status === "connected" ? (await this.listConnections(tenantId, ex)).find((c) => c.id === l.connection_id) ?? null : null,
+      },
+    };
+  }
+
+  /** Unipile's hosted-auth notify for one link: attaches the newly linked account to the link's own tenant. */
+  async hostedNotify(linkId: string, payload: Record<string, unknown>, deps: LaneDeps = {}): Promise<{ status: 200 | 401 | 404 | 409 | 410 | 502; body: Record<string, unknown> }> {
+    const ex = deps.executor ?? defaultDb;
+    const [l] = LINK_ID.test(linkId) ? rowsOf<Record<string, unknown>>(await ex.execute(sql`
+      SELECT * FROM unipile_personal_hosted_links WHERE id = ${linkId} AND provider = ${this.cfg.provider}
+    `)) : [];
+    if (!l) return { status: 404, body: { error: "Unknown link" } };
+    const name = str(payload.name) ?? "";
+    const a = Buffer.from(sha256(name), "hex");
+    const b = Buffer.from(String(l.name_sha256), "hex");
+    if (!name || a.length !== b.length || !timingSafeEqual(a, b)) return { status: 401, body: { error: "Notify does not match this link" } };
+    if (l.consumed_at) return { status: 409, body: { error: "Link already used" } };
+    const fail = async (failure: string) => {
+      await ex.execute(sql`UPDATE unipile_personal_hosted_links SET status = 'failed', failure = ${failure}, consumed_at = coalesce(consumed_at, now()) WHERE id = ${linkId}`);
+      return { status: 200 as const, body: { received: true, connected: false, failure } };
+    };
+    if (Date.parse(String(iso(l.expires_at))) <= Date.now()) {
+      await fail("expired");
+      return { status: 410, body: { error: "Link expired" } };
+    }
+    const accountId = str(payload.account_id) ?? str(payload.accountId);
+    if (str(payload.status)?.toUpperCase() !== "CREATION_SUCCESS" || !accountId || !/^[A-Za-z0-9_-]{4,200}$/.test(accountId)) return fail(`not_created:${str(payload.status) ?? "unknown"}`);
+    const tenantId = String(l.tenant_id);
+    const id = String(l.connection_id);
+    let profile: Record<string, unknown>;
+    try {
+      profile = await new UnipileClient(this.#unseal(id, tenantId, String(l.api_key_ciphertext)), String(l.api_base), deps.fetchImpl).account(accountId);
+    } catch (err) {
+      if (err instanceof UnipileApiError && (err.authFailed || err.status === 404)) return fail(err.authFailed ? "unipile_auth_failed" : "account_not_found");
+      // Not consumed: a retried notify can still complete the link before it expires.
+      return { status: 502, body: { error: "Could not verify the account with Unipile" } };
+    }
+    const type = str(profile.type) ?? str(profile.provider);
+    if (type && type.toUpperCase() !== this.cfg.accountType) return fail("account_type_mismatch");
+    // Single use: only the first notify for this link attaches an account.
+    if (!rowsOf(await ex.execute(sql`UPDATE unipile_personal_hosted_links SET consumed_at = now(), account_id = ${accountId} WHERE id = ${linkId} AND consumed_at IS NULL RETURNING id`)).length) {
+      return { status: 409, body: { error: "Link already used" } };
+    }
+    // Defence in depth: an account another member of this organization (or the organization itself) has connected
+    // stays theirs.
+    const org = (await personalScopeOf(ex, tenantId))?.parentTenantId ?? tenantId;
+    const taken = rowsOf(await ex.execute(sql`
+      SELECT 1 FROM ${sql.identifier(this.t.connections)}
+      WHERE account_id = ${accountId} AND status = 'active' AND tenant_id <> ${tenantId} AND (tenant_id = ${org} OR tenant_id LIKE ${`${org}.%`})
+      LIMIT 1
+    `));
+    if (taken.length) return fail("account_connected_by_another_member");
+    const selected = Array.isArray(l.selected_chat_ids) ? (l.selected_chat_ids as string[]) : [];
+    await ex.execute(sql`
+      INSERT INTO ${sql.identifier(this.t.connections)} (id, tenant_id, account_id, account_user_id, display_name, api_base, api_key_ciphertext,
+        webhook_secret_sha256, sync_mode, selected_chat_ids, source_status, initial_sync_status)
+      VALUES (${id}, ${tenantId}, ${accountId}, ${accountUserIdOf(profile) ?? null}, ${accountDisplayName(profile) ?? null}, ${String(l.api_base)},
+        ${String(l.api_key_ciphertext)}, ${String(l.webhook_secret_sha256)},
+        ${selected.length ? "selected_conversations" : "all_accessible"}, ${JSON.stringify(selected)}::jsonb,
+        ${sourceStatusFromAccount(profile)}, ${accountInitialSyncStatus(profile)})
+    `);
+    await ex.execute(sql`UPDATE unipile_personal_hosted_links SET status = 'connected', api_key_ciphertext = '' WHERE id = ${linkId}`);
+    await upsertConnection({ tenantId, provider: this.cfg.provider, externalAccountId: accountId, status: "active", metadata: { connectionId: id, ingestionMode: "unipile_personal_read_only", sendsEnabled: false, linkedVia: "unipile_hosted_auth" } }, ex);
+    const kind = `${this.cfg.provider}.sync`;
+    await upsertTaskSchedule({ tenantId, kind, frequencySeconds: UNIPILE_SYNC_FREQUENCY_SECONDS, queue: "sync", groupKey: `${tenantId}:${this.cfg.provider}` }, ex);
+    await enqueueTask({ queue: "backfill", tenantId, kind, groupKey: `${tenantId}:${this.cfg.provider}`, dedupeKey: `${tenantId}:${kind}:${id}`, payload: {} }, ex);
+    return { status: 200, body: { received: true, connected: true } };
   }
 
   async disconnect(input: { tenantId: string }, deps: LaneDeps = {}): Promise<void> {
@@ -520,6 +595,10 @@ export class UnipileLane {
 
   webhook(deps: LaneDeps = {}): Hono {
     const app = new Hono();
+    app.post("/hosted/:linkId", async (c) => {
+      const r = await this.hostedNotify(c.req.param("linkId"), rec(await c.req.json().catch(() => null)), deps);
+      return c.json(r.body, r.status);
+    });
     app.post("/:connectionId", async (c) => {
       const ex = deps.executor ?? defaultDb;
       const found = CONNECTION_ID.test(c.req.param("connectionId")) ? await this.#connById(c.req.param("connectionId"), ex) : null;

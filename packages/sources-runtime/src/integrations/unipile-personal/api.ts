@@ -124,12 +124,13 @@ export class UnipileClient {
     this.base = normalizeUnipileApiBase(apiBase);
   }
 
-  async #request(path: string): Promise<Response> {
+  async #request(path: string, post?: unknown): Promise<Response> {
     let res: Response;
     try {
       res = await this.fetchImpl(`${this.base}${path}`, {
-        method: "GET",
-        headers: { "X-API-KEY": this.apiKey, Accept: "application/json" },
+        method: post === undefined ? "GET" : "POST",
+        headers: { "X-API-KEY": this.apiKey, Accept: "application/json", ...(post === undefined ? {} : { "Content-Type": "application/json" }) },
+        ...(post === undefined ? {} : { body: JSON.stringify(post) }),
         redirect: "error",
         signal: AbortSignal.timeout(60_000),
       });
@@ -146,6 +147,20 @@ export class UnipileClient {
 
   async get<T>(path: string): Promise<T> {
     return (await (await this.#request(path)).json()) as T;
+  }
+
+  /**
+   * Unipile hosted auth: a one-time link where the user signs in to their own account. Unipile POSTs
+   * `{status, account_id, name}` to `notifyUrl` when the account is created; `name` is echoed back as given.
+   */
+  async hostedLink(input: { provider: string; expiresOn: Date; notifyUrl: string; name: string }): Promise<string> {
+    const res = await this.#request("/hosted/accounts/link", {
+      type: "create", providers: [input.provider], api_url: new URL(this.base).origin,
+      expiresOn: input.expiresOn.toISOString(), notify_url: input.notifyUrl, name: input.name,
+    });
+    const url = ((await res.json()) as { url?: unknown }).url;
+    if (typeof url !== "string" || !/^https:\/\//.test(url)) throw new UnipileApiError(502, "Unipile /hosted/accounts/link returned no link", 30);
+    return url;
   }
 
   account(accountId: string): Promise<Record<string, unknown>> {

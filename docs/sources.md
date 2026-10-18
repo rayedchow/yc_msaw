@@ -125,7 +125,11 @@ Migration, enrolment and current limits (owner-only is enforced; these are decis
 - **Owner scopes:** connected personal accounts (Granola, Zoom, Cursor, WhatsApp/Instagram), personal Nango sources
   and devices (iMessage, coding sessions, office audio) are per member: each connects or enrols their own. One
   account of each connect integration per member (the donor lanes keep one credential per scope; Cursor and Unipile
-  keep several connections per scope). Office-audio recording consent stays organization-wide (admin), and a consent
+  keep several connections per scope). A WhatsApp/Instagram account is attached only through Unipile hosted auth
+  started by the member (`POST /v1/sources/connect/whatsapp_personal` with `{apiKey}` returns a single-use link,
+  valid 15 minutes; Unipile's notify for that link, carrying a secret only Unipile was given, attaches the account it
+  created to that member's scope). A workspace API key plus an account id is refused (`hosted_auth_required`),
+  because the key reads every account in the Unipile workspace and proves nothing about whose account it is. Office-audio recording consent stays organization-wide (admin), and a consent
   revocation with `deleteCaptured` reaches every member's scope.
 - **Legacy devices:** data a device enrolled before owner scopes captured stays in the provider directory itself and
   is served to its single legacy enroller (if exactly one); devices enrolled since do not affect it.

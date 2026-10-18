@@ -33,13 +33,20 @@ class FakeUnipile {
   messages = new Map<string, UnipileMessage[]>([["chat1", []], ["chat2", []], ["igchat", []]]);
   files = new Map<string, Buffer>();
   calls: URL[] = [];
+  /** Hosted-auth link requests (the only POST the lane may send). */
+  links: Array<Record<string, unknown>> = [];
   hooks: Array<(url: URL) => Response | undefined> = [];
   readonly fetch = async (input: string | URL | Request, init?: RequestInit): Promise<Response> => {
     const url = new URL(typeof input === "string" ? input : input instanceof URL ? input.href : input.url);
     this.calls.push(url);
-    expect((init?.method ?? "GET").toUpperCase()).toBe("GET");
+    const method = (init?.method ?? "GET").toUpperCase();
+    expect(method === "GET" || (method === "POST" && url.pathname.endsWith("/hosted/accounts/link"))).toBe(true);
     expect(init?.redirect).toBe("error");
     if (new Headers(init?.headers).get("x-api-key") !== KEY) return json({ title: "Unauthorized" }, 401);
+    if (method === "POST") {
+      this.links.push(JSON.parse(String(init?.body)) as Record<string, unknown>);
+      return json({ object: "HostedAuthURL", url: `https://account.unipile.com/hosted-${this.links.length}` });
+    }
     for (const h of this.hooks) {
       const r = h(url);
       if (r) return r;
@@ -82,11 +89,22 @@ class FakeUnipile {
 let fake: FakeUnipile;
 const deps = (env = ENV) => ({ fetchImpl: fake.fetch, executor: db as never, env });
 
-async function connect(lane = whatsappPersonalLane, accountId = "acc_wa", tenant = T, body: Record<string, unknown> = {}) {
-  const r = await lane.connect({ tenantId: tenant, body: { apiKey: KEY, accountId, apiBase: BASE, ...body } }, deps());
+/** Starts a hosted-auth link for `tenant`; Unipile's notify then reports `accountId` as created through it. */
+async function startLink(lane = whatsappPersonalLane, tenant = T, body: Record<string, unknown> = {}) {
+  const r = await lane.connect({ tenantId: tenant, body: { apiKey: KEY, apiBase: BASE, ...body } }, deps());
   expect(r.status, JSON.stringify(r.body)).toBe(201);
-  const b = r.body as { connection: { id: string }; webhook: { url: string; secret: string } };
-  return { id: b.connection.id, secret: b.webhook.secret, url: b.webhook.url };
+  const b = r.body as { link: { id: string; url: string }; webhook: { url: string; secret: string } };
+  return { linkId: b.link.id, name: String(fake.links.at(-1)!.name), id: /\/(up_[0-9a-f]{24})$/.exec(b.webhook.url)![1]!, secret: b.webhook.secret, url: b.webhook.url };
+}
+function notify(lane: typeof whatsappPersonalLane, linkId: string, payload: Record<string, unknown>) {
+  return lane.webhook({ executor: db as never, fetchImpl: fake.fetch }).request(`/hosted/${linkId}`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(payload) });
+}
+async function connect(lane = whatsappPersonalLane, accountId = "acc_wa", tenant = T, body: Record<string, unknown> = {}) {
+  const l = await startLink(lane, tenant, body);
+  const n = await notify(lane, l.linkId, { status: "CREATION_SUCCESS", account_id: accountId, name: l.name });
+  expect(n.status).toBe(200);
+  expect(await n.json()).toMatchObject({ connected: true });
+  return l;
 }
 async function due(table = "whatsapp_personal_connections") {
   await pg.exec(`UPDATE ${table} SET retry_at = NULL, lease_until = NULL`);
@@ -103,6 +121,7 @@ beforeAll(async () => {
 });
 beforeEach(async () => {
   for (const p of ["whatsapp_personal", "instagram_personal"]) await pg.exec(`DELETE FROM ${p}_attachments; DELETE FROM ${p}_messages; DELETE FROM ${p}_chats; DELETE FROM ${p}_connections;`);
+  await pg.exec(`DELETE FROM unipile_personal_hosted_links`);
   await pg.exec(`DELETE FROM activity_events WHERE source IN ('whatsapp_personal','instagram_personal'); DELETE FROM task_queue; DELETE FROM task_schedules; DELETE FROM connections; DELETE FROM source_lane_journal;`);
   fake = new FakeUnipile();
   vi.stubEnv("UNIPILE_PERSONAL_CONNECTORS_ENABLED", "1");
@@ -111,12 +130,17 @@ afterEach(() => vi.unstubAllEnvs());
 
 describe("connect", () => {
   it("requires the operator opt-in, verifies the account read-only, and returns a per-connection webhook secret once", async () => {
-    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: KEY, accountId: "acc_wa", apiBase: BASE } }, deps({} as NodeJS.ProcessEnv))).body).toMatchObject({ error: { code: "experimental_connector_disabled" } });
-    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: "wrong-key-000", accountId: "acc_wa", apiBase: BASE } }, deps())).body).toMatchObject({ error: { code: "unipile_auth_failed" } });
-    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: KEY, accountId: "acc_ig", apiBase: BASE } }, deps())).body).toMatchObject({ error: { code: "account_type_mismatch" } });
-    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: KEY, accountId: "acc_wa", apiBase: "https://evil.example.com" } }, deps())).status).toBe(400);
-    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: KEY, accountId: "acc_wa", tenantId: T2 } }, deps())).status).toBe(400);
+    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: KEY, apiBase: BASE } }, deps({} as NodeJS.ProcessEnv))).body).toMatchObject({ error: { code: "experimental_connector_disabled" } });
+    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: "wrong-key-000", apiBase: BASE } }, deps())).body).toMatchObject({ error: { code: "unipile_auth_failed" } });
+    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: KEY, apiBase: "https://evil.example.com" } }, deps())).status).toBe(400);
+    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: KEY, tenantId: T2 } }, deps())).status).toBe(400);
+    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: KEY, apiBase: BASE } }, deps({ UNIPILE_PERSONAL_CONNECTORS_ENABLED: "1" } as NodeJS.ProcessEnv))).body).toMatchObject({ error: { code: "public_url_required" } });
+    // An Instagram account reported through a WhatsApp link is refused.
+    const ig = await startLink();
+    expect(await (await notify(whatsappPersonalLane, ig.linkId, { status: "CREATION_SUCCESS", account_id: "acc_ig", name: ig.name })).json()).toMatchObject({ connected: false, failure: "account_type_mismatch" });
     const c = await connect();
+    expect(fake.links.at(-1)).toMatchObject({ type: "create", providers: ["WHATSAPP"], api_url: "https://api1.unipile.com:13111" });
+    expect(String(fake.links.at(-1)!.notify_url)).toMatch(/^https:\/\/runtime\.example\.test\/webhooks\/whatsapp-personal\/hosted\/upl_[0-9a-f]{24}$/);
     expect(c.url).toBe(`https://runtime.example.test/webhooks/whatsapp-personal/${c.id}`);
     const [row] = await query<{ api_key_ciphertext: string; webhook_secret_sha256: string }>(`SELECT api_key_ciphertext, webhook_secret_sha256 FROM whatsapp_personal_connections`);
     expect(row!.api_key_ciphertext).not.toContain(KEY);
@@ -273,14 +297,49 @@ describe("owner scopes (personal-connection-attribution)", () => {
     const { ensurePersonalScope } = await import("../../../../src/source-lane/core/personal-scope.js");
     const bob = await ensurePersonalScope(db as never, { tenantNs: T, issuer: "https://issuer.test", subject: "user_bob" });
     const carol = await ensurePersonalScope(db as never, { tenantNs: T, issuer: "https://issuer.test", subject: "user_carol" });
-    await connect(whatsappPersonalLane, "acc_wa", bob.scopeTenantId);
+    const bobLink = await connect(whatsappPersonalLane, "acc_wa", bob.scopeTenantId);
     // Holding the (workspace-wide) Unipile key is not proof of whose account it is: bob's account stays bob's.
     const r = await whatsappPersonalLane.connect({ tenantId: carol.scopeTenantId, body: { apiKey: KEY, accountId: "acc_wa", apiBase: BASE } }, deps());
-    expect(r.status).toBe(409);
-    expect(r.body).toMatchObject({ error: { code: "account_connected_by_another_member" } });
+    expect(r.status).toBe(400);
+    expect(r.body).toMatchObject({ error: { code: "hosted_auth_required" } });
+    // Even a notify naming bob's account through carol's own link cannot move it.
+    const carolLink = await startLink(whatsappPersonalLane, carol.scopeTenantId);
+    expect(await (await notify(whatsappPersonalLane, carolLink.linkId, { status: "CREATION_SUCCESS", account_id: "acc_wa", name: carolLink.name })).json()).toMatchObject({ connected: false, failure: "account_connected_by_another_member" });
+    // A replayed notify for bob's consumed link is refused, and carol cannot read bob's link status.
+    expect((await notify(whatsappPersonalLane, bobLink.linkId, { status: "CREATION_SUCCESS", account_id: "acc_wa", name: bobLink.name })).status).toBe(409);
+    expect((await whatsappPersonalLane.connect({ tenantId: carol.scopeTenantId, body: { linkId: bobLink.linkId } }, deps())).status).toBe(404);
     expect(await query("SELECT tenant_id FROM whatsapp_personal_connections WHERE account_id = 'acc_wa'")).toEqual([{ tenant_id: bob.scopeTenantId }]);
     // Another organization is a different tenant: its own member connects normally.
     const dave = await ensurePersonalScope(db as never, { tenantNs: T2, issuer: "https://issuer.test", subject: "user_dave" });
     await connect(whatsappPersonalLane, "acc_wa", dave.scopeTenantId);
+  });
+});
+
+describe("hosted auth (owner-acl-reaudit-2 NEW-3)", () => {
+  it("attaches only the account Unipile reports for this member's own unexpired, single-use link", async () => {
+    // A workspace API key plus a colleague's linked account id is refused outright.
+    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { apiKey: KEY, accountId: "acc_wa", apiBase: BASE } }, deps())).body).toMatchObject({ error: { code: "hosted_auth_required" } });
+    const l = await startLink(whatsappPersonalLane, T, { selectedChatIds: ["chat1"] });
+    expect(fake.links.at(-1)!.name).not.toBe(l.linkId);
+    expect(await query("SELECT name_sha256 FROM unipile_personal_hosted_links")).not.toContainEqual({ name_sha256: l.name });
+    // A forged notify without the secret name, or with another link's name, attaches nothing.
+    expect((await notify(whatsappPersonalLane, l.linkId, { status: "CREATION_SUCCESS", account_id: "acc_wa" })).status).toBe(401);
+    const other = await startLink(whatsappPersonalLane, T2);
+    expect((await notify(whatsappPersonalLane, l.linkId, { status: "CREATION_SUCCESS", account_id: "acc_wa", name: other.name })).status).toBe(401);
+    expect((await notify(instagramPersonalLane, l.linkId, { status: "CREATION_SUCCESS", account_id: "acc_wa", name: l.name })).status).toBe(404);
+    expect(await query("SELECT count(*)::int AS n FROM whatsapp_personal_connections")).toEqual([{ n: 0 }]);
+    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { linkId: l.linkId } }, deps())).body).toMatchObject({ link: { status: "pending" }, connection: null });
+    // Unipile's real notify connects it to the link's own tenant, with the link's chat selection; the key is moved off the link.
+    expect(await (await notify(whatsappPersonalLane, l.linkId, { status: "CREATION_SUCCESS", account_id: "acc_wa", name: l.name })).json()).toMatchObject({ connected: true });
+    expect(await query("SELECT id, tenant_id, sync_mode, selected_chat_ids FROM whatsapp_personal_connections")).toEqual([{ id: l.id, tenant_id: T, sync_mode: "selected_conversations", selected_chat_ids: ["chat1"] }]);
+    expect(await query("SELECT status, account_id, api_key_ciphertext FROM unipile_personal_hosted_links WHERE id = $1", [l.linkId])).toEqual([{ status: "connected", account_id: "acc_wa", api_key_ciphertext: "" }]);
+    expect((await whatsappPersonalLane.connect({ tenantId: T, body: { linkId: l.linkId } }, deps())).body).toMatchObject({ link: { status: "connected" }, connection: { id: l.id, accountId: "acc_wa" } });
+    // The webhook secret handed out with the link authenticates deliveries for the connection.
+    expect((await hook(whatsappPersonalLane, l.id, { event: "message_received", account_id: "acc_wa", chat_id: "chat1", message_id: "w1", message: "hi", timestamp: 1_800_000_100 }, l.secret)).status).toBe(200);
+    // Expired links attach nothing.
+    const late = await startLink();
+    await pg.exec(`UPDATE unipile_personal_hosted_links SET expires_at = now() - interval '1 second' WHERE id = '${late.linkId}'`);
+    expect((await notify(whatsappPersonalLane, late.linkId, { status: "CREATION_SUCCESS", account_id: "acc_wa", name: late.name })).status).toBe(410);
+    expect(await query("SELECT count(*)::int AS n FROM whatsapp_personal_connections")).toEqual([{ n: 1 }]);
   });
 });
