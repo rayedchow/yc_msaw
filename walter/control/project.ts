@@ -89,7 +89,7 @@ export async function writeWalterProject(dir: string): Promise<{ mcps: number; h
   await fs.writeFile(path.join(fleetDir, "links.json"), JSON.stringify(links, null, 2));
   await fs.writeFile(path.join(fleetDir, "mcps.json"), JSON.stringify(mcps, null, 2));
   // build hash over everything that ships, so a deploy can wait for exactly this build
-  const h = createHash("sha256");
+  const h = createHash("sha256").update(process.env.MCP_USE_OAUTH_WORKOS_SUBDOMAIN ?? "no-auth"); // auth setting is part of the build
   for (const f of await listFiles(dir)) if (!f.includes("/.mcp-use/")) h.update(f).update(await fs.readFile(f));
   const hash = h.digest("hex").slice(0, 12);
   await fs.writeFile(path.join(fleetDir, "build.json"), JSON.stringify({ hash }));
