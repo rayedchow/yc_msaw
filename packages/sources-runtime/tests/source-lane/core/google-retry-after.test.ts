@@ -5,11 +5,14 @@ import { googleRateLimitErrorFromResponse, parseRetryAfterSeconds, resetGoogleRa
 describe("Google Retry-After", () => {
   afterEach(() => resetGoogleRateLimitCooldownsForTests());
 
-  it("keeps a valid wait above 15 minutes (delta-seconds and HTTP-date) and bounds only absurd values", () => {
+  it("keeps a valid wait above 15 minutes or a day (delta-seconds and HTTP-date) and bounds only absurd values (7 days)", () => {
     expect(parseRetryAfterSeconds(new Headers({ "retry-after": "3600" }))).toBe(3600);
     const at = new Date(Date.now() + 2 * 3600_000).toUTCString();
     expect(parseRetryAfterSeconds(new Headers({ "retry-after": at }))).toBeGreaterThanOrEqual(2 * 3600 - 2);
-    expect(parseRetryAfterSeconds(new Headers({ "retry-after": "999999999" }))).toBe(24 * 3600);
+    expect(parseRetryAfterSeconds(new Headers({ "retry-after": String(30 * 3600) }))).toBe(30 * 3600);
+    const in3days = new Date(Date.now() + 3 * 86_400_000).toUTCString();
+    expect(parseRetryAfterSeconds(new Headers({ "retry-after": in3days }))).toBeGreaterThanOrEqual(3 * 86_400 - 2);
+    expect(parseRetryAfterSeconds(new Headers({ "retry-after": "999999999" }))).toBe(7 * 86_400);
     expect(parseRetryAfterSeconds(new Headers({ "retry-after": "soon" }), 60)).toBe(60);
     expect(parseRetryAfterSeconds(new Headers({ "retry-after": "0" }))).toBe(1);
   });

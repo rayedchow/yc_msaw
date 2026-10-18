@@ -1,8 +1,9 @@
 const DEFAULT_RETRY_AFTER_SECONDS = 60;
 // SOURCE-LANE PATCH (rate-limit compliance): the donor clamped Retry-After to 15 minutes, so a valid longer wait
-// from Google (e.g. a 1 h quota reset) was retried early. Every source lane persists the returned wait durably
-// instead of sleeping, so the provider's value is honoured; only absurd values are bounded, at 24 h.
-const MAX_RETRY_AFTER_SECONDS = 24 * 60 * 60;
+// from Google (e.g. a quota reset hours away) was retried early. Every source lane persists the returned wait durably
+// instead of sleeping, so the provider's value is honoured; only absurd values (beyond any Google quota window) are
+// bounded, at 7 days, so a malformed header cannot park a lane indefinitely.
+const MAX_RETRY_AFTER_SECONDS = 7 * 24 * 60 * 60;
 
 const RATE_LIMIT_REASONS = new Set([
   "rateLimitExceeded",

@@ -6047,12 +6047,12 @@
     },
     {
       "path": "src/vault/google-rate-limit.ts",
-      "sha256": "dad59f248e2051f8a19904b261071f77c1fccacbc667bad7ae767633bee3b930",
+      "sha256": "c354869b46baace302ca6fd037ba6f3de0bbd7abf52624e0a5671c371c133854",
       "status": "patched",
       "owner": "coordinator",
       "donorPath": "src/vault/google-rate-limit.ts",
       "donorSha256": "5d795a26438d5980a96e87bdc7a47c245701842c23f26e54940461878313ec1e",
-      "reason": "Valid Retry-After above the donor's 15-minute clamp is honoured (bounded at 24 h); lanes persist it durably.",
+      "reason": "Valid Retry-After above the donor's 15-minute clamp is honoured (bounded at 24 h); lanes persist it durably. Overflow bound raised to 7 days so any valid Google wait is honoured.",
       "tests": [
         "tests/source-lane/core/google-retry-after.test.ts"
       ]

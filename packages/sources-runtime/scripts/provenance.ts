@@ -173,8 +173,9 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/vault/google-rate-limit.ts": {
     status: "patched",
-    reason: "Valid Retry-After above the donor's 15-minute clamp is honoured (bounded at 24 h); lanes persist it durably.",
+    reason: "Valid Retry-After above the donor's 15-minute clamp is honoured (bounded at 24 h); lanes persist it durably. Overflow bound raised to 7 days so any valid Google wait is honoured.",
     test: "tests/source-lane/core/google-retry-after.test.ts",
+    tests: ["tests/source-lane/core/google-retry-after.test.ts"],
   },
   "src/polling/_archived-gdocs/gdocs-api.ts": {
     status: "patched",
