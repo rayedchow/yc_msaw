@@ -261,14 +261,19 @@ The UI keeps the honeyflow grid style (dark, pastel violet accent) and has two v
 
 - **MCPs:** every internal MCP the company has, with its systems, status (live, mining, needs an answer), agents
   connected, calls in the last 24 h and rules compiled.
-- **One MCP:** its status and usage, then one **grid tree** that unifies everything: the MCP in the center, its
+- **One MCP:** its status, then one **grid tree** that unifies everything: the MCP in the center, its
   integrations on the left (`.md` plus secret name), its tools on the right, and its mined tribal knowledge as rule
   nodes below (held-out score or "asked"). Hovering a node shows its details in a strip under the tree (rule text, evidence, code;
   tool description; integration context) and lights up how it connects: a tool lights the rules compiled into it, a rule
   lights the tools that use it. Below the tree: any open question for a human, how to connect any agent, and
   versions (tests → evals → live).
 
-Both views are in `mock-ui/index.html` (open it directly; no build step).
+- **Evals (per MCP):** the same held-out tasks run by several models under three setups (raw API, + memory, this
+  MCP): headline success rates, a dot matrix of every task × model result (hover a dot for why it was right or
+  wrong), each rule's train vs held-out backtest, whether each model picks the right tool from its description alone,
+  and success across versions.
+
+All views are in `mock-ui/index.html` (open it directly; no build step; `#sales/evals` opens an evals page).
 
 ---
 

@@ -156,6 +156,48 @@
   .inspect .tm { font-size: 13px; color: var(--muted); margin-top: 8px; }
   .inspect .tm b { color: var(--text); font-family: var(--mono); font-weight: 500; }
   .q { margin: 24px 28px; }
+  .pill.ghost { background: transparent; color: var(--text); border: 1px solid var(--border-strong); }
+  .crumb button { color: var(--tertiary); }
+  /* evals */
+  .c3 { grid-template-columns: repeat(3, 1fr); }
+  .evhero .cell { padding: 22px 28px 24px; }
+  .evhero .l { font-size: 13px; color: var(--muted); }
+  .evhero .big { font-family: var(--mono); font-size: 44px; font-weight: 600; letter-spacing: -0.04em; line-height: 1.1; margin: 6px 0 2px; }
+  .evhero .big span { font-size: 22px; color: var(--tertiary); margin-left: 2px; }
+  .evhero .this .big { color: var(--accent); }
+  .meter { height: 4px; background: var(--border); margin-top: 14px; }
+  .meter i { display: block; height: 100%; background: var(--muted); }
+  .evhero .this .meter i { background: var(--accent); }
+  .legend { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--tertiary); }
+  .legend .d { margin-left: 6px; }
+  .d { width: 12px; height: 12px; border-radius: 50%; display: inline-block; flex: none; transition: transform .15s, box-shadow .15s; }
+  .d.ok { background: var(--accent); }
+  .d.no { background: transparent; border: 1.5px solid #4A4A4A; }
+  .matrix { padding: 6px 28px 10px; }
+  .mrow { display: grid; grid-template-columns: 170px repeat(3, 1fr); align-items: center; padding: 12px 0; border-top: 1px solid var(--border); }
+  .mrow.mhead { border-top: 0; font-size: 13px; color: var(--muted); padding-bottom: 8px; }
+  .mname { font-size: 12.5px; color: var(--muted); }
+  .grp { display: flex; gap: 9px; padding-left: 20px; border-left: 1px solid var(--border); }
+  .mhead .grp { border-left-color: transparent; }
+  .matrix .d { cursor: default; }
+  .matrix .d.hl { transform: scale(1.35); box-shadow: 0 0 0 3px var(--accent-glow); }
+  .inspect .okc { color: var(--ok); font-weight: 500; font-size: 13px; margin-left: 8px; }
+  .inspect .noc { color: var(--bad); font-weight: 500; font-size: 13px; margin-left: 8px; }
+  .bt { grid-template-columns: 32px 1fr 64px; }
+  .bars2 { display: flex; flex-direction: column; gap: 4px; }
+  .b2 { height: 5px; background: var(--border); }
+  .b2 i { display: block; height: 100%; }
+  .b2 i.tr, .b.tr { background: #6A6A6A; }
+  .b2 i.ho, .b.ho { background: var(--accent); }
+  .b { width: 14px; height: 5px; display: inline-block; margin-left: 6px; }
+  .tc { grid-template-columns: 1.4fr repeat(3, 1fr); }
+  .chk { font-size: 14px; }
+  .chk.ok { color: var(--accent); }
+  .chk.no { color: var(--bad); }
+  .vchart { display: flex; gap: 40px; align-items: flex-end; padding: 8px 28px 26px; height: 210px; }
+  .vcol { display: flex; flex-direction: column; align-items: center; gap: 6px; width: 64px; font-size: 13px; }
+  .vbar { width: 28px; height: 140px; background: var(--border); position: relative; }
+  .vbar i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--accent); }
 </style>
 </head>
 <body>
@@ -421,15 +463,9 @@ function renderDetail(m) {
         <h1>${m.name}</h1>
         <div class="url">${statusEl(m)}<span>${m.url}</span></div>
       </div>
-      <button class="pill" id="copy">Copy URL</button>
+      <div style="display:flex;gap:10px"><button class="pill ghost" id="evalsBtn">Evals</button><button class="pill" id="copy">Copy URL</button></div>
     </section>
 
-    <section class="row c4">
-      <div class="cell stat"><div class="l">Agents connected</div><div class="v">${m.stats.agents}</div></div>
-      <div class="cell stat"><div class="l">Calls · 24h</div><div class="v">${m.stats.calls}</div></div>
-      <div class="cell stat"><div class="l">Successful calls</div><div class="v">${m.stats.success}</div></div>
-      <div class="cell stat"><div class="l">Rules compiled</div><div class="v">${m.stats.rules}</div></div>
-    </section>
 
     <section class="treewrap" id="treewrap">
       ${treeSvg(m, T)}
@@ -486,12 +522,155 @@ function renderDetail(m) {
   $("#snippet").textContent = snippets.url;
   $$("#tabs button").forEach((b) => b.onclick = () => { $$("#tabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#snippet").textContent = snippets[b.dataset.c]; });
   $("#copy").onclick = () => navigator.clipboard?.writeText(m.url);
+  $("#evalsBtn").onclick = () => (location.hash = m.id + "/evals");
   $$("#question .opt").forEach((o) => o.onclick = () => {
     $$("#question .opt").forEach((x) => x.classList.toggle("picked", x === o));
     const r = m.rules[m.question.rule];
     if (r[3] === "asked") r[3] = "100%";
     setTimeout(() => renderDetail(m), 350);
   });
+}
+
+// ── evals ─────────────────────────────────────────────────────────────────
+// Held-out tasks per MCP; each result is [pass, reason]. Same tasks for every model and setup.
+const P = (why = "Matches the answer from history") => [true, why];
+const F = (why) => [false, why];
+const EVALS = {
+  sales: {
+    note: "Held-out tasks from Q3 and Dreamforce, scored against what GurtAI actually reported and recorded.",
+    tasks: ["Q4 commit", "Q3 commit", "Q1 commit", "Commit by region", "Import SaaStr leads", "Import Dreamforce leads", "Find account by website", "Owner for existing contact"],
+    models: ["claude-haiku-5-5", "glm-5p3", "minimax-m3"],
+    setups: {
+      "Raw API": {
+        "claude-haiku-5-5": [F("Summed amount, not arr"), F("Counted unbooked Closed Won"), F("Missed Enterprise wins (numeric stage ids)"), F("Counted Partner Sandbox"), F("2 duplicate companies"), F("No owner assigned"), P("Matched on domain"), F("Reassigned to territory owner")],
+        "glm-5p3": [F("Summed amount, not arr"), F("Counted unbooked Closed Won"), F("Stopped at page 1 of 3"), F("Counted Partner Sandbox"), F("No owner assigned"), F("lead_source missing"), F("www. domain created a duplicate"), F("Reassigned to territory owner")],
+        "minimax-m3": [F("Counted unbooked Closed Won"), F("Summed amount, not arr"), F("Missed Contract Sent deals"), F("Counted Partner Sandbox"), F("2 duplicate companies"), F("No owner assigned"), F("www. domain created a duplicate"), F("Reassigned to territory owner")],
+      },
+      "+ Memory": {
+        "claude-haiku-5-5": [P(), P(), F("Missed one Enterprise Contract Sent deal"), P(), P(), F("Reassigned an existing contact"), P(), F("Reassigned to territory owner")],
+        "glm-5p3": [P(), F("Summed amount for 2 deals"), P(), P(), F("Reassigned an existing contact"), P(), P(), F("Reassigned to territory owner")],
+        "minimax-m3": [P(), P(), P(), F("Counted Partner Sandbox"), F("Reassigned an existing contact"), F("Reassigned an existing contact"), P(), P()],
+      },
+      "This MCP": {
+        "claude-haiku-5-5": [P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("import_leads · R4 R5 R6"), P("import_leads · R4 R5 R6"), P("find_account · R6"), P("import_leads · R5")],
+        "glm-5p3": [P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("import_leads · R4 R5 R6"), P("import_leads · R4 R5 R6"), P("find_account · R6"), P("import_leads · R5")],
+        "minimax-m3": [P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("get_commit · R1 R2 R3"), P("import_leads · R4 R5 R6"), P("import_leads · R4 R5 R6"), P("find_account · R6"), F("R5 unconfirmed: kept the owner and flagged an assumption")],
+      },
+    },
+    backtests: [["R1", 96, 98], ["R2", 100, 100], ["R3", 100, 100], ["R4", 99, 100], ["R5", 83, null], ["R6", 100, 100]],
+    toolChoice: [["get_commit", [true, true, true]], ["import_leads", [true, true, true]], ["find_account", [true, true, false]], ["report_outcome", [true, true, true]]],
+    versions: [["v1", 13], ["v2", 19], ["v3", 23]],
+  },
+  billing: {
+    note: "Held-out tasks from September, scored against finance's reported MRR and dunning history.",
+    tasks: ["September MRR", "August MRR", "Overdue > 30 days", "Overdue > 5 days", "MRR excluding test", "Disputed invoices"],
+    models: ["claude-haiku-5-5", "glm-5p3", "minimax-m3"],
+    setups: {
+      "Raw API": {
+        "claude-haiku-5-5": [F("Included one-time items"), F("Included qa_ customers"), P(), F("No grace period"), F("Included qa_ customers"), F("Chased a disputed invoice")],
+        "glm-5p3": [F("Included one-time items"), F("Included one-time items"), P(), F("No grace period"), F("Included qa_ customers"), F("Chased a disputed invoice")],
+        "minimax-m3": [F("Included qa_ customers"), F("Included one-time items"), F("Missed page 2"), F("No grace period"), F("Included qa_ customers"), P()],
+      },
+      "+ Memory": {
+        "claude-haiku-5-5": [P(), P(), P(), F("Used a 3-day grace"), P(), P()],
+        "glm-5p3": [P(), F("Included one-time items"), P(), P(), P(), F("Chased a disputed invoice")],
+        "minimax-m3": [P(), P(), P(), F("No grace period"), F("Included qa_ customers"), P()],
+      },
+      "This MCP": {
+        "claude-haiku-5-5": [P("get_mrr · B1 B2"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4"), P("find_overdue · B3 B4"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4")],
+        "glm-5p3": [P("get_mrr · B1 B2"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4"), P("find_overdue · B3 B4"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4")],
+        "minimax-m3": [P("get_mrr · B1 B2"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4"), P("find_overdue · B3 B4"), P("get_mrr · B1 B2"), P("find_overdue · B3 B4")],
+      },
+    },
+    backtests: [["B1", 100, 100], ["B2", 100, 100], ["B3", 97, 97], ["B4", 100, 100]],
+    toolChoice: [["get_mrr", [true, true, true]], ["find_overdue", [true, true, true]], ["report_outcome", [true, true, true]]],
+    versions: [["v1", 14], ["v2", 18]],
+  },
+};
+
+function renderEvals(m) {
+  $("#crumb").innerHTML = `<button id="back">MCPs</button><span>/</span><button id="up">${m.name}</button><span>/</span><span class="cur">Evals</span>`;
+  $("#back").onclick = () => (location.hash = "");
+  $("#up").onclick = () => (location.hash = m.id);
+  const E = EVALS[m.id];
+  if (!E) {
+    $("#app").innerHTML = `
+      <section class="pad head"><div><h1>Evals</h1><p>${m.name}</p></div></section>
+      <section><div class="empty" style="padding:28px">Evals run after the first build passes its backtests. ${m.status === "ask" ? "This MCP is waiting on one answer." : "Mining is still in progress."}</div></section>`;
+    return;
+  }
+  const setups = Object.keys(E.setups);
+  const n = E.tasks.length, total = n * E.models.length;
+  const score = (s) => E.models.reduce((a, mo) => a + E.setups[s][mo].filter(([ok]) => ok).length, 0);
+  const pct = (x) => Math.round((x / total) * 100);
+
+  $("#app").innerHTML = `
+    <section class="pad head">
+      <div>
+        <h1>Evals</h1>
+        <p>${E.note}</p>
+      </div>
+    </section>
+
+    <section class="row c3 evhero">
+      ${setups.map((s) => `
+        <div class="cell ${s === "This MCP" ? "this" : ""}">
+          <div class="l">${s === "This MCP" ? m.name.replace("GurtAI ", "") : s}</div>
+          <div class="big">${pct(score(s))}<span>%</span></div>
+          <div class="l dim">${score(s)} of ${total} tasks right · ${E.models.length} models</div>
+          <div class="meter"><i style="width:${pct(score(s))}%"></i></div>
+        </div>`).join("")}
+    </section>
+
+    <section>
+      <div class="sechead"><h2>Task results · same held-out tasks, same models</h2><span class="legend"><i class="d ok"></i>right <i class="d no"></i>wrong</span></div>
+      <div class="matrix">
+        <div class="mrow mhead"><span></span>${setups.map((s) => `<span class="grp">${s === "This MCP" ? m.name.replace("GurtAI ", "") : s}</span>`).join("")}</div>
+        ${E.models.map((mo) => `
+          <div class="mrow"><span class="mono mname">${mo}</span>
+            ${setups.map((s) => `<span class="grp">${E.setups[s][mo].map(([ok, why], i) => `<i class="d ${ok ? "ok" : "no"}" data-s="${s}" data-m="${mo}" data-t="${i}"></i>`).join("")}</span>`).join("")}
+          </div>`).join("")}
+      </div>
+      <div class="inspect" id="evtip"></div>
+    </section>
+
+    <section class="row c2">
+      <div>
+        <div class="sechead"><h2>Rules on held-out history</h2><span class="legend"><i class="b tr"></i>train <i class="b ho"></i>held-out</span></div>
+        <div class="list">${E.backtests.map(([id, tr, ho]) => `
+          <div class="it bt">
+            <span class="rid">${id}</span>
+            <span class="bars2"><span class="b2"><i class="tr" style="width:${tr}%"></i></span><span class="b2"><i class="ho" style="width:${ho ?? 0}%"></i></span></span>
+            <span class="mono" style="font-size:12px;text-align:right">${ho == null ? '<span class="tag v">asked</span>' : ho + "%"}</span>
+          </div>`).join("")}</div>
+      </div>
+      <div>
+        <div class="sechead"><h2>Right tool, picked from its description</h2><span class="dim" style="font-size:13px">cross-model</span></div>
+        <div class="list">
+          <div class="it tc dim" style="font-size:12px"><span></span>${E.models.map((mo) => `<span class="mono">${mo.split("-")[0]}</span>`).join("")}</div>
+          ${E.toolChoice.map(([t, oks]) => `<div class="it tc"><span class="sig">${t}</span>${oks.map((ok) => `<span class="chk ${ok ? "ok" : "no"}">${ok ? "✓" : "✕"}</span>`).join("")}</div>`).join("")}
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <div class="sechead"><h2>Across versions · tasks right out of ${total}</h2><span class="dim" style="font-size:13px">every version must pass all earlier tests</span></div>
+      <div class="vchart">${E.versions.map(([v, k]) => `
+        <div class="vcol"><div class="vbar"><i style="height:${(k / total) * 100}%"></i></div><div class="mono">${v}</div><div class="dim mono" style="font-size:12px">${k}/${total}</div></div>`).join("")}</div>
+    </section>`;
+
+  const tip = $("#evtip");
+  const idle = `<div class="tk">Hover any dot</div><div class="td">Each dot is one held-out task run by one model. Without the MCP, models trip over GurtAI's unwritten rules; with it, the rules are applied in code.</div>`;
+  tip.innerHTML = idle;
+  $$(".matrix .d").forEach((d) => {
+    d.addEventListener("mouseenter", () => {
+      $$(".matrix .d.hl").forEach((x) => x.classList.remove("hl"));
+      $$(`.matrix .d[data-t="${d.dataset.t}"]`).forEach((x) => x.classList.add("hl"));
+      const [ok, why] = E.setups[d.dataset.s][d.dataset.m][+d.dataset.t];
+      tip.innerHTML = `<div class="tk">${d.dataset.m} · ${d.dataset.s === "This MCP" ? m.name.replace("GurtAI ", "") : d.dataset.s}</div><div class="tt">${E.tasks[+d.dataset.t]} <span class="${ok ? "okc" : "noc"}">${ok ? "right" : "wrong"}</span></div><div class="td">${why}</div>`;
+    });
+  });
+  $(".matrix").addEventListener("mouseleave", () => { $$(".matrix .d.hl").forEach((x) => x.classList.remove("hl")); tip.innerHTML = idle; });
 }
 
 // ── dot matrix: 12 × 12, one column per 2-hour window ───────────────────
@@ -544,8 +723,10 @@ function startDots() {
 }
 
 function route() {
-  const [id, opt] = location.hash.slice(1).split(",");
+  const [path, opt] = location.hash.slice(1).split(",");
+  const [id, sub] = path.split("/");
   const m = MCPS.find((x) => x.id === id);
+  if (m && sub === "evals") return renderEvals(m), window.scrollTo({ top: 0 });
   m ? renderDetail(m) : renderList();
   // #sales,hover=R1 opens a node's card (handy for screenshots and demos)
   const hover = /^hover=(.+)$/.exec(opt ?? "")?.[1];
