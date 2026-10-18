@@ -24,6 +24,7 @@ Checks:
 ```sh
 npm --prefix demo-ui run typecheck
 npx tsx demo-ui/tests/adapter-lifecycle.test.ts     # lifecycle, dedup and contract checks of the adapter
+npx tsx demo-ui/tests/file-tree.test.ts             # Files tree from recorded paths, ancestor expansion, safe Markdown
 ```
 
 ## What is ported, and what is adapted
@@ -53,6 +54,17 @@ The following are ports of `web/components/build-trace-workbench.tsx`:
   - "Attempt N of M" becomes a menu over the customer agent and the build root, which are separate roots.
   - Files shows the files the run recorded, not a sandbox snapshot.
   - A Run tab holds the operator's own records (seed, deploy, checks, phases), so these never enter an agent's conversation.
+- The Files tab uses AEye's workspace file picker and preview:
+  - `web/components/workspace/draft-tree.tsx` (`DraftTreeNodes`, verbatim): nested collapsible folders with carets and file-type icons, basename rows. Selecting a file opens its ancestors and closes nothing. Open folders are remembered per run, and the selection is kept in `?file=`, so it survives polls, tab switches and Whole/Diff.
+  - `web/components/tree-row-name.tsx` (ported): the same one-line ellipsis row. A cut name shows its full path as a native title, replacing AEye's Radix tooltip.
+  - `web/components/file-type-icon.ts` (verbatim).
+  - Whole mode follows AEye's `DraftFileBody`:
+    - A `.md` file renders through the same `renderMarkdown` in `.prose.build-preview-markdown`, with the file name as `h1` when the page has none (`leadingMarkdownTitle`). HTML is disabled, so recorded HTML stays text.
+    - Other text uses `web/components/workspace/text-file-view.tsx` (`TextFileView`, verbatim).
+    - Links in a Markdown file follow `src/file-links.ts`. A relative link (`./`, `../`, percent-encoding, `#anchor`, a folder's `index.md`) resolves against the file's own folder and opens the recorded file it names in the same viewer, through `?file=`; agent and panel stay. A target that was not recorded is marked and says so when clicked, and nothing is fetched or invented. Links with a scheme (`https:`, `mailto:`) stay ordinary links.
+    - A Rendered / Source switch shows a Markdown file's exact text (AEye's preview has no raw view; this is local). Rendered is the default.
+    - Deleted, empty, truncated and content-less files say so.
+  - Diff mode keeps the same tree and shows only the selected file's change. It uses `LineDiffView` with old/new line numbers and colored added/deleted rows, plus a `+N −M` stat. Added, deleted and unchanged files say so.
 - `src/styles/local.css`:
   - sets no app header;
   - keeps long names, model ids, paths and payloads inside their own column, using ellipsis with a title or the payload's own scroll.

@@ -3,7 +3,7 @@
  * for agent prose: the same markdown-it configuration (HTML disabled,
  * linkify, no typographer), the same external-link rel rule, image rule (no
  * citations exist here, so every image reads "Figure unavailable") and
- * table wrapper. Omitted: KaTeX, citation markers, Knowledge link
+ * table wrapper, and leadingMarkdownTitle verbatim. Omitted: KaTeX, citation markers, Knowledge link
  * normalization and passage highlights, which only apply to Knowledge pages.
  */
 import MarkdownIt from "markdown-it";
@@ -44,4 +44,20 @@ export function escapeHtml(value: unknown): string {
 
 export function renderMarkdown(value: string): string {
   return markdown.render(value);
+}
+
+/**
+ * The text of the level-one heading a Markdown page opens with (after any
+ * YAML frontmatter, blank lines and HTML comments), or null. A view that
+ * shows a page's title must not add its own H1 when the page already has
+ * one, or the title is announced and shown twice.
+ */
+export function leadingMarkdownTitle(markdown: string): string | null {
+  let rest = markdown.replace(/^\uFEFF/u, "");
+  const frontmatter = /^---[ \t]*\r?\n[\s\S]*?\r?\n---[ \t]*(?:\r?\n|$)/u.exec(rest);
+  if (frontmatter !== null) rest = rest.slice(frontmatter[0].length);
+  rest = rest.replace(/^(?:\s|<!--[\s\S]*?-->)*/u, "");
+  const heading = /^ {0,3}#[ \t]+(.*?)(?:[ \t]+#+)?[ \t]*(?:\r?\n|$)/u.exec(rest);
+  const text = heading?.[1]?.trim() ?? "";
+  return text === "" ? null : text;
 }

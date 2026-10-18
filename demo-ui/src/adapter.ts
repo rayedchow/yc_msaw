@@ -110,6 +110,7 @@ export interface RunContext {
 }
 
 export interface AdaptedRun {
+  runId: string | null;
   agents: DemoAgent[];
   threads: Map<string, AgentThreadModel>;
   /** Operator records (host, builder service), oldest first. */
@@ -557,5 +558,5 @@ export function adaptRun(events: readonly DemoEvent[], state: DemoState | null, 
     else agent.ordinal = ++subagents;
   }
   const lastActivityAt = events.map((event) => event.at).filter((at): at is string => typeof at === "string").at(-1) ?? null;
-  return { agents: draft, threads, operator, files: filesFrom(state), diffs, active, ended, mode, endedBy, producerPid: context.producer?.pid ?? null, lastActivityAt };
+  return { runId: typeof state?.runId === "string" ? state.runId : null, agents: draft, threads, operator, files: filesFrom(state), diffs, active, ended, mode, endedBy, producerPid: context.producer?.pid ?? null, lastActivityAt };
 }

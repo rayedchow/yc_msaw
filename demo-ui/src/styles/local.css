@@ -34,10 +34,25 @@ html, body { height: 100%; }
 .trace-placeholder { text-align: center; padding: 24px; }
 .trace-placeholder-line { display: inline-flex; align-items: center; gap: 8px; }
 
-/* Files panel. */
-.build-ide-tree .docs-file > a { min-width: 0; }
+/* Files panel: AEye's tree (draft-tree.tsx) and preview. The tree never scrolls sideways: rows are
+   one line with ellipsis (full path on hover); nested folders indent within the column. */
+.build-ide-tree { overflow-x: hidden; }
+.build-ide-tree ul { min-width: 0; }
+.build-ide-tree li { min-width: 0; }
+.build-ide-tree summary,
+.build-ide-tree .docs-file > a { display: flex; align-items: center; min-width: 0; max-width: 100%; }
+.build-ide-tree details > summary { cursor: pointer; }
 .build-ide-preview { min-width: 0; }
-.build-file-heading h3 { min-width: 0; margin: 0 0 8px; overflow: hidden; font-family: var(--font-mono); font-size: 12.5px; text-overflow: ellipsis; white-space: nowrap; }
+.build-file-heading { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; min-width: 0; margin: 0 0 10px; }
+.trace-file-path { min-width: 0; margin: 0; font-family: var(--font-mono); font-size: 12.5px; font-weight: 600; overflow-wrap: anywhere; }
+.trace-file-dir { color: var(--color-muted); font-weight: 400; }
+.trace-file-kind { flex: none; color: var(--color-faint); font-size: 11px; }
+.build-ide-preview .build-preview-markdown { margin-top: 8px; }
+.trace-file-mode { margin: 0 0 4px; }
+.build-preview-markdown a[aria-disabled="true"] { color: var(--color-muted); text-decoration: underline dotted; cursor: help; }
+.trace-link-missing { margin: 8px 0 0; }
+.build-ide-preview .activity-diff { margin-top: 8px; }
+.build-ide-preview .activity-diff-rows { max-height: none; }
 .trace-diff-list { flex: 1 1 auto; min-height: 0; overflow: auto; padding: 10px 12px 32px; display: grid; align-content: start; gap: 14px; }
 .trace-diff-list > * { min-width: 0; }
 

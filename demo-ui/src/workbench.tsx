@@ -20,11 +20,15 @@
 import { ArrowLeft, FolderTree, ListChecks, TriangleAlert, Users } from "lucide-react";
 import React, { memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { TraceAgent, TraceThreadEvent } from "./aeye/src/build/build_trace_threads.js";
-import { renderMarkdown } from "./aeye/src/web/markdown.js";
+import { leadingMarkdownTitle, renderMarkdown } from "./aeye/src/web/markdown.js";
 import { diffLines } from "./aeye/src/web/text_diff.js";
 import { groupActivity, spanMs, type ActivityEntry, type ActivityTool } from "./aeye/web/components/agent-activity/activity-model.js";
 import { formatActivityDateTime as formatDateTime, formatActivitySpan as formatSpan, formatActivityTime as formatTime } from "./aeye/web/components/agent-activity/activity-format.js";
 import { LineDiffView } from "./aeye/web/components/agent-activity/activity-file-change.js";
+import { DraftTreeNodes, workspaceFileHref } from "./aeye/web/components/workspace/draft-tree.js";
+import { resolveRecordedLink } from "./file-links.js";
+import { TextFileView } from "./aeye/web/components/workspace/text-file-view.js";
+import type { HandbookTreeNode } from "./aeye/src/web/repository.js";
 import {
   ActivityPayloadBlock,
   ActivityPayloadContext,
@@ -410,10 +414,173 @@ function AgentList({ agents, buildRoots, mainId, onOpen }: { agents: readonly De
 
 type FilesView = "whole" | "diff";
 
-function FilesPanel({ files, diffs }: { files: readonly DemoFile[]; diffs: AdaptedRun["diffs"] }) {
-  const [view, setView] = useState<FilesView>("whole");
-  const [selected, setSelected] = useState<string | null>(null);
+/** The run's recorded files as AEye's tree nodes: folders first, then files, each by name. */
+export function recordedFileTree(files: readonly DemoFile[]): HandbookTreeNode[] {
+  const root: HandbookTreeNode = { kind: "directory", title: "", path: "", children: [] };
+  const folders = new Map<string, HandbookTreeNode>([["", root]]);
+  const folder = (path: string): HandbookTreeNode => {
+    const existing = folders.get(path);
+    if (existing) return existing;
+    const at = path.lastIndexOf("/");
+    const node: HandbookTreeNode = { kind: "directory", title: path.slice(at + 1), path, children: [] };
+    folder(at < 0 ? "" : path.slice(0, at)).children.push(node);
+    folders.set(path, node);
+    return node;
+  };
+  for (const file of files) {
+    const clean = file.path.replace(/^\/+|\/+$/gu, "");
+    if (!clean) continue;
+    const at = clean.lastIndexOf("/");
+    folder(at < 0 ? "" : clean.slice(0, at)).children.push({ kind: "file", title: clean.slice(at + 1), path: file.path, children: [] });
+  }
+  const sort = (nodes: HandbookTreeNode[]): HandbookTreeNode[] => nodes
+    .sort((left, right) => left.kind === right.kind ? left.title.localeCompare(right.title) : left.kind === "directory" ? -1 : 1)
+    .map((node) => ({ ...node, children: sort(node.children) }));
+  return sort(root.children);
+}
+
+/** What the Files tab last showed, kept while other tabs are open (the tree's folders are kept by DraftTreeNodes). */
+const filesMemory: { selected: string | null; view: FilesView } = { selected: null, view: "whole" };
+
+function initialFile(): string | null {
+  try { return new URL(window.location.href).searchParams.get("file") ?? filesMemory.selected; } catch { return filesMemory.selected; }
+}
+
+function isMarkdown(path: string): boolean {
+  return /\.(md|markdown|mdx)$/iu.test(path);
+}
+
+/** Path as AEye's file heading reads it: folders muted, the name strong; the whole path wraps and is the title. */
+function FileHeading({ file, stat }: { file: DemoFile; stat?: { added: number; removed: number } | null }) {
+  const at = file.path.lastIndexOf("/");
+  return (
+    <div className="build-file-heading">
+      <h3 className="trace-file-path" title={file.path}>
+        {at >= 0 ? <span className="trace-file-dir">{file.path.slice(0, at + 1)}</span> : null}{file.path.slice(at + 1)}
+      </h3>
+      {stat ? <span className="agent-feed-diffstat"><ins>+{stat.added}</ins> <del>−{stat.removed}</del></span> : null}
+      {file.kind ? <span className="trace-file-kind">{file.kind}</span> : null}
+    </div>
+  );
+}
+
+/** AEye's DraftFileBody for a recorded file: Markdown rendered as a page, other text as TextFileView. */
+/** File selection in the address, as AEye's tree writes it (`?file=`); agent, panel and other params stay. */
+function selectFileInAddress(path: string): string {
+  const href = workspaceFileHref(window.location.href, path);
+  window.history.replaceState(window.history.state, "", href);
+  return href;
+}
+
+/**
+ * AEye's DraftFileBody for a recorded file: Markdown rendered as a page (or its source), other text as
+ * TextFileView. Links in the page follow resolveRecordedLink: a recorded target opens here, a missing
+ * one says it was not recorded, an external one stays a normal link.
+ */
+function FileBody({ file, recorded, onOpen }: { file: DemoFile; recorded: ReadonlySet<string>; onOpen(path: string): void }) {
+  const content = file.after ?? file.before;
+  const deleted = file.after === null && file.before !== null;
+  const markdown = isMarkdown(file.path);
+  const [source, setSource] = useState(false);
+  const [missing, setMissing] = useState<string | null>(null);
+  const pageRef = useRef<HTMLDivElement>(null);
+  const html = useMemo(() => (content !== null && markdown ? renderMarkdown(content) : null), [content, markdown]);
+  useEffect(() => setMissing(null), [file.path]);
+  // Point each in-viewer link at what it opens, so hover, copy and middle-click are honest too.
+  useEffect(() => {
+    const page = pageRef.current;
+    if (!page) return;
+    for (const anchor of page.querySelectorAll<HTMLAnchorElement>("a[href]")) {
+      const original = anchor.dataset.recordedHref ?? anchor.getAttribute("href") ?? "";
+      anchor.dataset.recordedHref = original;
+      const link = resolveRecordedLink(file.path, original, recorded);
+      if (link.kind === "file") {
+        anchor.setAttribute("href", workspaceFileHref(window.location.href, link.path));
+        anchor.title = link.path;
+        anchor.removeAttribute("aria-disabled");
+      } else if (link.kind === "missing") {
+        anchor.setAttribute("href", original);
+        anchor.title = `${link.path} was not recorded in this run`;
+        anchor.setAttribute("aria-disabled", "true");
+      }
+    }
+  }, [html, source, file.path, recorded]);
+  if (content === null) {
+    return <div className="build-preview-state"><h4>No contents recorded</h4><p>The run recorded this path without its contents.</p></div>;
+  }
+  const notes = (
+    <>
+      {deleted ? <div className="build-preview-state"><h4>Deleted in this run</h4><p>Its last recorded contents follow.</p></div> : null}
+      {file.truncated ? <p className="muted">Shown as recorded: the demo cut this file's contents.</p> : null}
+    </>
+  );
+  if (content.length === 0) return <>{notes}<div className="build-preview-state"><h4>Empty file</h4><p>This file has no contents.</p></div></>;
+  if (html === null) return <>{notes}<TextFileView content={content} /></>;
+  const toggle = (
+    <div className="live-toggle trace-file-mode" role="radiogroup" aria-label="Markdown view">
+      <button type="button" role="radio" aria-checked={!source} onClick={() => setSource(false)}>Rendered</button>
+      <button type="button" role="radio" aria-checked={source} onClick={() => setSource(true)}>Source</button>
+    </div>
+  );
+  if (source) return <>{notes}{toggle}<TextFileView content={content} /></>;
+  const hasTitle = leadingMarkdownTitle(content) !== null;
+  return (
+    <>
+      {notes}
+      {toggle}
+      {missing ? <p className="muted trace-link-missing" role="status">{missing} was not recorded in this run, so it cannot be shown.</p> : null}
+      <div
+        ref={pageRef}
+        className="prose build-preview-markdown"
+        onClick={(event) => {
+          const anchor = event.target instanceof Element ? event.target.closest("a[href]") : null;
+          if (!(anchor instanceof HTMLAnchorElement) || !pageRef.current?.contains(anchor)) return;
+          const link = resolveRecordedLink(file.path, anchor.dataset.recordedHref ?? anchor.getAttribute("href") ?? "", recorded);
+          if (link.kind === "external" || link.kind === "anchor") return;
+          if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) {
+            if (link.kind === "missing") event.preventDefault();
+            return;
+          }
+          event.preventDefault();
+          if (link.kind === "missing") { setMissing(link.path); return; }
+          setMissing(null);
+          selectFileInAddress(link.path);
+          onOpen(link.path);
+        }}
+      >
+        {hasTitle ? null : <h1>{file.path.split("/").at(-1)?.replace(/\.md$/u, "")}</h1>}
+        <div dangerouslySetInnerHTML={{ __html: html }} />
+      </div>
+    </>
+  );
+}
+
+/** The selected file's change: AEye's numbered line diff, with honest added / deleted / unchanged states. */
+function FileDiff({ file }: { file: DemoFile }) {
+  const diff = useMemo(() => diffLines(file.before ?? "", file.after ?? ""), [file.before, file.after]);
+  const note = file.before === null && file.after === null ? "No contents were recorded for this path."
+    : file.before === null ? "Added in this run."
+    : file.after === null ? "Deleted in this run."
+    : diff.addedLines === 0 && diff.removedLines === 0 ? "No change in contents." : null;
+  return (
+    <>
+      <FileHeading file={file} stat={file.before === null && file.after === null ? null : { added: diff.addedLines, removed: diff.removedLines }} />
+      {note ? <p className="muted">{note}</p> : null}
+      {file.truncated ? <p className="muted">The demo cut this file's contents; the diff covers what was recorded.</p> : null}
+      {diff.rows.length > 0 ? <LineDiffView diff={diff} label={`Changes to ${file.path}`} numbered /> : null}
+    </>
+  );
+}
+
+function FilesPanel({ files, diffs, runKey }: { files: readonly DemoFile[]; diffs: AdaptedRun["diffs"]; runKey: string }) {
+  const [view, setViewState] = useState<FilesView>(filesMemory.view);
+  const [selected, setSelectedState] = useState<string | null>(initialFile);
+  const setView = (next: FilesView) => { filesMemory.view = next; setViewState(next); };
+  const setSelected = useCallback((path: string) => { filesMemory.selected = path; setSelectedState(path); }, []);
+  // A selection that is not (or no longer) a recorded file falls back to the first one, and is never invented.
   const file = files.find((candidate) => candidate.path === selected) ?? files[0] ?? null;
+  const tree = useMemo(() => recordedFileTree(files), [files]);
+  const recorded = useMemo(() => new Set(files.map((entry) => entry.path)), [files]);
   const modes = (
     <div className="workspace-panel-modes" role="tablist" aria-label="Files view">
       {(["whole", "diff"] as const).map((mode) => (
@@ -421,58 +588,29 @@ function FilesPanel({ files, diffs }: { files: readonly DemoFile[]; diffs: Adapt
       ))}
     </div>
   );
-  if (files.length === 0 && diffs.length === 0) {
-    return <div className="trace-files"><div className="live-files-bar">{modes}<span className="live-status">No files recorded yet</span></div>
-      <p className="trace-panel-note">Memory and source files appear here once the run records them.</p></div>;
-  }
-  if (view === "diff") {
+  if (files.length === 0) {
     return (
       <div className="trace-files">
-        <div className="live-files-bar">{modes}<span className="live-status trace-files-scope">Run-wide changes</span></div>
-        <div className="trace-diff-list">
-          {files.map((entry) => {
-            const diff = diffLines(entry.before ?? "", entry.after ?? "");
-            return (
-              <section key={entry.path} className="activity-file-change">
-                <header>
-                  <span className="activity-file-change-path" title={entry.path}>{entry.path}</span>
-                  <span className="activity-file-change-stat"><ins>+{diff.addedLines}</ins> <del>−{diff.removedLines}</del></span>
-                  {entry.kind ? <span className="activity-file-change-meta">{entry.kind}</span> : null}
-                </header>
-                <LineDiffView diff={diff} label={`Changes to ${entry.path}`} numbered />
-              </section>
-            );
-          })}
-          {files.length === 0 ? diffs.map((diff, index) => (
+        <div className="live-files-bar">{modes}<span className="live-status">No files recorded yet</span></div>
+        {view === "diff" && diffs.length > 0 ? (
+          <div className="trace-diff-list">{diffs.map((diff, index) => (
             <section key={index} className="activity-payload"><header><span>{diff.title}</span></header><pre>{diff.text}</pre></section>
-          )) : null}
-        </div>
+          ))}</div>
+        ) : <p className="trace-panel-note">Memory and source files appear here once the run records them.</p>}
       </div>
     );
   }
   return (
     <div className="trace-files">
-      <div className="live-files-bar">{modes}<span className="live-status">{files.length} file{files.length === 1 ? "" : "s"} recorded</span></div>
+      <div className="live-files-bar">{modes}<span className="live-status">{view === "diff" ? "Changes in this run" : `${files.length} file${files.length === 1 ? "" : "s"} recorded`}</span></div>
       <div className="build-ide-files-body">
         <nav className="build-ide-tree" aria-label="Recorded files">
-          <ul>
-            {files.map((entry) => (
-              <li key={entry.path} className="docs-file">
-                <a href={`#${encodeURIComponent(entry.path)}`} aria-current={file?.path === entry.path ? "page" : undefined}
-                  onClick={(event) => { event.preventDefault(); setSelected(entry.path); }}>
-                  <span title={entry.path}>{entry.path}</span>{entry.kind ? <small>{entry.kind}</small> : null}
-                </a>
-              </li>
-            ))}
-          </ul>
+          <DraftTreeNodes nodes={tree} selected={file?.path ?? null} onSelect={setSelected} persistKey={`demo-files:${runKey}`} />
         </nav>
-        <section className="build-ide-preview">
-          {file ? <>
-            <div className="build-file-heading"><h3 title={file.path}>{file.path}</h3></div>
-            {file.after === null && file.before !== null ? <p className="muted">Deleted in this run; its last contents:</p> : null}
-            {file.truncated ? <p className="muted">Shown as recorded (cut by the demo).</p> : null}
-            <pre>{file.after ?? file.before ?? "No contents were recorded."}</pre>
-          </> : <p className="trace-muted">Choose a file.</p>}
+        <section className="build-ide-preview" aria-label={view === "diff" ? "File diff" : "File preview"}>
+          {file === null ? <p className="trace-muted">Choose a file.</p>
+            : view === "diff" ? <FileDiff file={file} />
+            : <><FileHeading file={file} /><FileBody key={file.path} file={file} recorded={recorded} onOpen={setSelected} /></>}
         </section>
       </div>
     </div>
@@ -728,7 +866,7 @@ export function TraceWorkbench({ run, ready, error }: { run: AdaptedRun; ready: 
             </button>
           </div>
           <div className="trace-panel-body">
-            {panel === "files" ? <FilesPanel files={run.files} diffs={run.diffs} />
+            {panel === "files" ? <FilesPanel files={run.files} diffs={run.diffs} runKey={run.runId ?? "run"} />
               : panel === "run" ? <RunPanel events={run.operator} />
               : panelAgent ? (
                 <AgentThread
