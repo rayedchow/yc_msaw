@@ -10,7 +10,7 @@ vi.mock("../../../../src/db/client.js", async () => {
   return { db: h.db, pgClient: null };
 });
 
-import { db, entry, liveFile, ready, resetTenant, xssi } from "./harness.js";
+import { db, entry, liveFile, ready, resetTenant, xssi, passGoogleFloors } from "./harness.js";
 import { captureChangelogPages, type ChangelogCaptureResult } from "../../../../src/source-lane/providers/google-docs/changelog-capture.js";
 import { exportDocHistory } from "../../../../src/source-lane/providers/google-docs/history-export.js";
 import { docDirectory, docPaths } from "../../../../src/source-lane/providers/google-docs/paths.js";
@@ -97,8 +97,8 @@ beforeAll(async () => {
   await ready;
 });
 
-beforeEach(() => {
-  resetGoogleRateLimitCooldownsForTests();
+beforeEach(async () => {
+  await passGoogleFloors();
   resetChangelogPacingForTests();
 });
 

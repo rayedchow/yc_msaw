@@ -11,6 +11,7 @@ import { drizzle } from "drizzle-orm/pglite";
 import { sql } from "drizzle-orm";
 import { MIGRATIONS_DIR, planMigrations } from "../../../../src/source-lane/core/migrations.js";
 import { rowsOf } from "../../../../src/source-lane/providers/google-docs/store.js";
+import { resetGoogleRateLimitCooldownsForTests } from "../../../../src/vault/google-rate-limit.js";
 
 export const pg = new PGlite();
 export const db = drizzle(pg);
@@ -39,6 +40,12 @@ export async function resetTenant(tenantId: string): Promise<void> {
     await pg.query(`DELETE FROM ${table} WHERE tenant_id = $1`, [tenantId]);
   }
   // Durable legacy-Docs Google floors (migration 10550) are process-wide, not per tenant.
+  await pg.query(`DELETE FROM google_rate_limit_cooldowns`);
+}
+
+/** A Retry-After floor has passed: the in-process cooldowns and the durable floors (migration 10550) are cleared. */
+export async function passGoogleFloors(): Promise<void> {
+  resetGoogleRateLimitCooldownsForTests();
   await pg.query(`DELETE FROM google_rate_limit_cooldowns`);
 }
 

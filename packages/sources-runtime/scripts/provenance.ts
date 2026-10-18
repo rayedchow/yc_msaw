@@ -89,7 +89,7 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/integrations/google/index.ts": {
     status: "patched",
-    reason: "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds. quota-final-check: the gmail.backfill rate-limit reschedule keeps a Retry-After longer than its 1 h backoff cap as the floor. Legacy Docs durable floor: one-shot gdocs.content-snapshot/discovery/backfill tasks that meet Google's Retry-After floor are re-enqueued at the floor (bounded 40 reschedules, run still recorded failed) instead of burning their attempts.",
+    reason: "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds. quota-final-check: the gmail.backfill rate-limit reschedule keeps a Retry-After longer than its 1 h backoff cap as the floor. Legacy Docs durable floor: one-shot gdocs.content-snapshot/discovery/backfill tasks that meet Google's Retry-After floor are re-enqueued at the floor (bounded 40 reschedules, run still recorded failed) instead of burning their attempts. The deferred copy is deduplicated per doc (or run) and reschedule step, so snapshots of a doc edited during a floor collapse into one queued copy (google-durable-quota limit 4).",
     test: "tests/source-lane/core/shared-patches.test.ts",
     tests: ["tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts"],
   },
@@ -186,8 +186,9 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
   },
   "src/polling/_archived-gdocs/gdocs.ts": {
     status: "patched",
-    reason: "A view-only mailbox does not download the shared drive-pdf unit nobody could read (final-performance-check).",
+    reason: "A view-only mailbox does not download the shared drive-pdf unit nobody could read (final-performance-check). google-durable-quota: in the poll, comment sweep and backfill, a Google rate limit on one mailbox (its own per-user quota, held durably for the whole Retry-After) no longer stops the tenant's other mailboxes; it is rethrown after them, and any other error still stops the run at once.",
     test: "tests/source-lane/providers/google-docs/account-native-views.test.ts",
+    tests: ["tests/source-lane/core/google-durable-quota-pg.test.ts"],
   },
   "src/integrations/google/gdocs/content.ts": {
     status: "patched",

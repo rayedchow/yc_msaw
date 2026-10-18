@@ -86,7 +86,7 @@ vi.mock("../../../../src/integrations/binary/intake.js", async () => {
   };
 });
 
-import { allStoredText, db, fakeFetch, heads, json, liveFile, liveJson, query, ready, resetTenant } from "./harness.js";
+import { allStoredText, db, fakeFetch, heads, json, liveFile, liveJson, query, ready, resetTenant, passGoogleFloors } from "./harness.js";
 import { pollGoogleDocs, sweepCommentActivity } from "../../../../src/polling/_archived-gdocs/gdocs.js";
 import { googleIntegration } from "../../../../src/integrations/google/index.js";
 import { driveFileDirectory } from "../../../../src/source-lane/providers/google-docs/paths.js";
@@ -527,12 +527,12 @@ describe("view-only accounts read their own Sheets, Slides, Drive files and PDFs
     expect(await liveFile(T, P.sheet.content("Budget.xlsx"))).toBeNull();
     expect((await getAccountCapture(T, "sheet-1", BOB, deps))!.retryAt).not.toBeNull();
     // 429 with Retry-After: pending, retry no earlier than the server asked.
-    resetGoogleRateLimitCooldownsForTests();
+    await passGoogleFloors();
     const now = new Date("2026-10-18T12:00:00Z");
     const limited = await withGoogle([{ ...base, status: { [BOB]: { export: 429 } }, retryAfter: "600" }], () => captureAccountView({ tenantId: T, docId: "sheet-1", mailbox: BOB, deps, now }));
     expect(limited.value).toMatchObject({ state: "pending", reason: "rate_limited" });
     expect(Date.parse((await getAccountCapture(T, "sheet-1", BOB, deps))!.retryAt!)).toBeGreaterThanOrEqual(now.getTime() + 600_000);
-    resetGoogleRateLimitCooldownsForTests();
+    await passGoogleFloors();
     // Google refuses the export to bob (403 cannotDownloadFile): blocked for bob, metadata only; no fallback.
     const refused = await withGoogle([{ ...base, status: { [BOB]: { export: 403 } } }], () => captureAccountView({ tenantId: T, docId: "sheet-1", mailbox: BOB, deps }));
     expect(refused.value).toMatchObject({ state: "blocked" });

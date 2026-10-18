@@ -213,7 +213,9 @@ async function deferAtGoogleFloor<T>(
       kind: ctx.task.kind,
       groupKey: ctx.task.groupKey,
       payload: { ...payload, rateLimitReschedules: reschedules + 1 },
-      dedupeKey: `${tenantId}:google:${ctx.task.kind}:rate-limit:${target}:${ctx.task.id}`,
+      // One deferred copy per doc (or run) and reschedule step: snapshots of a doc edited again during the floor
+      // collapse into the queued copy instead of piling up; a copy that meets a new floor re-defers under the next step.
+      dedupeKey: `${tenantId}:google:${ctx.task.kind}:rate-limit:${target}:${reschedules + 1}`,
       runAt: new Date(Date.now() + error.retryAfterSeconds * 1000),
       priority: ctx.task.priority,
     });

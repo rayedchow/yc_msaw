@@ -13,9 +13,15 @@
  * - 429 / 403 rate-limit reasons throw `GoogleRateLimitError` carrying the
  *   server's Retry-After (seconds or HTTP-date); callers persist it as a
  *   retry time instead of hot-looping.
+ * - Both cooldowns are also recorded in and read from google_rate_limit_cooldowns
+ *   (durable-cooldown.ts): this fetch runs inside the donor gdocs tasks (poll
+ *   sweep/inventory, suggestion-sync) and the account snapshot, so a floor any
+ *   process received holds here in every worker and across restarts, and this
+ *   identity's own 429 holds its other files, not only the file that met it.
  */
 import { createHash } from "node:crypto";
 import { googleRateLimitErrorFromResponse, throwIfGoogleRateLimited } from "../../../vault/google-rate-limit.js";
+import { recordGoogleCooldownDurable, throwIfGoogleCooldownDurable } from "./durable-cooldown.js";
 
 export type FetchImpl = (url: string, init?: RequestInit) => Promise<Response>;
 
@@ -48,6 +54,7 @@ export async function googleFetch(ctx: GoogleCallContext, url: string, init: Req
   const key = cooldownKeyFor(ctx);
   throwIfGoogleRateLimited("google-workspace");
   throwIfGoogleRateLimited(key);
+  await throwIfGoogleCooldownDurable(["google-workspace", key]);
   const headers = new Headers(init.headers);
   headers.set("Authorization", `Bearer ${ctx.accessToken}`);
   if (isGoogleApisHost(url)) headers.set("X-Goog-Quota-User", quotaUserFor(ctx.tenantId, ctx.mailbox));
@@ -62,6 +69,7 @@ export async function googleFetch(ctx: GoogleCallContext, url: string, init: Req
     const rateLimit = googleRateLimitErrorFromResponse(key, res, data, 30);
     if (rateLimit) {
       await res.body?.cancel().catch(() => {});
+      await recordGoogleCooldownDurable(rateLimit);
       throw rateLimit;
     }
   }

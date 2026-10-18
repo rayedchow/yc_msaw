@@ -65,7 +65,7 @@ vi.mock("../../../../src/integrations/binary/intake.js", () => ({
   tombstoneBinaryDocument: vi.fn(async () => 0),
 }));
 
-import { db, fakeFetch, heads, json, liveFile, liveJson, query, ready, resetTenant } from "./harness.js";
+import { db, fakeFetch, heads, json, liveFile, liveJson, query, ready, resetTenant, passGoogleFloors } from "./harness.js";
 import { pollGoogleDocs, sweepCommentActivity } from "../../../../src/polling/_archived-gdocs/gdocs.js";
 import { googleIntegration } from "../../../../src/integrations/google/index.js";
 import { accountRoot, captureAccountView, getAccountCapture } from "../../../../src/source-lane/providers/google-docs/account-capture.js";
@@ -308,7 +308,7 @@ describe("N-1 post-fix: a download/copy restriction toggled without a new modifi
     for (const p of CONTENT) expect(await liveFile(T, p)).not.toBeNull(); // a rate limit is not a restriction or access loss
     // Retry-After passes; the sweep's retry (or the task) re-checks and retires.
     override = null;
-    resetGoogleRateLimitCooldownsForTests();
+    await passGoogleFloors();
     await query(`UPDATE gdocs_account_captures SET retry_at = now() - interval '1 second' WHERE tenant_id = $1`, [T]);
     const again = await withGoogle(() => captureAccountView({ tenantId: T, docId: "sheet-1", mailbox: BOB, deps }));
     expect(again.value).toMatchObject({ state: "blocked", reason: "copy_restricted_for_account" });

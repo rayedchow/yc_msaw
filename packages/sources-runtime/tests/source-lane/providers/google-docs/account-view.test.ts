@@ -66,7 +66,7 @@ vi.mock("../../../../src/integrations/source-sync-task.js", async (importOrigina
   runRecordedSourceSyncTask: vi.fn(async (_input: unknown, run: () => Promise<unknown>) => run()),
 }));
 
-import { allStoredText, db, fakeFetch, heads, json, liveFile, liveJson, query, ready, resetTenant } from "./harness.js";
+import { allStoredText, db, fakeFetch, heads, json, liveFile, liveJson, query, ready, resetTenant, passGoogleFloors } from "./harness.js";
 import { pollGoogleDocs } from "../../../../src/polling/_archived-gdocs/gdocs.js";
 import { snapshotDocContent } from "../../../../src/integrations/google/gdocs/content-snapshot.js";
 import { googleIntegration } from "../../../../src/integrations/google/index.js";
@@ -384,12 +384,12 @@ describe("view-only accounts read their own current view of a Doc, never the wri
     expect((await getAccountCapture(T, DOC, BOB, deps))!.retryAt).not.toBeNull();
 
     // Rate limit: Retry-After is the floor of the retry time.
-    resetGoogleRateLimitCooldownsForTests();
+    await passGoogleFloors();
     const now = new Date("2026-10-18T12:00:00Z");
     const limited = await captureAccountDocView({ tenantId: T, docId: DOC, mailbox: BOB, deps, now, fetchImpl: google({ ...base, docsStatus: { [BOB]: 429 }, retryAfter: "600" }).impl });
     expect(limited).toMatchObject({ state: "pending", reason: "rate_limited" });
     expect(Date.parse((await getAccountCapture(T, DOC, BOB, deps))!.retryAt!)).toBeGreaterThanOrEqual(now.getTime() + 600_000);
-    resetGoogleRateLimitCooldownsForTests();
+    await passGoogleFloors();
 
     // Google refuses bob the doc (both views): blocked, and still nothing for bob.
     const refused = await captureAccountDocView({ tenantId: T, docId: DOC, mailbox: BOB, deps, fetchImpl: google({ ...base, docsStatus: { [BOB]: 403 } }).impl });

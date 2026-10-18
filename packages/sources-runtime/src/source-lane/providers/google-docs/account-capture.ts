@@ -47,6 +47,7 @@ import { sql } from "drizzle-orm";
 import { collectImageRefs, type FetchedDocImage } from "../../../integrations/google/gdocs/images.js";
 import { parseDocContent, type DocContent } from "../../../integrations/google/gdocs/content.js";
 import { GoogleRateLimitError, googleRateLimitErrorFromResponse, throwIfGoogleRateLimited } from "../../../vault/google-rate-limit.js";
+import { recordGoogleCooldownDurable, throwIfGoogleCooldownDurable } from "./durable-cooldown.js";
 import { redactProviderPayload } from "../../../vault/redaction.js";
 import { encodeSegment } from "../../export/mapping.js";
 import { retryDelaySeconds } from "./checkpoints.js";
@@ -466,11 +467,16 @@ async function accountCaller(tenantId: string, mailbox: string, fetchImpl?: Fetc
     fetch: async (url) => {
       throwIfGoogleRateLimited("google-workspace");
       throwIfGoogleRateLimited(key);
+      // SOURCE-LANE PATCH (google-durable-quota): the floors any process recorded hold here too (durable-cooldown.ts).
+      await throwIfGoogleCooldownDurable(["google-workspace", key]);
       const res = await fetchGoogleApi(credential, url, { headers: { "X-Goog-Quota-User": quotaUserFor(tenantId, mailbox) } });
       if (!res.ok) {
         const data = await res.clone().json().catch(() => null);
         const limited = googleRateLimitErrorFromResponse(key, res, data, 30);
-        if (limited) throw limited;
+        if (limited) {
+          await recordGoogleCooldownDurable(limited);
+          throw limited;
+        }
       }
       return res;
     },
@@ -867,6 +873,7 @@ async function captureDocContent(a: {
   const { tenantId, docId, mailbox, directory, call, caller, input, live, modifiedTime } = a;
   const deps = input.deps;
   throwIfGoogleRateLimited("google-docs-api");
+  await throwIfGoogleCooldownDurable(["google-docs-api"]);
   // Documented: DEFAULT_FOR_CURRENT_ACCESS applies PREVIEW_WITHOUT_SUGGESTIONS when the user only has view access
   // and SUGGESTIONS_INLINE otherwise, so Google (not a guess about commenter rights) decides what this account sees,
   // in one call. The response's output-only `suggestionsViewMode` says which view was applied.

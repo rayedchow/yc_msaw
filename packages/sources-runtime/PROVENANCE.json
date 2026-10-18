@@ -1935,8 +1935,10 @@
     },
     {
       "path": "scripts/provenance.ts",
-      "sha256": "520c03f2c6045d3818d347ee39276dde597add80eb9aef64380f6bc93aec27da",
-      "status": "new"
+      "sha256": "4b50c2ea45cbddd5053283d8f884be829ac2938724a5424d15acf65fb16200f6",
+      "status": "new",
+      "owner": "google-durable-quota",
+      "reason": "google-durable-quota: DECLARED_OVERRIDES reason/tests for src/polling/_archived-gdocs/gdocs.ts."
     },
     {
       "path": "src/db/activity-event-source.ts",
@@ -2550,12 +2552,12 @@
     },
     {
       "path": "src/integrations/google/index.ts",
-      "sha256": "4855682775c9919b53d2314063ada3f6d16085fafb7b385bd10ffdf1dc803d72",
+      "sha256": "343d69ffddb29957b7352156b14d4a819e0b810da4243a1ed202bc345166d797",
       "status": "patched",
       "owner": "coordinator, google-viewer-content, google-native-views, quota-final-check",
       "donorPath": "src/integrations/google/index.ts",
       "donorSha256": "4a23d843a0fec53b25d634fb78fb3b9f4e1cd78a74710dc0733c606d4334bca4",
-      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds. quota-final-check: the gmail.backfill rate-limit reschedule keeps a Retry-After longer than its 1 h backoff cap as the floor. Legacy Docs durable floor: one-shot gdocs.content-snapshot/discovery/backfill tasks that meet Google's Retry-After floor are re-enqueued at the floor (bounded 40 reschedules, run still recorded failed) instead of burning their attempts.",
+      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. gmail patch request 2: gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds. quota-final-check: the gmail.backfill rate-limit reschedule keeps a Retry-After longer than its 1 h backoff cap as the floor. Legacy Docs durable floor: one-shot gdocs.content-snapshot/discovery/backfill tasks that meet Google's Retry-After floor are re-enqueued at the floor (bounded 40 reschedules, run still recorded failed) instead of burning their attempts. The deferred copy is deduplicated per doc (or run) and reschedule step, so snapshots of a doc edited during a floor collapse into one queued copy (google-durable-quota limit 4).",
       "tests": [
         "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
         "tests/source-lane/core/account-view-e2e-pg.test.ts",
@@ -3781,12 +3783,12 @@
     },
     {
       "path": "src/polling/_archived-gdocs/gdocs.ts",
-      "sha256": "460e455f61c6db23fd30d25c1a63adbc9a8ff5fd02eb20c9e8e71c5ef2f68002",
+      "sha256": "3a662dbdfa8ce5288c8417b128f2c725ebed81aac03720a419e3aa1870493454",
       "status": "patched",
-      "owner": "google-docs, coordinator, owner-runtime-fidelity, google-native-views",
+      "owner": "google-docs, coordinator, owner-runtime-fidelity, google-native-views, google-durable-quota",
       "donorPath": "src/polling/_archived-gdocs/gdocs.ts",
       "donorSha256": "ac9b327017bb8ddb43a754bad2b318617eac4ed4500617bef215e8097cfbfc31",
-      "reason": "Re-trash/restore tombstone gap: first dead episode keeps the exact donor key gdocs:tombstone:<id>:<kind>, later episodes get :g<generation>; doc_restored events (gdocs:restored:<id>:g<n>); dead transitions tombstone exported source files and the donor mirror directory; per-file source checkpoints recorded for every live non-PDF/non-folder change (writeDocTombstones gains optional mailbox arg; recordSourceLaneLiveChanges added). Coordinator: writeDocTombstones skips tombstone + export retirement when the removal is access loss in one mailbox while another roster mailbox still sees the file (per-mailbox visibility, migration 9102). owner-runtime-fidelity: processDrivePdfChanges takes the polling mailbox: per-mailbox PDF visibility; a removal from one mailbox no longer tombstones a PDF another mailbox still sees. google-native-views: processDrivePdfChanges calls noteAccountView after the per-mailbox visibility write (a view-only PDF schedules that mailbox's own copy; removal/trash retire it through writeDocTombstones as for other files); sweepCommentActivityMailbox passes the files of this mailbox's own comment activity to noteAccountCommentActivity (its account views re-read their comments as this mailbox). A view-only mailbox does not download the shared drive-pdf unit nobody could read (final-performance-check).",
+      "reason": "A view-only mailbox does not download the shared drive-pdf unit nobody could read (final-performance-check). google-durable-quota: in the poll, comment sweep and backfill, a Google rate limit on one mailbox (its own per-user quota, held durably for the whole Retry-After) no longer stops the tenant's other mailboxes; it is rethrown after them, and any other error still stops the run at once.",
       "tests": [
         "tests/mirror/gdocs-discovery.test.ts, gdocs-edit-freshness.test.ts (unchanged, pass) + lifecycle.test.ts",
         "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
@@ -3798,7 +3800,8 @@
         "tests/source-lane/providers/google-docs/account-view.test.ts",
         "tests/source-lane/providers/google-docs/lifecycle.test.ts",
         "tests/source-lane/providers/google-docs/owner-attribution.test.ts",
-        "tests/source-lane/providers/google-docs/visibility.test.ts"
+        "tests/source-lane/providers/google-docs/visibility.test.ts",
+        "tests/source-lane/core/google-durable-quota-pg.test.ts"
       ]
     },
     {
@@ -4615,15 +4618,16 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/account-capture.ts",
-      "sha256": "bec39b88a86c275cdf28b78f2e053d8c5f4f073ab50666871d72058a2b2e23a2",
+      "sha256": "a212944ba429906d74d36a68c48ca03128de380628682ab826eed66cfe718abe",
       "status": "new",
-      "owner": "google-viewer-content, google-native-views",
-      "reason": "google-viewer-content: current view of a Doc for a mailbox without canReadRevisions, fetched under that mailbox's own credential (OAuth/DWD/Composio as resolved), exported under sources/google-docs/_accounts/<mailbox>/; no writer-only artifacts, no writes to donor shared tables; fail closed. google-native-views: captureAccountView (captureAccountDocView kept as an alias) covers every type the shared lanes export: Docs as before, Sheets/Slides/Drive files/PDFs via account-files.ts; comments.list as the account (first capture of Docs/Sheets/Slides, then on that account's own comment activity, bounded per sweep), 403/404 = not visible (nothing kept); download/copy restricted for the account (canDownload/canCopy false, copyRequiresWriterPermission, effective downloadRestrictions for readers) keeps metadata and comments only, content tombstoned; drive.json written only once the content outcome is settled; seeding covers non-Doc checkpoints and live drive-pdf rows; due list includes comments_due.",
+      "owner": "google-viewer-content, google-native-views, google-durable-quota",
+      "reason": "google-viewer-content: current view of a Doc for a mailbox without canReadRevisions, fetched under that mailbox's own credential (OAuth/DWD/Composio as resolved), exported under sources/google-docs/_accounts/<mailbox>/; no writer-only artifacts, no writes to donor shared tables; fail closed. google-native-views: captureAccountView (captureAccountDocView kept as an alias) covers every type the shared lanes export: Docs as before, Sheets/Slides/Drive files/PDFs via account-files.ts; comments.list as the account (first capture of Docs/Sheets/Slides, then on that account's own comment activity, bounded per sweep), 403/404 = not visible (nothing kept); download/copy restricted for the account (canDownload/canCopy false, copyRequiresWriterPermission, effective downloadRestrictions for readers) keeps metadata and comments only, content tombstoned; drive.json written only once the content outcome is settled; seeding covers non-Doc checkpoints and live drive-pdf rows; due list includes comments_due. google-durable-quota: the Composio caller and the documents.get pre-check read (and the Composio caller records) the durable floors as googleFetch does.",
       "tests": [
         "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
         "tests/source-lane/core/account-view-e2e-pg.test.ts",
         "tests/source-lane/providers/google-docs/account-native-views.test.ts",
-        "tests/source-lane/providers/google-docs/account-view.test.ts"
+        "tests/source-lane/providers/google-docs/account-view.test.ts",
+        "tests/source-lane/core/google-durable-quota-pg.test.ts"
       ],
       "derivedFrom": [
         {
@@ -4798,6 +4802,16 @@
       ]
     },
     {
+      "path": "src/source-lane/providers/google-docs/durable-cooldown.ts",
+      "sha256": "be3db820cc52e0c939efefb1d6e44ae69ec41488d8a04a08dde2ed13e64d90e7",
+      "status": "new",
+      "owner": "google-durable-quota",
+      "reason": "google-durable-quota: header names the source-lane callers that now use the store.",
+      "tests": [
+        "src/source-lane/providers/google-docs/durable-cooldown.ts"
+      ]
+    },
+    {
       "path": "src/source-lane/providers/google-docs/export-map.ts",
       "sha256": "92c8bb7eb7a1e070b56ed91371fa6d0ddad1c6e3750e14e855e5960da8bccd59",
       "status": "new",
@@ -4810,12 +4824,13 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/google-fetch.ts",
-      "sha256": "194a471286dcf574dd46a90ed2a3889168ce8f32a252e23ec12fc494f3d57bac",
+      "sha256": "3510054bf5aa1d126f871a5f9863b6f52b75ea34cf75f308c9803d777edb93e5",
       "status": "new",
-      "owner": "google-docs",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "owner": "google-docs, google-durable-quota",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) google-durable-quota: googleFetch also reads and records the durable Google floors (durable-cooldown.ts, migration 10550). It runs inside the donor gdocs tasks (poll sweep/inventory, hourly suggestion sync) and the account snapshot, so a restarted or second worker no longer calls Drive/Docs inside a `google-workspace` floor another process received, and its own per-identity 429 holds that identity's other files too.",
       "tests": [
-        "tests/source-lane/providers/google-docs/*"
+        "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/core/google-durable-quota-pg.test.ts"
       ]
     },
     {
@@ -6754,6 +6769,16 @@
       ]
     },
     {
+      "path": "tests/source-lane/core/google-durable-quota-pg.test.ts",
+      "sha256": "83b3e355b3cbf0091c1c7ed6d80dbbf0ef728aaf190cf72a8d4054c73330fa2e",
+      "status": "new",
+      "owner": "google-durable-quota",
+      "reason": "google-durable-quota: real-PG regression through the production worker entrypoint in child processes (second worker, restart at +2 h, skewed clock, 14-day numeric and HTTP-date floors, deferral to the floor, other credential/source, permission/auth unchanged, parser/later-only on the database clock).",
+      "tests": [
+        "tests/source-lane/core/google-durable-quota-pg.test.ts"
+      ]
+    },
+    {
       "path": "tests/source-lane/core/owner-attribution-pg.test.ts",
       "sha256": "5d16797631c21d610c9dfd1805f28817a8c0a75d63938c75fdacf2cdb4fa69d8",
       "status": "new",
@@ -7335,20 +7360,20 @@
     },
     {
       "path": "tests/source-lane/providers/google-docs/account-native-views.test.ts",
-      "sha256": "8ff4fab3999048eaa614a7738a8b40ffedccb547c1eb67676ec784ef3a33d23b",
+      "sha256": "7abd635e6ecff13da5489ef83a015fe9a2f8d88e1ee179e1a0feb84a46278830",
       "status": "new",
-      "owner": "google-native-views",
-      "reason": "google-native-views: regression test.",
+      "owner": "google-native-views, google-durable-quota",
+      "reason": "google-native-views: regression test. google-durable-quota: a floor that has passed is simulated with passGoogleFloors() (the durable row outlives resetGoogleRateLimitCooldownsForTests); assertions unchanged.",
       "tests": [
         "tests/source-lane/providers/google-docs/account-native-views.test.ts"
       ]
     },
     {
       "path": "tests/source-lane/providers/google-docs/account-view.test.ts",
-      "sha256": "d9c4f58b355ab9a80aee7d1e21f02446361f2c226a4c791d08ceea3c3e538cf8",
+      "sha256": "91f02ea2930fba2c6eba5fb03205d62529a479665a990f76226557832a4f7b28",
       "status": "new",
-      "owner": "google-viewer-content, google-native-views",
-      "reason": "google-viewer-content: regression test. google-native-views: fake Google answers comments.list per account (writers/commenters see the thread, readers 403); expectations updated for the added comments.list call and for view-only Sheets now being captured as the account instead of withheld.",
+      "owner": "google-viewer-content, google-native-views, google-durable-quota",
+      "reason": "google-viewer-content: regression test. google-native-views: fake Google answers comments.list per account (writers/commenters see the thread, readers 403); expectations updated for the added comments.list call and for view-only Sheets now being captured as the account instead of withheld. google-durable-quota: a floor that has passed is simulated with passGoogleFloors() (the durable row outlives resetGoogleRateLimitCooldownsForTests); assertions unchanged.",
       "tests": [
         "tests/source-lane/core/account-native-views-e2e-pg.test.ts",
         "tests/source-lane/core/account-view-e2e-pg.test.ts",
@@ -7358,10 +7383,10 @@
     },
     {
       "path": "tests/source-lane/providers/google-docs/changelog-concurrency.test.ts",
-      "sha256": "ebdd830b2f328b71b47075f4992930fd696ccd8317ca2e9bc0b5d95a37e0e363",
+      "sha256": "f70f8be2fff544c073b3ef2733a5d253e410a07b3815633e360fe9146f800faf",
       "status": "new",
-      "owner": "google-docs-fidelity-fixes",
-      "reason": "google-docs-fidelity-fixes F4 regressions: concurrency bound, serial-identical output, middle failure/short page, 429 Retry-After/cooldown, pacing, resume, donor fetchDocChangelog path",
+      "owner": "google-docs-fidelity-fixes, google-durable-quota",
+      "reason": "google-docs-fidelity-fixes F4 regressions: concurrency bound, serial-identical output, middle failure/short page, 429 Retry-After/cooldown, pacing, resume, donor fetchDocChangelog path google-durable-quota: a floor that has passed is simulated with passGoogleFloors() (the durable row outlives resetGoogleRateLimitCooldownsForTests); assertions unchanged.",
       "tests": [
         "self"
       ]
@@ -7409,10 +7434,10 @@
     },
     {
       "path": "tests/source-lane/providers/google-docs/harness.ts",
-      "sha256": "f57e85e861c5e58f55a1ebe3d79473f39869760ecca64a16ed5a604116406d2f",
+      "sha256": "4c91af7cfba37cf500ccd30ef7444dac94b9725a8e8e7495489733c326d018b1",
       "status": "new",
-      "owner": "google-docs, coordinator",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: resetTenant also clears inventory/visibility tables.",
+      "owner": "google-docs, coordinator, google-durable-quota",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: resetTenant also clears inventory/visibility tables. google-durable-quota: passGoogleFloors() clears the in-process cooldowns and the durable floors (a floor has passed).",
       "tests": [
         "tests/source-lane/providers/google-docs/*"
       ]
@@ -7449,10 +7474,10 @@
     },
     {
       "path": "tests/source-lane/providers/google-docs/inventory.test.ts",
-      "sha256": "f1b9f3273e9f8939ac1ff96d3ad3a0df38029d099197d037baa62f70b11c4d5c",
+      "sha256": "5112106bd5ba2f899566de25e13aa4587881f751857e35726f28fa1fa060e273",
       "status": "new",
-      "owner": "coordinator",
-      "reason": "Coordinator regression: full Drive inventory.",
+      "owner": "coordinator, google-durable-quota",
+      "reason": "Coordinator regression: full Drive inventory. google-durable-quota: a floor that has passed is simulated with passGoogleFloors() (the durable row outlives resetGoogleRateLimitCooldownsForTests); assertions unchanged.",
       "tests": [
         "tests/source-lane/providers/google-docs/inventory.test.ts"
       ]
@@ -7465,6 +7490,16 @@
       "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
       "tests": [
         "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/n1-restriction-feed-probe.test.ts",
+      "sha256": "bb10b706322567262d8b9c6a86099ae962fc078798da5b2a89d575c983d22069",
+      "status": "new",
+      "owner": "google-durable-quota",
+      "reason": "google-durable-quota: a floor that has passed is simulated with passGoogleFloors() (the durable row outlives resetGoogleRateLimitCooldownsForTests); assertions unchanged.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/n1-restriction-feed-probe.test.ts"
       ]
     },
     {

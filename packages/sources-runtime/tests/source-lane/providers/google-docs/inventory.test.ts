@@ -5,7 +5,7 @@ vi.mock("../../../../src/db/client.js", async () => {
   return { db: h.db, pgClient: null };
 });
 
-import { db, fakeFetch, json, query, ready, resetTenant } from "./harness.js";
+import { db, fakeFetch, json, query, ready, resetTenant, passGoogleFloors } from "./harness.js";
 import { listInventory, runDriveInventory, type InventoryDeps } from "../../../../src/source-lane/providers/google-docs/inventory.js";
 import { googleDocsProvider } from "../../../../src/source-lane/providers/google-docs/index.js";
 import { getCheckpoint } from "../../../../src/source-lane/providers/google-docs/checkpoints.js";
@@ -163,7 +163,7 @@ describe("full Drive inventory", () => {
     expect((await runDriveInventory(T, { maxPages: 5, budgetMs: 60_000, deps: deps(drive) })).mailboxes[0]!.state).toBe("skipped");
     expect(drive.calls.length).toBe(calls);
 
-    resetGoogleRateLimitCooldownsForTests();
+    await passGoogleFloors();
     await query(`UPDATE gdocs_drive_inventory SET retry_at = now() - interval '1 second' WHERE tenant_id = $1`, [T]);
     await runDriveInventory(T, { maxPages: 5, budgetMs: 60_000, deps: deps(drive) });
     expect(new URL(drive.calls[calls]!.url).searchParams.get("pageToken")).toBe("user:1");

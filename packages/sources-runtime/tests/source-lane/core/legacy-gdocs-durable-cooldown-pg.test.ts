@@ -196,6 +196,13 @@ describe.skipIf(!PG)("legacy Google Docs tasks keep Google's Retry-After floor a
     expect(rows[0].payload).toMatchObject({ docId: "doc-floor", rateLimitReschedules: 1 });
     expect(Number(rows[0].wait)).toBeGreaterThan(7100);
     expect(requests).toHaveLength(0);
+
+    // The doc changes again during the floor: its next snapshot task collapses into the queued copy.
+    const again = { ...task, id: randomUUID(), payload: { ...payload, modifiedTime: "2026-10-18T11:00:00.000Z" } };
+    const [second] = await worker([{ kind: "task", taskKind: "gdocs.content-snapshot", payload: again.payload, task: again }]);
+    expect(second).toMatchObject({ ok: true, result: { deferred: true } });
+    expect(await sql`SELECT 1 FROM task_queue WHERE tenant_id = ${TENANT} AND state = 'queued'`).toHaveLength(1);
+    expect(requests).toHaveLength(0);
   });
 
   it("a 403 quota error from Google is a rate limit, not a revoked grant: the connection and Google schedules stay enabled", async () => {

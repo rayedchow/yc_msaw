@@ -10,6 +10,7 @@ import {
   GOOGLE_DOCS_DELEGATION_SCOPES,
   GOOGLE_PEOPLE_IDENTITY_DELEGATION_SCOPES,
 } from "../../vault/google-auth.js";
+import { GoogleRateLimitError } from "../../vault/google-rate-limit.js";
 import { redactProviderPayload } from "../../vault/redaction.js";
 import { getTokenMetadata, mergeTokenMetadata } from "../../vault/tokens.js";
 import { getGoogleMailboxState, listGoogleMailboxes, updateGoogleMailboxState } from "../../integrations/google/mailboxes.js";
@@ -82,10 +83,27 @@ export async function pollGoogleDocs(userId: string): Promise<number> {
   // so overlapping visibility converges in google_doc_sync_state naturally.
   const mailboxes = await listGoogleMailboxes(userId);
   let total = 0;
-  for (const mailbox of mailboxes) {
+  await forEachGoogleMailbox(mailboxes, async (mailbox) => {
     total += await pollGoogleDocsMailbox(userId, mailbox);
-  }
+  });
   return total;
+}
+
+// SOURCE-LANE PATCH (google-durable-quota): a Google rate limit on one mailbox (its own per-user quota, held durably
+// for the whole Retry-After) no longer stops the tenant's other mailboxes in the same run. It is rethrown after them,
+// so the run still fails, or is deferred, on the floor. A project-wide floor refuses the others before any request.
+// Any other error still stops the run at once, as before.
+async function forEachGoogleMailbox(mailboxes: string[], run: (mailbox: string) => Promise<void>): Promise<void> {
+  let limited: GoogleRateLimitError | null = null;
+  for (const mailbox of mailboxes) {
+    try {
+      await run(mailbox);
+    } catch (err) {
+      if (!(err instanceof GoogleRateLimitError)) throw err;
+      limited ??= err;
+    }
+  }
+  if (limited) throw limited;
 }
 
 async function pollGoogleDocsMailbox(userId: string, userEmail: string): Promise<number> {
@@ -290,9 +308,9 @@ export async function processDrivePdfChanges(
 export async function sweepCommentActivity(userId: string): Promise<number> {
   const mailboxes = await listGoogleMailboxes(userId);
   let total = 0;
-  for (const mailbox of mailboxes) {
+  await forEachGoogleMailbox(mailboxes, async (mailbox) => {
     total += await sweepCommentActivityMailbox(userId, mailbox);
-  }
+  });
   return total;
 }
 
@@ -1158,7 +1176,7 @@ export interface GoogleDocsBackfillResult {
 export async function backfillGoogleDocsDetailed(userId: string, days: number | null = null): Promise<GoogleDocsBackfillResult> {
   const mailboxes = await listGoogleMailboxes(userId);
   let combined: GoogleDocsBackfillResult | null = null;
-  for (const mailbox of mailboxes) {
+  await forEachGoogleMailbox(mailboxes, async (mailbox) => {
     const result = await backfillGoogleDocsMailbox(userId, mailbox, days);
     if (!combined) combined = result;
     else {
@@ -1169,7 +1187,7 @@ export async function backfillGoogleDocsDetailed(userId: string, days: number | 
       combined.exhausted = combined.exhausted && result.exhausted;
       combined.capHit = combined.capHit || result.capHit;
     }
-  }
+  });
   return combined ?? { filesSeen: 0, stored: 0, failedDocs: 0, lineageFailures: 0, exhausted: true, capHit: false };
 }
 

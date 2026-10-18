@@ -5,7 +5,10 @@
  * donor's in-process cooldown map, which a restart or a second worker process does not see. Every rate limit they
  * receive is also written here (migration 10550), keyed exactly like the in-process map, and read before every call,
  * so no process calls Google before the floor. The floor is measured on the database clock and only moves later.
- * The source-lane Docs paths persist their own floors in their checkpoints and do not use this table.
+ * google-durable-quota: the source-lane googleFetch and the account capture use it too. They run inside the same donor
+ * tasks (the poll's sweep and inventory, the hourly suggestion sync) and honour the same `google-workspace` /
+ * `google-docs-api` floors, and their per-identity floor (`google-workspace:gd-<hash>`) would otherwise hold only the
+ * one file whose checkpoint recorded it.
  */
 import { sql, type SQL } from "drizzle-orm";
 import { GoogleRateLimitError } from "../../../vault/google-rate-limit.js";
