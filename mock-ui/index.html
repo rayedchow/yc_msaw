@@ -504,7 +504,7 @@ function treeSvg(m, T) {
   <svg viewBox="0 0 ${W} ${H}" class="tree" role="img" aria-label="${esc(m.name)} knowledge tree">
     ${T.integ.length ? label(24, T.integ[0].y - 14, `Integrations · ${T.integ.length}`) : ""}
     ${T.tools.length ? label(W - 24, T.tools[0].y - 14, `Tools · ${T.tools.length}`, "end") : label(W - 24, cy - 40, "Tools · generated after backtests", "end")}
-    ${T.rules.length ? label(24, busY - 12, `Tribal knowledge · ${T.rules.length} rules · ${m.mined}`) : ""}
+    ${T.rules.length ? label(24, busY - 12, `Tribal knowledge · ${T.rules.length} rules`) : ""}
     ${edges.join("")}
     ${T.integ.map((n) => box(n, NW)).join("")}
     ${T.tools.map((n) => box(n, NW)).join("")}
