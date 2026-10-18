@@ -204,7 +204,12 @@ export async function createBindingRoute(request: Request, principal: Principal,
 
 export async function listBindingsRoute(principal: Principal, service: SourceService): Promise<Response> {
   try {
-    return json(200, { bindings: await service.bindings.list(principal.tenantNs) });
+    // Admins manage every binding (ids, providers, enroller, revocation), but another member's device label (e.g.
+    // "Ada's MacBook") is personal and is redacted.
+    const bindings = (await service.bindings.list(principal.tenantNs)).map((b) =>
+      b.kind === "device" && (b.createdBy.subject !== principal.subject || b.createdBy.issuer !== principal.issuer) ? { ...b, label: null } : b,
+    );
+    return json(200, { bindings });
   } catch (e) {
     return sourceErrorResponse(e);
   }

@@ -412,6 +412,10 @@ describe("owner-only personal sources for members of one organization", () => {
     await publish("dm-republish", [{ ...put(p, "group dm v2\n"), capturedAt: new Date().toISOString() }]);
     expect((await tool("carol", "read", { path: `$SOURCES/${p.slice(8)}` })).code).toBe("not_found");
     expect((await tool("carol", "sources_history", { path: `$SOURCES/${p.slice(8)}` })).versions).toEqual([]);
+    // Admins see every binding id (to manage them) but not another member's device label.
+    const listed = ((await (await http("GET", "/v1/sources/bindings", tok.bob)).json()) as any).bindings;
+    const alicesMac = listed.find((b: any) => b.kind === "device" && b.providers.includes("imessage") && b.createdBy.subject === "user_alice");
+    expect(alicesMac.label).toBeNull();
     // N3: owners stop their own collection; nobody else can.
     const devices = ((await (await http("GET", "/v1/sources/status", tok.alice)).json()) as any).bindings.filter((b: any) => b.kind === "device" && b.providers.includes("imessage"));
     expect(devices.length).toBeGreaterThan(0);
