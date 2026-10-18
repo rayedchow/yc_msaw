@@ -22,6 +22,10 @@ export function classifyCredentialFailure(err: unknown): CredentialFailureClass 
   const code = errorCode(err);
 
   if (status === 429) return "transient";
+  // SOURCE-LANE PATCH (legacy Docs durable floor): Google reports per-user and project quota as 403
+  // (userRateLimitExceeded, rateLimitExceeded, quotaExceeded, dailyLimitExceeded). That is a rate limit, not a
+  // revoked grant: it must not mark the connection errored and disable every Google schedule.
+  if ((err as { name?: unknown } | null)?.name === "GoogleRateLimitError") return "transient";
   if (typeof status === "number" && status >= 500 && status <= 599) return "transient";
   if (isNetworkOrTimeout(err, lower)) return "transient";
 

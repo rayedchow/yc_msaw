@@ -5955,10 +5955,15 @@
     },
     {
       "path": "src/vault/credential-failure.ts",
-      "sha256": "cb67db63ebd776973c8444004380d00d2a0b1ac6c92d5c8daf6bcb601295a473",
-      "status": "verbatim",
+      "sha256": "76c2f35fa1590cc7e2015943478edea80acff4199a34439df7c6d51ea3b16940",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/vault/credential-failure.ts",
-      "donorSha256": "cb67db63ebd776973c8444004380d00d2a0b1ac6c92d5c8daf6bcb601295a473"
+      "donorSha256": "cb67db63ebd776973c8444004380d00d2a0b1ac6c92d5c8daf6bcb601295a473",
+      "reason": "A GoogleRateLimitError is transient: Google reports per-user/project quota as 403 (userRateLimitExceeded, rateLimitExceeded, quotaExceeded, dailyLimitExceeded), which the donor classified as a permanent credential failure, marking the connection errored and disabling every Google schedule.",
+      "tests": [
+        "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts"
+      ]
     },
     {
       "path": "src/vault/encryption.ts",

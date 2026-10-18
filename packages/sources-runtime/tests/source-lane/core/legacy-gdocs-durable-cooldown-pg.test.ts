@@ -67,7 +67,7 @@ describe.skipIf(!PG)("legacy Google Docs tasks keep Google's Retry-After floor a
     const { applySourceLaneMigrations } = await import("../../../src/source-lane/core/migrations.js");
     await applySourceLaneMigrations(sql);
     dwdEnv = {
-      GOOGLE_DWD_TENANT_APPROVALS: JSON.stringify({ [TENANT]: ["corp.example"] }),
+      GOOGLE_DWD_TENANT_APPROVALS: JSON.stringify({ [TENANT]: ["corp.example"], [`${TENANT}-403`]: ["corp-403.example"] }),
       GOOGLE_WORKSPACE_SERVICE_ACCOUNT_KEY_JSON: JSON.stringify({
         client_email: "legacy-docs@example-project.iam.gserviceaccount.com",
         private_key: generateKeyPairSync("rsa", { modulusLength: 2048 }).privateKey.export({ type: "pkcs8", format: "pem" }),
@@ -196,6 +196,24 @@ describe.skipIf(!PG)("legacy Google Docs tasks keep Google's Retry-After floor a
     expect(rows[0].payload).toMatchObject({ docId: "doc-floor", rateLimitReschedules: 1 });
     expect(Number(rows[0].wait)).toBeGreaterThan(7100);
     expect(requests).toHaveLength(0);
+  });
+
+  it("a 403 quota error from Google is a rate limit, not a revoked grant: the connection and Google schedules stay enabled", async () => {
+    const T2 = `${TENANT}-403`;
+    const [connected] = await worker([{ kind: "connect", tenantId: T2, mailbox: "ada@corp-403.example" }]);
+    expect(connected).toMatchObject({ ok: true });
+    await sql`INSERT INTO connections (tenant_id, provider, status) VALUES (${T2}, 'google', 'active') ON CONFLICT DO NOTHING`;
+    await sql`INSERT INTO task_schedules (tenant_id, group_key, kind, frequency_seconds) VALUES (${T2}, ${`${T2}:gdocs`}, 'gdocs.poll', 60)`;
+    respond = () => limit(403, "userRateLimitExceeded", "900");
+    const payload = { userId: T2, docId: "doc-403", modifiedTime: "2026-10-18T10:00:00.000Z" };
+    const task = { id: randomUUID(), queue: "sync", tenantId: T2, groupKey: `${T2}:gdocs`, kind: "gdocs.content-snapshot", payload, attempt: 1, maxAttempts: 3, priority: -5, prevRunId: null };
+    const [outcome] = await worker([{ kind: "task", taskKind: "gdocs.content-snapshot", payload, task }]);
+    expect(outcome).toMatchObject({ ok: true, result: { deferred: true } });
+    expect(requests).toHaveLength(1); // one documents.get; no preview fallback inside the rate limit
+    const [conn] = await sql`SELECT status FROM connections WHERE tenant_id = ${T2} AND provider = 'google'`;
+    expect(conn.status).toBe("active");
+    const [schedule] = await sql`SELECT enabled FROM task_schedules WHERE tenant_id = ${T2} AND kind = 'gdocs.poll'`;
+    expect(schedule.enabled).toBe(true);
   });
 
   it("a shorter later Retry-After never moves a recorded floor earlier", async () => {

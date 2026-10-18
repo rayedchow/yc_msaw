@@ -204,6 +204,11 @@ export const DECLARED_OVERRIDES: Record<string, { status: "shim" | "patched"; re
     reason: "Legacy Docs durable floor: getGoogleApiCredential registers each bearer it returns with its quotaUser (google-quota-identity.ts, sha256 prefix only), so a per-user cooldown keyed by the stable account+credential unit survives token refresh and restarts.",
     test: "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts",
   },
+  "src/vault/credential-failure.ts": {
+    status: "patched",
+    reason: "A GoogleRateLimitError is transient: Google reports per-user/project quota as 403 (userRateLimitExceeded, rateLimitExceeded, quotaExceeded, dailyLimitExceeded), which the donor classified as a permanent credential failure, marking the connection errored and disabling every Google schedule.",
+    test: "tests/source-lane/core/legacy-gdocs-durable-cooldown-pg.test.ts",
+  },
   "src/mirror/backfill.ts": {
     status: "patched",
     reason: "google-docs patch request 1: the Docs backfill renders only the latest captured revision's tabs (a tab deleted later is not resurrected from an older revision) and skips docs whose gdocs_file_checkpoints lifecycle is trashed/removed (backfill no longer undoes source-lane tombstones). slack request 1: fold the append-only Slack ledger into window files. granola request 1: render each Granola note's latest snapshot only and skip notes whose newest observation is a tombstone; granola fidelity P1: notes with only typed notes are rendered too. granola fidelity P1: a Granola note with only typed notes is rendered by mirror.backfill",
