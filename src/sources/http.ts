@@ -6,7 +6,7 @@ import { parseContentType, readBoundedBody, TraceIngestError } from "../traces/i
 import { errorMessage } from "../util.js";
 import { createHash } from "node:crypto";
 import { DEVICE_KEY_PREFIXES, DEVICE_PROVIDERS, deviceKeyForBindingToken, looksLikeBindingToken, type BindingKind, type VerifiedBinding } from "./bindings.js";
-import { isPersonalProvider } from "./access.js";
+import { isOwnerSegmentProvider, isPersonalProvider, OWNER_COVERAGE_PREFIX, SHARED_PROVIDERS } from "./access.js";
 import { SourceError } from "./paths.js";
 import type { GoogleAuthAction, NangoRecordsAction, RuntimeResponse, SourceRuntimeClient } from "./runtime-client.js";
 import { COVERAGE_STATES, type SourceService, type StatusReport } from "./service.js";
@@ -169,6 +169,19 @@ export const StatusReportSchema = z
   })
   .strict();
 
+/** `sources/<provider>/@…/…` (in any spelling a store path decodes to): a member's owner segment. */
+function isOwnerSegmentWirePath(path: unknown): boolean {
+  if (typeof path !== "string") return false;
+  const seg = path.split("/")[2] ?? "";
+  let decoded = seg;
+  try {
+    decoded = decodeURIComponent(seg);
+  } catch {
+    // keep the raw spelling
+  }
+  return seg.startsWith("@") || decoded.normalize("NFKC").startsWith("@");
+}
+
 // ------------------------------------------------------------ admin routes (verified principal)
 
 export async function createBindingRoute(request: Request, principal: Principal, service: SourceService): Promise<Response> {
@@ -185,9 +198,11 @@ export async function createBindingRoute(request: Request, principal: Principal,
     if (!principal.scopes.includes(need) && !principal.scopes.includes(SCOPES.memoryBuild)) {
       return bearerChallenge({ status: 403, error: "insufficient_scope", description: `Missing required scope: ${need}`, scope: need });
     }
-    // A hand-minted binding whose token the admin keeps must not write (or vouch for) personal sources: '*' and the
-    // personal provider directories are only for the provisioned collector (POST /v1/sources/runtime/provision).
-    const personal = input.providers.filter((p) => p === "*" || isPersonalProvider(p) || p === "binary");
+    // A hand-minted binding whose token the admin keeps must not write (or vouch for) personal sources: '*', the
+    // personal provider directories and every provider whose data lives in members' owner segments (anything not
+    // shared, e.g. a personal Nango Outlook) are only for the provisioned collector (POST /v1/sources/runtime/provision).
+    const shared = new Set([...SHARED_PROVIDERS, ...service.sharedProviders]);
+    const personal = input.providers.filter((p) => p === "*" || isPersonalProvider(p) || p === "binary" || isOwnerSegmentProvider(p, shared));
     if (personal.length) {
       return error(400, "use_runtime_provision", `Bindings for ${personal.join(", ")} are minted only by POST /v1/sources/runtime/provision (personal sources are owner-only)`);
     }
@@ -297,6 +312,12 @@ export async function publishRoute(request: Request, service: SourceService): Pr
     const auth = await authenticateBinding(request, service);
     if (auth instanceof Response) return auth;
     const batch = PublishSchema.parse(await readJson(request, MAX_PUBLISH_BODY_BYTES)) as PublishBatch;
+    // Members' owner segments (`<provider>/@…/`) are written only by the provisioned collector, also for a manual
+    // binding minted before owner scopes (owner-acl-reaudit-3 NEW-4).
+    if (auth.binding.origin !== "runtime-provision") {
+      const i = batch.changes.findIndex((c) => isOwnerSegmentWirePath(c.path));
+      if (i >= 0) return error(403, "forbidden_provider", `changes[${i}]: only the provisioned collector writes members' owner segments`);
+    }
     const receipt = await service
       .storeFor(auth.tenantNs)
       .applyBatch({ bindingId: auth.binding.bindingId, providers: auth.binding.providers }, batch);
@@ -311,6 +332,9 @@ export async function statusReportRoute(request: Request, service: SourceService
     const auth = await authenticateBinding(request, service);
     if (auth instanceof Response) return auth;
     const report = StatusReportSchema.parse(await readJson(request, MAX_STATUS_BODY_BYTES)) as StatusReport;
+    if (auth.binding.origin !== "runtime-provision" && report.providers.some((p) => p.scope.startsWith(OWNER_COVERAGE_PREFIX))) {
+      return error(403, "forbidden_provider", "Only the provisioned collector reports coverage of members' owner scopes");
+    }
     const stored = await service.reportStatus(auth.tenantNs, auth.binding, report);
     return json(200, { bindingId: stored.bindingId, receivedAt: stored.receivedAt, providers: report.providers.length });
   } catch (e) {

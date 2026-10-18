@@ -110,6 +110,11 @@ export class SourceService {
     this.nodeCache = new SourceNodeCache(opts.nodeCacheBytes ?? DEFAULT_NODE_CACHE_BYTES);
   }
 
+  /** Operator-declared shared provider directories (SOURCES_SHARED_PROVIDERS). */
+  get sharedProviders(): readonly string[] {
+    return this.#sharedProviders;
+  }
+
   storeFor(ns: string): SourceStore {
     let s = this.#stores.get(ns);
     if (s) {

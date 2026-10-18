@@ -81,7 +81,10 @@ How it is enforced:
 - **Owner evidence can't be forged by a tenant admin:**
   - Google owners come from the runtime's status heartbeat (`googleAccounts`). They are accepted only from a binding
     minted by `POST /v1/sources/runtime/provision`. Its token goes to the runtime and is never returned.
-  - `POST /v1/sources/bindings` refuses `*`, `binary` and every personal provider (`400 use_runtime_provision`).
+  - `POST /v1/sources/bindings` refuses `*`, `binary`, every personal provider and every provider whose data lives
+    in members' owner segments, i.e. anything not shared (`400 use_runtime_provision`). Only the provisioned
+    collector writes a `<provider>/@u-…/` path or reports an `owner:` coverage scope; any other binding, including
+    one minted before owner scopes, gets `403 forbidden_provider`.
   - A new grant becomes readable at the next heartbeat (≤ 5 min by default). Owner evidence is cached per tenant for
     5 s: a change made by the same process applies at once, one made on another replica within 5 s.
   - Bindings provisioned before this change carry no such origin. Re-provision once.

@@ -411,6 +411,17 @@ describe("owner-only personal sources for members of one organization", () => {
     // F1: an admin cannot mint a '*' (or personal) binding whose owner reports would be trusted.
     expect((await http("POST", "/v1/sources/bindings", tok.alice, { providers: ["*"], label: "my-collector" })).status).toBe(400);
     expect((await http("POST", "/v1/sources/bindings", tok.alice, { providers: ["gmail"] })).status).toBe(400);
+    // NEW-4: nor one for a provider whose data lives in members' owner segments (a personal Nango source).
+    expect(await (await http("POST", "/v1/sources/bindings", tok.alice, { providers: ["outlook"] })).json()).toMatchObject({ error: { code: "use_runtime_provision" } });
+    // A manual binding of a shared provider cannot write into, or report coverage for, a member's owner segment.
+    const manual = ((await (await http("POST", "/v1/sources/bindings", tok.alice, { providers: ["jira"], label: "manual" })).json()) as { token: string }).token;
+    const send = (route: string, body: unknown) => fetch(base + route, { method: "POST", headers: { Authorization: `Bearer ${manual}`, "Content-Type": "application/json" }, body: JSON.stringify(body) });
+    for (const seg of ["@u-0123456789abcdef01234567", "%40u-0123456789abcdef01234567", "\uFF20u-0123456789abcdef01234567"]) {
+      const r = await send("/v1/sources/publish", { batchId: `seg-${seg.length}-${seg.charCodeAt(0)}`, changes: [put(`sources/jira/${seg}/forged.json`, "forged\n")] });
+      expect(r.status, seg).toBe(403);
+    }
+    expect((await send("/v1/sources/status-report", { providers: [{ provider: "jira", scope: "owner:@u-0123456789abcdef01234567/forged", state: "complete" }] })).status).toBe(403);
+    expect((await send("/v1/sources/status-report", { providers: [{ provider: "jira", scope: "site:acme", state: "complete" }] })).status).toBe(200);
     // F3: content the collector withheld after publishing (a group DM) is gone from read AND history.
     await publish("mpim", [put("sources/slack/mpdm-a--b-channel-9f/threads/t1.md", "group dm: needle-mpim\n")]);
     const at = new Date().toISOString();
