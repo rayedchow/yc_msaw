@@ -350,6 +350,7 @@ function evalStrip(m) {
 
 // ── detail ────────────────────────────────────────────────────────────────
 const SHORT = {};   // rule id → short label, filled from the API
+const clip = (t, n) => (t.length > n ? t.slice(0, n - 1) + "…" : t);
 const strip = (h) => h.replace(/<[^>]+>/g, "");
 const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
 
@@ -398,7 +399,7 @@ function treeSvg(m, T) {
       <rect width="${r.w}" height="${NH + 6}" rx="3"/>
       <text class="nl mono" x="12" y="20">${r.id}</text>
       <text class="nh" x="${r.w - 12}" y="20" text-anchor="end">${r.h === "asked" ? "asked" : r.h === "running" ? "testing" : r.h}</text>
-      <text class="ns" x="12" y="38">${esc(SHORT[r.id] ?? "")}</text>
+      <text class="ns" x="12" y="38">${esc(clip(SHORT[r.id] ?? "", 22))}</text>
     </g>`;
   };
   return `
@@ -507,7 +508,7 @@ function renderDetail(m) {
   $("#copy").onclick = () => navigator.clipboard?.writeText(m.url);
   $$("#question .opt").forEach((o) => o.onclick = async () => {
     $$("#question .opt").forEach((x) => x.classList.toggle("picked", x === o));
-    const r = await fetch(`/api/mcps/${m.id}/answer`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: m.question.index, option: Number(o.dataset.a) }) });
+    const r = await fetch(`${API}/api/mcps/${m.id}/answer`, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify({ question: m.question.index, option: Number(o.dataset.a) }) });
     if (!r.ok) { alert((await r.json()).error); return; }
     await load(true);
   });
@@ -663,10 +664,12 @@ function route() {
   if (m && hover) setTimeout(() => $(`.node[data-key="${CSS.escape(decodeURIComponent(hover))}"]`)?.dispatchEvent(new Event("mouseenter")), 50);
   window.scrollTo({ top: 0 });
 }
+// Served by the platform: same origin. Opened as a file: talk to the local platform.
+const API = location.protocol === "file:" ? "http://localhost:4500" : "";
 let lastJson = "";
 async function load(force) {
   try {
-    const r = await fetch("/api/state", { cache: "no-store" });
+    const r = await fetch(`${API}/api/state`, { cache: "no-store" });
     const j = await r.json();
     const text = JSON.stringify(j);
     if (!force && text === lastJson) return;
@@ -675,7 +678,7 @@ async function load(force) {
     // don't redraw under the cursor on the overview tree unless something material changed
     route();
   } catch (e) {
-    $("#app").innerHTML = `<section><div class="empty" style="padding:28px">walter's API is not reachable.</div></section>`;
+    $("#app").innerHTML = `<section><div class="empty" style="padding:28px">walter's API is not reachable at ${API || location.origin}. Start it with <code>npx tsx walter/platform/server.ts</code> and open http://localhost:4500.</div></section>`;
   }
 }
 window.addEventListener("hashchange", route);

@@ -61,7 +61,7 @@ export function uiMcp(id: string, k: Knowledge, st: WalterState, usage: Usage | 
     tools: tools.map((t) => [t.sig, t.d, t.kinds.length ? live.filter((r) => t.kinds.includes(r.kind)).map((r) => r.id).join(" ") : t.name === "report_outcome" ? "feedback" : ""]),
     rules: live.map((r) => [r.id, code(r.title), r.evidence ?? "", open.some((x) => x.rule_id === r.id) ? "asked" : r.change && r.status !== "confirmed" ? "change" : pct(r.heldOut.n ? r.heldOut : r.train), r.code, r.short ?? ""]),
     question: q ? { text: html(q.question), options: q.options, rule: live.findIndex((r) => r.id === q.rule_id), index: q.i, evidence: q.evidence } : null,
-    versions: [...new Map((dep?.history ?? []).map((h) => [h.version, h])).values()].map((h) => [`v${h.version}`, k.changelog?.find((c) => c.version === h.version)?.note ?? (h.version === 1 ? "First build from history" : "Rebuilt"), 3]).reverse(),
+    versions: [...new Map((dep?.history ?? []).map((h) => [h.version, h])).values()].map((h) => [`v${h.version}`, k.changelog?.find((c) => c.version === h.version)?.note.replace(/^(R\d+): ([^:,;.]*).*/, "$1: $2") ?? (h.version === 1 ? "First build from history" : "Rebuilt"), 3]).reverse(),
     job,
   };
 }

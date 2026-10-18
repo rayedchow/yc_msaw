@@ -86,10 +86,11 @@ async function answer(id: string, qIndex: number, option: number): Promise<Job> 
 const port = Number(process.argv[process.argv.indexOf("--port") + 1]) || 4500;
 http.createServer(async (req, res) => {
   const send = (status: number, body: unknown, type = "application/json") => {
-    res.writeHead(status, { "content-type": type, "cache-control": "no-store" });
+    res.writeHead(status, { "content-type": type, "cache-control": "no-store", "access-control-allow-origin": "*", "access-control-allow-headers": "content-type" });
     res.end(type === "application/json" ? JSON.stringify(body) : body);
   };
   try {
+    if (req.method === "OPTIONS") return send(204, "", "text/plain");
     const url = new URL(req.url ?? "/", "http://x");
     if (req.method === "GET" && (url.pathname === "/" || url.pathname === "/index.html")) return send(200, await fs.readFile(UI, "utf8"), "text/html; charset=utf-8");
     if (req.method === "GET" && url.pathname === "/api/state") return send(200, await apiState());

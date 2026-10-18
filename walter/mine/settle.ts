@@ -36,7 +36,7 @@ export async function settle(bench: Bench, k: Knowledge, qIndex: number, answer:
     if (j.action !== "revise") {
       return { action: j.action === "retire" ? "retire" : "confirm", rule: { ...rule, status: j.action === "retire" ? "retired" : "confirmed" }, note: j.note ?? "", attempts: attempt };
     }
-    const revised: Rule = { ...rule, code: String(j.code ?? ""), title: j.title ?? rule.title, short: j.short ?? rule.short };
+    const revised: Rule = { ...rule, code: String(j.code ?? ""), title: j.title ?? rule.title, short: j.short && j.short.length <= 18 ? j.short : rule.short };
     const res = backtestRule(bench, revised, others);
     const all = res.train.n + res.heldOut.n, ok = res.train.ok + res.heldOut.ok;
     const replay = rule.kind === "commit_membership" ? safeReplay(bench, [...others, revised]) : null;
