@@ -157,9 +157,12 @@ export class SourceService {
     // Account owners are trusted only from the provisioned collector binding (its token never left the servers); an
     // admin-minted '*' publish binding cannot vouch for who owns a mailbox.
     const runtimeIds = new Set(bindings.filter((b) => !b.revokedAt && b.kind === "runtime" && b.origin === "runtime-provision" && b.providers.includes("*")).map((b) => b.bindingId));
-    const reports = await this.#reports(ns, bindings.filter((b) => runtimeIds.has(b.bindingId)));
+    const [reports, present] = await Promise.all([this.#reports(ns, bindings.filter((b) => runtimeIds.has(b.bindingId))), this.#presentMailboxes(ns)]);
     const reported = reports.flatMap((r) => r.report.googleAccounts ?? []);
-    const value = { providerOwners: providerOwners(bindings, owners.value), googleAccounts: [...reported, ...(await this.#unreportedMailboxes(ns, reported))] };
+    const known = new Set(reported.map((a) => a.account.trim().toLowerCase()));
+    const unreported: GoogleAccountOwner[] = [...present.accounts].filter((a) => !known.has(a)).map((account) => ({ account, subject: null, issuer: null }));
+    if (present.truncated) unreported.push({ account: "more-mailboxes@unlisted.invalid", subject: null, issuer: null });
+    const value = { providerOwners: providerOwners(bindings, owners.value), googleAccounts: [...reported, ...unreported] };
     this.#evidence.delete(ns);
     this.#evidence.set(ns, { at: this.now().getTime(), epoch, value });
     while (this.#evidence.size > MAX_CACHED_TENANTS) this.#evidence.delete(this.#evidence.keys().next().value!);
@@ -167,24 +170,25 @@ export class SourceService {
   }
 
   /**
-   * Mailboxes present in $SOURCES that no runtime report names (removed accounts, legacy capture). They join the
-   * Google account universe as unowned, so nobody "owns every Google account" by enrolling first.
+   * Mailbox directories present in $SOURCES (read in parallel). Those no runtime report names (removed accounts,
+   * legacy capture) join the Google account universe as unowned, so nobody "owns every Google account" by enrolling
+   * first. Only directories that are mailboxes by construction: a raw Calendar namespace is a calendar id.
    */
-  async #unreportedMailboxes(ns: string, reported: readonly GoogleAccountOwner[]): Promise<GoogleAccountOwner[]> {
-    const known = new Set(reported.map((a) => a.account.trim().toLowerCase()));
+  async #presentMailboxes(ns: string): Promise<{ accounts: Set<string>; truncated: boolean }> {
     const store = this.storeFor(ns);
-    const found = new Set<string>();
+    const head = (await store.head()).value.root;
+    const pages = await Promise.all(
+      ["gmail", "gmail/_raw", "calendar/accounts", "google-contacts/accounts"].map((dir) =>
+        store.list(dir, { limit: MAX_MAILBOX_SCAN, includeDeleted: true }, head).catch((e: unknown) => {
+          if (e instanceof SourceError && (e.code === "not_found" || e.code === "not_a_directory")) return null;
+          throw e;
+        }),
+      ),
+    );
+    const accounts = new Set<string>();
     let truncated = false;
-    // Only directories that are mailboxes by construction: a raw Calendar namespace is a calendar id (a group or
-    // shared calendar's address is not a member's mailbox), so it is not scanned.
-    for (const dir of ["gmail", "gmail/_raw", "calendar/accounts", "google-contacts/accounts"]) {
-      let page;
-      try {
-        page = await store.list(dir, { limit: MAX_MAILBOX_SCAN, includeDeleted: true });
-      } catch (e) {
-        if (e instanceof SourceError && (e.code === "not_found" || e.code === "not_a_directory")) continue;
-        throw e;
-      }
+    for (const page of pages) {
+      if (!page) continue;
       if (page.nextAfter !== null) truncated = true;
       for (const e of page.entries) {
         let name = e.name;
@@ -194,12 +198,10 @@ export class SourceService {
           // keep the stored spelling
         }
         name = name.toLowerCase().replace(/^mailbox:/, "");
-        if (name.includes("@") && !known.has(name)) found.add(name);
+        if (name.includes("@")) accounts.add(name);
       }
     }
-    const out: GoogleAccountOwner[] = [...found].map((account) => ({ account, subject: null, issuer: null }));
-    if (truncated) out.push({ account: "more-mailboxes@unlisted.invalid", subject: null, issuer: null });
-    return out;
+    return { accounts, truncated };
   }
 
   /**
