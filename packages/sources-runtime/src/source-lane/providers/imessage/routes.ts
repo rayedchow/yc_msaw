@@ -115,8 +115,9 @@ function principalSubject(c: Context): { subject: string; issuer: string } | nul
 }
 
 /**
- * Device enrolment is self-service (owner-only sources: a member enrols their own Mac and owns it); yc_msaw mints
- * the binding, so this is defence in depth. Every other admin route keeps the collection scopes.
+ * Device enrolment and device commands are self-service (owner-only sources: a member enrols and commands their own
+ * Mac); yc_msaw mints the binding and checks the owner, so this is defence in depth. Every other admin route keeps the
+ * collection scopes.
  */
 const ENROL_SCOPES = ["traces:write", "memory:build", "memory:read"];
 function requireEnrolScope(c: Context): Response | null {
@@ -193,7 +194,7 @@ export function registerImessageInternalRoutes(app: Hono, deps: InternalRouteDep
   });
 
   app.post("/tenants/:tenantId/devices/imessage/:bindingId/commands", async (c) => {
-    const denied = requireCollectionScope(c);
+    const denied = requireEnrolScope(c);
     if (denied) return denied;
     const who = principalSubject(c);
     if (!who) return c.json({ error: { code: "principal_required", message: "verified principal required" } }, 401);

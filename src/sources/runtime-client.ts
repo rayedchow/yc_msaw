@@ -182,6 +182,13 @@ export class SourceRuntimeClient {
     return this.#call(p, "POST", `/devices/${provider}`, body ?? {});
   }
 
+  /** Queue a command for an enrolled device (source sync, backfill reset, rescan); the device fetches it. */
+  deviceCommand(p: Principal, provider: string, bindingId: string, body: unknown): Promise<RuntimeResponse> {
+    assertProvider(provider);
+    if (!/^sb-[0-9a-f]{16}$/.test(bindingId)) throw new SourceError("invalid_input", "Invalid binding id");
+    return this.#call(p, "POST", `/devices/${provider}/${bindingId}/commands`, body ?? {});
+  }
+
   /** Revoke a device's runtime ingest credential (forwarded when its device binding is revoked here). */
   deviceRevoke(p: Principal, provider: string, bindingId: string): Promise<RuntimeResponse> {
     assertProvider(provider);

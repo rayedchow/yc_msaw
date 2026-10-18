@@ -33,6 +33,258 @@
   "migrationPlan": "src/source-lane/core/migrations.ts",
   "files": [
     {
+      "path": "../shepherd-onboard/.gitignore",
+      "sha256": "f6c4163adc83c17b726343bbbd7a68f582ff6c85432c3ee969062c63bcee7a86",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "ignores the temporary donor rebuild directory used by the mutation guard test"
+    },
+    {
+      "path": "../shepherd-onboard/README.md",
+      "sha256": "80d32f840d3ff798cd5e60bc295ed0a7a67e23b7c27810b904c13d3272a4e43d",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "provenance, install/run route, office-audio non-support, tests and known donor quirks"
+    },
+    {
+      "path": "../shepherd-onboard/assets/shepherd_G_vector_136033.png",
+      "sha256": "435b2c07cedd76807a89bbef42af0eec8a2c8d3da65df6f8ffbbfed24fe87587",
+      "status": "verbatim",
+      "owner": "mac-delivery",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "packages/shepherd-onboard/assets/shepherd_G_vector_136033.png",
+      "donorSha256": "435b2c07cedd76807a89bbef42af0eec8a2c8d3da65df6f8ffbbfed24fe87587",
+      "reason": "verbatim vendored file of the pinned Mac uploader engine (imported by bin/shepherd-onboard.js)",
+      "tests": [
+        "../shepherd-onboard/tests/vendor.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/bin/shepherd-onboard.js",
+      "sha256": "f753b3b0f75665adc039f0e9c3979cdc530da3e3e174a794c2b15f0a098d4db2",
+      "status": "patched",
+      "owner": "mac-delivery",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "packages/shepherd-onboard/bin/shepherd-onboard.js",
+      "donorSha256": "1e0051a71e8c5f73482398d587c3dab1344783be8f6bec092e05c57642ec1a39",
+      "reason": "patch 0001: coding-sessions source_sync scans the full local inventory again (gigabrain d6561caf semantics, regressed by 36067d43's 1000-file cap) and keeps the providers filter; an explicitly bounded sync (fullInventory:false) keeps an honest capped receipt. Nothing else differs (scripts/verify-vendor.mjs reverses the patch to the donor bytes).",
+      "tests": [
+        "../shepherd-onboard/tests/donor/engine-commands.test.ts",
+        "../shepherd-onboard/tests/e2e/coding-sessions-agent.test.ts",
+        "../shepherd-onboard/tests/vendor.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/package-lock.json",
+      "sha256": "f402beb5053aada94a423a78dbe7435fa672e42de9fa3a831fd30e0fd26550bf",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "npm lockfile with integrity hashes for the pinned dependency tree"
+    },
+    {
+      "path": "../shepherd-onboard/package.json",
+      "sha256": "5e154c1dc9b024547ca7aed18e6787ad74871013448bd3052396b4285f9bf5ad",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "package manifest: private, exact dependency pins of the donor's declared ranges, scripts verify/test"
+    },
+    {
+      "path": "../shepherd-onboard/patches/0001-coding-sessions-source-sync-full-inventory.patch",
+      "sha256": "2df21a1d34b0653e62d50030c9f3a7bb4d40672a86a2f8f6400ac469975ddc6e",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "exact diff donor -> bin/shepherd-onboard.js"
+    },
+    {
+      "path": "../shepherd-onboard/patches/0002-donor-tests-run-from-package.patch",
+      "sha256": "b425397e0f05e73a4849ae78300dd1867f603bd5ea17bf2e65b6abd2b86ea2f5",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "exact diff donor tests -> tests/donor/*"
+    },
+    {
+      "path": "../shepherd-onboard/scripts/install-launch-agent.mjs",
+      "sha256": "74ea4ab3732ccbd2756427d923de3f8006a348e65397a56f3baca2b680e123f5",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "installs LaunchAgents pinned to this package's CLI via the donor's --program option (donor default is npx askshepherd@latest)"
+    },
+    {
+      "path": "../shepherd-onboard/scripts/verify-vendor.mjs",
+      "sha256": "ce5cf377940a3c3faa56c26866b6d0f121287e026223e6bfcc8f13de4cfb613d",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "integrity check: hashes, patch reversal to donor bytes, exact dependency pins"
+    },
+    {
+      "path": "../shepherd-onboard/source-selection.cjs",
+      "sha256": "ca9d470ed9a7277cef7bea16f4bbfb16a58b3d218fe0db42197d002c2cb8e6e1",
+      "status": "verbatim",
+      "owner": "mac-delivery",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "packages/shepherd-onboard/source-selection.cjs",
+      "donorSha256": "ca9d470ed9a7277cef7bea16f4bbfb16a58b3d218fe0db42197d002c2cb8e6e1",
+      "reason": "verbatim vendored file of the pinned Mac uploader engine (imported by bin/shepherd-onboard.js)",
+      "tests": [
+        "../shepherd-onboard/tests/vendor.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/tests/donor/engine-commands.test.ts",
+      "sha256": "77ae424df4086c5ca57a12b6fb4d9653c283a8ac5356269dfddd2ab0cecd6339",
+      "status": "patched",
+      "owner": "mac-delivery",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "tests/unit/onboard-app/engine-commands.test.ts",
+      "donorSha256": "0dbbd2026a0fc710106c50c38648976f7e28c58e02a7b3fc3c38ed2f708963d6",
+      "reason": "patch 0002: donor CLI unit test run from this package (CLI path -> ../../bin; engine-commands drops the 2-test Electron 'app engine wrapper' block; messages-backfill default-batch expectation follows gigabrain 04e9481e's default of 500).",
+      "tests": [
+        "../shepherd-onboard/tests/donor/engine-commands.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/tests/donor/messages-agent-identity.test.ts",
+      "sha256": "fb6cb93ba6779b1cb8ae5d26f6db8a297a2811687e44f0c996f4c284287f1d98",
+      "status": "patched",
+      "owner": "mac-delivery",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "tests/unit/onboard-app/messages-agent-identity.test.ts",
+      "donorSha256": "96f3fd48595496ca2563668f649a75d941897593a3ca6f69b26ca991f6910e67",
+      "reason": "patch 0002: donor CLI unit test run from this package (CLI path -> ../../bin; engine-commands drops the 2-test Electron 'app engine wrapper' block; messages-backfill default-batch expectation follows gigabrain 04e9481e's default of 500).",
+      "tests": [
+        "../shepherd-onboard/tests/donor/messages-agent-identity.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/tests/donor/shepherd-onboard-chat-discovery.test.ts",
+      "sha256": "6cd71aa76d526637ae15ad656805c77b6eada52663c27f896855c98d3d6dc7d6",
+      "status": "patched",
+      "owner": "mac-delivery",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "tests/unit/onboard-app/shepherd-onboard-chat-discovery.test.ts",
+      "donorSha256": "ad3ac6f59d6ddfe56f3f807545ce2cfb47d1c0b27bdb72b2a80e6d34157e4a61",
+      "reason": "patch 0002: donor CLI unit test run from this package (CLI path -> ../../bin; engine-commands drops the 2-test Electron 'app engine wrapper' block; messages-backfill default-batch expectation follows gigabrain 04e9481e's default of 500).",
+      "tests": [
+        "../shepherd-onboard/tests/donor/shepherd-onboard-chat-discovery.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/tests/donor/shepherd-onboard-messages-backfill.test.ts",
+      "sha256": "ab102819ac66d264225935b99c93209d0ab7780c01fea9dff597a969b8a723fb",
+      "status": "patched",
+      "owner": "mac-delivery",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "tests/unit/onboard-app/shepherd-onboard-messages-backfill.test.ts",
+      "donorSha256": "1768e4fc1fdd85642148615b33de53a221381870c24f62f4fbceb112d1dba77e",
+      "reason": "patch 0002: donor CLI unit test run from this package (CLI path -> ../../bin; engine-commands drops the 2-test Electron 'app engine wrapper' block; messages-backfill default-batch expectation follows gigabrain 04e9481e's default of 500).",
+      "tests": [
+        "../shepherd-onboard/tests/donor/shepherd-onboard-messages-backfill.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/tests/e2e/client.ts",
+      "sha256": "383dedfb3d4c0c8028f1f3e559e0b17eab2ef39af0b6db28b6f9d4e09f02e011",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "runs the vendored CLI as child processes with an isolated HOME"
+    },
+    {
+      "path": "../shepherd-onboard/tests/e2e/coding-sessions-agent.test.ts",
+      "sha256": "a44b31a8edb38f7ac8750508380e086dc45844d475198f785b3501c9a9ec2f7d",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "client -> runtime E2E: uncapped source_sync past 1000 files, donor mutation guard, bounded receipt without deletions, outage/revocation",
+      "tests": [
+        "../shepherd-onboard/tests/e2e/coding-sessions-agent.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/tests/e2e/fixtures.ts",
+      "sha256": "c4c2c43bddb45aa52196efc95c115b77a1599a3e36d4626da2273d9655c713ae",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "synthetic chat.db / AddressBook / Codex / Claude Code fixtures (no real data)"
+    },
+    {
+      "path": "../shepherd-onboard/tests/e2e/imessage-agent.test.ts",
+      "sha256": "31f6c2a9bd3520e9cfd4c0ec851892952916d7b7a59af38cd1d162a363b0f5f6",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "client -> runtime E2E: messages-agent on a synthetic chat.db (selection consent, live, edits/unsend, source_sync receipt, revocation) and bounded sender batches",
+      "tests": [
+        "../shepherd-onboard/tests/e2e/imessage-agent.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/tests/e2e/runtime.ts",
+      "sha256": "6606ccc4ebae69de0d626c39e2cfd7165644b664c09a26da88a4eb19b56e1802",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "production runtime in process (PGlite + real migrations + production iMessage/coding-sessions modules with their HTTP yc_msaw authority against a loopback verify endpoint)"
+    },
+    {
+      "path": "../shepherd-onboard/tests/install-launch-agent.test.ts",
+      "sha256": "7a089aa986ebda287666b7e928f786bfc61e17188a25bf5c4db73094f60cd410",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "dry-run regression: launchd pinned to the vendored CLI, office-audio refused",
+      "tests": [
+        "../shepherd-onboard/tests/install-launch-agent.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/tests/setup-env.ts",
+      "sha256": "f1d1faabe519ef1f0d526131ea40c8277cdbc6bbbe4eb0a31f721023f70b1130",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "placeholder env for importing the runtime in process (no real services)"
+    },
+    {
+      "path": "../shepherd-onboard/tests/vendor.test.ts",
+      "sha256": "0453a3e9fed84b48327b734948137f0f89b434fd52edd9f8db8e52ca575ed49d",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "pin/integrity regression with tamper detection",
+      "tests": [
+        "../shepherd-onboard/tests/vendor.test.ts"
+      ]
+    },
+    {
+      "path": "../shepherd-onboard/vendor.json",
+      "sha256": "818f4a727bc6e33b408190623f261918e5f8374cdd0428514d850897176128e6",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "pin manifest: donor repo/commit/path, donor git blob + sha256 per vendored file, patch hashes, not-vendored list"
+    },
+    {
+      "path": "../shepherd-onboard/vitest.config.ts",
+      "sha256": "12ffd173cd99bb69b431c4833f42a35fae7df1ab7a4b2568cd30c86cebe24ae0",
+      "status": "new",
+      "owner": "mac-delivery",
+      "reason": "test runner config (serial files: each E2E file starts a runtime and child uploaders)"
+    },
+    {
+      "path": "../shepherd-onboard/wiki-readiness.cjs",
+      "sha256": "04917b0c614fc8e42d6cec43dd160d8c1b5310f7c93da8f39e4a9e8fdb493b1d",
+      "status": "verbatim",
+      "owner": "mac-delivery",
+      "donorRepo": "askshepherd/gigabrain",
+      "donorCommit": "5448774e0a121570666adaa0c8ca18570df72be9",
+      "donorPath": "packages/shepherd-onboard/wiki-readiness.cjs",
+      "donorSha256": "04917b0c614fc8e42d6cec43dd160d8c1b5310f7c93da8f39e4a9e8fdb493b1d",
+      "reason": "verbatim vendored file of the pinned Mac uploader engine (imported by bin/shepherd-onboard.js)",
+      "tests": [
+        "../shepherd-onboard/tests/vendor.test.ts"
+      ]
+    },
+    {
       "path": "docs/integrations/README.md",
       "sha256": "42b8b4e670f7e72bd00e6591dd3880e227e4551dc2d44bf0f39e6ca26f4eeb8f",
       "status": "verbatim",

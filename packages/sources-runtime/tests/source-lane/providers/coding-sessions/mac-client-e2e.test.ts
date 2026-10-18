@@ -9,14 +9,19 @@ import { codingSessionsCoverage } from "../../../../src/integrations/coding-sess
 import { app, db, enroll, fakeAuthority, internal, pg, ready, resetTenant, serveApp } from "./harness.js";
 
 /**
- * Client -> server end to end: the bundled Mac agent (gigabrain@5448774e packages/shepherd-onboard
- * `coding-sessions-agent --once`, run unmodified from the audit clone as a child process with an isolated HOME)
+ * Client -> server end to end: the bundled Mac agent (packages/shepherd-onboard, vendored from gigabrain@5448774e,
+ * `coding-sessions-agent --once` as a child process with an isolated HOME)
  * scans a synthetic Codex transcript and talks over a loopback socket to this runtime's coding-sessions routes:
  * upload, the source_sync command and its receipt, and fail-closed revocation. Synthetic transcripts only.
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const CLI = process.env.SHEPHERD_ONBOARD_BIN ?? path.resolve(here, "../../../../../../../gigabrain/packages/shepherd-onboard/bin/shepherd-onboard.js");
+// The Mac uploader is vendored and pinned in this repository: packages/shepherd-onboard (gigabrain@5448774e plus
+// recorded patches, see its vendor.json). Install it with `npm ci --prefix packages/shepherd-onboard`.
+const CLI = process.env.SHEPHERD_ONBOARD_BIN ?? path.resolve(here, "../../../../../shepherd-onboard/bin/shepherd-onboard.js");
+if (!existsSync(CLI) || !existsSync(path.resolve(path.dirname(CLI), "../node_modules/ws"))) {
+  throw new Error(`Mac uploader not runnable at ${CLI}: run \`npm ci --prefix packages/shepherd-onboard\`. These tests do not skip.`);
+}
 const T = "acme";
 
 function runAgent(home: string, configPath: string): Promise<{ code: number; stdout: string; stderr: string }> {
@@ -29,7 +34,7 @@ function runAgent(home: string, configPath: string): Promise<{ code: number; std
 
 const q = async <T = Record<string, any>>(text: string, params: unknown[] = []) => (await pg.query<T>(text, params)).rows;
 
-describe.skipIf(!existsSync(CLI))("bundled Mac coding-sessions agent against the runtime routes", () => {
+describe("bundled Mac coding-sessions agent against the runtime routes", () => {
   let server: { url: string; close: () => Promise<void> };
   let home: string;
   let configFor: (key: string) => string;

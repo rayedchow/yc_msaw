@@ -16,7 +16,12 @@ import { mintBinding } from "./harness.js";
 
 const here = path.dirname(fileURLToPath(import.meta.url));
 const RUNTIME_SRC = path.resolve(here, "../../../../src");
-const CLI = process.env.SHEPHERD_ONBOARD_BIN ?? path.resolve(here, "../../../../../../../gigabrain/packages/shepherd-onboard/bin/shepherd-onboard.js");
+// The Mac uploader is vendored and pinned in this repository: packages/shepherd-onboard (gigabrain@5448774e plus
+// recorded patches, see its vendor.json). Install it with `npm ci --prefix packages/shepherd-onboard`.
+const CLI = process.env.SHEPHERD_ONBOARD_BIN ?? path.resolve(here, "../../../../../shepherd-onboard/bin/shepherd-onboard.js");
+if (!existsSync(CLI) || !existsSync(path.resolve(path.dirname(CLI), "../node_modules/ws"))) {
+  throw new Error(`Mac uploader not runnable at ${CLI}: run \`npm ci --prefix packages/shepherd-onboard\`. These tests do not skip.`);
+}
 
 function run(args: string[], stdin: string, env: NodeJS.ProcessEnv): Promise<{ code: number; stdout: string; stderr: string }> {
   return new Promise((resolve) => {
@@ -27,7 +32,7 @@ function run(args: string[], stdin: string, env: NodeJS.ProcessEnv): Promise<{ c
   });
 }
 
-describe.skipIf(!existsSync(CLI))("bundled Mac uploader config", () => {
+describe("bundled Mac uploader config", () => {
   it("accepts the setup route's messagesConfig on stdin and keeps the key and tenant exactly", async () => {
     const home = await mkdtemp(path.join(os.tmpdir(), "imessage-mac-config-"));
     try {

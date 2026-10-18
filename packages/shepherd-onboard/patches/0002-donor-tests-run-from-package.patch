@@ -1,0 +1,160 @@
+From: procmem mac-delivery (Claude Opus 5.5)
+Subject: run the donor's CLI unit tests from this package
+
+Donor: askshepherd/gigabrain@5448774e0a121570666adaa0c8ca18570df72be9 tests/unit/onboard-app/{engine-commands,messages-agent-identity,
+shepherd-onboard-messages-backfill,shepherd-onboard-chat-discovery}.test.ts
+- CLI paths point at this package's bin/ instead of the gigabrain monorepo layout.
+- engine-commands: the 2-test "app engine wrapper" block is dropped (it drives packages/shepherd-onboard-app, not vendored).
+- messages-backfill: the default-batch expectation follows gigabrain 04e9481e64167c65e71c117b48efafbefcb79dc8 (default 500);
+  a97681e6be5df2ff3e6d6d8e50f00d28a3070815 wrote it for the old default of 50 and it was never updated.
+---
+diff --git a/tests/donor/engine-commands.test.ts b/tests/donor/engine-commands.test.ts
+index 9caf075..2c1aba9 100644
+--- a/tests/donor/engine-commands.test.ts
++++ b/tests/donor/engine-commands.test.ts
+@@ -4,14 +4,11 @@
+ import { execFile } from "node:child_process";
+ import { mkdirSync, mkdtempSync, readFileSync, rmSync, statSync, utimesSync, writeFileSync } from "node:fs";
+ import { createServer } from "node:http";
+-import { createRequire } from "node:module";
+ import { tmpdir } from "node:os";
+ import path from "node:path";
+ import { afterEach, beforeEach, describe, expect, it } from "vitest";
+ 
+-const CLI = path.resolve(__dirname, "../../../packages/shepherd-onboard/bin/shepherd-onboard.js");
+-const require = createRequire(import.meta.url);
+-const { createEngine } = require("../../../packages/shepherd-onboard-app/main/engine.cjs");
++const CLI = path.resolve(__dirname, "../../bin/shepherd-onboard.js");
+ 
+ let home: string;
+ 
+@@ -107,68 +104,6 @@ async function startIngestServer() {
+   };
+ }
+ 
+-describe("app engine wrapper", () => {
+-  it("passes Messages chat search queries to the CLI", async () => {
+-    const argvPath = path.join(home, "argv.json");
+-    const fakeCli = path.join(home, "fake-cli.cjs");
+-    writeFileSync(fakeCli, `
+-const { writeFileSync } = require("node:fs");
+-writeFileSync(process.env.ARGV_OUT, JSON.stringify(process.argv.slice(2)));
+-process.stdout.write(JSON.stringify({ chats: [] }));
+-`);
+-
+-    const engine = createEngine({
+-      cliPath: fakeCli,
+-      command: process.execPath,
+-      argvPrefix: [],
+-      env: { ARGV_OUT: argvPath },
+-    }, { homeDir: home });
+-
+-    await engine.listMessageChats({ limit: 50, search: "ishan ramrakhiani" });
+-
+-    expect(JSON.parse(readFileSync(argvPath, "utf8"))).toEqual([
+-      "messages-chats",
+-      "--json",
+-      "--limit=50",
+-      "--no-open",
+-      "--no-permission-prompt",
+-      "--search=ishan ramrakhiani",
+-    ]);
+-  });
+-
+-  it("passes Office Audio voice enrollment requests to the CLI", async () => {
+-    const argvPath = path.join(home, "argv.json");
+-    const fakeCli = path.join(home, "fake-cli.cjs");
+-    writeFileSync(fakeCli, `
+-const { writeFileSync } = require("node:fs");
+-writeFileSync(process.env.ARGV_OUT, JSON.stringify(process.argv.slice(2)));
+-process.stdout.write(JSON.stringify({ ok: true, speakerId: "founder-ishan" }));
+-`);
+-
+-    const engine = createEngine({
+-      cliPath: fakeCli,
+-      command: process.execPath,
+-      argvPrefix: [],
+-      env: { ARGV_OUT: argvPath },
+-    }, { homeDir: home });
+-
+-    await engine.enrollOfficeAudioVoice({
+-      configPath: "/tmp/office-audio.json",
+-      speakerId: "founder-ishan",
+-      displayName: "Ishan",
+-      seconds: 20,
+-    });
+-
+-    expect(JSON.parse(readFileSync(argvPath, "utf8"))).toEqual([
+-      "office-audio-enroll-voice",
+-      "--config=/tmp/office-audio.json",
+-      "--speaker-id=founder-ishan",
+-      "--display-name=Ishan",
+-      "--seconds=20",
+-    ]);
+-  });
+-});
+-
+ describe("write-agent-state", () => {
+   it("writes the CLI state file with 0600 and merges over existing state", async () => {
+     const first = await runCli(["write-agent-state"], JSON.stringify({
+diff --git a/tests/donor/messages-agent-identity.test.ts b/tests/donor/messages-agent-identity.test.ts
+index 71e200e..54ca19c 100644
+--- a/tests/donor/messages-agent-identity.test.ts
++++ b/tests/donor/messages-agent-identity.test.ts
+@@ -1,6 +1,6 @@
+ import { describe, expect, it } from "vitest";
+ 
+-import { __test } from "../../../packages/shepherd-onboard/bin/shepherd-onboard.js";
++import { __test } from "../../bin/shepherd-onboard.js";
+ 
+ describe("Messages agent identity serialization", () => {
+   it("derives a direct-message participant from the Apple chat id when the SDK message omits participant", () => {
+diff --git a/tests/donor/shepherd-onboard-chat-discovery.test.ts b/tests/donor/shepherd-onboard-chat-discovery.test.ts
+index e5fe92a..cc133b6 100644
+--- a/tests/donor/shepherd-onboard-chat-discovery.test.ts
++++ b/tests/donor/shepherd-onboard-chat-discovery.test.ts
+@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
+ import { describe, expect, it, vi } from "vitest";
+ 
+ const testDir = dirname(fileURLToPath(import.meta.url));
+-const repoRoot = resolve(testDir, "..", "..", "..");
+-const cliPath = resolve(repoRoot, "packages", "shepherd-onboard", "bin", "shepherd-onboard.js");
++const packageDir = resolve(testDir, "..", "..");
++const cliPath = resolve(packageDir, "bin", "shepherd-onboard.js");
+ 
+ async function importCliWithTempHome() {
+   const home = await mkdtemp(join(tmpdir(), "shepherd-chat-discovery-"));
+diff --git a/tests/donor/shepherd-onboard-messages-backfill.test.ts b/tests/donor/shepherd-onboard-messages-backfill.test.ts
+index 549aac8..d4683a9 100644
+--- a/tests/donor/shepherd-onboard-messages-backfill.test.ts
++++ b/tests/donor/shepherd-onboard-messages-backfill.test.ts
+@@ -5,8 +5,8 @@ import { fileURLToPath } from "node:url";
+ import { describe, expect, it, vi } from "vitest";
+ 
+ const testDir = dirname(fileURLToPath(import.meta.url));
+-const repoRoot = resolve(testDir, "..", "..", "..");
+-const cliPath = resolve(repoRoot, "packages", "shepherd-onboard", "bin", "shepherd-onboard.js");
++const packageDir = resolve(testDir, "..", "..");
++const cliPath = resolve(packageDir, "bin", "shepherd-onboard.js");
+ 
+ async function importCliWithTempHome() {
+   const home = await mkdtemp(join(tmpdir(), "shepherd-messages-backfill-"));
+@@ -115,7 +115,8 @@ describe("Messages historical backfill", () => {
+     }
+   });
+ 
+-  it("defaults Messages upload batches to 50 and caps env overrides at 500", async () => {
++  // procmem: the donor default became 500 in gigabrain 04e9481e; this expectation (a97681e6) was never updated.
++  it("defaults Messages upload batches to 500 and caps env overrides at 500", async () => {
+     {
+       const { home, testApi } = await importCliWithTempHome();
+       try {
+@@ -132,7 +133,7 @@ describe("Messages historical backfill", () => {
+           chatId: "chat-1",
+         })));
+ 
+-        expect(posted.map((batch) => batch.length)).toEqual([50, 50, 50, 50, 1]);
++        expect(posted.map((batch) => batch.length)).toEqual([201]);
+       } finally {
+         vi.unstubAllEnvs();
+         await rm(home, { recursive: true, force: true });

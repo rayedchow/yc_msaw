@@ -1,0 +1,40 @@
+From: procmem mac-delivery (Claude Opus 5.5)
+Subject: coding-sessions source_sync is a full local inventory again
+
+Donor: askshepherd/gigabrain@5448774e0a121570666adaa0c8ca18570df72be9 packages/shepherd-onboard/bin/shepherd-onboard.js
+Regressed by gigabrain 36067d432bc6d29771fddb700c7f437c34ab9ce7 ("Align coding session sync caps"), which
+replaced fullInventory: true with a 1000-file cap, so a source_sync receipt could never prove a full inventory
+and the donor's own test (engine-commands.test.ts:629) fails. Restores d6561caf16f80e216eab2a2183770f17af1f5e85
+semantics, keeps the providers filter, and keeps an explicit bounded sync (fullInventory: false) honest.
+---
+diff --git a/bin/shepherd-onboard.js b/bin/shepherd-onboard.js
+index b508c46..be8539f
+--- a/bin/shepherd-onboard.js
++++ b/bin/shepherd-onboard.js
+@@ -10926,9 +10926,14 @@ function codingSessionsCommandScanOptions(command) {
+     : [];
+   const type = stringValue(command.type);
+   if (type === "source_sync") {
++    // procmem: a source_sync is a full local inventory (gigabrain d6561caf semantics). maxFiles bounds rescans,
++    // not the inventory; a sync is bounded only when the command explicitly sets fullInventory: false, and its
++    // receipt then reports capHit/fullInventory: false so coverage stays partial.
+     return {
+       exhaustive: true,
+-      maxFiles: maxFiles ?? DEFAULT_CODING_SESSION_FILES_PER_PROVIDER,
++      ...(payload.fullInventory === false
++        ? { maxFiles: maxFiles ?? DEFAULT_CODING_SESSION_FILES_PER_PROVIDER }
++        : { fullInventory: true }),
+       ...(providers.length ? { providers } : {}),
+     };
+   }
+@@ -11062,7 +11067,9 @@ function codingSessionsSourceSyncReceipt({
+     coverageFrom: Object.prototype.hasOwnProperty.call(payload, "coverageFrom") ? stringValue(payload.coverageFrom) : null,
+     coverageTo: stringValue(payload.coverageTo) ?? finishedAt,
+     fullInventory: scan.capped !== true,
+-    maxFilesPerProvider: positiveCommandInteger(payload.maxFiles) ?? DEFAULT_CODING_SESSION_FILES_PER_PROVIDER,
++    maxFilesPerProvider: payload.fullInventory === false
++      ? positiveCommandInteger(payload.maxFiles) ?? DEFAULT_CODING_SESSION_FILES_PER_PROVIDER
++      : null,
+     exhausted: failedCount === 0 && pendingUploads === 0,
+     capHit: scan.capped === true,
+     highWatermark,

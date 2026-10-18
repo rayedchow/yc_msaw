@@ -79,15 +79,21 @@ objects as JSON and ignores unsends; its rows are not exported.
 
 ## Local setup (no install performed here)
 
+The uploader is the vendored, pinned engine in `packages/shepherd-onboard` (gigabrain@5448774e plus recorded
+patches). Do not use `npx askshepherd`: that is the unpinned public package.
+
 ```sh
+# 0. On the Mac, from a checkout of this repository:
+npm ci --prefix packages/shepherd-onboard
 # 1. yc_msaw: mint the device (shown once). Use a WorkOS/OIDC token with traces:write.
 curl -sS -X POST "$YC/v1/sources/devices/imessage/setup" -H "Authorization: Bearer $TOKEN" \
   -H 'Content-Type: application/json' -d '{"label":"My Mac","backfillDays":30}' > setup.json
 # 2. On the Mac: add the chats you chose, write the config from stdin (token never in argv).
 jq '.messagesConfig + {allowedChatIds: ["iMessage;-;+15551234567"]}' setup.json \
-  | npx -y -p askshepherd shepherd-onboard write-messages-config     # prints {configPath}
-# 3. Separately, when ready to collect: install / run the agent.
-npx -y -p askshepherd shepherd-onboard install-messages-agent --config "$CONFIG_PATH"
+  | node packages/shepherd-onboard/bin/shepherd-onboard.js write-messages-config     # prints {configPath}
+# 3. Separately, when ready to collect: install the LaunchAgent pinned to this checkout's engine
+#    (grant Full Disk Access to the node binary it names).
+node packages/shepherd-onboard/scripts/install-launch-agent.mjs messages --config "$CONFIG_PATH"
 ```
 
 ## Coverage (truthful)

@@ -1,0 +1,28 @@
+{
+  "name": "@procmem/shepherd-onboard",
+  "version": "0.1.45-procmem.1",
+  "private": true,
+  "description": "Mac uploader engine for the procmem sources runtime: the Shepherd shepherd-onboard CLI (askshepherd/gigabrain@5448774e packages/shepherd-onboard) vendored and pinned, plus the coding-sessions source_sync full-inventory fix. Drives the iMessage and coding-sessions device lanes.",
+  "type": "module",
+  "license": "UNLICENSED",
+  "bin": {
+    "shepherd-onboard": "bin/shepherd-onboard.js"
+  },
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "verify": "node scripts/verify-vendor.mjs",
+    "test": "node scripts/verify-vendor.mjs && vitest run",
+    "test:client": "vitest run tests/donor tests/vendor.test.ts",
+    "test:e2e": "vitest run tests/e2e"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@photon-ai/imessage-kit": "3.0.0",
+    "ws": "8.21.0"
+  },
+  "devDependencies": {
+    "vitest": "3.2.6"
+  }
+}

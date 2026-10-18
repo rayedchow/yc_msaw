@@ -1,0 +1,133 @@
+{
+  "schema": "procmem.shepherd-onboard.vendor/v1",
+  "donor": {
+    "repo": "askshepherd/gigabrain",
+    "commit": "5448774e0a121570666adaa0c8ca18570df72be9",
+    "path": "packages/shepherd-onboard",
+    "package": "askshepherd@0.1.45",
+    "packageJsonSha256": "ef04bbbcab08af3be833bf5405e877dd104bc7bdcb18a1aaa03da6682b881e35",
+    "license": "UNLICENSED (Shepherd AI, Inc. proprietary; same owner and terms as the Aqueduct sources this repository already vendors). Not for publication.",
+    "newestCheck": "bin/shepherd-onboard.js blob b508c46099517fcf33554de372cf8d3b63cd0042 is identical at gigabrain 5448774e (main), at the original local checkout's HEAD 9d7a215d27d89130b3e4c585f5918a01a0b36cb6 and its later conductor checkpoints, and in its working tree; no later commit touches packages/shepherd-onboard."
+  },
+  "files": [
+    {
+      "path": "bin/shepherd-onboard.js",
+      "status": "patched",
+      "donorPath": "packages/shepherd-onboard/bin/shepherd-onboard.js",
+      "donorGitBlob": "b508c46099517fcf33554de372cf8d3b63cd0042",
+      "donorSha256": "1e0051a71e8c5f73482398d587c3dab1344783be8f6bec092e05c57642ec1a39",
+      "sha256": "f753b3b0f75665adc039f0e9c3979cdc530da3e3e174a794c2b15f0a098d4db2",
+      "patches": [
+        "patches/0001-coding-sessions-source-sync-full-inventory.patch"
+      ]
+    },
+    {
+      "path": "source-selection.cjs",
+      "status": "verbatim",
+      "donorPath": "packages/shepherd-onboard/source-selection.cjs",
+      "donorGitBlob": "a50013aa302ceefb4899f637fcb10d44c5b31dba",
+      "donorSha256": "ca9d470ed9a7277cef7bea16f4bbfb16a58b3d218fe0db42197d002c2cb8e6e1",
+      "sha256": "ca9d470ed9a7277cef7bea16f4bbfb16a58b3d218fe0db42197d002c2cb8e6e1"
+    },
+    {
+      "path": "wiki-readiness.cjs",
+      "status": "verbatim",
+      "donorPath": "packages/shepherd-onboard/wiki-readiness.cjs",
+      "donorGitBlob": "2108db33b7a29292eb6638378a0d3ed2a232eae3",
+      "donorSha256": "04917b0c614fc8e42d6cec43dd160d8c1b5310f7c93da8f39e4a9e8fdb493b1d",
+      "sha256": "04917b0c614fc8e42d6cec43dd160d8c1b5310f7c93da8f39e4a9e8fdb493b1d"
+    },
+    {
+      "path": "assets/shepherd_G_vector_136033.png",
+      "status": "verbatim",
+      "donorPath": "packages/shepherd-onboard/assets/shepherd_G_vector_136033.png",
+      "donorGitBlob": "f640d7730266905e0b0c73b4580cdafb9f93596a",
+      "donorSha256": "435b2c07cedd76807a89bbef42af0eec8a2c8d3da65df6f8ffbbfed24fe87587",
+      "sha256": "435b2c07cedd76807a89bbef42af0eec8a2c8d3da65df6f8ffbbfed24fe87587"
+    },
+    {
+      "path": "tests/donor/engine-commands.test.ts",
+      "status": "patched",
+      "donorPath": "tests/unit/onboard-app/engine-commands.test.ts",
+      "donorGitBlob": "9caf0755300657b5fdb092059d266e2a69b58e52",
+      "donorSha256": "0dbbd2026a0fc710106c50c38648976f7e28c58e02a7b3fc3c38ed2f708963d6",
+      "sha256": "77ae424df4086c5ca57a12b6fb4d9653c283a8ac5356269dfddd2ab0cecd6339",
+      "patches": [
+        "patches/0002-donor-tests-run-from-package.patch"
+      ]
+    },
+    {
+      "path": "tests/donor/messages-agent-identity.test.ts",
+      "status": "patched",
+      "donorPath": "tests/unit/onboard-app/messages-agent-identity.test.ts",
+      "donorGitBlob": "71e200e33301843f6b59776b70c9f136e968b6e7",
+      "donorSha256": "96f3fd48595496ca2563668f649a75d941897593a3ca6f69b26ca991f6910e67",
+      "sha256": "fb6cb93ba6779b1cb8ae5d26f6db8a297a2811687e44f0c996f4c284287f1d98",
+      "patches": [
+        "patches/0002-donor-tests-run-from-package.patch"
+      ]
+    },
+    {
+      "path": "tests/donor/shepherd-onboard-messages-backfill.test.ts",
+      "status": "patched",
+      "donorPath": "tests/unit/onboard-app/shepherd-onboard-messages-backfill.test.ts",
+      "donorGitBlob": "549aac859ddb4b299608b7b12ab968d63a54b825",
+      "donorSha256": "1768e4fc1fdd85642148615b33de53a221381870c24f62f4fbceb112d1dba77e",
+      "sha256": "ab102819ac66d264225935b99c93209d0ab7780c01fea9dff597a969b8a723fb",
+      "patches": [
+        "patches/0002-donor-tests-run-from-package.patch"
+      ]
+    },
+    {
+      "path": "tests/donor/shepherd-onboard-chat-discovery.test.ts",
+      "status": "patched",
+      "donorPath": "tests/unit/onboard-app/shepherd-onboard-chat-discovery.test.ts",
+      "donorGitBlob": "e5fe92a438bc7e0e823fab4ed9a51d9c2f1d0654",
+      "donorSha256": "ad3ac6f59d6ddfe56f3f807545ce2cfb47d1c0b27bdb72b2a80e6d34157e4a61",
+      "sha256": "6cd71aa76d526637ae15ad656805c77b6eada52663c27f896855c98d3d6dc7d6",
+      "patches": [
+        "patches/0002-donor-tests-run-from-package.patch"
+      ]
+    }
+  ],
+  "patches": [
+    {
+      "path": "patches/0001-coding-sessions-source-sync-full-inventory.patch",
+      "sha256": "2df21a1d34b0653e62d50030c9f3a7bb4d40672a86a2f8f6400ac469975ddc6e",
+      "applies": "bin/shepherd-onboard.js"
+    },
+    {
+      "path": "patches/0002-donor-tests-run-from-package.patch",
+      "sha256": "b425397e0f05e73a4849ae78300dd1867f603bd5ea17bf2e65b6abd2b86ea2f5",
+      "applies": "tests/donor/*.test.ts"
+    }
+  ],
+  "notVendored": [
+    {
+      "path": "packages/shepherd-onboard/bin/shepherd.js",
+      "reason": "the askshepherd memory/MCP CLI for Shepherd's hosted brain; not part of the uploader"
+    },
+    {
+      "path": "packages/shepherd-onboard/skills/",
+      "reason": "agent skill text for the askshepherd CLI"
+    },
+    {
+      "path": "packages/shepherd-onboard/README.md",
+      "reason": "describes the hosted askshepherd onboarding; replaced by this package's README"
+    },
+    {
+      "path": "packages/shepherd-onboard-app/",
+      "reason": "the Electron onboarding wizard signs in to Shepherd's brain API (/api/onboarding/*), which yc_msaw does not serve; it drives the same engine subcommands this package ships. Packaging, signing and notarization are deferred."
+    },
+    {
+      "path": "tests/unit/onboard-app/ (other files)",
+      "reason": "tests of the Electron app (api, launch-agent, onboarding*, renderer, updates, demo-mode, mini-home, disabled-sources) and of the office-audio collector (office-audio-process-chunks), neither of which this delivery supports"
+    }
+  ],
+  "dependencies": {
+    "rule": "exact pins of what the donor's declared ranges (@modelcontextprotocol/sdk ^1.29.0, @photon-ai/imessage-kit ^3.0.0, ws ^8.18.3) resolved to on 2026-10-18; package-lock.json records integrity hashes",
+    "@modelcontextprotocol/sdk": "1.32.1",
+    "@photon-ai/imessage-kit": "3.0.0",
+    "ws": "8.21.0"
+  }
+}

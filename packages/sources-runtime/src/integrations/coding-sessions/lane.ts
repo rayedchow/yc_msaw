@@ -432,7 +432,8 @@ export function registerCodingSessionsInternalRoutes(app: Hono, deps: InternalRo
     return ok ? c.json({ revoked: true }) : c.json({ error: { code: "not_found" } }, 404);
   });
   app.post("/tenants/:tenantId/devices/coding-sessions/:bindingId/commands", async (c) => {
-    if (!canWrite(c)) return c.json({ error: { code: "insufficient_scope" } }, 403);
+    // The device owner commands it (yc_msaw checks ownership before forwarding).
+    if (!canWrite(c) && !(principal(c).scopes ?? []).includes("memory:read")) return c.json({ error: { code: "insufficient_scope" } }, 403);
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
     const r = await requestCommand(ex(), deps.tenantOf(c), c.req.param("bindingId"), body, principal(c).subject ?? null);
     return c.json(r.body, r.status as 201);

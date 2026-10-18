@@ -99,14 +99,32 @@ Revocation limits that stay true:
 - An OAuth disconnect calls Google's revoke endpoint.
 - Calendar push channels are stopped at Google before grants are revoked.
 
-## Mac iMessage uploader (device)
+## Mac uploader (iMessage, coding sessions)
+
+The Mac uploader is vendored and pinned in `packages/shepherd-onboard`: the `shepherd-onboard` engine from
+askshepherd/gigabrain@5448774e (`packages/shepherd-onboard`) plus the patches in its `patches/` directory, with
+exact dependency pins in its own lockfile. `vendor.json` records every donor hash, and
+`npm run verify --prefix packages/shepherd-onboard` proves the shipped bytes are the donor plus those patches.
+The Electron onboarding app is not included (it signs in to Shepherd's hosted API), and signing/notarization is
+deferred. On the Mac (Node 22 or later):
+
+```sh
+npm ci --prefix packages/shepherd-onboard
+alias shepherd-onboard="node $PWD/packages/shepherd-onboard/bin/shepherd-onboard.js"
+```
+
+Install background agents only with `node packages/shepherd-onboard/scripts/install-launch-agent.mjs
+messages|coding-sessions --config <configPath>` (add `--dry-run` to print the plist). The engine's own
+`install-*-agent` defaults the LaunchAgent to `npx -y askshepherd@latest`, the unpinned public package. Installing
+starts collection; the Messages agent needs Full Disk Access for the `node` binary that the plist names.
+
+### iMessage
 
 1. `POST /v1/sources/devices/imessage/setup` (`traces:write` or `memory:build`) with
    `{"label":"My Mac","backfillDays":30}` returns `messagesConfig` once (`apiUrl` = `SOURCES_DEVICE_API_URL`,
    `userId` = tenant namespace, `agentToken` = `gimsg_…`). The runtime keeps only its sha256.
 2. On the Mac, pipe `messagesConfig` plus the chosen `allowedChatIds` to `shepherd-onboard write-messages-config` on
-   stdin, then install the agent when ready to collect. This repository performs no install and no capture,
-   and notarization is deferred.
+   stdin, then install the agent when ready to collect. Only the selected chats are read and uploaded.
 3. Every uploader request is confirmed live with yc_msaw (`GET /v1/sources/devices/imessage/verify`, the key only).
    `DELETE /v1/sources/bindings/:id` therefore refuses the device on its next request, even if the forwarded
    runtime revoke is lost. If yc_msaw is unreachable, the runtime answers 503 and stores nothing (fail closed).
@@ -114,14 +132,35 @@ Revocation limits that stay true:
 
 Attachments arrive as metadata only (name, type, size, transfer state), never bytes, and coverage says so.
 
+### Coding sessions
+
 The Mac **coding-sessions** agent (Codex / Claude Code transcripts) uses the same model:
 `POST /v1/sources/devices/coding-sessions/setup` with `{"label":"My Mac","intervalSeconds":300}` returns
-`codingSessionsConfig` once (`agentToken` = `gcs_…`), for `shepherd-onboard write-coding-sessions-config`.
+`codingSessionsConfig` once (`agentToken` = `gcs_…`). Pipe it, with `"providers":{"openai":true,"anthropic":true}`
+for the tools to collect, to `shepherd-onboard write-coding-sessions-config`.
 
-The Mac **office-audio** collector stores transcripts only (no audio):
+### Source sync (complete coverage)
+
+Coverage for a device stays `partial` until the device answers a source sync with a receipt. The member who
+enrolled the device (only that member) requests one through yc_msaw:
+`POST /v1/sources/devices/imessage/<bindingId>/commands` with `{"type":"messages_source_sync","coverageFrom":null}`,
+or `POST /v1/sources/devices/coding-sessions/<bindingId>/commands` with `{"type":"source_sync","coverageFrom":null}`.
+The coding-sessions agent answers with a full local inventory; it is not capped at 1,000 files per tool.
+`messages_backfill_reset`, `force_rescan`, `backfill_recent`, `repair_status` and `upload_diagnostics` are also
+accepted.
+
+### Office audio (server intake only)
+
+The runtime and yc_msaw accept consent-gated office-audio **transcript** sessions, and the server stores
+transcripts only. This repository does **not** ship a supported office-audio Mac client. The donor collector in
+the vendored engine records the microphone on the Mac and sends the audio to third-party speech-to-text services
+(Speechmatics, Deepgram and others) before it uploads a transcript. Its voice-enrolment sync calls
+`/api/office-audio/speaker-profiles`, which the runtime does not serve. It has not been validated against the
+runtime, and the install wrapper refuses it. "Transcript-only" describes what the server keeps, not what a Mac
+collector does.
 
 1. `POST /v1/sources/devices/office-audio/setup` with `{"label":"Room 1"}` returns `officeAudioConfig` once
-   (`agentToken` = `goa_…`), for `shepherd-onboard write-office-audio-config`.
+   (`agentToken` = `goa_…`) for a collector that uploads canonical transcript sessions.
 2. Consent is granted per participant by an admin, never by the device. Manage it with:
    - `POST /v1/sources/office-audio/consents` `{"participantKey":…,"displayName":…}` (`memory:build`) to grant;
    - `DELETE /v1/sources/office-audio/consents/:participantKey[?deleteCaptured=true]` to revoke;
@@ -148,6 +187,11 @@ npm test && npm run typecheck                                  # yc_msaw
 cd packages/sources-runtime && npm test && npm run typecheck   # runtime (PGlite suites)
 SOURCES_TEST_PG_URL=postgresql://user:pass@127.0.0.1:5432/postgres npm test   # + real PostgreSQL suites
 npm run provenance:check                                       # donor fidelity
+npm ci --prefix packages/shepherd-onboard && npm test --prefix packages/shepherd-onboard   # Mac uploader
 ```
+
+The Mac uploader suite checks the pin, runs the donor's own CLI tests, and drives the real client against the
+production runtime with synthetic data only. It needs `packages/sources-runtime` installed and fails rather than
+skips without it. The chat.db capture test needs macOS.
 
 The real-PostgreSQL suites create and drop their own databases. Point them only at a disposable cluster.

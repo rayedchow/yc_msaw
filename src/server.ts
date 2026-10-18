@@ -28,6 +28,7 @@ import {
   googleAuthRoute,
   bitbucketRepositoriesRoute,
   codingSessionsDeviceSetupRoute,
+  deviceCommandRoute,
   githubRepositoriesRoute,
   imessageDeviceSetupRoute,
   jiraSelectionRoute,
@@ -578,6 +579,12 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;
         return officeAudioConsentRoute(c.req.raw, principal, runtime, "revoke", c.req.param("participantKey"));
+      });
+      // The device owner's commands to their own Mac uploader (source sync receipts make coverage complete).
+      server.post("/v1/sources/devices/:provider/:bindingId/commands", async (c) => {
+        const principal = await authenticateHttp(c.req.raw, auth, undefined);
+        if (principal instanceof Response) return principal;
+        return deviceCommandRoute(c.req.raw, principal, sources, runtime, c.req.param("provider"), c.req.param("bindingId"));
       });
       // Mac coding-sessions agent: same server-minted device binding model.
       server.post("/v1/sources/devices/coding-sessions/setup", async (c) => {

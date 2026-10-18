@@ -621,6 +621,49 @@ export async function deviceKeyVerifyRoute(request: Request, service: SourceServ
   }
 }
 
+const IsoTimestamp = z.string().max(64).refine((v) => !Number.isNaN(Date.parse(v)), "must be an ISO timestamp");
+/** Commands each device lane's uploader understands (runtime providers/imessage/commands.ts, coding-sessions/lane.ts). */
+const DeviceCommandSchemas: Record<string, z.ZodTypeAny> = {
+  imessage: z.discriminatedUnion("type", [
+    z.object({ type: z.literal("messages_source_sync"), coverageFrom: z.union([IsoTimestamp, z.null()]).optional(), coverageTo: IsoTimestamp.optional() }).strict(),
+    z.object({ type: z.literal("messages_backfill_reset"), backfillDays: z.union([z.number().int().min(1).max(36_500), z.null()]).optional() }).strict(),
+  ]),
+  "coding-sessions": z.discriminatedUnion("type", [
+    z.object({ type: z.literal("source_sync"), coverageFrom: z.union([IsoTimestamp, z.null()]).optional(), coverageTo: IsoTimestamp.optional() }).strict(),
+    z.object({ type: z.enum(["force_rescan", "backfill_recent"]), maxFiles: z.number().int().min(1).max(100_000).optional() }).strict(),
+    z.object({ type: z.enum(["repair_status", "upload_diagnostics"]) }).strict(),
+  ]),
+};
+
+/**
+ * `POST /v1/sources/devices/:provider/:bindingId/commands`: the device's owner asks their own Mac uploader for a
+ * source sync (the receipt that lets coverage become complete), a backfill reset or a rescan. Only the member who
+ * enrolled the device may do this (personal sources are owner-only, access.ts); the binding must be an active
+ * runtime-ingest device binding of this tenant for that provider.
+ */
+export async function deviceCommandRoute(request: Request, principal: Principal, service: SourceService, runtime: SourceRuntimeClient, provider: string, bindingId: string): Promise<Response> {
+  // Self-service like enrolment: the device's owner (any member) commands it; the owner check below is what matters.
+  if (![SCOPES.memoryRead, SCOPES.tracesWrite, SCOPES.memoryBuild].some((s) => principal.scopes.includes(s))) {
+    return bearerChallenge({ status: 403, error: "insufficient_scope", description: `Missing required scope: ${SCOPES.memoryRead}`, scope: SCOPES.memoryRead });
+  }
+  try {
+    const schema = DeviceCommandSchemas[provider];
+    if (!schema) return error(404, "not_found", `No device commands for ${provider}`);
+    const binding = (await service.bindings.list(principal.tenantNs)).find((b) => b.bindingId === bindingId);
+    if (!binding || binding.revokedAt || binding.kind !== "device" || binding.transport !== "runtime-ingest" || !binding.providers.includes(provider)) {
+      return error(404, "not_found", `No active ${provider} device ${bindingId}`);
+    }
+    if (binding.createdBy.subject !== principal.subject || binding.createdBy.issuer !== principal.issuer) {
+      return error(403, "forbidden", "Only the member who enrolled this device can send it commands");
+    }
+    const body = schema.parse(await readJson(request, MAX_ADMIN_BODY_BYTES));
+    const r = await runtime.deviceCommand(principal, provider, bindingId, body);
+    return json(r.status, r.body);
+  } catch (e) {
+    return sourceErrorResponse(e);
+  }
+}
+
 const GoogleAuthStartSchema = z
   .object({
     broker: z.enum(["google", "composio"]).optional(),

@@ -55,7 +55,8 @@ describe("coding sessions ingest", () => {
   it("serves the durable command queue: oldest first, ack once, sanitized source_sync receipt drives coverage, revoke cancels", async () => {
     const d = await enroll(T);
     expect((await internal("POST", `/tenants/${T}/devices/coding-sessions/${d.bindingId}/commands`, T, { type: "launch_rockets" })).status).toBe(400);
-    expect((await internal("POST", `/tenants/${T}/devices/coding-sessions/${d.bindingId}/commands`, T, { type: "force_rescan" }, ["memory:read"])).status).toBe(403);
+    // Device owners (any member, self-service) may command; yc_msaw checks ownership. No source scope: refused.
+    expect((await internal("POST", `/tenants/${T}/devices/coding-sessions/${d.bindingId}/commands`, T, { type: "force_rescan" }, ["integrations:read"])).status).toBe(403);
     const sync = await (await internal("POST", `/tenants/${T}/devices/coding-sessions/${d.bindingId}/commands`, T, { type: "source_sync", coverageFrom: null })).json() as { id: string };
     await internal("POST", `/tenants/${T}/devices/coding-sessions/${d.bindingId}/commands`, T, { type: "force_rescan" });
     const c1 = (await (await wire(app, "GET", "/command", d.key)).json()) as { command: { id: string; type: string } };

@@ -7,20 +7,25 @@ import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vites
 import { app, enroll, events, fakeAuthority, internal, message, query, ready, resetTenant, serveApp } from "./harness.js";
 
 /**
- * Client -> server end to end: the bundled Mac uploader's real HTTP client (gigabrain@5448774e
- * packages/shepherd-onboard/bin/shepherd-onboard.js `MessagesBatchSender`, loaded from the audit clone, never
- * copied) talks over a loopback socket to this runtime's public iMessage routes. It covers batched ingest with the
+ * Client -> server end to end: the bundled Mac uploader's real HTTP client (`MessagesBatchSender` from
+ * packages/shepherd-onboard, vendored from gigabrain@5448774e packages/shepherd-onboard/bin/shepherd-onboard.js) talks
+ * over a loopback socket to this runtime's public iMessage routes. It covers batched ingest with the
  * client's own batching and retry queue, contact sync, local status, the command/ack round trip, and
  * fail-closed revocation. chat.db reading (@photon-ai/imessage-kit, Full Disk Access) is the only layer not
  * exercised; the payloads use the uploader wire shape from ./harness.ts.
  */
 
 const here = path.dirname(fileURLToPath(import.meta.url));
-const CLI = process.env.SHEPHERD_ONBOARD_BIN ?? path.resolve(here, "../../../../../../../gigabrain/packages/shepherd-onboard/bin/shepherd-onboard.js");
+// The Mac uploader is vendored and pinned in this repository: packages/shepherd-onboard (gigabrain@5448774e plus
+// recorded patches, see its vendor.json). Install it with `npm ci --prefix packages/shepherd-onboard`.
+const CLI = process.env.SHEPHERD_ONBOARD_BIN ?? path.resolve(here, "../../../../../shepherd-onboard/bin/shepherd-onboard.js");
+if (!existsSync(CLI) || !existsSync(path.resolve(path.dirname(CLI), "../node_modules/ws"))) {
+  throw new Error(`Mac uploader not runnable at ${CLI}: run \`npm ci --prefix packages/shepherd-onboard\`. These tests do not skip.`);
+}
 const T = "acme";
 const AGENT = { deviceId: "11111111-1111-4111-8111-111111111111", agentVersion: "0.9.0-test", agentChannel: "test" };
 
-describe.skipIf(!existsSync(CLI))("bundled Mac uploader client against the runtime iMessage routes", () => {
+describe("bundled Mac uploader client against the runtime iMessage routes", () => {
   let server: { url: string; close: () => Promise<void> };
   let home: string;
   let Sender: new (apiUrl: string, token: string, userId: string, channel: string, options: Record<string, unknown>) => any;
