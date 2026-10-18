@@ -142,7 +142,7 @@ export class SourceFs {
     const path = displaySourcePath(stored);
     const access = viewer.access(stored);
     const r = access === "deny" ? null : await store.resolve(stored, head.root);
-    if (!r) throw new SourceError("not_found", `No such file or directory: ${path}`);
+    if (!r || (r.type === "file" && (await isWithheld(store, r.entry)))) throw new SourceError("not_found", `No such file or directory: ${path}`);
     if (r.type === "file") {
       return { path, type: r.entry.t === "x" ? "deleted" : "file", entries: [lsEntry(stored.split("/").pop() ?? stored, r.entry)], total: 1, truncated: false, seq: head.seq };
     }
@@ -171,7 +171,7 @@ export class SourceFs {
     const path = displaySourcePath(stored);
     const store = this.service.storeFor(ns);
     const r = viewer.access(stored) === "deny" ? null : await store.resolve(stored);
-    if (!r) throw new SourceError("not_found", `No such file or directory: ${path}`);
+    if (!r || (r.type === "file" && (await isWithheld(store, r.entry)))) throw new SourceError("not_found", `No such file or directory: ${path}`);
     if (r.type === "dir") throw new SourceError("not_a_file", `${path} is a directory; use ls or find`);
     if (r.entry.t === "x") {
       const v = await store.version(r.entry.v);
@@ -282,8 +282,10 @@ export class SourceFs {
     const stored = agentToStored(input.path);
     const path = displaySourcePath(stored);
     const store = this.service.storeFor(ns);
-    // Same answer as a path that never existed (no existence oracle for other owners' files).
-    if (stored === "" || viewer.access(stored) === "deny") {
+    // Same answer as a path that never existed (no existence oracle for other owners' files), also for a path whose
+    // content the collector withheld after it had been published (its earlier versions stay sealed).
+    const head = stored === "" || viewer.access(stored) === "deny" ? null : await store.resolve(stored);
+    if (!head || (head.type === "file" && (await isWithheld(store, head.entry)))) {
       if (input.versionId !== undefined) throw new SourceError("not_found", `Version ${input.versionId} does not belong to ${path}`);
       return { tool: "sources_history", ok: true, path, versions: [], nextBefore: null };
     }
@@ -302,6 +304,18 @@ export class SourceFs {
     const h = await store.history(stored, { ...(input.limit !== undefined ? { limit: input.limit } : {}), ...(input.before !== undefined ? { before: input.before } : {}) });
     return { tool: "sources_history", ok: true, path, versions: h.versions.map(versionSummary), nextBefore: h.nextBefore };
   }
+}
+
+/**
+ * A tombstone whose reason ends in `_withheld` (e.g. `slack_direct_message_withheld`) means the collector decided the
+ * content must not be served at all: the path and its history read as missing.
+ */
+export const WITHHELD_REASON_SUFFIX = "_withheld";
+
+async function isWithheld(store: SourceStore, entry: FileEntry | TreeChild): Promise<boolean> {
+  if (entry.t !== "x") return false;
+  const v = await store.version(entry.v);
+  return typeof v.deleted?.reason === "string" && v.deleted.reason.endsWith(WITHHELD_REASON_SUFFIX);
 }
 
 /** Line slice for text, byte slice (base64 for binary) otherwise; reads only the chunks the window needs. */

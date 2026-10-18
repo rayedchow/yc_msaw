@@ -414,7 +414,8 @@ export function registerCodingSessionsInternalRoutes(app: Hono, deps: InternalRo
     return scopes.includes("traces:write") || scopes.includes("memory:build");
   };
   app.post("/tenants/:tenantId/devices/coding-sessions", async (c) => {
-    if (!canWrite(c)) return c.json({ error: { code: "insufficient_scope" } }, 403);
+    // Self-service enrolment (owner-only sources); yc_msaw mints the binding.
+    if (!canWrite(c) && !(principal(c).scopes ?? []).includes("memory:read")) return c.json({ error: { code: "insufficient_scope" } }, 403);
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
     const r = await enrollDevice(ex(), deps.tenantOf(c), { bindingId: String(body.bindingId ?? ""), tokenSha256: String(body.tokenSha256 ?? ""), label: typeof body.label === "string" ? body.label : null });
     return c.json(r.body, r.status as 200);

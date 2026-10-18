@@ -178,6 +178,8 @@ describe.skipIf(!PG)("source runtime on real PostgreSQL with the real yc_msaw se
         SOURCES_RUNTIME_URL: `http://127.0.0.1:${runtimePort}/internal/v1`,
         SOURCES_RUNTIME_SERVICE_TOKEN: SERVICE_TOKEN,
         SOURCES_PUBLISH_URL: `http://127.0.0.1:${ycPort}`,
+        // The synthetic core-test provider below is declared shared (unknown providers are denied by default).
+        SOURCES_SHARED_PROVIDERS: "core-test",
       },
       store: new DirectoryObjectStore(path.join(ycDir, "objects")),
       builder: async () => {
@@ -283,7 +285,10 @@ describe.skipIf(!PG)("source runtime on real PostgreSQL with the real yc_msaw se
     expect(rsBody.tenantId).toBe("acme");
     expect((await fetch(`${ycBase}/v1/sources/connect/not-a-provider`, { method: "POST", headers: auth(keys.admin), body: "{}" })).status).toBe(404);
     // A binding minted for acme cannot be installed under another tenant, even by the service.
-    const minted = await (await fetch(`${ycBase}/v1/sources/bindings`, { method: "POST", headers: auth(keys.admin), body: JSON.stringify({ providers: ["*"] }) })).json();
+    // A hand-minted '*' binding is refused (personal sources are owner-only): '*' bindings come only from provisioning,
+    // which this test performs by hand against the in-process runtime.
+    expect((await fetch(`${ycBase}/v1/sources/bindings`, { method: "POST", headers: auth(keys.admin), body: JSON.stringify({ providers: ["*"] }) })).status).toBe(400);
+    const minted = await yc.sources.bindings.create("acme", { kind: "runtime", providers: ["*"], label: "sources-runtime", origin: "runtime-provision" }, { subject: "static:admin", issuer: "urn:procmem:static" });
     expect((await internal("PUT", "/tenants/rival/binding", { bindingId: minted.binding.bindingId, token: minted.token, publishUrl: ycBase }, { tenant: "rival" })).status).toBe(400);
     const token = minted.token;
 

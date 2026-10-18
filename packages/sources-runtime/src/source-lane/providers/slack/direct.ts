@@ -17,6 +17,8 @@ export const DIRECT_MESSAGE_WITHHELD = "slack_direct_message_withheld";
 const DIRECT_TYPES = new Set(["im", "mpim"]);
 const DM_ID_RE = /^D[A-Z0-9]{6,}$/;
 const CACHE_TTL_MS = 10 * 60_000;
+/** A "not a DM" answer is re-checked sooner: conversation metadata can arrive after the first messages. */
+const NEGATIVE_TTL_MS = 60_000;
 const MAX_CACHE = 20_000;
 const cache = new Map<string, { direct: boolean; at: number }>();
 
@@ -29,7 +31,7 @@ export async function isDirectChannel(ctx: ExportContext, channelId: string): Pr
   if (DM_ID_RE.test(channelId)) return true;
   const key = `${ctx.tenantId}\n${channelId}`;
   const hit = cache.get(key);
-  if (hit && Date.now() - hit.at < CACHE_TTL_MS) return hit.direct;
+  if (hit && Date.now() - hit.at < (hit.direct ? CACHE_TTL_MS : NEGATIVE_TTL_MS)) return hit.direct;
   const res = (await ctx.executor.execute(sql`
     SELECT EXISTS (
       SELECT 1 FROM slack_source_conversations
@@ -38,7 +40,7 @@ export async function isDirectChannel(ctx: ExportContext, channelId: string): Pr
       SELECT 1 FROM activity_events
        WHERE user_id = ${ctx.tenantId} AND source = 'slack'
          AND COALESCE(raw_payload->>'_channel', raw_payload->>'channel') = ${channelId}
-         AND raw_payload->>'_channel_type' IN ('im', 'mpim')
+         AND COALESCE(raw_payload->>'_channel_type', raw_payload->>'channel_type') IN ('im', 'mpim')
     ) AS direct
   `)) as unknown as { rows?: Array<{ direct: boolean }> } | Array<{ direct: boolean }>;
   const rows = Array.isArray(res) ? res : (res.rows ?? []);
@@ -57,12 +59,25 @@ function withheld(path: string, at: string): SourceFileChange {
   return { op: "delete", path, deletedAt: at, reason: DIRECT_MESSAGE_WITHHELD, capturedAt: at, provenance: { provider: PROVIDER, withheld: "direct_message" } };
 }
 
+/** First value of `key` in a (shallow) nested meta object. */
+function findKey(value: unknown, key: string, depth = 0): unknown {
+  if (!value || typeof value !== "object" || depth > 3) return undefined;
+  const rec = value as Record<string, unknown>;
+  if (key in rec) return rec[key];
+  for (const v of Object.values(rec)) {
+    const hit = findKey(v, key, depth + 1);
+    if (hit !== undefined) return hit;
+  }
+  return undefined;
+}
+
 /** Channel id of a donor Slack projection: its meta (window files) or its path (channel-day files). */
-function mirrorChannelId(path: string, row: MirrorFileRow): string | null {
-  const meta = row.meta as { sourceAcl?: { channelId?: unknown }; externalId?: unknown; staged?: { sourceAcl?: { channelId?: unknown } } } | null;
-  const fromAcl = meta?.sourceAcl?.channelId ?? meta?.staged?.sourceAcl?.channelId;
+export function mirrorChannelId(path: string, row: MirrorFileRow): string | null {
+  const acl = findKey(row.meta, "sourceAcl");
+  const fromAcl = acl && typeof acl === "object" ? (acl as Record<string, unknown>).channelId : undefined;
   if (typeof fromAcl === "string" && fromAcl) return fromAcl;
-  if (typeof meta?.externalId === "string" && meta.externalId.includes(":")) return meta.externalId.split(":")[0]!;
+  const externalId = findKey(row.meta, "externalId");
+  if (typeof externalId === "string" && externalId.includes(":")) return externalId.split(":")[0]!;
   const seg = path.split("/");
   return seg.length === 4 && /^[A-Z0-9]{8,}$/.test(seg[2]!) ? seg[2]! : null;
 }
@@ -72,9 +87,26 @@ const RAW_DIR = { forEventSource: () => ({ id: PROVIDER }) } as unknown as Sourc
 export const mapSlackMirror: NonNullable<SourceProviderModule["mapMirror"]> = async (path, row, ctx, journal) => {
   if (!row || path.startsWith(`sources/${PROVIDER}/_workspaces/`)) return null;
   const channelId = mirrorChannelId(path, row);
-  if (channelId && (await isDirectChannel(ctx, channelId))) return [withheld(path, journal.enqueuedAt)];
+  // A projection whose conversation cannot be determined could be a DM: withheld (fail closed).
+  if (!channelId || (await isDirectChannel(ctx, channelId))) return [withheld(path, journal.enqueuedAt)];
   return null;
 };
+
+/**
+ * Donor projections of a conversation that turned out to be a DM after they were exported (its metadata arrived
+ * late): withheld when the conversation row is exported.
+ */
+export async function withheldProjectionsOf(ctx: ExportContext, channelId: string, at: string): Promise<SourceFileChange[]> {
+  const res = (await ctx.executor.execute(sql`
+    SELECT path, meta FROM mirror_files
+    WHERE user_id = ${ctx.tenantId} AND path LIKE ${`sources/${PROVIDER}/%`} AND path NOT LIKE ${`sources/${PROVIDER}/\_workspaces/%`}
+      AND (meta::text LIKE ${`%${channelId}%`} OR path LIKE ${`sources/${PROVIDER}/${channelId}/%`})
+  `)) as unknown as { rows?: Array<{ path: string; meta: unknown }> } | Array<{ path: string; meta: unknown }>;
+  const rows = Array.isArray(res) ? res : (res.rows ?? []);
+  return rows
+    .filter((r) => mirrorChannelId(r.path, { meta: r.meta } as MirrorFileRow) === channelId)
+    .map((r) => withheld(r.path, at));
+}
 
 export const mapSlackEvent: NonNullable<SourceProviderModule["mapEvent"]> = async (row: ActivityEventRow, ctx: ExportContext, journal: JournalInfo) => {
   const payload = (typeof row.raw_payload === "string" ? JSON.parse(row.raw_payload) : row.raw_payload) as Record<string, unknown> | null;

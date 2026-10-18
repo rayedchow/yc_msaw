@@ -27,6 +27,9 @@ let base: string;
 let mcpUrl: string;
 let fakeRuntime: Server;
 let runtimeToken: string;
+let provisioned = "";
+const connectedProviders = new Set<string>(["zoom"]); // zoom: connected before owners were recorded (legacy)
+let failNextCodingEnrol = false;
 const tok: Record<"alice" | "bob" | "carol" | "outsider", string> = { alice: "", bob: "", carol: "", outsider: "" };
 const mcp: Partial<Record<keyof typeof tok, Client>> = {};
 
@@ -88,18 +91,27 @@ const names = (ls: Record<string, any>) => (ls.entries ?? []).map((e: any) => e.
 beforeAll(async () => {
   dir = await mkdtemp(path.join(os.tmpdir(), "sources-owner-acl-"));
   // Fake source runtime: enrols devices and accepts connects; everything else 404.
-  fakeRuntime = createHttpServer((req, res) => {
+  fakeRuntime = createHttpServer(async (req, res) => {
     const url = req.url ?? "";
     res.setHeader("content-type", "application/json");
+    if (req.method === "PUT" && /\/binding$/.test(url)) {
+      let raw = "";
+      for await (const chunk of req) raw += chunk;
+      provisioned = (JSON.parse(raw) as { token: string }).token;
+      return void res.writeHead(200).end(JSON.stringify({ ok: true }));
+    }
     if (req.method === "POST" && /\/devices\/imessage$/.test(url)) return void res.writeHead(201).end(JSON.stringify({ device: { id: "dev-1" } }));
-    if (req.method === "POST" && /\/connect\/granola$/.test(url)) return void res.writeHead(200).end(JSON.stringify({ connected: true }));
+    if (req.method === "POST" && /\/connect\/granola$/.test(url)) {
+      connectedProviders.add("granola");
+      return void res.writeHead(200).end(JSON.stringify({ connected: true }));
+    }
     if (req.method === "GET" && /\/status$/.test(url)) {
       return void res.writeHead(200).end(JSON.stringify({
         tenantId: "t",
         connections: [
           { provider: "google", status: "active", external_account_id: "alice@acme.test" },
           { provider: "google", status: "active", external_account_id: "bob@acme.test" },
-          { provider: "granola", status: "active", external_account_id: null },
+          ...[...connectedProviders].map((provider) => ({ provider, status: "active", external_account_id: null })),
           { provider: "jira", status: "active", external_account_id: "acme" },
         ],
         coverage: [
@@ -118,6 +130,19 @@ beforeAll(async () => {
         modes: { domain_wide_delegation: { configured: true, approved: { domains: ["acme.test"], mailboxes: ["ceo@acme.test"] }, directoryAdmin: "admin@acme.test" } },
       }));
     }
+    if (req.method === "POST" && /\/devices\/coding-sessions$/.test(url)) {
+      if (failNextCodingEnrol) {
+        failNextCodingEnrol = false;
+        return void res.writeHead(500).end(JSON.stringify({ error: "boom" }));
+      }
+      return void res.writeHead(201).end(JSON.stringify({ device: { id: "dev-cs" } }));
+    }
+    if (req.method === "POST" && /\/connect\/cursor_background_agents$/.test(url)) {
+      connectedProviders.add("cursor_background_agents");
+      return void res.writeHead(200).end(JSON.stringify({ connected: true }));
+    }
+    if (req.method === "POST" && /\/connect\/whatsapp_personal$/.test(url)) return void res.writeHead(400).end(JSON.stringify({ error: "invalid Unipile account" }));
+    if (req.method === "POST" && /\/google\/auth\/oauth\/start$/.test(url)) return void res.writeHead(201).end(JSON.stringify({ launchUrl: "https://runtime.example.test/launch" }));
     if (req.method === "GET" && /\/office-audio\/consents$/.test(url)) return void res.writeHead(200).end(JSON.stringify({ consents: [{ participantKey: "p1" }] }));
     res.writeHead(404).end(JSON.stringify({ error: { code: "not_found" } }));
   });
@@ -145,10 +170,12 @@ beforeAll(async () => {
   tok.carol = await mint("user_carol", "org_acme");
   tok.outsider = await mint("user_outsider", "org_other");
 
-  // The collector's runtime binding (what POST /v1/sources/runtime/provision mints).
-  const created = await http("POST", "/v1/sources/bindings", tok.alice, { providers: ["*"], label: "sources-runtime" });
+  // The collector's runtime binding: provisioned, so its token goes to the (fake) runtime and is never returned.
+  const created = await http("POST", "/v1/sources/runtime/provision", tok.alice);
   expect(created.status).toBe(201);
-  runtimeToken = ((await created.json()) as { token: string }).token;
+  expect(JSON.stringify(await created.json())).not.toContain("psb_");
+  runtimeToken = provisioned;
+  expect(runtimeToken.startsWith("psb_")).toBe(true);
   await publish("seed", [
     put(ALICE_MAIL, "alice private mail: needle-alice\n"),
     put(BOB_MAIL, "bob private mail: needle-bob\n"),
@@ -294,8 +321,13 @@ describe("owner-only personal sources for members of one organization", () => {
 
   it("serves Google-wide files only to the member who owns every Google account, and never across organizations", async () => {
     await report([{ account: "alice@acme.test", subject: "user_alice", issuer: issuer.issuer }]);
-    expect((await tool("alice", "read", { path: "$SOURCES/google-docs/Plan-doc-1/document.md" })).content).toContain("needle-docs");
-    expect((await tool("alice", "ls", { path: "$SOURCES/gmail" })).liveFiles).toBe(2);
+    // bob@'s mailbox is still in $SOURCES but no longer reported: it is an unowned account, so alice does not own
+    // every Google account and Google-wide files stay sealed (no retroactive unlock of legacy data).
+    expect((await tool("alice", "read", { path: "$SOURCES/google-docs/Plan-doc-1/document.md" })).code).toBe("not_found");
+    // bob@ is no longer reported: even the owner of every reported account does not see the unowned mailbox.
+    const gmailLs = await tool("alice", "ls", { path: "$SOURCES/gmail" });
+    expect(names(gmailLs)).toEqual(["alice@acme.test/"]);
+    expect(gmailLs.liveFiles).toBeNull();
     // bob's mailbox is no longer reported with an owner: unowned data is sealed, not handed to someone else.
     expect((await tool("bob", "read", { path: `$SOURCES/${BOB_MAIL.slice(8)}` })).code).toBe("not_found");
     // A DWD-only mailbox (no grant subject) makes Google-wide files unreadable again.
@@ -321,4 +353,34 @@ describe("owner-only personal sources for members of one organization", () => {
     expect(r.status).toBe(200);
     expect((await tool("bob", "read", { path: `$SOURCES/${ALICE_MAIL.slice(8)}` })).code).toBe("not_found");
   });
+
+  it("closes the owner-acl audit findings (forged owners, withheld history, enrolment slots, legacy data)", async () => {
+    // F1: an admin cannot mint a '*' (or personal) binding whose owner reports would be trusted.
+    expect((await http("POST", "/v1/sources/bindings", tok.alice, { providers: ["*"], label: "my-collector" })).status).toBe(400);
+    expect((await http("POST", "/v1/sources/bindings", tok.alice, { providers: ["gmail"] })).status).toBe(400);
+    // F3: content the collector withheld after publishing (a group DM) is gone from read AND history.
+    await publish("mpim", [put("sources/slack/mpdm-a--b-channel-9f/threads/t1.md", "group dm: needle-mpim\n")]);
+    const at = new Date().toISOString();
+    await publish("mpim-withheld", [{ op: "delete", path: "sources/slack/mpdm-a--b-channel-9f/threads/t1.md", deletedAt: at, reason: "slack_direct_message_withheld", capturedAt: at }]);
+    const p = "$SOURCES/slack/mpdm-a--b-channel-9f/threads/t1.md";
+    expect((await tool("carol", "read", { path: p })).code).toBe("not_found");
+    expect((await tool("carol", "sources_history", { path: p })).versions).toEqual([]);
+    // F5/F6: a plain member connects their own personal account (underscore integration id) and owns it.
+    expect((await http("POST", "/v1/sources/connect/cursor_background_agents", tok.carol, { apiKey: "synthetic" })).status).toBe(200);
+    expect((await http("POST", "/v1/sources/connect/cursor_background_agents", tok.bob, { apiKey: "synthetic" })).status).toBe(409);
+    expect((await http("POST", "/v1/sources/connect/jira", tok.carol, {})).status).toBe(403); // shared tools stay admin-only
+    expect((await http("POST", "/v1/sources/google/auth/oauth/start", tok.carol, { account: "self" })).status).toBe(201);
+    // F6: a refused connect leaves no owner behind.
+    expect((await http("POST", "/v1/sources/connect/whatsapp_personal", tok.carol, {})).status).toBe(400);
+    expect((await http("POST", "/v1/sources/connect/whatsapp_personal", tok.bob, {})).status).toBe(400); // not 409
+    // F7: a device enrolment the runtime refused confers no ownership.
+    failNextCodingEnrol = true;
+    expect((await http("POST", "/v1/sources/devices/coding-sessions/setup", tok.carol, {})).status).toBe(502);
+    expect((await http("POST", "/v1/sources/devices/coding-sessions/setup", tok.bob, {})).status).toBe(201);
+    // F8: a provider the runtime already holds a connection for (connected before owners existed) cannot be claimed.
+    const zoom = await http("POST", "/v1/sources/connect/zoom", tok.carol, { mode: "oauth" });
+    expect(zoom.status).toBe(409);
+    expect(((await zoom.json()) as any).error.reason).toBe("unowned_legacy_data");
+  });
 });
+

@@ -17,6 +17,7 @@ import { DirectoryObjectStore } from "../src/store/objects.js";
 const SERVICE_TOKEN = "svc_forwarding_test_token_0123456789abcdef";
 const admin = generateStaticKey("acme", ["memory:build", "memory:read"]);
 const reader = generateStaticKey("acme", ["memory:read"]);
+const noScope = generateStaticKey("acme", ["integrations:read"]);
 const collector = generateStaticKey("acme", ["traces:write"]);
 const rival = generateStaticKey("rival", ["memory:build", "memory:read"]);
 
@@ -61,7 +62,7 @@ beforeAll(async () => {
     env: {
       HOST: "127.0.0.1",
       AUTH_MODE: "static",
-      PROCMEM_STATIC_KEYS: [admin.entry, reader.entry, collector.entry, rival.entry].join(","),
+      PROCMEM_STATIC_KEYS: [admin.entry, reader.entry, collector.entry, rival.entry, noScope.entry].join(","),
       PROCMEM_STORE: "directory",
       PROCMEM_SANDBOX: "local",
       PROCMEM_DATA_DIR: dir,
@@ -103,7 +104,9 @@ function req(method: string, route: string, key: string | null, body?: unknown) 
 describe("runtime forwarding uses only the verified principal", () => {
   it("forwards Google grant routes with scopes and tenant from the verified key", async () => {
     expect((await req("GET", "/v1/sources/google/auth", null)).status).toBe(401);
-    expect((await req("POST", "/v1/sources/google/auth/oauth/start", reader.key, {})).status).toBe(403);
+    // Self-service: a member may start a grant for their own Google account (owner-only sources); DWD and
+    // account removal stay admin-only.
+    expect((await req("POST", "/v1/sources/google/auth/oauth/start", noScope.key, {})).status).toBe(403);
     expect((await req("POST", "/v1/sources/google/auth/dwd/mailboxes", reader.key, { email: "a@example.com" })).status).toBe(403);
     expect((await req("DELETE", "/v1/sources/google/auth/accounts/a%40example.com", reader.key)).status).toBe(403);
     expect(seen).toHaveLength(0);

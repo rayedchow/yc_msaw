@@ -103,7 +103,8 @@ describe("google-auth provider routes", () => {
     expect((await start({ ...ADMIN_HEADERS, authorization: "Bearer wrong" })).status).toBe(401);
     // Principal of another tenant on tenant-a's URL: core middleware refuses.
     expect((await start({ ...ADMIN_HEADERS, "x-procmem-principal": principalHeader({ ...ADA_PRINCIPAL, tenantNs: "tenant-b" }) })).status).toBe(403);
-    expect((await start({ ...ADMIN_HEADERS, "x-procmem-principal": principalHeader({ ...ADA_PRINCIPAL, scopes: ["memory:read"] }) })).status).toBe(403);
+    // Self-service grants (owner-only sources): memory:read may start a grant for its own account; no scope may not.
+    expect((await start({ ...ADMIN_HEADERS, "x-procmem-principal": principalHeader({ ...ADA_PRINCIPAL, scopes: ["integrations:read"] }) })).status).toBe(403);
     // Forwarders that do not send scopes are refused (fail closed).
     const { scopes: _omit, ...noScopes } = ADA_PRINCIPAL;
     expect((await start({ ...ADMIN_HEADERS, "x-procmem-principal": principalHeader(noScopes) })).status).toBe(403);

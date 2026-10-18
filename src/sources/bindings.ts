@@ -51,6 +51,13 @@ export interface BindingRecord {
   revokedAt: string | null;
   /** Absent on bindings created before transports existed (= "publish"). */
   transport?: BindingTransport;
+  /**
+   * `runtime-provision`: minted by POST /v1/sources/runtime/provision, whose token is handed to the source runtime
+   * and never returned to anyone. Only such a binding may report account owners (access.ts).
+   */
+  origin?: "runtime-provision";
+  /** The device enrolment failed at the runtime: no device ever held this binding, so it confers no ownership. */
+  enrolmentFailed?: boolean;
 }
 
 export interface BindingRegistry {
@@ -129,7 +136,7 @@ export class SourceBindings {
   /** Mint a binding for `ns` (already the verified caller's namespace). Returns the token exactly once. */
   async create(
     ns: string,
-    input: { kind: BindingKind; providers: string[]; label?: string | null; transport?: BindingTransport },
+    input: { kind: BindingKind; providers: string[]; label?: string | null; transport?: BindingTransport; origin?: "runtime-provision" },
     createdBy: { subject: string; issuer: string },
     opts: { unownedData?: (provider: string) => boolean } = {},
   ): Promise<{ binding: PublicBinding; token: string }> {
@@ -158,6 +165,7 @@ export class SourceBindings {
       createdBy,
       revokedAt: null,
       ...(input.transport === "runtime-ingest" ? { transport: "runtime-ingest" as const } : {}),
+      ...(input.origin === "runtime-provision" ? { origin: "runtime-provision" as const } : {}),
     };
     await this.#update(ns, (reg) => {
       const active = Object.values(reg.bindings).filter((b) => !b.revokedAt).length;
@@ -166,7 +174,7 @@ export class SourceBindings {
       // for it, revoked ones included, must come from the same principal. Checked inside the registry CAS.
       if (input.kind === "device") {
         for (const p of providers) {
-          const prior = Object.values(reg.bindings).filter((b) => b.kind === "device" && b.providers.includes(p));
+          const prior = Object.values(reg.bindings).filter((b) => b.kind === "device" && !b.enrolmentFailed && b.providers.includes(p));
           if (prior.some((b) => b.createdBy.subject !== createdBy.subject || b.createdBy.issuer !== createdBy.issuer)) {
             throw new SourceError("owner_conflict", `${p} in this tenant is already enrolled by another member; personal sources have exactly one owner`, { provider: p });
           }
@@ -180,13 +188,14 @@ export class SourceBindings {
     return { binding: publicBinding(record), token };
   }
 
-  async revoke(ns: string, bindingId: string): Promise<PublicBinding | null> {
+  async revoke(ns: string, bindingId: string, opts: { enrolmentFailed?: boolean } = {}): Promise<PublicBinding | null> {
     if (!BINDING_ID_RE.test(bindingId)) return null;
     let out: PublicBinding | null = null;
     await this.#update(ns, (reg) => {
       const b = reg.bindings[bindingId];
       if (!b) return;
       if (!b.revokedAt) b.revokedAt = new Date().toISOString();
+      if (opts.enrolmentFailed) b.enrolmentFailed = true;
       out = publicBinding(b);
     });
     return out;

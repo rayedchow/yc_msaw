@@ -114,6 +114,19 @@ function principalSubject(c: Context): { subject: string; issuer: string } | nul
   return p && typeof p.subject === "string" && typeof p.issuer === "string" ? { subject: p.subject, issuer: p.issuer } : null;
 }
 
+/**
+ * Device enrolment is self-service (owner-only sources: a member enrols their own Mac and owns it); yc_msaw mints
+ * the binding, so this is defence in depth. Every other admin route keeps the collection scopes.
+ */
+const ENROL_SCOPES = ["traces:write", "memory:build", "memory:read"];
+function requireEnrolScope(c: Context): Response | null {
+  const scopes = forwardedScopes(c);
+  if (!scopes || !ENROL_SCOPES.some((s) => scopes.includes(s))) {
+    return c.json({ error: { code: "insufficient_scope", message: `forwarded principal needs one of ${ENROL_SCOPES.join(", ")}` } }, 403);
+  }
+  return null;
+}
+
 /** Admin routes need a forwarded principal holding a collection scope (fail closed when scopes are absent). */
 function requireCollectionScope(c: Context): Response | null {
   const scopes = forwardedScopes(c);
@@ -137,7 +150,7 @@ export function registerImessageInternalRoutes(app: Hono, deps: InternalRouteDep
 
   // ------------------------------------------------------------ admin
   app.post("/tenants/:tenantId/devices/imessage", async (c) => {
-    const denied = requireCollectionScope(c);
+    const denied = requireEnrolScope(c);
     if (denied) return denied;
     const who = principalSubject(c);
     if (!who) return c.json({ error: { code: "principal_required", message: "verified principal required" } }, 401);

@@ -44,7 +44,8 @@ describe("enrollment (admin, yc_msaw -> runtime)", () => {
     expect((await internal("POST", `/tenants/acme/devices/imessage`, { tenant: "rival", body })).status).toBe(403);
     expect((await internal("POST", `/tenants/acme/devices/imessage`, { body })).status).toBe(403);
     expect((await internal("POST", `/tenants/acme/devices/imessage`, { tenant: "acme", token: null, body })).status).toBe(401);
-    expect((await internal("POST", `/tenants/acme/devices/imessage`, { tenant: "acme", scopes: ["memory:read"], body })).status).toBe(403);
+    // Self-service enrolment (owner-only sources) accepts memory:read; a principal without a source scope is refused.
+    expect((await internal("POST", `/tenants/acme/devices/imessage`, { tenant: "acme", scopes: ["integrations:read"], body })).status).toBe(403);
 
     const first = await internal("POST", `/tenants/acme/devices/imessage`, { tenant: "acme", body });
     expect(first.status).toBe(201);

@@ -33,7 +33,7 @@ let runtime: { url: string; close: () => Promise<void> };
 let app: App;
 let dir: string;
 let base: string;
-let keys: Record<"admin" | "collector" | "reader" | "rival", string>;
+let keys: Record<"admin" | "collector" | "reader" | "rival" | "noScope", string>;
 
 async function freePort(): Promise<number> {
   const probe = createServer();
@@ -104,13 +104,15 @@ beforeAll(async () => {
   const admin = generateStaticKey("acme", ["memory:build", "memory:read"]);
   const collector = generateStaticKey("acme", ["traces:write"]);
   const reader = generateStaticKey("acme", ["memory:read"]);
+  // Owner-only sources: memory:read members may enrol their own device; a key without a source scope may not.
+  const noScope = generateStaticKey("acme", ["integrations:read"]);
   const rival = generateStaticKey("rival", ["memory:build", "memory:read", "traces:write"]);
-  keys = { admin: admin.key, collector: collector.key, reader: reader.key, rival: rival.key };
+  keys = { admin: admin.key, collector: collector.key, reader: reader.key, rival: rival.key, noScope: noScope.key };
   dir = await mkdtemp(path.join(os.tmpdir(), "sources-imessage-device-"));
   const port = await freePort();
   app = await makeApp(
     { SOURCES_RUNTIME_URL: `${runtime.url}/internal/v1`, SOURCES_PUBLISH_URL: `http://127.0.0.1:${port}`, SOURCES_DEVICE_API_URL: runtime.url },
-    [admin.entry, collector.entry, reader.entry, rival.entry],
+    [admin.entry, collector.entry, reader.entry, rival.entry, noScope.entry],
     dir,
   );
   await app.listen(port);
@@ -130,7 +132,7 @@ describe("Mac iMessage uploader with yc_msaw as the authority", () => {
   let bindingId: string;
 
   it("issues the uploader config once to a collection-scoped principal, bound to its tenant", async () => {
-    expect((await setup(keys.reader)).status).toBe(403);
+    expect((await setup(keys.noScope)).status).toBe(403);
     expect((await call("POST", "/v1/sources/devices/imessage/setup", "pmk_not_a_key", {})).status).toBe(401);
     // No tenant or user can be named in the body.
     expect((await setup(keys.collector, { userId: "rival" })).status).toBe(400);

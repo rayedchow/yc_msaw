@@ -11,7 +11,8 @@ import { SourceError } from "./paths.js";
  */
 
 export const PRINCIPAL_HEADER = "x-procmem-principal";
-const PROVIDER_RE = /^[a-z0-9][a-z0-9-]{0,62}$/;
+/** Runtime integration ids (some use `_`, e.g. cursor_background_agents, whatsapp_personal). */
+const PROVIDER_RE = /^[a-z0-9][a-z0-9_-]{0,62}$/;
 const TIMEOUT_MS = 30_000;
 
 export interface SourceRuntimeConfig {

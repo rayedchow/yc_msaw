@@ -26,8 +26,8 @@ import { SourceError } from "./paths.js";
  *
  * Anything unowned, owned by more than one principal, or not attributable to one account from its
  * path (e.g. the donor calendar month files that mix mailboxes) is denied to everyone. Shared
- * workspace providers (Slack channels, Confluence, Jira, GitHub, ...) stay readable by the whole
- * tenant, except Slack direct messages, which are denied.
+ * workspace providers (SHARED_PROVIDERS plus the operator's SOURCES_SHARED_PROVIDERS) stay readable
+ * by the whole tenant, except Slack direct messages; every other provider is denied (default deny).
  */
 
 export const OWNERS_REF = "sources/owners";
@@ -65,8 +65,12 @@ const GOOGLE_ACCOUNT_PROVIDERS: Readonly<Record<string, "first" | "accounts">> =
 const GOOGLE_WIDE_PROVIDERS: readonly string[] = ["google-docs"];
 /** Runtime credential lane that reports per-mailbox grant coverage (no files). */
 const GOOGLE_AUTH_STATUS_PROVIDER = "google-auth";
-/** sources/binary/<provider>/...: shared, Google-wide, or unowned (denied). */
-const BINARY_SHARED = new Set(["slack"]);
+/** Workspace providers every member of the tenant reads (org data, not one person's account). */
+export const SHARED_PROVIDERS: readonly string[] = ["slack", "notion", "confluence", "jira", "github", "bitbucket", "linear", "discord", "stripe"];
+/**
+ * sources/binary/<provider>/...: Google-wide (drive-pdf) or denied. `slack` legacy rows carry no conversation, so a
+ * DM attachment cannot be told apart from a channel file: denied; `upload` has no recorded owner: denied.
+ */
 const BINARY_GOOGLE = new Set(["drive-pdf"]);
 /** Slack direct-message conversation ids (D…), as a path segment or `<id>.json`. */
 const SLACK_DM_RE = /^D[A-Z0-9]{6,}(\.json)?$/;
@@ -101,10 +105,13 @@ export class SourceViewer {
   readonly #ownedAccounts: Set<string>;
   readonly #ownsAllGoogle: boolean;
 
+  readonly #shared: ReadonlySet<string>;
+
   constructor(
     readonly who: Identity,
-    input: { providerOwners: ReadonlyMap<string, readonly Identity[]>; googleAccounts: readonly GoogleAccountOwner[] },
+    input: { providerOwners: ReadonlyMap<string, readonly Identity[]>; googleAccounts: readonly GoogleAccountOwner[]; sharedProviders?: readonly string[] },
   ) {
+    this.#shared = new Set([...SHARED_PROVIDERS, ...(input.sharedProviders ?? [])].filter((p) => !PERSONAL_PROVIDERS.includes(p) && p !== "binary"));
     this.#owned = new Set();
     for (const [provider, owners] of input.providerOwners) {
       // Exactly one owner, and it is the caller. Two owners is ambiguous: nobody reads.
@@ -139,8 +146,7 @@ export class SourceViewer {
     // Status-only provider of the Google credential lane: its coverage names mailboxes.
     if (provider === GOOGLE_AUTH_STATUS_PROVIDER) return this.#ownsAllGoogle ? "allow" : this.#ownedAccounts.size > 0 ? "mixed" : "deny";
     if (provider === "binary") {
-      if (seg.length === 1) return "mixed";
-      if (BINARY_SHARED.has(seg[1]!)) return "allow";
+      if (seg.length === 1) return this.#ownsAllGoogle ? "mixed" : "deny";
       if (BINARY_GOOGLE.has(seg[1]!)) return this.#ownsAllGoogle ? "allow" : "deny";
       return "deny";
     }
@@ -150,11 +156,13 @@ export class SourceViewer {
       if (seg.length === 1 || (seg.length === 4 && seg[1] === "_workspaces" && seg[3] === "conversations")) return "mixed";
       return "allow";
     }
-    return "allow";
+    // Default deny: a provider nobody declared shared (e.g. an operator-configured Nango source) has no owner.
+    return this.#shared.has(provider) ? "allow" : "deny";
   }
 
   #googleAccountPath(seg: string[], layout: "first" | "accounts"): Access {
-    const container = this.#ownsAllGoogle ? "allow" : this.#ownedAccounts.size > 0 ? "mixed" : "deny";
+    // A mailbox container may also hold mailboxes nobody reports any more (removed accounts): always filter children.
+    const container = this.#ownedAccounts.size > 0 ? "mixed" : "deny";
     if (seg.length === 1) return container;
     // `_raw/<namespace>/...`: the namespace is the mailbox when it looks like one.
     if (seg[1] === "_raw") {
@@ -188,11 +196,14 @@ export class SourceViewer {
     if (access === "allow") return true;
     if (access === "deny") return false;
     if (GOOGLE_ACCOUNT_PROVIDERS[provider] || provider === GOOGLE_AUTH_STATUS_PROVIDER) {
-      const scope = c.scope.toLowerCase();
-      return [...this.#ownedAccounts].some((a) => scope.includes(a));
+      // Whole-token match (an owner of an@x must not see dan@x), and the reason may name no other address.
+      const tokens = (t: string) => t.toLowerCase().split(/[\s:/,;()[\]"'<>=]+/).filter(Boolean);
+      const scopeTokens = tokens(c.scope);
+      if (![...this.#ownedAccounts].some((a) => scopeTokens.includes(a))) return false;
+      return [...tokens(c.scope), ...tokens(c.reason ?? "")].filter((t) => t.includes("@")).every((t) => this.#ownedAccounts.has(t));
     }
     if (provider === "slack") return ![c.scope, c.reason ?? ""].some((t) => /\bD[A-Z0-9]{6,}\b/.test(t));
-    if (provider === "binary") return /\b(slack)\b/.test(c.scope) || (this.#ownsAllGoogle && /\bdrive-pdf\b/.test(c.scope));
+    if (provider === "binary") return this.#ownsAllGoogle && /\bdrive-pdf\b/.test(c.scope);
     return false;
   }
 }
@@ -265,11 +276,11 @@ export class SourceOwners {
 }
 
 /** Owners per provider from device bindings (all, including revoked) and the owner registry. */
-export function providerOwners(bindings: readonly Pick<BindingRecord, "kind" | "providers" | "createdBy">[], registry: OwnerRegistry): Map<string, Identity[]> {
+export function providerOwners(bindings: readonly Pick<BindingRecord, "kind" | "providers" | "createdBy" | "enrolmentFailed">[], registry: OwnerRegistry): Map<string, Identity[]> {
   const out = new Map<string, Identity[]>();
   const add = (p: string, who: Identity) => out.set(p, [...(out.get(p) ?? []), { subject: who.subject, issuer: who.issuer }]);
   for (const b of bindings) {
-    if (b.kind !== "device") continue;
+    if (b.kind !== "device" || b.enrolmentFailed) continue;
     for (const p of b.providers) if (DEVICE_OWNED_PROVIDERS.includes(p)) add(p, b.createdBy);
   }
   for (const e of registry.entries) if (CONNECT_OWNED_PROVIDERS.includes(e.provider)) add(e.provider, e);

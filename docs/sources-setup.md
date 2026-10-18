@@ -29,6 +29,7 @@ existing ObjectStore (a directory locally, a Modal Volume when hosted).
 | `SOURCES_RUNTIME_SERVICE_TOKEN` | Service secret, ≥ 32 chars, held only by yc_msaw. The runtime stores only its sha256. |
 | `SOURCES_PUBLISH_URL` | Public origin the runtime publishes to. Default: the origin of `MCP_PUBLIC_URL`. Must be https (http only for loopback). The runtime refuses redirects. |
 | `SOURCES_DEVICE_API_URL` | Runtime public origin handed to Mac uploaders as `apiUrl`. When unset, device setup answers 503. |
+| `SOURCES_SHARED_PROVIDERS` | Optional comma-separated `$SOURCES` provider directories every tenant member may read, in addition to the built-in shared workspace providers (e.g. an org-wide Nango records source). Every other non-personal directory is denied (see docs/sources.md, owner-only). |
 
 ## Runtime configuration
 

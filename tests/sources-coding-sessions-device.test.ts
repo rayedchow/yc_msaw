@@ -25,7 +25,7 @@ let runtime: { url: string; close: () => Promise<void> };
 let app: App;
 let dir: string;
 let base: string;
-let keys: Record<"admin" | "collector" | "reader" | "rival", string>;
+let keys: Record<"admin" | "collector" | "reader" | "rival" | "noScope", string>;
 
 async function freePort(): Promise<number> {
   const probe = createServer();
@@ -51,15 +51,17 @@ beforeAll(async () => {
   const admin = generateStaticKey("acme", ["memory:build", "memory:read"]);
   const collector = generateStaticKey("acme", ["traces:write"]);
   const reader = generateStaticKey("acme", ["memory:read"]);
+  // Owner-only sources: memory:read members may enrol their own device; a key without a source scope may not.
+  const noScope = generateStaticKey("acme", ["integrations:read"]);
   const rival = generateStaticKey("rival", ["memory:build", "memory:read", "traces:write"]);
-  keys = { admin: admin.key, collector: collector.key, reader: reader.key, rival: rival.key };
+  keys = { admin: admin.key, collector: collector.key, reader: reader.key, rival: rival.key, noScope: noScope.key };
   dir = await mkdtemp(path.join(os.tmpdir(), "sources-coding-device-"));
   const port = await freePort();
   const { createApp } = await import("../src/app.js");
   const { DirectoryObjectStore } = await import("../src/store/objects.js");
   app = await createApp({
     env: {
-      HOST: "127.0.0.1", AUTH_MODE: "static", PROCMEM_STATIC_KEYS: [admin.entry, collector.entry, reader.entry, rival.entry].join(","), PROCMEM_STATIC_KEYS_ON_MCP: "1",
+      HOST: "127.0.0.1", AUTH_MODE: "static", PROCMEM_STATIC_KEYS: [admin.entry, collector.entry, reader.entry, rival.entry, noScope.entry].join(","), PROCMEM_STATIC_KEYS_ON_MCP: "1",
       PROCMEM_STORE: "directory", PROCMEM_SANDBOX: "local", PROCMEM_DATA_DIR: dir, SOURCES_RUNTIME_SERVICE_TOKEN: rt.SERVICE_TOKEN,
       SOURCES_RUNTIME_URL: `${runtime.url}/internal/v1`, SOURCES_PUBLISH_URL: `http://127.0.0.1:${port}`, SOURCES_DEVICE_API_URL: runtime.url,
     },
@@ -81,7 +83,7 @@ afterAll(async () => {
 
 describe("Mac coding-sessions agent with yc_msaw as the authority", () => {
   it("mints the agent config once, uploads through the runtime, and revocation in yc_msaw refuses the device immediately", async () => {
-    expect((await call("POST", "/v1/sources/devices/coding-sessions/setup", keys.reader, {})).status).toBe(403);
+    expect((await call("POST", "/v1/sources/devices/coding-sessions/setup", keys.noScope, {})).status).toBe(403);
     expect((await call("POST", "/v1/sources/devices/coding-sessions/setup", keys.collector, { userId: "rival" })).status).toBe(400);
     expect((await call("POST", "/v1/sources/devices/coding-sessions", keys.collector, { bindingId: "sb-0123456789abcdef", tokenSha256: "0".repeat(64) })).status).toBe(400);
     const res = await call("POST", "/v1/sources/devices/coding-sessions/setup", keys.collector, { label: "Ada's Mac", intervalSeconds: 300 });

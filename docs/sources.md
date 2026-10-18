@@ -33,62 +33,84 @@ are separate on purpose: a provider can be `complete` but `stale` (collector sto
 Login and tenant authority are unchanged (WorkOS/OIDC; `memory:read` for `$SOURCES`, `sources_status` and
 `sources_history`). Members of one WorkOS organization still share a tenant. Within it, **personal sources are
 served only to their owner** (`src/sources/access.ts`). The owner is a verified principal (token issuer + subject),
-never a request field or provider payload:
+never a request field or provider payload. Enrolment is self-service: any member (`memory:read`) can enrol their own
+device or account, and becomes its owner.
 
 | `$SOURCES/...` | Owner | Enrolment |
 | --- | --- | --- |
-| `imessage/`, `coding-sessions/`, `office-audio/` | the principal that created the device bindings (all of them, revoked ones included) | `POST /v1/sources/devices/<provider>/setup` (`traces:write` or `memory:build`) |
-| `granola/`, `zoom/`, `cursor-agents/`, `whatsapp-personal/`, `instagram-personal/` | the principal that connected the account | `POST /v1/sources/connect/<provider>` (`memory:build`) |
-| `gmail/<mailbox>/`, `calendar/accounts/<mailbox>/`, `google-contacts/accounts/<mailbox>/` | the principal that completed the Google OAuth (or Composio) grant for that address; Google's account check at the callback proves control of it | `POST /v1/sources/google/auth/oauth/start` (`memory:build`) |
-| `google-docs/`, `binary/drive-pdf/`, and Google files outside a mailbox directory (e.g. the donor `calendar/<yyyy>/<mm>/` files, which mix mailboxes) | the principal that owns **every** Google address the tenant collects | as above |
+| `imessage/`, `coding-sessions/`, `office-audio/` | the principal whose device setup succeeded (revoked devices still count, so revoking a Mac does not hand its history to anyone; a setup the runtime refused counts for nothing) | `POST /v1/sources/devices/<provider>/setup` |
+| `granola/`, `zoom/`, `cursor-agents/`, `whatsapp-personal/`, `instagram-personal/` | the principal that connected the account | `POST /v1/sources/connect/<integration>` (`granola`, `zoom`, `cursor_background_agents`, `whatsapp_personal`, `instagram_personal`) |
+| `gmail/<mailbox>/`, `calendar/accounts/<mailbox>/`, `google-contacts/accounts/<mailbox>/` | the principal that completed the Google OAuth (or Composio) grant for that address. Google's account check at the callback proves control of it. | `POST /v1/sources/google/auth/oauth/start` |
+| `google-docs/`, `binary/drive-pdf/`, and Google files outside a mailbox directory (e.g. the donor `calendar/<yyyy>/<mm>/` files, which mix mailboxes) | the principal that owns **every** Google address of the tenant. That covers every address the runtime reports and every mailbox directory present in `$SOURCES`. | as above |
 
 How it is enforced:
 
 - Every verb applies it: `ls`, `find`, `grep`, `read`, `sources_history` (listing and exact `versionId` reads),
   `sources_status`, and the admin `GET /v1/sources/status`. Admins are members too and get no exception.
-- Another owner's path answers exactly like a missing path (`not_found`; empty history). Walks skip denied subtrees
-  without reading them.
+- Another owner's path answers exactly like a missing path (`not_found`; empty history; an unknown and a foreign
+  `versionId` give the same error). Walks skip denied subtrees without reading them.
 - Directories that also hold other owners' data list only the caller's children. Their totals (`liveFiles`,
-  `files`, `capturedAt`) are `null`; the root sums only fully readable providers.
-- In status, providers the caller cannot read are omitted. For a partly readable provider, only coverage
-  reports naming one of the caller's own accounts are kept.
-- Device bindings are listed in `sources_status` to their enroller only.
+  `files`, `capturedAt`) are `null`. Mailbox containers (`gmail/`, `calendar/accounts/`, …) are always filtered per
+  mailbox. The root sums only fully readable providers.
+- In status, providers the caller cannot read are omitted. For a partly readable provider, a coverage report is kept
+  only if its scope names one of the caller's own addresses (whole-address match) and its reason names no other.
+  Device bindings are listed to their enroller only.
 - The runtime relays are filtered the same way:
   - `GET /v1/sources/runtime/status` drops other owners' coverage and personal connections.
   - `GET /v1/sources/google/auth` lists a member's own Google accounts only. Admins (`memory:build`) still see
     every account's auth metadata, because they add DWD mailboxes and revoke grants. They never see the data.
   - `GET /v1/sources/office-audio/consents` (participant names) is limited to the office-audio owner and admins.
+- **Owner evidence can't be forged by a tenant admin:**
+  - Google owners come from the runtime's status heartbeat (`googleAccounts`). They are accepted only from a binding
+    minted by `POST /v1/sources/runtime/provision`. Its token goes to the runtime and is never returned.
+  - `POST /v1/sources/bindings` refuses `*`, `binary` and every personal provider (`400 use_runtime_provision`).
+  - A new grant becomes readable at the next heartbeat (≤ 5 min by default). Owner evidence is cached per tenant for
+    5 s: a change made by the same process applies at once, one made on another replica within 5 s.
+  - Bindings provisioned before this change carry no such origin. Re-provision once.
+- **Default deny:** only the shared workspace providers are readable by every member: Slack channels, Notion,
+  Confluence, Jira, GitHub, Bitbucket, Linear, Discord and Stripe, plus any directory the operator lists in yc_msaw's
+  `SOURCES_SHARED_PROVIDERS` (e.g. an org-wide Nango records source). Any other provider directory, including Nango
+  generic records sources such as a personal Outlook, is readable by nobody.
 - **Fail closed:**
   - unowned data is readable by nobody. That covers a domain-wide-delegation-only mailbox, data captured before
-    owners were recorded, a donor Google connection without a mailbox, and an owner list the runtime could not
-    report;
+    owners were recorded, a donor Google connection without a mailbox, and a mailbox the runtime no longer
+    reports;
   - so is data with more than one claimed owner;
-  - a provider directory has exactly one owner. A second member's device setup or connect is refused with
-    `409 owner_conflict`, and so is an enrolment over pre-existing unowned data (`reason: unowned_legacy_data`).
-    That data stays sealed and is not handed to whoever enrols first.
-- Owner evidence (bindings, owners, runtime reports) is cached per tenant for 5 s. A change made by the same process
-  applies at once; one made on another replica applies within 5 s.
-- Google owners come from the runtime's status heartbeat (`googleAccounts`). They are accepted only from the
-  tenant's active `*` runtime binding, so a new grant becomes readable at the next heartbeat (≤ 5 min by default).
-- Shared workspace providers stay readable by every member of the tenant: Slack channels, Notion, Confluence, Jira,
-  GitHub, Bitbucket, Linear, Discord, Stripe and Nango generic records.
-- Slack direct messages and group DMs are personal, but their participants are Slack users, not yc_msaw
-  principals. So nobody may read them: the runtime withholds them at export. That covers their projections, raw
-  records, conversation labels, and files shared only in DMs (delete reason `slack_direct_message_withheld`;
-  `providers/slack/direct.ts`). yc_msaw also denies any `D…` conversation path. The data stays in the runtime
-  database. Exception: Slack files captured by the donor before this lane (`binary/slack/`) carry no conversation
-  and stay shared. No tenant has such legacy rows yet.
+  - a provider directory has one owner. A second member's device setup or connect is refused with
+    `409 owner_conflict`.
+  - A first claim is refused (`reason: unowned_legacy_data`) when the directory still has live files, or the
+    runtime still holds a connection of that integration (or cannot be asked). Legacy data is never handed to
+    whoever enrols first.
+  - A refused connect or device setup leaves no owner behind.
+- **Slack direct messages and group DMs** are personal, but their participants are Slack users, not yc_msaw
+  principals. So nobody may read them:
+  - The runtime withholds them at export (`providers/slack/direct.ts`). That covers projections, raw records,
+    conversation labels, and files shared only in DMs. A projection whose conversation cannot be determined is
+    withheld too. When a conversation turns out to be a DM later, its already exported projections are withheld.
+  - Withheld paths are published as tombstones with reason `slack_direct_message_withheld`. yc_msaw treats any
+    `*_withheld` tombstone as a missing path, so `read` and `sources_history` (earlier versions included) are sealed.
+  - yc_msaw also denies any `D…` conversation path, and denies `binary/slack/` (legacy donor Slack files carry no
+    conversation).
+  - The data stays in the runtime database.
 - `binary/upload/` has no recorded owner and is denied.
 
-Migration and enrolment:
+Migration, enrolment and current limits (owner-only is enforced; these are decisions pending the user):
 
-- A domain-wide-delegated mailbox becomes readable once its owner completes the Google OAuth grant for the same
-  address.
-- Device and connected-account data captured before this change is sealed. To re-capture it under an owner, the
-  operator removes that provider's runtime data, then the owner enrols.
-- Ownership of a provider directory cannot be transferred.
-- Per-account layouts (several owners per tenant) exist only for Gmail, Calendar and Contacts. For the other
-  personal providers, one member per tenant can own the provider (for example one Mac owner's iMessage).
+- **DWD:** a domain-wide-delegated mailbox is collected but sealed until its user completes the self-service Google
+  OAuth grant for the same address. Everything captured so far under `gmail/<mailbox>/` (and the Calendar/Contacts
+  account directories) then becomes theirs. From then on the runtime collects that mailbox with the user's grant
+  instead of DWD.
+- **One owner per provider** for the providers whose paths have no account segment: iMessage, coding sessions,
+  office audio, Granola, Zoom, Cursor, WhatsApp/Instagram. A second member's iMessage cannot be enrolled in the
+  same tenant. Gmail, Calendar and Contacts are per mailbox.
+- **Google Docs/Drive** (and the donor calendar month files) are readable only while one member owns every Google
+  account of the tenant. A second Google member, or any unowned or DWD-only mailbox, seals them for everyone.
+  Removing this limit needs per-mailbox attribution of Docs (the runtime tracks per-mailbox visibility in
+  `gdocs_file_visibility`), which is not built.
+- Legacy data captured before owners existed stays sealed, and so does a provider whose runtime connection
+  predates owner records. Releasing it needs an operator to delete those runtime rows (database-level). No tenant
+  has such data yet.
+- Ownership cannot be transferred. A static SDK key that enrols a device owns it like any principal.
 
 ## Layout
 

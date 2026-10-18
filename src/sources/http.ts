@@ -6,6 +6,7 @@ import { parseContentType, readBoundedBody, TraceIngestError } from "../traces/i
 import { errorMessage } from "../util.js";
 import { createHash } from "node:crypto";
 import { DEVICE_KEY_PREFIXES, DEVICE_PROVIDERS, deviceKeyForBindingToken, looksLikeBindingToken, type BindingKind, type VerifiedBinding } from "./bindings.js";
+import { isPersonalProvider } from "./access.js";
 import { SourceError } from "./paths.js";
 import type { GoogleAuthAction, NangoRecordsAction, RuntimeResponse, SourceRuntimeClient } from "./runtime-client.js";
 import { COVERAGE_STATES, type SourceService, type StatusReport } from "./service.js";
@@ -184,6 +185,12 @@ export async function createBindingRoute(request: Request, principal: Principal,
     if (!principal.scopes.includes(need) && !principal.scopes.includes(SCOPES.memoryBuild)) {
       return bearerChallenge({ status: 403, error: "insufficient_scope", description: `Missing required scope: ${need}`, scope: need });
     }
+    // A hand-minted binding whose token the admin keeps must not write (or vouch for) personal sources: '*' and the
+    // personal provider directories are only for the provisioned collector (POST /v1/sources/runtime/provision).
+    const personal = input.providers.filter((p) => p === "*" || isPersonalProvider(p) || p === "binary");
+    if (personal.length) {
+      return error(400, "use_runtime_provision", `Bindings for ${personal.join(", ")} are minted only by POST /v1/sources/runtime/provision (personal sources are owner-only)`);
+    }
     const created = await service.bindings.create(
       principal.tenantNs,
       { kind: input.kind as BindingKind, providers: input.providers, ...(input.label !== undefined ? { label: input.label } : {}) },
@@ -314,7 +321,7 @@ const RUNTIME_BINDING_LABEL = "sources-runtime";
 /** Mint a runtime binding for the caller's tenant and hand it to the runtime; the token never leaves the servers. */
 export async function provisionRuntimeRoute(principal: Principal, service: SourceService, runtime: SourceRuntimeClient): Promise<Response> {
   try {
-    const { binding, token } = await service.bindings.create(principal.tenantNs, { kind: "runtime", providers: ["*"], label: RUNTIME_BINDING_LABEL }, { subject: principal.subject, issuer: principal.issuer });
+    const { binding, token } = await service.bindings.create(principal.tenantNs, { kind: "runtime", providers: ["*"], label: RUNTIME_BINDING_LABEL, origin: "runtime-provision" }, { subject: principal.subject, issuer: principal.issuer });
     let r: RuntimeResponse;
     try {
       r = await runtime.provisionBinding(principal, { bindingId: binding.bindingId, token, providers: ["*"] });
@@ -380,10 +387,25 @@ export const PERSONAL_CONNECT_DIRS: Readonly<Record<string, string>> = {
   instagram_personal: "instagram-personal",
 };
 
-/** True when sources/<provider>/ holds any file or tombstone. */
+/** True when sources/<provider>/ holds live files (tombstones of purged data do not count). */
 async function providerHasData(service: SourceService, ns: string, provider: string): Promise<boolean> {
   const r = await service.storeFor(ns).resolve(provider);
-  return r !== null && r.type === "dir" && (r.entry === null || r.entry.files + r.entry.deleted > 0);
+  return r !== null && r.type === "dir" && (r.entry === null || r.entry.files > 0);
+}
+
+/**
+ * Whether the runtime already holds a connection of this integration (e.g. connected before owners were recorded):
+ * its rows, exported or not, are not the new claimer's. Unknown (runtime unreachable) counts as yes: fail closed.
+ */
+async function runtimeHasConnection(principal: Principal, runtime: SourceRuntimeClient, provider: string): Promise<boolean> {
+  try {
+    const r = await runtime.status(principal);
+    const conns = (r.body as { connections?: Array<{ provider?: unknown }> } | null)?.connections;
+    if (r.status !== 200 || !Array.isArray(conns)) return true;
+    return conns.some((c) => c.provider === provider);
+  } catch {
+    return true;
+  }
 }
 
 export async function connectRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, provider: string, service?: SourceService): Promise<Response> {
@@ -393,10 +415,21 @@ export async function connectRoute(request: Request, principal: Principal, runti
   try {
     const body = await readOptionalJson(request);
     // A personal account is owned by the principal that connects it; another member's later connect is refused.
-    if (dir && service) claimed = (await service.owners.claim(principal.tenantNs, dir, who, { hasUnownedData: await providerHasData(service, principal.tenantNs, dir) })).created;
-    const r = await runtime.connect(principal, provider, body);
-    // A definite refusal rolls the new claim back. An unreachable runtime keeps it: the connect may have
-    // happened, and data without an owner would stay sealed.
+    if (dir && service) {
+      const owners = (await service.owners.registry(principal.tenantNs)).value.entries.filter((e) => e.provider === dir);
+      // Only a first claim must prove there is no legacy data (in $SOURCES or still in the runtime).
+      const legacy = owners.length === 0 && ((await providerHasData(service, principal.tenantNs, dir)) || (await runtimeHasConnection(principal, runtime, provider)));
+      claimed = (await service.owners.claim(principal.tenantNs, dir, who, { hasUnownedData: legacy })).created;
+    }
+    let r: RuntimeResponse;
+    try {
+      r = await runtime.connect(principal, provider, body);
+    } catch (e) {
+      // Refused before sending (e.g. an invalid id): nothing was connected, so the new claim is rolled back. A send
+      // that never got an answer keeps it, since the connect may have happened and its data would stay sealed.
+      if (claimed && e instanceof SourceError) await service!.owners.release(principal.tenantNs, dir!, who);
+      throw e;
+    }
     if (claimed && r.status >= 400) await service!.owners.release(principal.tenantNs, dir!, who);
     return relay(r);
   } catch (e) {
@@ -524,8 +557,10 @@ async function runtimeDeviceSetup<S extends z.ZodTypeAny>(
     note: string;
   },
 ): Promise<Response> {
-  if (!principal.scopes.includes(SCOPES.tracesWrite) && !principal.scopes.includes(SCOPES.memoryBuild)) {
-    return bearerChallenge({ status: 403, error: "insufficient_scope", description: `Missing required scope: ${SCOPES.tracesWrite}`, scope: SCOPES.tracesWrite });
+  // Self-service: any member (memory:read) may enrol their own device and becomes its owner; collection and admin
+  // keys may too.
+  if (![SCOPES.memoryRead, SCOPES.tracesWrite, SCOPES.memoryBuild].some((s) => principal.scopes.includes(s))) {
+    return bearerChallenge({ status: 403, error: "insufficient_scope", description: `Missing required scope: ${SCOPES.memoryRead}`, scope: SCOPES.memoryRead });
   }
   try {
     const input = spec.schema.parse(await readJson(request, MAX_ADMIN_BODY_BYTES)) as z.infer<S> & { label?: string };
@@ -550,11 +585,12 @@ async function runtimeDeviceSetup<S extends z.ZodTypeAny>(
         ...spec.enrolExtra(input),
       });
     } catch (e) {
-      await service.bindings.revoke(principal.tenantNs, binding.bindingId);
+      // The device key was never returned, so no device can hold this binding: it confers no ownership.
+      await service.bindings.revoke(principal.tenantNs, binding.bindingId, { enrolmentFailed: true });
       return error(502, "runtime_unreachable", `Source runtime did not enrol the device: ${errorMessage(e)}`);
     }
     if (r.status !== 201) {
-      await service.bindings.revoke(principal.tenantNs, binding.bindingId);
+      await service.bindings.revoke(principal.tenantNs, binding.bindingId, { enrolmentFailed: true });
       return json(502, { error: { code: "runtime_rejected", message: "Source runtime did not enrol the device", runtime: r.body } });
     }
     return json(201, {

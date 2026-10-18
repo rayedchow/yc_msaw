@@ -1,7 +1,7 @@
 import { sql } from "drizzle-orm";
 import { getBlob, isoOrNull, loadChunk, rowsOf, type SlackConversationRow, type SlackFileRow } from "../../../integrations/slack/source-store.js";
 import type { ExportContext, ExtraTableExport, JournalInfo, SourceFileChange } from "../../core/types.js";
-import { DIRECT_MESSAGE_WITHHELD, isDirectChannel, isDirectConversationType } from "./direct.js";
+import { DIRECT_MESSAGE_WITHHELD, isDirectChannel, isDirectConversationType, withheldProjectionsOf } from "./direct.js";
 import { conversationLabelPath, fileBytesPath, fileMetadataPath, PROVIDER, splitSourceKey } from "./paths.js";
 
 /**
@@ -41,7 +41,10 @@ export async function mapConversationRow(ctx: ExportContext, rowKey: string, jou
   if (!row) return deletesFor(previousPaths, new Set(), "conversation_row_deleted", journal.enqueuedAt, provenance);
   const path = conversationLabelPath(row.team_id, row.channel_id);
   if (isDirectConversationType(row.channel_type) || (await isDirectChannel(ctx, row.channel_id))) {
-    return deletesFor([...new Set([...previousPaths, path])], new Set(), DIRECT_MESSAGE_WITHHELD, journal.enqueuedAt, provenance);
+    return [
+      ...deletesFor([...new Set([...previousPaths, path])], new Set(), DIRECT_MESSAGE_WITHHELD, journal.enqueuedAt, provenance),
+      ...(await withheldProjectionsOf(ctx, row.channel_id, journal.enqueuedAt)),
+    ];
   }
   const completeAt = isoOrNull(row.history_complete_at);
   const label = {

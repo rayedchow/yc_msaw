@@ -13,6 +13,8 @@ import { DEFAULT_NODE_CACHE_BYTES, SourceNodeCache, SourceStore, type DirEntry }
 const MAX_CACHED_TENANTS = 64;
 /** How long another replica's ownership change can take to apply here. */
 const VIEWER_TTL_MS = 5_000;
+/** Mailbox directories scanned per Google container when building owner evidence. */
+const MAX_MAILBOX_SCAN = 2_000;
 
 export type CoverageState = "complete" | "partial" | "blocked" | "pending";
 export const COVERAGE_STATES: readonly CoverageState[] = ["complete", "partial", "blocked", "pending"];
@@ -82,6 +84,7 @@ export class SourceService {
   readonly owners: SourceOwners;
   readonly #stores = new Map<string, SourceStore>();
   readonly #reportEpoch = new Map<string, number>();
+  readonly #sharedProviders: readonly string[];
   readonly #evidence = new Map<string, { at: number; epoch: string; value: { providerOwners: Map<string, Identity[]>; googleAccounts: GoogleAccountOwner[] } }>();
 
   /** One byte-bounded metadata cache for every tenant store of this process. */
@@ -90,8 +93,9 @@ export class SourceService {
   constructor(
     readonly objects: ObjectStore,
     private readonly now: () => Date = () => new Date(),
-    opts: { nodeCacheBytes?: number } = {},
+    opts: { nodeCacheBytes?: number; sharedProviders?: readonly string[] } = {},
   ) {
+    this.#sharedProviders = opts.sharedProviders ?? [];
     this.bindings = new SourceBindings(objects);
     this.owners = new SourceOwners(objects);
     this.nodeCache = new SourceNodeCache(opts.nodeCacheBytes ?? DEFAULT_NODE_CACHE_BYTES);
@@ -149,18 +153,55 @@ export class SourceService {
     const hit = this.#evidence.get(ns);
     if (hit && hit.epoch === epoch && this.now().getTime() - hit.at < VIEWER_TTL_MS) return hit.value;
     const [bindings, owners] = await Promise.all([this.bindings.list(ns), this.owners.registry(ns)]);
-    const runtimeIds = new Set(bindings.filter((b) => !b.revokedAt && b.kind === "runtime" && b.providers.includes("*")).map((b) => b.bindingId));
-    const reports = (await this.#reports(ns, bindings)).filter((r) => runtimeIds.has(r.bindingId));
-    const value = { providerOwners: providerOwners(bindings, owners.value), googleAccounts: reports.flatMap((r) => r.report.googleAccounts ?? []) };
+    // Account owners are trusted only from the provisioned collector binding (its token never left the servers); an
+    // admin-minted '*' publish binding cannot vouch for who owns a mailbox.
+    const runtimeIds = new Set(bindings.filter((b) => !b.revokedAt && b.kind === "runtime" && b.origin === "runtime-provision" && b.providers.includes("*")).map((b) => b.bindingId));
+    const reports = await this.#reports(ns, bindings.filter((b) => runtimeIds.has(b.bindingId)));
+    const reported = reports.flatMap((r) => r.report.googleAccounts ?? []);
+    const value = { providerOwners: providerOwners(bindings, owners.value), googleAccounts: [...reported, ...(await this.#unreportedMailboxes(ns, reported))] };
     this.#evidence.delete(ns);
     this.#evidence.set(ns, { at: this.now().getTime(), epoch, value });
     while (this.#evidence.size > MAX_CACHED_TENANTS) this.#evidence.delete(this.#evidence.keys().next().value!);
     return value;
   }
 
+  /**
+   * Mailboxes present in $SOURCES that no runtime report names (removed accounts, legacy capture). They join the
+   * Google account universe as unowned, so nobody "owns every Google account" by enrolling first.
+   */
+  async #unreportedMailboxes(ns: string, reported: readonly GoogleAccountOwner[]): Promise<GoogleAccountOwner[]> {
+    const known = new Set(reported.map((a) => a.account.trim().toLowerCase()));
+    const store = this.storeFor(ns);
+    const found = new Set<string>();
+    let truncated = false;
+    for (const dir of ["gmail", "gmail/_raw", "calendar/accounts", "calendar/_raw", "google-contacts/accounts", "google-contacts/_raw"]) {
+      let page;
+      try {
+        page = await store.list(dir, { limit: MAX_MAILBOX_SCAN, includeDeleted: true });
+      } catch (e) {
+        if (e instanceof SourceError && (e.code === "not_found" || e.code === "not_a_directory")) continue;
+        throw e;
+      }
+      if (page.nextAfter !== null) truncated = true;
+      for (const e of page.entries) {
+        let name = e.name;
+        try {
+          name = decodeURIComponent(name);
+        } catch {
+          // keep the stored spelling
+        }
+        name = name.toLowerCase();
+        if (name.includes("@") && !known.has(name)) found.add(name);
+      }
+    }
+    const out: GoogleAccountOwner[] = [...found].map((account) => ({ account, subject: null, issuer: null }));
+    if (truncated) out.push({ account: "more-mailboxes@unlisted.invalid", subject: null, issuer: null });
+    return out;
+  }
+
   /** What `who` (a verified principal of `ns`) may read; see access.ts. */
   async viewer(ns: string, who: Identity): Promise<SourceViewer> {
-    return new SourceViewer(who, await this.#ownerEvidence(ns));
+    return new SourceViewer(who, { ...(await this.#ownerEvidence(ns)), sharedProviders: this.#sharedProviders });
   }
 
   /**

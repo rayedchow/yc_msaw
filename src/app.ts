@@ -96,7 +96,7 @@ export async function createApp(opts: AppOptions = {}): Promise<App> {
     dayOffsetMinutes: config.timezoneOffsetMinutes,
     log,
   });
-  const sources = config.sources ? new SourceService(store) : null;
+  const sources = config.sources ? new SourceService(store, undefined, { sharedProviders: config.sourcesSharedProviders }) : null;
   const runtimeConfig = sources ? loadSourceRuntimeConfig(env, config.publicUrl) : null;
   const server = createProcmemServer({
     auth,

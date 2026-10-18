@@ -32,6 +32,7 @@ import {
   imessageDeviceSetupRoute,
   jiraSelectionRoute,
   officeAudioConsentRoute,
+  PERSONAL_CONNECT_DIRS,
   officeAudioDeviceSetupRoute,
   listBindingsRoute,
   nangoRecordsRoute,
@@ -516,7 +517,9 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         return runtimeStatusRoute(principal, runtime, sources);
       });
       server.post("/v1/sources/connect/:provider", async (c) => {
-        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        // A member connects their own personal account (they become its owner); shared workspace tools need an admin.
+        const personal = Object.prototype.hasOwnProperty.call(PERSONAL_CONNECT_DIRS, c.req.param("provider"));
+        const principal = await authenticateHttp(c.req.raw, auth, personal ? SCOPES.memoryRead : SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;
         return connectRoute(c.req.raw, principal, runtime, c.req.param("provider"), sources);
       });
@@ -532,7 +535,9 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         return googleAuthRoute(c.req.raw, principal, runtime, "status", undefined, sources);
       });
       server.post("/v1/sources/google/auth/oauth/start", async (c) => {
-        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        // Self-service: any member may grant their own Google account (Google's account check at the callback proves
+        // control of the address; the member becomes its owner).
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
         if (principal instanceof Response) return principal;
         return googleAuthRoute(c.req.raw, principal, runtime, "oauth.start");
       });

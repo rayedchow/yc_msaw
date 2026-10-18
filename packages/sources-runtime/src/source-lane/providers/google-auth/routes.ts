@@ -121,7 +121,9 @@ export function registerGoogleAuthInternalRoutes(app: Hono, deps: GoogleAuthInte
   // Body: {broker?: "google" | "composio", capabilities?: [...], account?: "self" | {email}}
   app.post(`${base}/oauth/start`, async (c) => {
     try {
-      const principal = principalFor(c, deps, SCOPE_BUILD);
+      // Self-service (owner-only sources): a member grants their own account; the callback's expected-account check
+      // proves control of the address, and the grant records them as its owner.
+      const principal = principalFor(c, deps, SCOPE_READ);
       if (principal instanceof Response) return principal;
       const tenantId = tenantFor(c, deps);
       const body = await readJson(c);

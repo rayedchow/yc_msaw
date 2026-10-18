@@ -305,7 +305,8 @@ export function registerOfficeAudioInternalRoutes(app: Hono, deps: InternalRoute
   const admin = (c: Context) => (principal(c).scopes ?? []).includes("memory:build");
   const writer = (c: Context) => admin(c) || (principal(c).scopes ?? []).includes("traces:write");
   app.post("/tenants/:tenantId/devices/office-audio", async (c) => {
-    if (!writer(c)) return c.json({ error: { code: "insufficient_scope" } }, 403);
+    // Self-service enrolment (owner-only sources); yc_msaw mints the binding. Consent stays admin-only.
+    if (!writer(c) && !(principal(c).scopes ?? []).includes("memory:read")) return c.json({ error: { code: "insufficient_scope" } }, 403);
     const b = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
     if (!/^sb-[0-9a-f]{16}$/.test(String(b.bindingId)) || !/^[0-9a-f]{64}$/.test(String(b.tokenSha256))) return c.json({ error: "bindingId and tokenSha256 required" }, 400);
     const [prior] = rowsOf<{ token_sha256: string }>(await ex().execute(sql`SELECT token_sha256 FROM office_audio_devices WHERE tenant_id = ${deps.tenantOf(c)} AND binding_id = ${String(b.bindingId)}`));
