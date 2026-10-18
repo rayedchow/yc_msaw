@@ -79,7 +79,7 @@
   .tag.v { border-color: transparent; background: var(--accent); color: #141414; }
 
   /* list */
-  .mcps .card, .mcps .hdr { display: grid; column-gap: 24px; grid-template-columns: 76px 1.6fr 1.1fr .5fr .7fr .5fr 24px; align-items: center; gap: 16px; padding: 22px 28px; width: 100%; }
+  .mcps .card, .mcps .hdr { display: grid; column-gap: 24px; grid-template-columns: 116px 1.6fr 1.1fr .5fr .7fr .5fr 24px; align-items: center; gap: 16px; padding: 22px 28px; width: 100%; }
   .mcps .card { border-top: 1px solid var(--border); }
   .mcps .card:hover { background: var(--surface); }
   .mcps .hdr { padding: 12px 28px; font-size: 13px; color: var(--tertiary); }
@@ -87,7 +87,7 @@
   .mcps .sys { font-size: 13px; color: var(--tertiary); margin-top: 2px; }
   .mcps .num { font-family: var(--mono); font-size: 14px; }
   .mcps .arrow { color: var(--tertiary); }
-  .mcps canvas { width: 76px; height: 76px; display: block; }
+  .mcps canvas { width: 116px; height: 116px; display: block; }
   .progress { height: 3px; background: var(--border); margin-top: 8px; width: 120px; }
   .progress i { display: block; height: 100%; background: var(--accent); }
 
@@ -366,7 +366,7 @@ function renderDetail(m) {
 }
 
 // ── dot matrix: 12 × 12, one column per 2-hour window ───────────────────
-const COLS = 12, ROWS = 12, GAP = 6.2, R = 1.9, SIZE = 76;
+const COLS = 12, ROWS = 12, GAP = 9.6, R = 2.9, SIZE = 116;
 const VOLUME = {
   sales: [3,2,2,1,1,2,4,6,8,9,9,8,7,9,9,8,7,6,5,5,4,4,3,3],
   billing: [1,1,1,0,0,1,2,3,4,4,3,3,3,4,4,3,3,2,2,2,1,1,1,1],
