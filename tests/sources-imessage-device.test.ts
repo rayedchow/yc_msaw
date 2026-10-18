@@ -29,6 +29,9 @@ process.env.WORKOS_CLIENT_ID ??= "client_test_workos";
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Any = any;
 let rt: Any;
+/** The runtime tenant holding a device binding's data: the enroller's owner scope (personal-connection-attribution). */
+const dataTenant = async (bindingId: string): Promise<string> =>
+  ((await rt.query("SELECT scope_tenant_id FROM source_lane_personal_devices WHERE binding_id = $1", [bindingId]))[0] as { scope_tenant_id?: string } | undefined)?.scope_tenant_id ?? "none";
 let runtime: { url: string; close: () => Promise<void> };
 let app: App;
 let dir: string;
@@ -153,9 +156,10 @@ describe("Mac iMessage uploader with yc_msaw as the authority", () => {
     });
     expect(r.body.binding).toMatchObject({ kind: "device", providers: ["imessage"], transport: "runtime-ingest", revokedAt: null });
     expect(JSON.stringify(r.body)).not.toContain("psb_");
-    // The runtime holds only the hash, bound to the same binding and tenant.
+    // The runtime holds only the hash, bound to the same binding, in the enrolling principal's owner scope of the tenant.
     const [dev] = await rt.query("SELECT tenant_id, binding_id, status FROM imessage_devices WHERE binding_id = $1", [bindingId]);
-    expect(dev).toMatchObject({ tenant_id: "acme", binding_id: bindingId, status: "active" });
+    expect(dev).toMatchObject({ tenant_id: await dataTenant(bindingId), binding_id: bindingId, status: "active" });
+    expect(await dataTenant(bindingId)).toMatch(/^acme\.u-[0-9a-f]{24}$/);
     const secret = config.agentToken.split(".")[2]!;
     expect(JSON.stringify(await rt.query("SELECT * FROM imessage_devices WHERE binding_id = $1", [bindingId]))).not.toContain(secret);
     expect(await (await call("GET", "/v1/sources/bindings", keys.admin)).text()).not.toContain(secret);
@@ -168,8 +172,9 @@ describe("Mac iMessage uploader with yc_msaw as the authority", () => {
     });
     expect(ingested.status).toBe(200);
     expect(await ingested.json()).toMatchObject({ stored: 2, total: 2 });
-    expect((await rt.events("acme")).map((e: Any) => e.raw_payload.text).sort()).toEqual(["hello from the Mac", "second"]);
+    expect((await rt.events(await dataTenant(bindingId))).map((e: Any) => e.raw_payload.text).sort()).toEqual(["hello from the Mac", "second"]);
     expect(await rt.events("rival")).toHaveLength(0);
+    expect(await rt.events("acme")).toHaveLength(0); // never in the organization tenant itself
 
     expect((await mac(config.apiUrl, "POST", "/sync-contacts", config.agentToken, { userId: "rival", contacts: [{ handle: "+15550001111", name: "Grace" }] })).status).toBe(200);
     expect((await mac(config.apiUrl, "POST", "/local-status", config.agentToken, { status: { status: "idle", queuedMessages: 0 } })).status).toBe(200);
@@ -222,8 +227,9 @@ describe("Mac iMessage uploader with yc_msaw as the authority", () => {
     expect(r.status).toBe(201);
     expect(r.body.messagesConfig.userId).toBe("rival");
     expect((await mac(r.body.messagesConfig.apiUrl, "POST", "", r.body.messagesConfig.agentToken, { userId: "acme", messages: [rt.message({ messageId: "G-RIVAL", text: "rival only" })] })).status).toBe(200);
-    expect((await rt.events("rival")).map((e: Any) => e.raw_payload.text)).toEqual(["rival only"]);
-    expect((await rt.events("acme")).some((e: Any) => e.raw_payload.text === "rival only")).toBe(false);
+    expect((await rt.events(await dataTenant(r.body.binding.bindingId))).map((e: Any) => e.raw_payload.text)).toEqual(["rival only"]);
+    expect(await dataTenant(r.body.binding.bindingId)).toMatch(/^rival\./);
+    expect((await rt.events(await dataTenant(bindingId))).some((e: Any) => e.raw_payload.text === "rival only")).toBe(false);
     // A tenant's admin cannot revoke another tenant's device binding.
     expect((await call("DELETE", `/v1/sources/bindings/${r.body.binding.bindingId}`, keys.admin)).status).toBe(404);
   });
@@ -242,7 +248,7 @@ describe("Mac iMessage uploader with yc_msaw as the authority", () => {
       expect((await mac(config.apiUrl, method, route, config.agentToken, body)).status).toBe(401);
     }
     expect((await rt.query("SELECT status FROM imessage_devices WHERE binding_id = $1", [bindingId]))[0].status).toBe("revoked");
-    expect((await rt.events("acme")).some((e: Any) => e.raw_payload.messageId === "G-AFTER")).toBe(false);
+    expect((await rt.events(await dataTenant(bindingId))).some((e: Any) => e.raw_payload.messageId === "G-AFTER")).toBe(false);
     expect((await fetch(`${base}/v1/sources/devices/imessage/verify`, { headers: { "x-api-key": config.agentToken } })).status).toBe(401);
   });
 
@@ -254,7 +260,7 @@ describe("Mac iMessage uploader with yc_msaw as the authority", () => {
     await app.sources!.bindings.revoke("acme", r.body.binding.bindingId);
     expect((await rt.query("SELECT status FROM imessage_devices WHERE binding_id = $1", [r.body.binding.bindingId]))[0].status).toBe("active");
     expect((await mac(runtime.url, "POST", "", key, { messages: [rt.message({ messageId: "G-B2" })] })).status).toBe(401);
-    expect((await rt.events("acme")).some((e: Any) => e.raw_payload.messageId === "G-B2")).toBe(false);
+    expect((await rt.events(await dataTenant(r.body.binding.bindingId))).some((e: Any) => e.raw_payload.messageId === "G-B2")).toBe(false);
     // The runtime converged on the refusal.
     expect((await rt.query("SELECT status FROM imessage_devices WHERE binding_id = $1", [r.body.binding.bindingId]))[0].status).toBe("revoked");
   });

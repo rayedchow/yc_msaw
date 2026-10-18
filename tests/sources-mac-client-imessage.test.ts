@@ -111,7 +111,10 @@ describe.runIf(process.platform === "darwin")("vendored Mac Messages client thro
       expect(JSON.parse(readFileSync(configPath, "utf8"))).toMatchObject({ agentToken: cfg.agentToken, allowedChatIds: [chosen], backfillDays: null, backfillAllHistory: true });
 
       agent = startAgent(home, ["messages-agent", "--config", configPath], { SHEPHERD_MESSAGES_COMMAND_INTERVAL_MS: "300", SHEPHERD_MESSAGES_QUEUE_DRAIN_INTERVAL_MS: "300" });
-      const events = async () => ((await rt.pg.query(`SELECT raw_payload FROM activity_events WHERE user_id = 'acme' AND source = 'imessage' ORDER BY (raw_payload->>'rowId')::int`)).rows as Any[]).map((r) => r.raw_payload);
+      // The Mac writes into its enroller's owner scope of the tenant (personal-connection-attribution).
+      const t = ((await rt.pg.query(`SELECT scope_tenant_id FROM source_lane_personal_devices WHERE binding_id = $1`, [binding.bindingId])).rows[0] as Any).scope_tenant_id as string;
+      expect(t).toMatch(/^acme\.u-[0-9a-f]{24}$/);
+      const events = async () => ((await rt.pg.query(`SELECT raw_payload FROM activity_events WHERE user_id = $1 AND source = 'imessage' ORDER BY (raw_payload->>'rowId')::int`, [t])).rows as Any[]).map((r) => r.raw_payload);
       const stored = await waitFor("the chosen chat's backfill", async () => ((await events()).length >= 2 ? events() : null), { agent, timeoutMs: 90_000 });
       expect(stored.map((m: Any) => m.messageId)).toEqual(["CHAIN-1", "CHAIN-2"]);
 
@@ -128,7 +131,7 @@ describe.runIf(process.platform === "darwin")("vendored Mac Messages client thro
       const { imessageCoverage } = (await import(/* @vite-ignore */ coverage)) as Any;
       // The uploader posts its final idle status without awaiting it, so coverage settles just after the receipt.
       await waitFor("coverage to become complete", async () =>
-        (await imessageCoverage({ tenantId: "acme", executor: rt.db })).find((c: Any) => c.scope === `device:${binding.bindingId}:messages`)?.state === "complete", { agent, timeoutMs: 90_000 });
+        (await imessageCoverage({ tenantId: t, executor: rt.db })).find((c: Any) => c.scope === `device:${binding.bindingId}:messages`)?.state === "complete", { agent, timeoutMs: 90_000 });
 
       expect((await call("DELETE", `/v1/sources/bindings/${binding.bindingId}`, keys.admin)).status).toBe(200);
       appendMessages(home, [{ guid: "CHAIN-4", chat: chosen, from: "+15550001111", text: "After revoke.", at: "2026-09-11T08:00:00.000Z" }]);

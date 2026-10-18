@@ -411,12 +411,20 @@ describe.skipIf(!PG)("source runtime on real PostgreSQL with the real yc_msaw se
     const exporter = new mods.exporter.SourceExporter({ db: mods.db.db, log: () => {} });
     await drainExporter(exporter);
     const reader = await mcp(keys.reader);
-    // Granola is a personal source (yc_msaw src/sources/access.ts): with no recorded owner nobody may read it.
+    // Granola is a personal source (yc_msaw src/sources/access.ts): a row of the organization tenant itself (captured
+    // before owner scopes) belongs to nobody.
     expect((await call(reader, "find", { path: "$SOURCES/granola/_raw/tenant", pattern: "*.json" })).code).toBe("not_found");
-    // Record the reader as the connecting owner (what POST /v1/sources/connect/granola does) and read it back.
-    await yc.sources.owners.claim("acme", "granola", { subject: readerSubject, issuer: "urn:procmem:static" }, { hasUnownedData: false });
-    const found = await call(reader, "find", { path: "$SOURCES/granola/_raw/tenant", pattern: "*.json" });
-    expect(found.matches).toEqual(["$SOURCES/granola/_raw/tenant/meeting_note:g9/2026-10/granola:g9:1.json"]);
+    // The same raw row captured by the reader's own Granola account (their owner scope, what POST
+    // /v1/sources/connect/granola sets up) is published under their segment and read back exactly.
+    const scopes = await import("../../../src/source-lane/core/personal-scope.js");
+    const scope = await scopes.ensurePersonalScope(mods.db.db, { tenantNs: "acme", issuer: "urn:procmem:static", subject: readerSubject });
+    await sql`
+      INSERT INTO activity_events (user_id, source, source_namespace, source_object_id, record_kind, event_type, timestamp, raw_payload, source_event_id)
+      VALUES (${scope.scopeTenantId}, 'granola', 'tenant', 'meeting_note:g9', 'snapshot', 'meeting_note', '2026-10-01T10:00:00Z', '{"granolaId":"g9","big":12345678901234567890,"nested":{"__proto__":{"x":1}}}'::jsonb, 'granola:g9:1')`;
+    await drainExporter(exporter);
+    expect((await call(reader, "find", { path: "$SOURCES/granola/_raw/tenant", pattern: "*.json" })).code).toBe("not_found");
+    const found = await call(reader, "find", { path: `$SOURCES/granola/${scope.segment}/_raw/tenant`, pattern: "*.json" });
+    expect(found.matches).toEqual([`$SOURCES/granola/${scope.segment}/_raw/tenant/meeting_note:g9/2026-10/granola:g9:1.json`]);
     const raw = await call(reader, "read", { path: found.matches[0] });
     expect(raw.content).toContain('"big": 12345678901234567890');
     expect(raw.content).toContain('"__proto__"');

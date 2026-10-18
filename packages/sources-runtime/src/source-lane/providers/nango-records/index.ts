@@ -46,6 +46,7 @@ function sourceModule(lane: NangoRecordsLane, source: NangoRecordsSource): Sourc
     eventSources: [source.source],
     mirrorRoots: [],
     connectionProviders: [source.providerConfigKey],
+    ownerScoped: source.audience === "personal",
     mapEvent: (row, _ctx, journal) => mapLaneEvent(source.source, row, journal),
     coverage: (ctx) => sourceCoverage(lane, source, ctx.tenantId),
   };

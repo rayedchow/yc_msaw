@@ -402,6 +402,7 @@ export type Resolved = { type: "dir"; sha: string; entry: DirEntry | null } | { 
 export class SourceStore {
   readonly #cache: SourceNodeCache;
   readonly #now: () => Date;
+  #localCommits = 0;
 
   constructor(
     readonly store: ObjectStore,
@@ -410,6 +411,11 @@ export class SourceStore {
   ) {
     this.#now = opts.now ?? (() => new Date());
     this.#cache = opts.cache ?? new SourceNodeCache(8 * 1024 * 1024);
+  }
+
+  /** Batches this instance committed (lets readers drop per-tenant caches derived from the tree at once). */
+  get localCommits(): number {
+    return this.#localCommits;
   }
 
   // ---------------------------------------------------------------- reads
@@ -811,7 +817,10 @@ export class SourceStore {
       ]);
       const next: HeadValue = { schema: "procmem.source-head/v2", commitId, root, batches: index.root, seq: commitBody.seq, updatedAt: appliedAt };
       const cas = await this.store.casRef(this.ns, HEAD_REF, head.version, next);
-      if (cas.ok) return receipt;
+      if (cas.ok) {
+        this.#localCommits++;
+        return receipt;
+      }
       // Lost the race: re-check the index (a concurrent identical request may have won) and rebase.
       await new Promise((r) => setTimeout(r, Math.min(250, 4 * attempt * attempt) * Math.random()));
     }

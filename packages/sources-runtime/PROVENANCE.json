@@ -1542,6 +1542,17 @@
       ]
     },
     {
+      "path": "drizzle/10400_personal_owner_scopes.sql",
+      "sha256": "1a91d9169df7b17ec6147a08843fc2ff1033163a4103d9703dd0968282ef59b1",
+      "status": "new",
+      "owner": "personal-connection-attribution",
+      "reason": "personal-connection-attribution: source_lane_personal_scopes (one owner scope per verified principal per tenant) and source_lane_personal_devices (device binding -> owner scope); written only by the internal API from the forwarded principal.",
+      "tests": [
+        "tests/source-lane/core/personal-scope-e2e-pg.test.ts",
+        "tests/source-lane/providers/nango-records/personal-owner-scopes.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9100_gdocs_source_lane.sql",
       "sha256": "08df6349521e959a630029d533ebc726a6e4347bdd31d7f78b44cec2ce727b00",
       "status": "new",
@@ -2101,14 +2112,15 @@
     },
     {
       "path": "src/integrations/coding-sessions/lane.ts",
-      "sha256": "53c20647717daf23445ff432de9ed3f104aaa4c713372333b9126d9f22b56b6f",
+      "sha256": "34af36263582d888b3c2ba01b9baac013d1dabe8b1e836dab3d527f69627a063",
       "status": "new",
-      "owner": "coordinator",
-      "reason": "Coding sessions device lane; createYcDeviceAuthority generalized for office-audio. Coordinator (final-audit L1): only yc_msaw's 401 revokes; 403/404 fail closed as unavailable.",
+      "owner": "coordinator, personal-connection-attribution",
+      "reason": "Coding sessions device lane; createYcDeviceAuthority generalized for office-audio. Coordinator (final-audit L1): only yc_msaw's 401 revokes; 403/404 fail closed as unavailable. personal-connection-attribution: devices enrolled with layout owner-segment live in the enroller's owner scope (registry row, sessions, commands); key -> data tenant on authentication; revoke/commands/list resolve the binding's tenant.",
       "tests": [
         "tests/source-lane/providers/coding-sessions/authority.test.ts",
         "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",
-        "tests/source-lane/providers/office-audio/office-audio.test.ts"
+        "tests/source-lane/providers/office-audio/office-audio.test.ts",
+        "tests/source-lane/core/personal-scope-e2e-pg.test.ts"
       ]
     },
     {
@@ -2963,13 +2975,14 @@
     },
     {
       "path": "src/integrations/office-audio/lane.ts",
-      "sha256": "523fea351f4a5eddac436dcf2a6f387eae30b6c2958d53d8849385129a551aac",
+      "sha256": "79d53a429afe3e4f2ece7991794a7dbfe7b633699792dca89bce75544eba0092",
       "status": "new",
-      "owner": "coordinator, provider-repairs",
-      "reason": "Consent-gated, transcript-only office audio intake: donor normalization/speaker-identity guard/identity kept; server-issued participant consent by a memory:build principal (body consents are claims only; forged/missing/revoked rejected and recorded); goa_ device keys with per-request yc_msaw authority; immutable versions; revoke-with-delete tombstones; no audio/STT/voice profiling/graph. Audit L2 (provider-repairs): the donor 5,000-turn slice is removed; every turn is stored/exported in upload order within the 8 MiB request limit (larger bodies 413, never cut); turns dropped by donor validation are counted (invalidTurnsDropped on the session, response and transcript.md).",
+      "owner": "coordinator, provider-repairs, personal-connection-attribution",
+      "reason": "Consent-gated, transcript-only office audio intake: donor normalization/speaker-identity guard/identity kept; server-issued participant consent by a memory:build principal (body consents are claims only; forged/missing/revoked rejected and recorded); goa_ device keys with per-request yc_msaw authority; immutable versions; revoke-with-delete tombstones; no audio/STT/voice profiling/graph. Audit L2 (provider-repairs): the donor 5,000-turn slice is removed; every turn is stored/exported in upload order within the 8 MiB request limit (larger bodies 413, never cut); turns dropped by donor validation are counted (invalidTurnsDropped on the session, response and transcript.md). personal-connection-attribution: devices enrolled with layout owner-segment live in the enroller's owner scope; consent read from the organization tenant; consent revocation with deleteCaptured reaches every member scope.",
       "tests": [
         "tests/source-lane/providers/office-audio/office-audio.test.ts",
-        "tests/source-lane/providers/office-audio/turn-cap.test.ts"
+        "tests/source-lane/providers/office-audio/turn-cap.test.ts",
+        "tests/source-lane/core/personal-scope-e2e-pg.test.ts"
       ],
       "derivedFrom": [
         {
@@ -3334,10 +3347,10 @@
     },
     {
       "path": "src/integrations/unipile-personal/lane.ts",
-      "sha256": "7be0563d4778f7f5fa86b0902b09ee477a9d0d1565f1afe45ec8205db699b6bd",
+      "sha256": "f64afd2408a0fa0a23131afe340908d5bf7a715e1beed7df5091aa8d4f93e55c",
       "status": "new",
-      "owner": "coordinator",
-      "reason": "Shared Unipile lane: donor raw payload shape and source ids (+ WhatsApp :<event>), sync modes, readiness gate, after/cursor paging; per-connection webhook URL+secret with account ownership check (donor: global secret + first-match account lookup), durable per-chat cursors, :v:<sha> versions, deletions, attachment bytes, operator opt-in (ToS policy 0a92129868), export + coverage.",
+      "owner": "coordinator, personal-connection-attribution",
+      "reason": "Shared Unipile lane: donor raw payload shape and source ids (+ WhatsApp :<event>), sync modes, readiness gate, after/cursor paging; per-connection webhook URL+secret with account ownership check (donor: global secret + first-match account lookup), durable per-chat cursors, :v:<sha> versions, deletions, attachment bytes, operator opt-in (ToS policy 0a92129868), export + coverage. personal-connection-attribution: an account already connected by another member of the organization (owner scope) cannot be attached with the shared workspace key.",
       "tests": [
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
       ],
@@ -3827,6 +3840,18 @@
       "reason": "final-audit L3: the HMAC-signed OAuth state is accepted once (sha256 recorded in source_lane_oauth_state_uses, drizzle/10300), not until it expires.",
       "tests": [
         "tests/source-lane/core/oauth-state-single-use.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/core/personal-scope.ts",
+      "sha256": "50e51767448019d363cd51975f697469a1692af37ccb94d0699dcd959b6b5f2f",
+      "status": "new",
+      "owner": "personal-connection-attribution",
+      "reason": "personal-connection-attribution: Owner segment / scope tenant derivation (same formula as yc_msaw access.ts personalSegment; cross-checked by yc_msaw tests/sources-personal-owner-scopes.test.ts), scope + device registration, data-tenant resolution, publish-path rewrite with an allowlist, heartbeat-bounded owner coverage.",
+      "tests": [
+        "tests/source-lane/core/personal-scope-e2e-pg.test.ts",
+        "tests/source-lane/providers/nango-records/personal-owner-scopes.test.ts",
+        "tests/source-lane/core/personal-scope.test.ts"
       ]
     },
     {
@@ -4832,14 +4857,15 @@
     },
     {
       "path": "src/source-lane/providers/granola/export-map.ts",
-      "sha256": "aba89b439823dbf9a71f08dbf44f8d72c0a3deda86d52e98d1427b89775e4102",
+      "sha256": "582209b32d8e6508b3e0794a26bd26fbaf8664d0a18067bfc42ce773599aaa02",
       "status": "new",
-      "owner": "granola, coordinator",
-      "reason": "granola_source_notes -> note.json (people, calendar, folders, revision index with raw paths) and transcript.json (exact stored segments) in the donor meeting directory; deletes on tombstone. Coordinator (final-audit H1): uuid lookup.",
+      "owner": "granola, coordinator, personal-connection-attribution",
+      "reason": "granola_source_notes -> note.json (people, calendar, folders, revision index with raw paths) and transcript.json (exact stored segments) in the donor meeting directory; deletes on tombstone. Coordinator (final-audit H1): uuid lookup. personal-connection-attribution: note.json path references use ExportContext.publicPath (the owner segment of a personal scope).",
       "tests": [
         "tests/source-lane/providers/granola/lane.test.ts",
         "tests/source-lane/providers/granola/real-pg.test.ts (gated on SOURCES_TEST_PG_URL)",
-        "tests/source-lane/providers/granola/helpers.test.ts"
+        "tests/source-lane/providers/granola/helpers.test.ts",
+        "tests/source-lane/core/personal-scope-e2e-pg.test.ts"
       ]
     },
     {
@@ -4982,12 +5008,13 @@
     },
     {
       "path": "src/source-lane/providers/imessage/devices.ts",
-      "sha256": "6cc4a683bb6640b460c7a18485d40de3eebe92210263f37e8ede3abe697da302",
+      "sha256": "51e2c8dfe708392fe04d687b02fa2aa22e83b011b35e0841da70263b892fd24d",
       "status": "new",
-      "owner": "imessage",
-      "reason": "imessage_devices enrolment (hash only), revocation (cancels commands, fails runs), check-1 authentication, last-seen metadata.",
+      "owner": "imessage, personal-connection-attribution",
+      "reason": "imessage_devices enrolment (hash only), revocation (cancels commands, fails runs), check-1 authentication, last-seen metadata. personal-connection-attribution: authentication resolves the device's data tenant (owner scope) from the key's tenant + binding.",
       "tests": [
-        "tests/source-lane/providers/imessage/auth-revocation.test.ts"
+        "tests/source-lane/providers/imessage/auth-revocation.test.ts",
+        "tests/source-lane/core/personal-scope-e2e-pg.test.ts"
       ],
       "derivedFrom": [
         {
@@ -5116,17 +5143,18 @@
     },
     {
       "path": "src/source-lane/providers/imessage/routes.ts",
-      "sha256": "d9d2435c69d2ed24ab2b88a4c28a95ec9756c7bf5a99770360125b1c75fd4c75",
+      "sha256": "91b24e54701cb8a3079726e79b3ca8767f64f694d517ba4ec658892f0d395920",
       "status": "new",
-      "owner": "imessage",
-      "reason": "Internal admin routes and the five donor wire endpoints on the runtime public host (device row + yc_msaw authority).",
+      "owner": "imessage, personal-connection-attribution",
+      "reason": "Internal admin routes and the five donor wire endpoints on the runtime public host (device row + yc_msaw authority). personal-connection-attribution: enrol with layout owner-segment into the enroller's owner scope; revoke/commands resolve the binding's tenant; device list = organization (legacy) + caller's scope.",
       "tests": [
         "tests/source-lane/providers/imessage/auth-revocation.test.ts",
         "tests/source-lane/providers/imessage/authority.test.ts",
         "tests/source-lane/providers/imessage/ingest-identity.test.ts",
         "tests/source-lane/providers/imessage/history-projection.test.ts",
         "tests/source-lane/providers/imessage/commands-coverage.test.ts",
-        "tests/source-lane/providers/imessage/export.test.ts"
+        "tests/source-lane/providers/imessage/export.test.ts",
+        "tests/source-lane/core/personal-scope-e2e-pg.test.ts"
       ],
       "derivedFrom": [
         {
@@ -5408,15 +5436,16 @@
     },
     {
       "path": "src/source-lane/providers/nango-records/config.ts",
-      "sha256": "c7a9a2015dc9175f4754ab679673b65bc3971037d22991cbbe0b4d0d44bb56e7",
+      "sha256": "fdec4c9d8384d47497c13c0bd640d68c396c8df08c428470bc8c36183a08153c",
       "status": "new",
-      "owner": "nango-expansion",
-      "reason": "Operator catalog (NANGO_RECORDS_CONFIG[_FILE]) with strict schema; refuses sources colliding with specialized modules or donor-captured Nango integrations.",
+      "owner": "nango-expansion, personal-connection-attribution",
+      "reason": "Operator catalog (NANGO_RECORDS_CONFIG[_FILE]) with strict schema; refuses sources colliding with specialized modules or donor-captured Nango integrations. personal-connection-attribution: per-source audience (personal default | organization).",
       "tests": [
         "tests/source-lane/providers/nango-records/sync.test.ts",
         "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
         "tests/source-lane/providers/nango-records/export.test.ts",
-        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+        "tests/source-lane/providers/nango-records/config-registry.test.ts",
+        "tests/source-lane/providers/nango-records/personal-owner-scopes.test.ts"
       ]
     },
     {
@@ -5473,15 +5502,16 @@
     },
     {
       "path": "src/source-lane/providers/nango-records/index.ts",
-      "sha256": "e8c114a35182233f27706e702881d9b88c53028e7f4e388f8b02ee6d298f3192",
+      "sha256": "4181b8ca29283ca861ca2b9cdd1fefd853ff98450868db12c7e141419e98cfd1",
       "status": "new",
-      "owner": "nango-expansion",
-      "reason": "Module factory (control module + one per configured source), withNangoRecordsProviders for providers/index.ts, guarded donor webhook delegate registration.",
+      "owner": "nango-expansion, personal-connection-attribution",
+      "reason": "Module factory (control module + one per configured source), withNangoRecordsProviders for providers/index.ts, guarded donor webhook delegate registration. personal-connection-attribution: personal sources are ownerScoped (publishable from an owner scope).",
       "tests": [
         "tests/source-lane/providers/nango-records/sync.test.ts",
         "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
         "tests/source-lane/providers/nango-records/export.test.ts",
-        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+        "tests/source-lane/providers/nango-records/config-registry.test.ts",
+        "tests/source-lane/providers/nango-records/personal-owner-scopes.test.ts"
       ]
     },
     {
@@ -5512,15 +5542,16 @@
     },
     {
       "path": "src/source-lane/providers/nango-records/routes.ts",
-      "sha256": "3a4cac920b79327dc26163cd6223a91b3709b03c51b844b8a3123c15d32e6c38",
+      "sha256": "baaec78042291d39cf34f0a1d5797da2f354cf3771684a85ec389bad5a5cd9b7",
       "status": "new",
-      "owner": "nango-expansion",
-      "reason": "Internal setup API (status, connect sessions, session status/reconcile, disconnect, sync now): forwarded-principal scopes, strict bodies, tenant only from core middleware.",
+      "owner": "nango-expansion, personal-connection-attribution",
+      "reason": "Internal setup API (status, connect sessions, session status/reconcile, disconnect, sync now): forwarded-principal scopes, strict bodies, tenant only from core middleware. personal-connection-attribution: personal sources connected, listed, synced and disconnected per caller owner scope (memory:read); organization sources admin-only in the tenant; status never lists another member's personal connections.",
       "tests": [
         "tests/source-lane/providers/nango-records/sync.test.ts",
         "tests/source-lane/providers/nango-records/webhook-connect.test.ts",
         "tests/source-lane/providers/nango-records/export.test.ts",
-        "tests/source-lane/providers/nango-records/config-registry.test.ts"
+        "tests/source-lane/providers/nango-records/config-registry.test.ts",
+        "tests/source-lane/providers/nango-records/personal-owner-scopes.test.ts"
       ]
     },
     {
@@ -6627,11 +6658,31 @@
       ]
     },
     {
-      "path": "tests/source-lane/core/runtime-pg.test.ts",
-      "sha256": "bcdcf4b48962c3eb755c5f3318505597396c47eecf79b65f24a6912be2c82801",
+      "path": "tests/source-lane/core/personal-scope-e2e-pg.test.ts",
+      "sha256": "6eb7a4d83d9233fa7ca7c34e9d564fe0cc8eddc7b2a1206f1105403629f1b4c9",
       "status": "new",
-      "owner": "coordinator",
-      "reason": "Core real-PG e2e; coordinator updates: x-nango-hmac-sha256 header (nango request 2) and confluence.sweep schedule (confluence request 1).",
+      "owner": "personal-connection-attribution",
+      "reason": "personal-connection-attribution: Real runtime + real yc_msaw + real PostgreSQL: two members' own Granola/Zoom/iMessage/coding sessions, legacy sealing (pre-export, backfill re-date, purge), disconnect/revoke per owner.",
+      "tests": [
+        "tests/source-lane/core/personal-scope-e2e-pg.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/core/personal-scope.test.ts",
+      "sha256": "7d0c5d768f758c6f25c02875b9a42a0c0b7d656d4e7b251159070fb0082f5ffc",
+      "status": "new",
+      "owner": "personal-connection-attribution",
+      "reason": "personal-connection-attribution: Pure owner-scope contracts: segment/scope id (unaddressable), path rewrite allowlist, heartbeat bounded within yc_msaw StatusReportSchema limits.",
+      "tests": [
+        "tests/source-lane/core/personal-scope.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/core/runtime-pg.test.ts",
+      "sha256": "de5cf33ad5b7e4135e3108d1fa568d3effdbf60e19302656c876d3d326859d6c",
+      "status": "new",
+      "owner": "coordinator, personal-connection-attribution",
+      "reason": "Core real-PG e2e; coordinator updates: x-nango-hmac-sha256 header (nango request 2) and confluence.sweep schedule (confluence request 1). personal-connection-attribution: Granola raw-number fidelity read through the reader's own owner scope (organization-level rows are legacy, sealed).",
       "tests": [
         "tests/source-lane/core/runtime-pg.test.ts"
       ]
@@ -7619,10 +7670,23 @@
     },
     {
       "path": "tests/source-lane/providers/nango-records/harness.ts",
-      "sha256": "292ad79734e4590ce4df70b095c160d99323f261032ca734db9ddaabf793bac7",
+      "sha256": "6205ab1680e4a6abbe33678a3d3f01630a6086c37e4263026534bcb6af189ee0",
       "status": "new",
-      "owner": "nango-expansion",
-      "reason": "Lane test support"
+      "owner": "nango-expansion, personal-connection-attribution",
+      "reason": "Lane test support personal-connection-attribution: default test sources declared audience organization (their tests exercise the tenant-level flow).",
+      "tests": [
+        "tests/source-lane/providers/nango-records/harness.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/nango-records/personal-owner-scopes.test.ts",
+      "sha256": "af3399e9256d70f5141b18bd1bb805935ac35dcfa9180872b2ad29f4de55dd96",
+      "status": "new",
+      "owner": "personal-connection-attribution",
+      "reason": "personal-connection-attribution: Personal Nango sources per member owner scope: connect/status/sync/disconnect isolation, organization sources admin-only, no attach of an existing connection.",
+      "tests": [
+        "tests/source-lane/providers/nango-records/personal-owner-scopes.test.ts"
+      ]
     },
     {
       "path": "tests/source-lane/providers/nango-records/pg.ts",
@@ -7921,10 +7985,10 @@
     },
     {
       "path": "tests/source-lane/providers/whatsapp-personal/unipile.test.ts",
-      "sha256": "6d13c90d6ce48b9f7d2d1d9ca33ce495036d4f371ac5496bf1c99dbdc7d869a4",
+      "sha256": "4bb599c7d931150618929a9755c92455dc44897623cea532e7ea7a2710845df6",
       "status": "new",
-      "owner": "coordinator",
-      "reason": "Unipile lanes regression suite.",
+      "owner": "coordinator, personal-connection-attribution",
+      "reason": "Unipile lanes regression suite. personal-connection-attribution: owner-scope case: another member cannot attach an already connected account.",
       "tests": [
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
       ]

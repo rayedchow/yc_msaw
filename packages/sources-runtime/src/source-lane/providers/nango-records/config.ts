@@ -16,7 +16,12 @@ import type { SourceProviderModule } from "../../core/types.js";
  *
  *   {"version":1,"sources":[{"source":"outlook","providerConfigKey":"<your integration id>",
  *     "models":["<SyncModel>", {"model":"<SyncModel2>","eventType":"outlook_event"}],
- *     "discoverModels":false,"pollSeconds":300,"maxConcurrentSyncs":2}]}
+ *     "discoverModels":false,"pollSeconds":300,"maxConcurrentSyncs":2,"audience":"personal"}]}
+ *
+ * `audience` (default "personal"): whose account a connection is. A personal source is connected by any member
+ * into their own owner scope and published under sources/<source>/<owner segment>/, readable by that member only
+ * (core/personal-scope.ts). An "organization" source (one shared workspace account) is connected by an admin for
+ * the tenant; yc_msaw serves it to members only when the operator lists it in SOURCES_SHARED_PROVIDERS.
  *
  * A source that collides with a specialized provider (same directory, activity_events
  * source, or a Nango integration the donor lane already captures) is refused: it is not
@@ -59,6 +64,7 @@ const SourceSchema = z
     maxConcurrentSyncs: z.number().int().min(1).max(MAX_CONCURRENT_SYNCS).default(2),
     /** Extra payload keys holding credentials/ephemeral URLs for this provider (exact key match). */
     redactKeys: z.array(z.string().min(1).max(128)).max(50).default([]),
+    audience: z.enum(["personal", "organization"]).default("personal"),
   })
   .strict();
 
@@ -83,6 +89,7 @@ export interface NangoRecordsSource {
   pollSeconds: number;
   maxConcurrentSyncs: number;
   redactKeys: string[];
+  audience: "personal" | "organization";
 }
 
 export interface RefusedSource {
@@ -176,6 +183,7 @@ export function buildCatalog(raw: unknown, specialized: readonly SourceProviderM
       pollSeconds: s.pollSeconds,
       maxConcurrentSyncs: s.maxConcurrentSyncs,
       redactKeys: s.redactKeys,
+      audience: s.audience,
     });
   }
   return { sources, refused, errors: [] };

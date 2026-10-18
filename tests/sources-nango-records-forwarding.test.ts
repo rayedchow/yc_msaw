@@ -104,10 +104,11 @@ function req(method: string, route: string, key: string | null, body?: unknown) 
 describe("Nango records setup forwarding", () => {
   it("requires the right scope per route", async () => {
     expect((await req("GET", "/v1/sources/nango-records", null)).status).toBe(401);
-    // The lane status names connections of sources members may not read (owner-only): admins only.
-    expect((await req("GET", "/v1/sources/nango-records", reader.key)).status).toBe(403);
-    expect((await req("POST", "/v1/sources/nango-records/connect-sessions", reader.key, { source: "outlook" })).status).toBe(403);
-    expect((await req("DELETE", "/v1/sources/nango-records/connections/outlook/conn-1", reader.key)).status).toBe(403);
+    // Members manage their own personal connections (the runtime scopes every call to the caller's owner scope and
+    // refuses organization sources to non-admins), so memory:read is enough here; a collection-only key is not.
+    expect((await req("GET", "/v1/sources/nango-records", collector.key)).status).toBe(403);
+    expect((await req("POST", "/v1/sources/nango-records/connect-sessions", collector.key, { source: "outlook" })).status).toBe(403);
+    expect((await req("DELETE", "/v1/sources/nango-records/connections/outlook/conn-1", collector.key)).status).toBe(403);
     expect((await req("POST", "/v1/sources/nango-records/sync", collector.key, {})).status).toBe(403);
     expect(seen).toEqual([]);
   });

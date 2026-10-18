@@ -113,20 +113,23 @@ describe("vendored Mac coding-sessions client through yc_msaw setup, commands an
 
       const run = await runCli(home, ["coding-sessions-agent", "--config", configPath, "--once"]);
       expect(run.code, run.stderr).toBe(0);
-      const rows = (await rt.pg.query(`SELECT provider, session_id FROM coding_sessions WHERE tenant_id = 'acme' ORDER BY session_id`)).rows as Any[];
+      // The device writes into its enroller's owner scope of the tenant (personal-connection-attribution).
+      const t = ((await rt.pg.query(`SELECT scope_tenant_id FROM source_lane_personal_devices WHERE binding_id = $1`, [binding.bindingId])).rows[0] as Any).scope_tenant_id as string;
+      expect(t).toMatch(/^acme\.u-[0-9a-f]{24}$/);
+      const rows = (await rt.pg.query(`SELECT provider, session_id FROM coding_sessions WHERE tenant_id = $1 ORDER BY session_id`, [t])).rows as Any[];
       expect(rows.map((r) => `${r.provider}:${r.session_id}`)).toEqual(["claude:chain-claude-1", "codex:chain-codex-0", "codex:chain-codex-1"]);
       const [cmd] = (await rt.pg.query(`SELECT status, result FROM coding_session_commands WHERE id = $1`, [command.id])).rows as Any[];
       expect(cmd).toMatchObject({ status: "completed", result: { fullInventory: true, exhausted: true, capHit: false, sessionsSeen: 3 } });
       const lane = "../packages/sources-runtime/src/integrations/coding-sessions/lane.js";
       const { codingSessionsCoverage } = (await import(/* @vite-ignore */ lane)) as Any;
-      expect((await codingSessionsCoverage({ tenantId: "acme", executor: rt.db }))[0]).toMatchObject({ state: "complete" });
+      expect((await codingSessionsCoverage({ tenantId: t, executor: rt.db }))[0]).toMatchObject({ state: "complete" });
 
       // Revoked in yc_msaw: the next run is refused and the new transcript stays in the Mac's retry queue.
       expect((await call("DELETE", `/v1/sources/bindings/${binding.bindingId}`, keys.admin)).status).toBe(200);
       expect((await call("POST", route, keys.owner, { type: "source_sync" })).status).toBe(404);
       writeCodexSession(path.join(home, ".codex", "sessions", "2026", "09"), "chain-codex-2", "2026-09-22T10:00:00.000Z", "After revoke.", "Not uploaded.");
       expect((await runCli(home, ["coding-sessions-agent", "--config", configPath, "--once"])).code).toBe(0);
-      expect(((await rt.pg.query(`SELECT count(*)::int AS n FROM coding_sessions WHERE tenant_id = 'acme'`)).rows[0] as Any).n).toBe(3);
+      expect(((await rt.pg.query(`SELECT count(*)::int AS n FROM coding_sessions WHERE tenant_id = $1`, [t])).rows[0] as Any).n).toBe(3);
       const queueDir = path.join(home, ".shepherd", "coding-sessions");
       const queue = readdirSync(queueDir).filter((f) => f.endsWith("-queue.json")).flatMap((f) => JSON.parse(readFileSync(path.join(queueDir, f), "utf8")) as Any[]);
       expect(queue.map((s) => s.sessionId)).toEqual(["chain-codex-2"]);

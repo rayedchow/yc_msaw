@@ -267,3 +267,20 @@ describe("registration and export", () => {
     expect((await whatsappPersonalLane.sync(T, deps({} as NodeJS.ProcessEnv)))[0]).toMatchObject({ status: "disabled" });
   });
 });
+
+describe("owner scopes (personal-connection-attribution)", () => {
+  it("lets each member connect their own account; another member of the organization cannot attach an account already connected", async () => {
+    const { ensurePersonalScope } = await import("../../../../src/source-lane/core/personal-scope.js");
+    const bob = await ensurePersonalScope(db as never, { tenantNs: T, issuer: "https://issuer.test", subject: "user_bob" });
+    const carol = await ensurePersonalScope(db as never, { tenantNs: T, issuer: "https://issuer.test", subject: "user_carol" });
+    await connect(whatsappPersonalLane, "acc_wa", bob.scopeTenantId);
+    // Holding the (workspace-wide) Unipile key is not proof of whose account it is: bob's account stays bob's.
+    const r = await whatsappPersonalLane.connect({ tenantId: carol.scopeTenantId, body: { apiKey: KEY, accountId: "acc_wa", apiBase: BASE } }, deps());
+    expect(r.status).toBe(409);
+    expect(r.body).toMatchObject({ error: { code: "account_connected_by_another_member" } });
+    expect(await query("SELECT tenant_id FROM whatsapp_personal_connections WHERE account_id = 'acc_wa'")).toEqual([{ tenant_id: bob.scopeTenantId }]);
+    // Another organization is a different tenant: its own member connects normally.
+    const dave = await ensurePersonalScope(db as never, { tenantNs: T2, issuer: "https://issuer.test", subject: "user_dave" });
+    await connect(whatsappPersonalLane, "acc_wa", dave.scopeTenantId);
+  });
+});

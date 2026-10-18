@@ -208,6 +208,8 @@ export async function granolaNoteChanges(
 
   const ledger = await loadLedger(ctx, noteId);
   const payload = latest.payload;
+  // Paths written into note.json name where the files are published (a personal owner scope adds its segment).
+  const pub = (path: string) => (ctx.publicPath ? ctx.publicPath(path) : path);
   const dir = granolaNoteDirectory(noteId, text(payload.title) ?? catalog.title);
   const latestRow = ledger.find((r) => r.id === catalog.latest_event_id);
   const api = obj(payload.api);
@@ -237,14 +239,14 @@ export async function granolaNoteChanges(
       activityEventId: catalog.latest_event_id,
       sourceEventId: catalog.latest_source_event_id,
       capturedAt: isoOrNull(catalog.latest_captured_at),
-      raw: latestRow ? await granolaRawPathOf(latestRow) : null,
+      raw: latestRow ? pub(await granolaRawPathOf(latestRow)) : null,
       apiSource: api?.source ?? null,
       transcriptIncluded: api?.transcriptIncluded ?? null,
       transcriptError: api?.transcriptError ?? null,
       transcriptSegments: catalog.transcript_segments,
-      summary: `${dir}/summary.md`,
-      transcript: `${dir}/transcript.md`,
-      transcriptSegmentsFile: `${dir}/transcript.json`,
+      summary: pub(`${dir}/summary.md`),
+      transcript: pub(`${dir}/transcript.md`),
+      transcriptSegmentsFile: pub(`${dir}/transcript.json`),
     },
     history: {
       revisions: Number(catalog.revision_count),
@@ -257,7 +259,7 @@ export async function granolaNoteChanges(
       sourceEventId: r.source_event_id,
       updatedAt: r.updated_at_src,
       capturedAt: isoOrNull(r.created_at),
-      raw: await granolaRawPathOf(r),
+      raw: pub(await granolaRawPathOf(r)),
       ...(r.event_type === "meeting_note.deleted"
         ? { deletionReason: r.deletion_reason }
         : { apiSource: r.api_source, transcriptIncluded: r.transcript_included, transcriptSegments: r.transcript_len, transcriptError: r.transcript_error }),

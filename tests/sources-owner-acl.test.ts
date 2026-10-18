@@ -7,6 +7,8 @@ import { Client, StreamableHTTPClientTransport } from "@modelcontextprotocol/cli
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { createApp, type App } from "../src/app.js";
 import { startMockIssuer, type MockIssuer } from "../src/auth/testing/mock-issuer.js";
+import { tenantNsFor } from "../src/auth/tenant.js";
+import { personalSegment } from "../src/sources/access.js";
 import { DirectoryObjectStore } from "../src/store/objects.js";
 import { sha256 } from "../src/util.js";
 
@@ -28,7 +30,15 @@ let mcpUrl: string;
 let fakeRuntime: Server;
 let runtimeToken: string;
 let provisioned = "";
-const connectedProviders = new Set<string>(["zoom"]); // zoom: connected before owners were recorded (legacy)
+const connectedProviders = new Set<string>(["zoom"]); // zoom: connected before owner scopes existed (legacy, organization-level)
+/** Personal accounts per owner segment (the runtime connects them into the caller's owner scope). */
+const personalConnected = new Map<string, Set<string>>();
+/** The caller's owner segment, as the runtime derives it from the forwarded verified principal. */
+function callerSegment(req: { headers: Record<string, string | string[] | undefined> }): string {
+  const p = JSON.parse(String(req.headers["x-procmem-principal"])) as { tenantNs: string; subject: string; issuer: string };
+  return personalSegment(p.tenantNs, p);
+}
+const PERSONAL = new Set(["granola", "zoom", "cursor_background_agents", "whatsapp_personal", "instagram_personal"]);
 let failNextCodingEnrol = false;
 let failStatus = false;
 const tok: Record<"alice" | "bob" | "carol" | "outsider", string> = { alice: "", bob: "", carol: "", outsider: "" };
@@ -65,7 +75,8 @@ async function report(googleAccounts?: Array<{ account: string; subject: string 
       { provider: "gmail", scope: "mailbox:alice@acme.test", state: "complete", lastSuccessAt: now },
       { provider: "gmail", scope: "mailbox:bob@acme.test", state: "partial", reason: "bob@acme.test backfill running", lastSuccessAt: now },
       { provider: "gmail", scope: "export", state: "pending", reason: "7 change(s) waiting to be exported" },
-      { provider: "granola", scope: "notes", state: "complete", lastSuccessAt: now },
+      { provider: "granola", scope: "notes", state: "complete", lastSuccessAt: now }, // organization-level (legacy)
+      { provider: "granola", scope: `owner:${seg("user_bob")}/notes`, state: "complete", lastSuccessAt: now },
       { provider: "jira", scope: "site:acme", state: "complete", lastSuccessAt: now },
     ],
     runtime: { reportIntervalSeconds: 300 },
@@ -88,6 +99,8 @@ async function tool(who: keyof typeof tok, name: string, args: Record<string, un
 }
 
 const names = (ls: Record<string, any>) => (ls.entries ?? []).map((e: any) => e.name);
+/** `$SOURCES/<provider>/<segment>/`: where a member's connected personal accounts are published. */
+const seg = (sub: string) => personalSegment(tenantNsFor(issuer.issuer, { organizationId: "org_acme", subject: sub }), { subject: sub, issuer: issuer.issuer });
 
 beforeAll(async () => {
   dir = await mkdtemp(path.join(os.tmpdir(), "sources-owner-acl-"));
@@ -101,16 +114,26 @@ beforeAll(async () => {
       provisioned = (JSON.parse(raw) as { token: string }).token;
       return void res.writeHead(200).end(JSON.stringify({ ok: true }));
     }
-    if (req.method === "POST" && /\/devices\/imessage$/.test(url)) return void res.writeHead(201).end(JSON.stringify({ device: { id: "dev-1" } }));
-    if (req.method === "POST" && /\/connect\/granola$/.test(url)) {
-      connectedProviders.add("granola");
+    if (req.method === "POST" && /\/devices\/(imessage|office-audio)$/.test(url)) return void res.writeHead(201).end(JSON.stringify({ device: { id: "dev-1" } }));
+    const personalConnect = /\/connect\/([a-z_]+)$/.exec(url);
+    if (req.method === "POST" && personalConnect && ["granola", "zoom", "cursor_background_agents"].includes(personalConnect[1]!)) {
+      const seg = callerSegment(req);
+      personalConnected.set(seg, new Set([...(personalConnected.get(seg) ?? []), personalConnect[1]!]));
       return void res.writeHead(200).end(JSON.stringify({ connected: true }));
     }
     if (req.method === "DELETE" && /\/devices\/[a-z-]+\/sb-[0-9a-f]{16}$/.test(url)) return void res.writeHead(200).end(JSON.stringify({ revoked: true }));
-    if (req.method === "DELETE" && /\/connections\/(granola|cursor_background_agents)$/.test(url)) return void res.writeHead(200).end(JSON.stringify({ status: "revoked" }));
+    const disconnect = /\/connections\/([a-z_]+)(\?legacy=organization)?$/.exec(url);
+    if (req.method === "DELETE" && disconnect && PERSONAL.has(disconnect[1]!)) {
+      // Organization-level legacy connection, or the caller's own account (never another member's).
+      if (disconnect[2]) return void res.writeHead(connectedProviders.delete(disconnect[1]!) ? 200 : 404).end(JSON.stringify({ status: "revoked" }));
+      const mine = personalConnected.get(callerSegment(req));
+      return void res.writeHead(mine?.delete(disconnect[1]!) ? 200 : 404).end(JSON.stringify(mine ? { status: "revoked" } : { error: { code: "not_connected" } }));
+    }
     if (req.method === "GET" && /\/status$/.test(url) && failStatus) return void res.writeHead(500).end(JSON.stringify({ connections: [{ provider: "google", external_account_id: "bob@acme.test" }] }));
     if (req.method === "GET" && /\/status$/.test(url)) {
+      const seg = callerSegment(req);
       return void res.writeHead(200).end(JSON.stringify({
+        personal: personalConnected.has(seg) ? { segment: seg, connections: [...personalConnected.get(seg)!].map((provider) => ({ provider, status: "active" })) } : null,
         tenantId: "t",
         connections: [
           { provider: "google", status: "active", external_account_id: "alice@acme.test" },
@@ -122,7 +145,8 @@ beforeAll(async () => {
           { provider: "gmail", scope: "mailbox:alice@acme.test", state: "complete" },
           { provider: "gmail", scope: "mailbox:bob@acme.test", state: "partial" },
           { provider: "google-auth", scope: "account:bob@acme.test", state: "complete" },
-          { provider: "granola", scope: "account:api-key", state: "complete" },
+          { provider: "granola", scope: "account:api-key", state: "complete" }, // organization-level (legacy)
+          ...[...personalConnected].filter(([, ps]) => ps.has("granola")).map(([s]) => ({ provider: "granola", scope: `owner:${s}/account:api-key`, state: "complete" })),
           { provider: "jira", scope: "site:acme", state: "complete" },
         ],
       }));
@@ -214,25 +238,27 @@ describe("owner-only personal sources for members of one organization", () => {
     }
   });
 
-  it("enrols each personal source to exactly one member and refuses a second owner", async () => {
-    const aliceMac = await http("POST", "/v1/sources/devices/imessage/setup", tok.alice, {});
-    expect(aliceMac.status).toBe(201);
-    const bobMac = await http("POST", "/v1/sources/devices/imessage/setup", tok.bob, {});
-    expect(bobMac.status).toBe(409);
-    expect(((await bobMac.json()) as any).error.code).toBe("owner_conflict");
+  it("enrols each member's own devices and connects each member's own personal accounts side by side", async () => {
+    // Devices: each member enrols their own Mac into their own owner scope (data under imessage/<their segment>/).
+    expect((await http("POST", "/v1/sources/devices/imessage/setup", tok.alice, {})).status).toBe(201);
+    expect((await http("POST", "/v1/sources/devices/imessage/setup", tok.bob, {})).status).toBe(201);
     // A second Mac of the same owner is fine.
     expect((await http("POST", "/v1/sources/devices/imessage/setup", tok.alice, { label: "second Mac" })).status).toBe(201);
+    // Connected personal accounts: every member connects their own, into their own owner scope (no first claimer).
     expect((await http("POST", "/v1/sources/connect/granola", tok.bob, { apiKey: "grn_synthetic" })).status).toBe(200);
-    const aliceGranola = await http("POST", "/v1/sources/connect/granola", tok.alice, { apiKey: "grn_synthetic_2" });
-    expect(aliceGranola.status).toBe(409);
-    // Data that predates owner records cannot be adopted by whoever enrols first: it stays sealed.
-    const legacy = await http("POST", "/v1/sources/devices/office-audio/setup", tok.alice, {});
-    expect(legacy.status).toBe(409);
-    expect(((await legacy.json()) as any).error.reason).toBe("unowned_legacy_data");
+    expect((await http("POST", "/v1/sources/connect/granola", tok.alice, { apiKey: "grn_synthetic_2" })).status).toBe(200);
+    // Data that predates owner records is not adopted by whoever enrols next: a new device writes under its own
+    // segment, and the unsegmented legacy file stays sealed.
+    expect((await http("POST", "/v1/sources/devices/office-audio/setup", tok.alice, {})).status).toBe(201);
     expect((await tool("alice", "read", { path: "$SOURCES/office-audio/2026-09/s1/transcript.md" })).code).toBe("not_found");
+    expect((await tool("alice", "sources_history", { path: "$SOURCES/office-audio/2026-09/s1/transcript.md" })).versions).toEqual([]);
     await publish("after-enrolment", [
-      put("sources/imessage/Mom-chat-1/2026-10.md", "messages: needle-imessage\n"),
-      put("sources/granola/Board-meeting-1/summary.md", "meeting notes: needle-granola\n"),
+      put(`sources/imessage/${seg("user_alice")}/Mom-chat-1/2026-10.md`, "messages: needle-imessage\n"),
+      put(`sources/imessage/${seg("user_bob")}/Mom-chat-1/2026-10.md`, "bob's own chat with the same name: needle-bob-imessage\n"),
+      put(`sources/granola/${seg("user_bob")}/Board-meeting-1/summary.md`, "meeting notes: needle-granola\n"),
+      put(`sources/granola/${seg("user_alice")}/Standup-meeting-2/summary.md`, "alice notes: needle-alice-granola\n"),
+      // Captured before owner scopes (organization-level, unsegmented): nobody's, whoever connects later.
+      put("sources/granola/Legacy-meeting-0/summary.md", "legacy notes: needle-legacy-granola\n"),
     ]);
     // Google owners come from the runtime's verified OAuth grants (a DWD-only mailbox has none).
     await report([
@@ -243,8 +269,9 @@ describe("owner-only personal sources for members of one organization", () => {
 
   it("lists, reads, finds and greps only the caller's own personal sources", async () => {
     const aliceRoot = names(await tool("alice", "ls", { path: "$SOURCES" }));
-    expect(aliceRoot).toEqual(["calendar/", "gmail/", "imessage/", "jira/", "slack/"]);
-    expect(names(await tool("bob", "ls", { path: "$SOURCES" }))).toEqual(["calendar/", "gmail/", "granola/", "jira/", "slack/"]);
+    expect(aliceRoot).toEqual(["calendar/", "gmail/", "granola/", "imessage/", "jira/", "slack/"]);
+    expect(names(await tool("bob", "ls", { path: "$SOURCES" }))).toEqual(["calendar/", "gmail/", "granola/", "imessage/", "jira/", "slack/"]);
+    expect(names(await tool("bob", "ls", { path: "$SOURCES/imessage" }))).toEqual([`${seg("user_bob")}/`]);
     expect(names(await tool("carol", "ls", { path: "$SOURCES" }))).toEqual(["jira/", "slack/"]);
 
     const gmail = await tool("alice", "ls", { path: "$SOURCES/gmail" });
@@ -253,15 +280,19 @@ describe("owner-only personal sources for members of one organization", () => {
     expect((await tool("alice", "read", { path: `$SOURCES/${ALICE_MAIL.slice(8)}` })).content).toContain("needle-alice");
     expect((await tool("alice", "read", { path: "$SOURCES/gmail/_raw/mailbox:alice@acme.test/message:m1/2026-10/gmail:m1.json" })).content).toContain("needle-alice-raw");
     expect((await tool("bob", "read", { path: "$SOURCES/gmail/_raw/mailbox:alice@acme.test/message:m1/2026-10/gmail:m1.json" })).code).toBe("not_found");
-    for (const p of [BOB_MAIL, "sources/granola/Board-meeting-1/summary.md", "sources/google-docs/Plan-doc-1/document.md", "sources/calendar/2026/10/standup.md", "sources/slack/D0123ABCD/2026-10-01.md"]) {
+    expect(names(await tool("alice", "ls", { path: "$SOURCES/granola" }))).toEqual([`${seg("user_alice")}/`]);
+    expect(names(await tool("bob", "ls", { path: "$SOURCES/granola" }))).toEqual([`${seg("user_bob")}/`]);
+    for (const p of [BOB_MAIL, `sources/granola/${seg("user_bob")}/Board-meeting-1/summary.md`, "sources/granola/Legacy-meeting-0/summary.md", "sources/google-docs/Plan-doc-1/document.md", "sources/calendar/2026/10/standup.md", "sources/slack/D0123ABCD/2026-10-01.md"]) {
       const r = await tool("alice", "read", { path: `$SOURCES/${p.slice(8)}` });
       expect(r.code, p).toBe("not_found");
       expect(r.error).toBe(`No such file or directory: $SOURCES/${p.slice(8)}`);
     }
     expect((await tool("alice", "ls", { path: "$SOURCES/gmail/bob@acme.test" })).code).toBe("not_found");
-    expect((await tool("bob", "read", { path: "$SOURCES/imessage/Mom-chat-1/2026-10.md" })).code).toBe("not_found");
-    expect((await tool("bob", "read", { path: "$SOURCES/granola/Board-meeting-1/summary.md" })).content).toContain("needle-granola");
-    expect((await tool("alice", "read", { path: "$SOURCES/imessage/Mom-chat-1/2026-10.md" })).content).toContain("needle-imessage");
+    expect((await tool("bob", "read", { path: `$SOURCES/imessage/${seg("user_alice")}/Mom-chat-1/2026-10.md` })).code).toBe("not_found");
+    expect((await tool("bob", "read", { path: `$SOURCES/granola/${seg("user_bob")}/Board-meeting-1/summary.md` })).content).toContain("needle-granola");
+    expect((await tool("bob", "read", { path: `$SOURCES/granola/${seg("user_alice")}/Standup-meeting-2/summary.md` })).code).toBe("not_found");
+    expect((await tool("bob", "read", { path: "$SOURCES/granola/Legacy-meeting-0/summary.md" })).code).toBe("not_found");
+    expect((await tool("alice", "read", { path: `$SOURCES/imessage/${seg("user_alice")}/Mom-chat-1/2026-10.md` })).content).toContain("needle-imessage");
 
     const grep = await tool("alice", "grep", { path: "$SOURCES", pattern: "needle-[a-z-]+" });
     const hits = grep.matches.map((m: any) => m.path).sort();
@@ -269,7 +300,8 @@ describe("owner-only personal sources for members of one organization", () => {
       "$SOURCES/calendar/accounts/alice@acme.test/calendars/primary/events/e1.md",
       "$SOURCES/gmail/_raw/mailbox:alice@acme.test/message:m1/2026-10/gmail:m1.json",
       `$SOURCES/${ALICE_MAIL.slice(8)}`,
-      "$SOURCES/imessage/Mom-chat-1/2026-10.md",
+      `$SOURCES/granola/${seg("user_alice")}/Standup-meeting-2/summary.md`,
+      `$SOURCES/imessage/${seg("user_alice")}/Mom-chat-1/2026-10.md`,
       "$SOURCES/jira/ACME/ACME-1.md",
       "$SOURCES/slack/C1/2026-10-01.md",
     ]);
@@ -293,19 +325,25 @@ describe("owner-only personal sources for members of one organization", () => {
 
     const st = await tool("alice", "sources_status", {});
     const providers = st.providers.map((p: any) => p.provider);
-    expect(providers).not.toContain("granola");
     expect(providers).not.toContain("google-docs");
+    // Her own Granola subtree: its own totals; the organization-level (legacy) and bob's coverage are not hers.
+    const granola = st.providers.find((p: any) => p.provider === "granola");
+    expect(granola.files).toBe(1);
+    expect(granola.coverage).toEqual([]);
+    const bobGranola = (await tool("bob", "sources_status", {})).providers.find((p: any) => p.provider === "granola");
+    expect(bobGranola.coverage.map((c: any) => c.scope)).toEqual([`owner:${seg("user_bob")}/notes`]);
     const g = st.providers.find((p: any) => p.provider === "gmail");
     expect(g.files).toBeNull();
     expect(g.coverage.map((c: any) => c.scope)).toEqual(["mailbox:alice@acme.test"]);
     expect(JSON.stringify(st)).not.toContain("bob@acme.test");
-    expect(st.bindings.filter((b: any) => b.kind === "device")).toHaveLength(2);
-    expect((await tool("bob", "sources_status", {})).bindings.filter((b: any) => b.kind === "device")).toHaveLength(0);
+    expect(st.bindings.filter((b: any) => b.kind === "device")).toHaveLength(3); // two Macs + office audio
+    expect((await tool("bob", "sources_status", {})).bindings.filter((b: any) => b.kind === "device")).toHaveLength(1);
     expect((await tool("carol", "sources_status", {})).providers.map((p: any) => p.provider)).toEqual(["jira", "slack"]);
 
     const admin = (await (await http("GET", "/v1/sources/status", tok.bob)).json()) as any;
     expect(admin.providers.map((p: any) => p.provider)).toContain("granola");
-    expect(admin.providers.map((p: any) => p.provider)).not.toContain("imessage");
+    // bob's own Mac data only: alice's iMessage files are not counted in his totals.
+    expect(admin.providers.find((p: any) => p.provider === "imessage")).toMatchObject({ files: 1 });
     expect(JSON.stringify(admin.providers)).not.toContain("alice@acme.test");
   });
 
@@ -315,9 +353,14 @@ describe("owner-only personal sources for members of one organization", () => {
     expect(carol.coverage.map((c: any) => c.provider)).toEqual(["jira"]);
     expect(carol.connections.map((c: any) => c.provider)).toEqual(["jira"]);
     const alice = await rt("alice", "/v1/sources/runtime/status");
-    expect(alice.coverage.map((c: any) => c.scope)).toEqual(["mailbox:alice@acme.test", "site:acme"]);
+    expect(alice.coverage.map((c: any) => c.scope)).toEqual(["mailbox:alice@acme.test", `owner:${seg("user_alice")}/account:api-key`, "site:acme"]);
     expect(JSON.stringify(alice)).not.toContain("bob@acme.test");
-    expect((await rt("bob", "/v1/sources/runtime/status")).connections.map((c: any) => c.provider)).toEqual(["google", "granola", "jira"]);
+    expect(JSON.stringify(alice)).not.toContain(seg("user_bob"));
+    const bob = await rt("bob", "/v1/sources/runtime/status");
+    // The organization-level (legacy) zoom connection is nobody's; bob's own accounts come in `personal`.
+    expect(bob.connections.map((c: any) => c.provider)).toEqual(["google", "jira"]);
+    expect(bob.personal).toEqual({ segment: seg("user_bob"), connections: [{ provider: "granola", status: "active" }] });
+    expect(carol.personal).toBeNull();
     // Members see only their own Google accounts; admins manage every grant (auth metadata only, never data).
     const member = await rt("carol", "/v1/sources/google/auth");
     expect(member.accounts).toEqual([]);
@@ -375,9 +418,10 @@ describe("owner-only personal sources for members of one organization", () => {
     const p = "$SOURCES/slack/mpdm-a--b-channel-9f/threads/t1.md";
     expect((await tool("carol", "read", { path: p })).code).toBe("not_found");
     expect((await tool("carol", "sources_history", { path: p })).versions).toEqual([]);
-    // F5/F6: a plain member connects their own personal account (underscore integration id) and owns it.
+    // F5/F6: a plain member connects their own personal account (underscore integration id); another member
+    // connects theirs too (separate owner scopes, no owner slot to take).
     expect((await http("POST", "/v1/sources/connect/cursor_background_agents", tok.carol, { apiKey: "synthetic" })).status).toBe(200);
-    expect((await http("POST", "/v1/sources/connect/cursor_background_agents", tok.bob, { apiKey: "synthetic" })).status).toBe(409);
+    expect((await http("POST", "/v1/sources/connect/cursor_background_agents", tok.bob, { apiKey: "synthetic" })).status).toBe(200);
     expect((await http("POST", "/v1/sources/connect/jira", tok.carol, {})).status).toBe(403); // shared tools stay admin-only
     expect((await http("POST", "/v1/sources/google/auth/oauth/start", tok.carol, { account: "self" })).status).toBe(201);
     // F6: a refused connect leaves no owner behind.
@@ -387,22 +431,37 @@ describe("owner-only personal sources for members of one organization", () => {
     failNextCodingEnrol = true;
     expect((await http("POST", "/v1/sources/devices/coding-sessions/setup", tok.carol, {})).status).toBe(502);
     expect((await http("POST", "/v1/sources/devices/coding-sessions/setup", tok.bob, {})).status).toBe(201);
-    // F8: a provider the runtime already holds a connection for (connected before owners existed) cannot be claimed.
-    const zoom = await http("POST", "/v1/sources/connect/zoom", tok.carol, { mode: "oauth" });
-    expect(zoom.status).toBe(409);
-    expect(((await zoom.json()) as any).error.reason).toBe("unowned_legacy_data");
+    // F8: data of a connection made before owner scopes (organization-level zoom) stays sealed after a member
+    // connects their own Zoom, including rows exported only after that connect; the member reads only their own.
+    await publish("zoom-legacy-1", [put("sources/zoom/Legacy-meeting-1/summary.md", "legacy zoom: needle-legacy-zoom\n")]);
+    expect((await http("POST", "/v1/sources/connect/zoom", tok.carol, { mode: "oauth" })).status).toBe(200);
+    await publish("zoom-legacy-2", [
+      put("sources/zoom/Legacy-meeting-2/summary.md", "legacy zoom exported after the connect: needle-legacy-zoom-2\n"),
+      put(`sources/zoom/${seg("user_carol")}/Carol-meeting-1/summary.md`, "carol zoom: needle-carol-zoom\n"),
+    ]);
+    for (const p of ["zoom/Legacy-meeting-1/summary.md", "zoom/Legacy-meeting-2/summary.md"]) {
+      expect((await tool("carol", "read", { path: `$SOURCES/${p}` })).code).toBe("not_found");
+      expect((await tool("carol", "sources_history", { path: `$SOURCES/${p}` })).versions).toEqual([]);
+    }
+    expect((await tool("carol", "read", { path: `$SOURCES/zoom/${seg("user_carol")}/Carol-meeting-1/summary.md` })).content).toContain("needle-carol-zoom");
+    expect((await tool("bob", "read", { path: `$SOURCES/zoom/${seg("user_carol")}/Carol-meeting-1/summary.md` })).code).toBe("not_found");
+    expect((await tool("carol", "grep", { path: "$SOURCES/zoom", pattern: "needle-[a-z0-9-]+" })).matches.map((m: any) => m.path)).toEqual([
+      `$SOURCES/zoom/${seg("user_carol")}/Carol-meeting-1/summary.md`,
+    ]);
   });
 
   it("closes the owner-acl re-audit findings (purged legacy, sticky withholding, owner self-service stop, relays)", async () => {
-    // NEW-1: legacy data that was purged (ordinary deletes) still has readable history: it blocks a first claim.
+    // NEW-1: legacy data that was purged (ordinary deletes) keeps its history sealed whoever connects afterwards.
     await publish("legacy-wa", [put("sources/whatsapp-personal/acct/chat/2026-01/m.json", "legacy chat: needle-legacy-wa\n")]);
     const at = new Date().toISOString();
     await publish("legacy-wa-purge", [{ op: "delete", path: "sources/whatsapp-personal/acct/chat/2026-01/m.json", deletedAt: at, reason: "operator_purge", capturedAt: at }]);
-    const wa = await http("POST", "/v1/sources/connect/instagram_personal", tok.carol, {});
-    expect(wa.status).not.toBe(201); // unrelated provider: unaffected (fake runtime refuses it)
-    const claim = await http("POST", "/v1/sources/connect/whatsapp_personal", tok.carol, {});
-    expect(claim.status).toBe(409);
-    expect(((await claim.json()) as any).error.reason).toBe("unowned_legacy_data");
+    expect((await http("POST", "/v1/sources/connect/whatsapp_personal", tok.carol, {})).status).toBe(400); // fake runtime refuses
+    await publish("carol-wa", [put(`sources/whatsapp-personal/${seg("user_carol")}/acct2/chat/2026-10/m.json`, "carol chat: needle-carol-wa\n")]);
+    for (const who of ["carol", "alice"] as const) {
+      expect((await tool(who, "sources_history", { path: "$SOURCES/whatsapp-personal/acct/chat/2026-01/m.json" })).versions).toEqual([]);
+    }
+    expect((await tool("carol", "read", { path: `$SOURCES/whatsapp-personal/${seg("user_carol")}/acct2/chat/2026-10/m.json` })).content).toContain("needle-carol-wa");
+    expect(names(await tool("carol", "ls", { path: "$SOURCES/whatsapp-personal" }))).toEqual([`${seg("user_carol")}/`]);
     // NEW-2: once a path is withheld, a later put does not restore it (its earlier versions stay sealed).
     const p = "sources/slack/mpdm-x--y-channel-77/threads/t.md";
     await publish("dm-1", [put(p, "group dm v1: needle-sticky\n")]);
@@ -421,11 +480,18 @@ describe("owner-only personal sources for members of one organization", () => {
     expect(devices.length).toBeGreaterThan(0);
     expect((await http("DELETE", `/v1/sources/bindings/${devices[0].bindingId}`, tok.carol)).status).toBe(403);
     expect((await http("DELETE", `/v1/sources/bindings/${devices[0].bindingId}`, tok.alice)).status).toBe(200);
-    expect((await http("DELETE", "/v1/sources/connections/granola", tok.carol)).status).toBe(403);
+    // Disconnect reaches only the caller's own account: carol has no Granola, so bob's stays connected.
+    expect((await http("DELETE", "/v1/sources/connections/granola", tok.carol)).status).toBe(404);
     expect((await http("DELETE", "/v1/sources/connections/granola", tok.bob)).status).toBe(200);
-    // A plain member (carol owns cursor-agents) disconnects her own account; another member cannot.
+    expect(personalConnected.get(seg("user_alice"))?.has("granola")).toBe(true);
+    // A plain member disconnects her own account; a member of another organization reaches nothing here.
     expect((await http("DELETE", "/v1/sources/connections/cursor_background_agents", tok.outsider)).status).not.toBe(200);
     expect((await http("DELETE", "/v1/sources/connections/cursor_background_agents", tok.carol)).status).toBe(200);
+    expect(personalConnected.get(seg("user_bob"))?.has("cursor_background_agents")).toBe(true);
+    // Only an admin stops the organization-level legacy connection (its data stays sealed).
+    expect((await http("DELETE", "/v1/sources/connections/zoom?legacy=organization", tok.carol)).status).toBe(403);
+    expect((await http("DELETE", "/v1/sources/connections/zoom?legacy=organization", tok.alice)).status).toBe(200);
+    expect(connectedProviders.has("zoom")).toBe(false);
     // N4: a failing runtime status is never relayed (its body could carry other owners' data).
     failStatus = true;
     const rs = await http("GET", "/v1/sources/runtime/status", tok.carol);

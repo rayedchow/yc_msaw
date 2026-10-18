@@ -38,12 +38,22 @@ device or account, and becomes its owner.
 
 | `$SOURCES/...` | Owner | Enrolment |
 | --- | --- | --- |
-| `imessage/`, `coding-sessions/`, `office-audio/` | the principal whose device setup succeeded (revoked devices still count, so revoking a Mac does not hand its history to anyone; a setup the runtime refused counts for nothing) | `POST /v1/sources/devices/<provider>/setup` |
-| `granola/`, `zoom/`, `cursor-agents/`, `whatsapp-personal/`, `instagram-personal/` | the principal that connected the account | `POST /v1/sources/connect/<integration>` (`granola`, `zoom`, `cursor_background_agents`, `whatsapp_personal`, `instagram_personal`) |
+| `imessage/<segment>/`, `coding-sessions/<segment>/`, `office-audio/<segment>/` | the member whose device setup it is: every member enrols their own devices, and each device writes into that member's own runtime owner scope (revoking a Mac keeps its history with its enroller; a setup the runtime refused enrols nothing) | `POST /v1/sources/devices/<provider>/setup` |
+| `granola/<segment>/`, `zoom/<segment>/`, `cursor-agents/<segment>/`, `whatsapp-personal/<segment>/`, `instagram-personal/<segment>/` | the member who connected the account: every member connects their own, into their own runtime owner scope (own credential, lane state and raw ids) | `POST /v1/sources/connect/<integration>` (`granola`, `zoom`, `cursor_background_agents`, `whatsapp_personal`, `instagram_personal`) |
+| `<nango source>/<segment>/` (a Nango records source with `"audience": "personal"`, the default) | the member who connected it (their connect session, in their owner scope) | `POST /v1/sources/nango-records/connect-sessions` |
 | `gmail/<mailbox>/`, `calendar/accounts/<mailbox>/`, `google-contacts/accounts/<mailbox>/` | the principal that last proved control of that address through Google: a data grant (OAuth/Composio), or for a domain-wide-delegated mailbox an identity-only ownership proof (`openid email`, no tokens kept, collection stays DWD) | `POST /v1/sources/google/auth/oauth/start` (data grant) or `POST /v1/sources/google/auth/ownership/start` (proof) |
 | `google-docs/<doc>/`, `google-docs/_drive/…/<file>/`, `google-docs/_raw/document:<id>/`, `binary/drive-pdf/<id>/` | per unit: readable by the principal whose proven mailbox sees the file in Drive **and may read its revisions** (`capabilities.canReadRevisions`). A unit that mailbox can only view is withheld, since its history, changelog and comments are part of it. The runtime answers this attribution only for the calling principal (internal route; nobody can publish it). If the runtime is unreachable, nothing is served. | as above |
 | `google-docs/_accounts/<mailbox>/` | the owner of `<mailbox>`. A Doc that mailbox may only read or comment on is served as its own current view, captured with its own credential (Google decides what it sees: no suggestions for readers, no OT history, comments or permissions). The shared Doc directory, with its OT history, comments, suggestions and permissions, stays with members whose mailbox may read revisions. Copy-restricted Docs are blocked for viewers. | as above |
 | Google files outside a mailbox or unit (e.g. the donor `calendar/<yyyy>/<mm>/` files, which mix mailboxes) | the principal that owns **every** Google address of the tenant. That covers every address the runtime reports and every mailbox directory present in `$SOURCES`. | as above |
+
+`<segment>` is the member's owner segment, `@u-` + the first 24 hex of
+`sha256("procmem.personal-owner/v1\n" + tenantNs + "\n" + issuer + "\n" + subject)`. It is derived from the verified
+principal by yc_msaw (`access.ts personalSegment`) and by the runtime (`core/personal-scope.ts`), never from a payload.
+The runtime keeps each member's personal connections and devices in a separate *scope tenant*
+(`<tenantNs>.u-<hex>`, not addressable through the internal API), so two members' credentials, lane state and provider
+ids never mix, and publishes it under `<provider>/<segment>/` only. A member sees their own segment; the provider
+directory itself is listed only to members who have a subtree in it. Anything in such a provider directory outside a
+segment was captured before owner scopes and belongs to nobody (devices: see the legacy note below).
 
 How it is enforced:
 
@@ -61,7 +71,9 @@ How it is enforced:
 - The runtime relays are filtered the same way:
   - `GET /v1/sources/runtime/status` drops other owners' coverage and every connection whose directory the caller
     cannot read. A runtime error is answered with a fixed 502, never the runtime's body.
-  - `GET /v1/sources/nango-records` (lane status: connection ids and end users) is admin-only.
+  - `GET /v1/sources/nango-records` lists the caller's own personal connections (`personal`); organization
+    sources' connections (`"audience": "organization"`) are listed to admins only. No view lists another member's
+    personal connection. `GET /v1/sources/runtime/status` likewise carries only the caller's own `personal` block.
   - `GET /v1/sources/google/auth` lists the caller's own Google accounts only, admins included. Admins
     (`memory:build`) also see accounts nobody owns yet (the DWD mailboxes they add) and the DWD configuration, but
     never another member's account.
@@ -76,22 +88,21 @@ How it is enforced:
 - **Default deny:** only the shared workspace providers are readable by every member: Slack channels, Notion,
   Confluence, Jira, GitHub, Bitbucket, Linear, Discord and Stripe, plus any directory the operator lists in yc_msaw's
   `SOURCES_SHARED_PROVIDERS` (e.g. an org-wide Nango records source). Any other provider directory, including Nango
-  generic records sources such as a personal Outlook, is readable by nobody.
+  generic records sources such as a personal Outlook, is served only as the caller's own owner segment.
 - **Fail closed:**
   - unowned data is readable by nobody. That covers a domain-wide-delegation-only mailbox, data captured before
     owners were recorded, a donor Google connection without a mailbox, and a mailbox the runtime no longer
     reports;
   - so is data with more than one claimed owner;
-  - a provider directory has one owner. A second member's device setup or connect is refused with
-    `409 owner_conflict`.
-  - A first claim is refused (`reason: unowned_legacy_data`) when the directory holds any history: live files, or
-    tombstones whose earlier versions stay readable through `sources_history`. It is also refused when the runtime
-    still holds a connection of that integration, or cannot be asked. Legacy data is never handed to whoever enrols
-    first, including after a purge.
-  - A refused connect or device setup leaves no owner behind.
+  - nobody claims a provider: connected personal accounts and owner-scoped devices are published only under their
+    member's segment, which never held legacy data. Unsegmented data captured before owner scopes (including rows
+    exported only later, re-dated by an exporter backfill, or purged with ordinary tombstones) is never served to
+    anyone who connects or enrols afterwards.
+  - A refused connect or device setup leaves nothing behind.
   - Owners stop their own collection: a member revokes a device they enrolled (`DELETE /v1/sources/bindings/:id`)
-    and disconnects a personal account they own (`DELETE /v1/sources/connections/<integration>`). Ownership and its
-    history are kept. Admins can revoke any binding.
+    and disconnects their own personal account (`DELETE /v1/sources/connections/<integration>`; it reaches only the
+    caller's own scope). Their history is kept. Admins can revoke any binding, and stop an organization-level legacy
+    connection of a personal integration with `?legacy=organization` (its data stays sealed).
 - **Slack direct messages and group DMs** are personal, but their participants are Slack users, not yc_msaw
   principals. So nobody may read them:
   - The runtime withholds them at export (`providers/slack/direct.ts`). That covers projections, raw records,
@@ -111,17 +122,20 @@ Migration, enrolment and current limits (owner-only is enforced; these are decis
   ownership proof for that address (`POST /v1/sources/google/auth/ownership/start`). This needs a Google OAuth client
   with the runtime's redirect URI registered. Collection stays DWD. Everything captured under the mailbox (and the
   Docs/Drive units it can read revisions of) then becomes theirs.
-- **One owner per provider** for the providers whose paths have no account segment: iMessage, coding sessions,
-  office audio, Granola, Zoom, Cursor, WhatsApp/Instagram. A second member's iMessage cannot be enrolled in the
-  same tenant. Gmail, Calendar and Contacts are per mailbox.
+- **Owner scopes:** connected personal accounts (Granola, Zoom, Cursor, WhatsApp/Instagram), personal Nango sources
+  and devices (iMessage, coding sessions, office audio) are per member: each connects or enrols their own. One
+  account of each connect integration per member (the donor lanes keep one credential per scope; Cursor and Unipile
+  keep several connections per scope). Office-audio recording consent stays organization-wide (admin), and a consent
+  revocation with `deleteCaptured` reaches every member's scope.
+- **Legacy devices:** data a device enrolled before owner scopes captured stays in the provider directory itself and
+  is served to its single legacy enroller (if exactly one); devices enrolled since do not affect it.
 - **Google Docs/Drive** are attributed per unit, so several members each read their own. Units captured before the
   per-mailbox visibility records existed are re-attributed when the inventory next lists them; units no current
   mailbox sees stay sealed. The donor calendar month files (which mix mailboxes) still need one owner of every
   Google account.
-- Legacy data captured before owners existed stays sealed, and so does a provider whose runtime connection
-  predates owner records. A purge does not release it, because its history stays in `$SOURCES`; only a new tenant
-  does. Separately, a row captured before a claim but exported after it is attributed to the claimer. Per-connection
-  attribution (runtime connection rows recording their connector) would close this. No tenant has such data yet.
+- Legacy data captured before owners existed stays sealed, and so does everything an organization-level connection
+  of a personal integration (made before owner scopes) captures. A purge does not release it, because its history
+  stays in `$SOURCES`; only a new tenant does.
 - Ownership cannot be transferred. A static SDK key that enrols a device owns it like any principal.
 
 ## Layout

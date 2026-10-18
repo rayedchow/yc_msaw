@@ -108,9 +108,9 @@ export class SourceRuntimeClient {
     return this.#call(p, "POST", `/connect/${provider}`, body ?? {});
   }
 
-  disconnect(p: Principal, provider: string): Promise<RuntimeResponse> {
+  disconnect(p: Principal, provider: string, opts: { legacy?: boolean } = {}): Promise<RuntimeResponse> {
     assertProvider(provider);
-    return this.#call(p, "DELETE", `/connections/${provider}`);
+    return this.#call(p, "DELETE", `/connections/${provider}${opts.legacy ? "?legacy=organization" : ""}`);
   }
 
   /** Google provider-grant setup (runtime providers/google-auth). A fixed allowlist of routes. */

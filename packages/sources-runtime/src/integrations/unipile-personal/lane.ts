@@ -25,6 +25,7 @@ import { sql } from "drizzle-orm";
 import { Hono } from "hono";
 import { db as defaultDb } from "../../db/client.js";
 import { upsertConnection } from "../../db/connections.js";
+import { personalScopeOf } from "../../source-lane/core/personal-scope.js";
 import { enqueueTask } from "../../queue/queue.js";
 import { upsertTaskSchedule } from "../../queue/sweeper.js";
 import { decrypt, encrypt } from "../../vault/encryption.js";
@@ -213,6 +214,18 @@ export class UnipileLane {
     }
     const type = str(profile.type) ?? str(profile.provider);
     if (type && type.toUpperCase() !== this.cfg.accountType) return bad(`Unipile account is ${type}, not ${this.cfg.accountType}`, "account_type_mismatch", 409);
+    // SOURCE-LANE PATCH (personal-connection-attribution): one Unipile workspace key can reach every account linked
+    // in it, so holding the key does not prove whose account this is. An account another member of this
+    // organization already connected (their owner scope) cannot be attached by someone else.
+    const scope = await personalScopeOf(ex, input.tenantId);
+    if (scope) {
+      const taken = rowsOf(await ex.execute(sql`
+        SELECT 1 FROM ${sql.identifier(this.t.connections)}
+        WHERE account_id = ${body.accountId} AND tenant_id <> ${input.tenantId} AND tenant_id LIKE ${`${scope.parentTenantId}.%`}
+        LIMIT 1
+      `));
+      if (taken.length) return bad("This account is connected by another member of your organization", "account_connected_by_another_member", 409);
+    }
     const id = `up_${randomBytes(12).toString("hex")}`;
     const webhookSecret = randomBytes(32).toString("base64url");
     await ex.execute(sql`

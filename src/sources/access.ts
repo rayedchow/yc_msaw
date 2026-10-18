@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import type { ObjectStore } from "../store/objects.js";
 import type { BindingRecord } from "./bindings.js";
 import { SourceError } from "./paths.js";
@@ -15,9 +16,11 @@ import { SourceError } from "./paths.js";
  * - device providers (imessage, coding-sessions, office-audio): `createdBy` of every device
  *   binding for that provider, including revoked ones (revoking a Mac does not hand its history
  *   to someone else);
- * - connected personal accounts (granola, zoom, cursor-agents, whatsapp/instagram personal):
- *   the principal that connected them through POST /v1/sources/connect/<provider>, recorded in
- *   the `sources/owners` ref;
+ * - connected personal accounts (granola, zoom, cursor-agents, whatsapp/instagram personal): each
+ *   member's accounts are collected in their own runtime owner scope and published under
+ *   `<provider>/<segment>/`, where the segment is derived from the verified principal (personalSegment;
+ *   runtime core/personal-scope.ts computes the same). Any number of members connect their own accounts;
+ *   unsegmented paths (captured before owner scopes) belong to nobody;
  * - Google mailboxes (gmail, calendar, google-contacts, google-docs, Drive binaries): the subject
  *   that started the Google OAuth/Composio grant for that address, which Google confirmed by the
  *   account check at the callback. The runtime reports these with its status heartbeat (only a
@@ -62,7 +65,7 @@ export interface GoogleAccountOwner {
 
 /** Device providers: owned by the principals that enrolled devices for them. */
 export const DEVICE_OWNED_PROVIDERS: readonly string[] = ["imessage", "coding-sessions", "office-audio"];
-/** Connected personal accounts without an account segment in their paths: one owner per tenant. */
+/** Connected personal accounts: `<provider>/<owner segment>/...`, one subtree per connecting member. */
 export const CONNECT_OWNED_PROVIDERS: readonly string[] = ["granola", "zoom", "cursor-agents", "whatsapp-personal", "instagram-personal"];
 /** Google providers laid out per mailbox (`<mailbox>/` or `accounts/<mailbox>/`). */
 const GOOGLE_ACCOUNT_PROVIDERS: Readonly<Record<string, "first" | "accounts">> = { gmail: "first", calendar: "accounts", "google-contacts": "accounts" };
@@ -93,6 +96,33 @@ export function isPersonalProvider(provider: string): boolean {
   return PERSONAL_PROVIDERS.includes(provider);
 }
 
+/**
+ * Providers whose members' data lives in per-member owner segments (`<provider>/<segment>/`): the connect-owned
+ * personal integrations and every provider nobody declared shared (e.g. a personal Nango records source such as
+ * Outlook, which the runtime collects in the connecting member's owner scope). Everything else under such a provider
+ * (unsegmented, captured before owner scopes) belongs to nobody.
+ */
+export function isOwnerSegmentProvider(provider: string, shared: ReadonlySet<string>): boolean {
+  if (CONNECT_OWNED_PROVIDERS.includes(provider) || DEVICE_OWNED_PROVIDERS.includes(provider)) return true;
+  return !PERSONAL_PROVIDERS.includes(provider) && !shared.has(provider) && !["binary", "slack", "google-auth"].includes(provider);
+}
+
+/** Prefix of a runtime coverage scope that belongs to one member's owner scope: `owner:<segment>/<scope>`. */
+export const OWNER_COVERAGE_PREFIX = "owner:";
+/** An owner segment as a path segment (personalSegment). */
+const OWNER_SEGMENT_RE = /^@u-[0-9a-f]{24}$/;
+
+/**
+ * The `$SOURCES/<provider>/<segment>/` directory of `who`'s connected personal accounts in tenant `tenantNs`.
+ * Must equal the runtime's personalSegment (packages/sources-runtime/src/source-lane/core/personal-scope.ts). It is
+ * derived from the verified principal only; "@" never occurs in the providers' own layouts, so no data captured
+ * before owner scopes can sit under a segment.
+ */
+export function personalSegment(tenantNs: string, who: Identity): string {
+  const digest = createHash("sha256").update(`procmem.personal-owner/v1\n${tenantNs}\n${who.issuer}\n${who.subject}`).digest("hex");
+  return `@u-${digest.slice(0, 24)}`;
+}
+
 /** allow: the path and everything below it; deny: nothing; mixed: a directory whose children must be checked one by one. */
 export type Access = "allow" | "deny" | "mixed";
 
@@ -109,6 +139,8 @@ function decodeSegment(seg: string): string {
 /** The read view of one verified principal over one tenant's $SOURCES. */
 export class SourceViewer {
   readonly #owned: Set<string>;
+  readonly #segment: string | null;
+  readonly #personalDirs: ReadonlySet<string>;
   readonly #ownedAccounts: Set<string>;
   readonly #ownsAllGoogle: boolean;
 
@@ -131,8 +163,14 @@ export class SourceViewer {
        * also read revisions of are served: their history, changelog and comments are part of the unit.
        */
       googleUnits?: readonly { path: string; revisions: boolean }[];
+      /** This principal's personalSegment in the viewed tenant (its connected personal accounts). */
+      personalSegment?: string;
+      /** Connect-owned providers where `<provider>/<personalSegment>/` exists (only those are listed at the root). */
+      personalDirs?: readonly string[];
     },
   ) {
+    this.#segment = input.personalSegment ?? null;
+    this.#personalDirs = new Set(input.personalDirs ?? []);
     const units = new Set<string>();
     const parents = new Set<string>();
     this.#hasViewOnlyUnits = (input.googleUnits ?? []).some((u) => !u.revisions && /^google-docs\/[^/]/.test(u.path));
@@ -170,6 +208,15 @@ export class SourceViewer {
     return [...this.#unownedAccounts].sort();
   }
 
+  /** `<provider>/<segment>` holding this principal's own account(s) of a connect-owned provider, else null. */
+  personalDir(provider: string): string | null {
+    return this.#segment && isOwnerSegmentProvider(provider, this.#shared) ? `${provider}/${this.#segment}` : null;
+  }
+
+  get personalSegment(): string | null {
+    return this.#segment;
+  }
+
   /** Google addresses this principal owns (lower case). */
   get googleAccounts(): readonly string[] {
     return [...this.#ownedAccounts].sort();
@@ -180,7 +227,14 @@ export class SourceViewer {
     if (stored === "") return "mixed";
     const seg = stored.split("/");
     const provider = seg[0]!;
-    if (DEVICE_OWNED_PROVIDERS.includes(provider) || CONNECT_OWNED_PROVIDERS.includes(provider)) return this.#owned.has(provider) ? "allow" : "deny";
+    if (DEVICE_OWNED_PROVIDERS.includes(provider)) {
+      // Devices enrolled with owner scopes write under their enroller's segment; the provider directory itself holds
+      // what devices enrolled before owner scopes captured, served to that single legacy enroller (if exactly one).
+      if (seg.length >= 2 && OWNER_SEGMENT_RE.test(seg[1]!)) return seg[1] === this.#segment ? "allow" : "deny";
+      if (seg.length === 1) return this.#owned.has(provider) || this.#personalDirs.has(provider) ? "mixed" : "deny";
+      return this.#owned.has(provider) ? "allow" : "deny";
+    }
+    if (CONNECT_OWNED_PROVIDERS.includes(provider)) return this.#ownerSegment(seg);
     if (GOOGLE_WIDE_PROVIDERS.includes(provider)) {
       if (seg[1] === GOOGLE_ACCOUNT_VIEWS) {
         if (seg.length === 2) return this.#hasViewOnlyUnits && this.#ownedAccounts.size > 0 ? "mixed" : "deny";
@@ -205,8 +259,22 @@ export class SourceViewer {
       if ((seg[1] === "_workspaces" && seg.length <= 4) || (seg[1] === "_raw" && seg.length <= 3)) return "mixed";
       return "allow";
     }
-    // Default deny: a provider nobody declared shared (e.g. an operator-configured Nango source) has no owner.
-    return this.#shared.has(provider) ? "allow" : "deny";
+    // Default deny: a provider nobody declared shared (e.g. an operator-configured Nango source) is served only as the
+    // caller's own owner segment (a personal Nango connection the runtime collected in the caller's owner scope).
+    return this.#shared.has(provider) ? "allow" : this.#ownerSegment(seg);
+  }
+
+  /** `<provider>/<segment>/...`: only the caller's own segment; unsegmented (legacy) data and other members' are not. */
+  #ownerSegment(seg: readonly string[]): Access {
+    if (!this.#segment) return "deny";
+    // The provider directory itself is listed only to members who have a subtree in it (no "someone uses X" hint).
+    if (seg.length === 1) return this.#personalDirs.has(seg[0]!) ? "mixed" : "deny";
+    return seg[1] === this.#segment ? "allow" : "deny";
+  }
+
+  /** Providers this viewer reads per owner segment (see isOwnerSegmentProvider). */
+  ownsSegmentsOf(provider: string): boolean {
+    return isOwnerSegmentProvider(provider, this.#shared);
   }
 
   /** A Google-wide path: inside one of the caller's units, a directory above some, or nobody's business. */
@@ -248,6 +316,13 @@ export class SourceViewer {
    * reports of such a provider (backlog counts, other mailboxes) are withheld.
    */
   coverageVisible(provider: string, c: { scope: string; reason?: string }): boolean {
+    // A connect-owned provider: only reports of the caller's own owner scope (organization-level ones describe legacy
+    // data), also before its first file (a blocked or pending account must be visible to its owner).
+    if (isOwnerSegmentProvider(provider, this.#shared)) {
+      if (c.scope.startsWith(OWNER_COVERAGE_PREFIX)) return this.#segment !== null && c.scope.startsWith(`${OWNER_COVERAGE_PREFIX}${this.#segment}/`);
+      // Organization-level reports of a device provider describe the legacy devices: their single legacy enroller's.
+      return DEVICE_OWNED_PROVIDERS.includes(provider) && this.#owned.has(provider);
+    }
     const access = this.access(provider);
     if (access === "allow") return true;
     if (access === "deny") return false;
@@ -332,14 +407,18 @@ export class SourceOwners {
   }
 }
 
-/** Owners per provider from device bindings (all, including revoked) and the owner registry. */
-export function providerOwners(bindings: readonly Pick<BindingRecord, "kind" | "providers" | "createdBy" | "enrolmentFailed">[], registry: OwnerRegistry): Map<string, Identity[]> {
+/**
+ * Owners per device provider from device bindings (all, including revoked). Connect-owned providers are not
+ * owned per provider any more (each member's accounts sit under their own segment); the `sources/owners`
+ * registry entries of the earlier one-owner-per-provider scheme confer nothing.
+ */
+export function providerOwners(bindings: readonly Pick<BindingRecord, "kind" | "providers" | "createdBy" | "enrolmentFailed" | "layout">[]): Map<string, Identity[]> {
   const out = new Map<string, Identity[]>();
   const add = (p: string, who: Identity) => out.set(p, [...(out.get(p) ?? []), { subject: who.subject, issuer: who.issuer }]);
   for (const b of bindings) {
-    if (b.kind !== "device" || b.enrolmentFailed) continue;
+    // Only devices enrolled before owner scopes own the provider directory itself (owner-segment devices own a segment).
+    if (b.kind !== "device" || b.enrolmentFailed || b.layout === "owner-segment") continue;
     for (const p of b.providers) if (DEVICE_OWNED_PROVIDERS.includes(p)) add(p, b.createdBy);
   }
-  for (const e of registry.entries) if (CONNECT_OWNED_PROVIDERS.includes(e.provider)) add(e.provider, e);
   return out;
 }

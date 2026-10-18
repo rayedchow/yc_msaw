@@ -93,6 +93,11 @@ export interface ExportContext {
   tenantId: string;
   /** Database access for reading current row state (each statement sees the latest committed state). */
   executor: DbExecutor;
+  /**
+   * Where a wire path this mapper produces is published (set for a personal owner scope, core/personal-scope.ts).
+   * The exporter rewrites the changes' own paths; a mapper uses this only for paths it writes INTO file content.
+   */
+  publicPath?: (path: string) => string;
 }
 
 /** The journal entry that triggered this mapping (latest one when several coalesced). */
@@ -156,6 +161,11 @@ export interface SourceProviderModule {
   mirrorRoots: readonly string[];
   /** connections.provider values that feed this module (default: [id]; Google's DWD connection feeds gmail, calendar, google-docs). */
   connectionProviders?: readonly string[];
+  /**
+   * Its data may be collected in a member's personal owner scope (core/personal-scope.ts) and is then published under
+   * `sources/<id>/<owner segment>/`. The connect-owned personal integrations are listed in personal-scope.ts itself.
+   */
+  ownerScoped?: boolean;
   /** Replace the default raw-event mapping; return null to keep the default. */
   mapEvent?(row: ActivityEventRow, ctx: ExportContext, journal: JournalInfo): Promise<SourceFileChange[] | null> | SourceFileChange[] | null;
   /** Replace the default projection mapping for a mirror row (null row = deleted); return null to keep the default. */

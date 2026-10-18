@@ -2,6 +2,7 @@ import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 import { sql } from "drizzle-orm";
 import { DONOR, RUNTIME_VERSION } from "../core/donor.js";
+import { boundOwnerCoverage, COVERAGE_SCOPE_PREFIX, inScopeDirs, isScopeTenantId, ownerScopedDirs, personalScopeOf, personalScopesOf, scopeLocalPath, scopePublicPath, type PersonalScope } from "../core/personal-scope.js";
 import type { AccountOwner, ActivityEventRow, CoverageReport, DbExecutor, ExportContext, JournalInfo, MirrorFileRow, SourceFileChange } from "../core/types.js";
 import { defaultRegistry, type SourceProviderRegistry } from "../registry.js";
 import { boundTenants, getTenantBinding } from "./bindings.js";
@@ -128,10 +129,13 @@ export class SourceExporter {
   readonly reportIntervalSeconds: number;
   readonly #log: (msg: string) => void;
   readonly #lastExportAt = new Map<string, string>();
+  /** Directories a personal owner scope may publish (core/personal-scope.ts). */
+  readonly #scopeDirs: ReadonlySet<string>;
 
   constructor(opts: ExporterOptions) {
     this.db = opts.db;
     this.registry = opts.registry ?? defaultRegistry();
+    this.#scopeDirs = ownerScopedDirs(this.registry.modules);
     this.owner = opts.owner ?? `${hostname()}:${process.pid}:${randomBytes(4).toString("hex")}`;
     this.#fetch = opts.fetchImpl ?? fetch;
     this.#lease = opts.leaseSeconds ?? 300;
@@ -256,8 +260,20 @@ export class SourceExporter {
     ).length;
   }
 
-  /** Journal every existing row of a tenant (first binding, or a re-sync): publication is idempotent. */
+  /**
+   * Journal every existing row of a tenant (first binding, or a re-sync): publication is idempotent. An organization
+   * tenant's personal owner scopes publish through its binding, so they are re-journalled with it.
+   */
   async enqueueTenantBackfill(tenantId: string): Promise<Record<string, number>> {
+    const counts = await this.#backfillOne(tenantId);
+    if (isScopeTenantId(tenantId)) return counts;
+    for (const s of await personalScopesOf(this.db, tenantId)) {
+      for (const [k, n] of Object.entries(await this.#backfillOne(s.scopeTenantId))) counts[k] = (counts[k] ?? 0) + n;
+    }
+    return counts;
+  }
+
+  async #backfillOne(tenantId: string): Promise<Record<string, number>> {
     const counts: Record<string, number> = {};
     counts.mirror_files = rows(
       await this.db.execute(sql`
@@ -327,23 +343,43 @@ export class SourceExporter {
     return out;
   }
 
-  async #previousPaths(tenantId: string, table: string, rowKey: string, pass?: PassRows): Promise<string[]> {
+  /** Published paths this row exported before (a personal scope's are under its segment). */
+  async #exportedPaths(tenantId: string, table: string, rowKey: string, pass?: PassRows): Promise<string[]> {
     if (pass && table === "activity_events" && UUID_RE.test(rowKey)) return pass.previous.get(rowKey) ?? [];
     return rows<{ path: string }>(
       await this.db.execute(sql`SELECT path FROM source_lane_exported WHERE tenant_id = ${tenantId} AND table_name = ${table} AND row_key = ${rowKey} ORDER BY path`),
     ).map((r) => r.path);
   }
 
+  /** The same paths as mappers see them: scope-local for a personal scope (mappers never see a segment). */
+  async #previousPaths(tenantId: string, table: string, rowKey: string, pass?: PassRows, scope?: PersonalScope | null): Promise<string[]> {
+    const paths = await this.#exportedPaths(tenantId, table, rowKey, pass);
+    return scope ? paths.map((p) => scopeLocalPath(scope, p)).filter((p): p is string => p !== null) : paths;
+  }
+
   /**
    * Current changes for a row plus deletes for paths this row exported before but no longer
    * produces (its provider path moved), unless another row now owns that path.
    */
-  async #mapWithMoves(ctx: ExportContext, g: KeyGroup, pass?: PassRows): Promise<SourceFileChange[]> {
-    const changes = await this.#map(ctx, g, pass);
+  async #mapWithMoves(ctx: ExportContext, g: KeyGroup, pass?: PassRows, scope?: PersonalScope | null): Promise<SourceFileChange[]> {
+    let local = await this.#map(ctx, g, pass, scope);
+    if (scope) {
+      // A scope tenant holds only its owner's personal connections, so anything else it produces is the donor
+      // materializer's generated navigation for other providers (e.g. sources/notion/index.md): not published.
+      const outside = local.filter((c) => !inScopeDirs(c.path, this.#scopeDirs));
+      if (outside.length) {
+        this.#log(`personal scope ${ctx.tenantId}: not publishing ${outside.length} change(s) outside its personal directories (${outside[0]!.path})`);
+        local = local.filter((c) => inScopeDirs(c.path, this.#scopeDirs));
+      }
+    }
+    // A personal scope publishes under its owner segment, and says so in the provenance of every change.
+    const changes = scope
+      ? local.map((c) => ({ ...c, path: scopePublicPath(scope, c.path, this.#scopeDirs), provenance: { ...(c.provenance ?? {}), ownerSegment: scope.segment } }))
+      : local;
     if (g.table === "mirror_files") return changes; // key == path: a move is a delete of the old row
     const produced = new Set(changes.map((c) => c.path));
     if (!changes.some((c) => c.op === "put")) return changes;
-    const previous = await this.#previousPaths(ctx.tenantId, g.table, g.rowKey, pass);
+    const previous = await this.#exportedPaths(ctx.tenantId, g.table, g.rowKey, pass);
     const extra: SourceFileChange[] = [];
     for (const path of previous) {
       if (produced.has(path)) continue;
@@ -360,7 +396,7 @@ export class SourceExporter {
     return [...changes, ...extra];
   }
 
-  async #map(ctx: ExportContext, g: KeyGroup, pass?: PassRows): Promise<SourceFileChange[]> {
+  async #map(ctx: ExportContext, g: KeyGroup, pass?: PassRows, scope?: PersonalScope | null): Promise<SourceFileChange[]> {
     if (g.table === "mirror_files") {
       const row = pass
         ? (pass.mirror.get(g.rowKey) ?? null)
@@ -383,7 +419,7 @@ export class SourceExporter {
       )[0];
       if (!row) {
         // Raw ledger rows are append-only in the donor; if one is removed, remove exactly what it produced.
-        return (await this.#previousPaths(ctx.tenantId, g.table, g.rowKey, pass)).map((path) => ({
+        return (await this.#previousPaths(ctx.tenantId, g.table, g.rowKey, pass, scope)).map((path) => ({
           op: "delete" as const,
           path,
           deletedAt: g.journal.enqueuedAt,
@@ -399,7 +435,7 @@ export class SourceExporter {
     }
     const extra = this.registry.extraTable(g.table);
     if (!extra) throw new Error(`no source-lane exporter is registered for table ${g.table}`);
-    return extra.table.map(ctx, g.rowKey, g.journal, await this.#previousPaths(ctx.tenantId, g.table, g.rowKey));
+    return extra.table.map(ctx, g.rowKey, g.journal, await this.#previousPaths(ctx.tenantId, g.table, g.rowKey, undefined, scope));
   }
 
   async #toWire(client: SourcePublishClient, c: SourceFileChange): Promise<WireChange> {
@@ -488,14 +524,21 @@ export class SourceExporter {
   async #exportTenantLocked(f: Fence, list: JournalRow[]): Promise<{ acked: number; deadLettered: number; released: number }> {
     const tenantId = f.tenantId;
     const out = { acked: 0, deadLettered: 0, released: 0 };
-    const binding = await getTenantBinding(this.db, tenantId);
+    // A personal owner scope (core/personal-scope.ts) publishes with its organization's binding, under its segment.
+    const scope = await personalScopeOf(this.db, tenantId);
+    if (isScopeTenantId(tenantId) && !scope) {
+      await this.#release(list.map((r) => r.id), 300, "unknown personal owner scope", { penalty: false });
+      out.released += list.length;
+      return out;
+    }
+    const binding = await getTenantBinding(this.db, scope ? scope.parentTenantId : tenantId);
     if (!binding) {
       await this.#release(list.map((r) => r.id), 300, "no source binding for this tenant (provision it from yc_msaw POST /v1/sources/bindings)", { penalty: false });
       out.released += list.length;
       return out;
     }
     const client = new SourcePublishClient(binding.publishUrl, binding.token, this.#fetch);
-    const ctx: ExportContext = { tenantId, executor: this.db };
+    const ctx: ExportContext = { tenantId, executor: this.db, ...(scope ? { publicPath: (path: string) => scopePublicPath(scope, path, this.#scopeDirs) } : {}) };
 
     const groups = new Map<string, KeyGroup>();
     for (const r of list) {
@@ -514,7 +557,7 @@ export class SourceExporter {
     const pass = await this.#prefetch(tenantId, groups.values());
     for (const g of groups.values()) {
       try {
-        items.push({ group: g, changes: await this.#mapWithMoves(ctx, g, pass) });
+        items.push({ group: g, changes: await this.#mapWithMoves(ctx, g, pass, scope) });
       } catch (error) {
         out.deadLettered += await this.#deadLetter(g.ids, `map failed: ${errText(error)}`, f);
       }
@@ -615,13 +658,28 @@ export class SourceExporter {
 
   // ---------------------------------------------------------------- coverage
 
-  /** Export-lane and provider coverage for one tenant (module reports + journal backlog + connections). */
+  /**
+   * Export-lane and provider coverage for one tenant (module reports + journal backlog + connections). An
+   * organization tenant's report also carries each personal owner scope's own providers, with the scope prefixed
+   * `owner:<segment>/` so yc_msaw shows it to that owner only.
+   */
   async coverage(tenantId: string): Promise<CoverageReport[]> {
+    const reports = await this.#coverageOf(tenantId);
+    if (isScopeTenantId(tenantId)) return reports;
+    const scoped: CoverageReport[] = [];
+    for (const s of await personalScopesOf(this.db, tenantId)) {
+      for (const r of await this.#coverageOf(s.scopeTenantId, this.#scopeDirs)) scoped.push({ ...r, scope: `${COVERAGE_SCOPE_PREFIX}${s.segment}/${r.scope}` });
+    }
+    // One heartbeat must stay within yc_msaw's limits however many members connect accounts.
+    return boundOwnerCoverage(reports, scoped);
+  }
+
+  async #coverageOf(tenantId: string, only?: ReadonlySet<string>): Promise<CoverageReport[]> {
     const ctx: ExportContext = { tenantId, executor: this.db };
     const reports: CoverageReport[] = [];
     const reported = new Set<string>();
     for (const m of this.registry.modules) {
-      if (!m.coverage) continue;
+      if (!m.coverage || (only && !only.has(m.id))) continue;
       try {
         const r = await m.coverage(ctx);
         reports.push(...r);
@@ -677,7 +735,7 @@ export class SourceExporter {
       const targets = this.registry.modules.filter((m) => feedsFrom(m).includes(c.provider));
       const ids = targets.length ? [...new Set(targets.map((m) => m.id))] : [c.provider.replace(/[^a-z0-9-]+/g, "-")];
       for (const id of ids) {
-        if (reported.has(id)) continue;
+        if (reported.has(id) || (only && !only.has(id))) continue;
         reports.push({
           provider: id,
           scope: `connection:${c.provider}`,
@@ -691,7 +749,7 @@ export class SourceExporter {
     }
     const last = this.#lastExportAt.get(tenantId);
     for (const r of reports) if (r.scope === "export" && last) r.lastSuccessAt ??= last;
-    return reports;
+    return only ? reports.filter((r) => only.has(r.provider)) : reports;
   }
 
   async reportStatus(tenantId: string): Promise<boolean> {

@@ -10,6 +10,7 @@ import { disableTaskSchedules } from "../../queue/sweeper.js";
 import { googleWorkspaceDelegationSetup } from "../../vault/google-auth.js";
 import { deleteToken } from "../../vault/index.js";
 import { DONOR, RUNTIME_VERSION } from "../core/donor.js";
+import { COVERAGE_SCOPE_PREFIX, ensurePersonalScope, findPersonalScope, PERSONAL_CONNECT_INTEGRATIONS } from "../core/personal-scope.js";
 import type { DbExecutor } from "../core/types.js";
 import { deleteTenantBinding, getTenantBinding, setTenantBinding } from "../export/bindings.js";
 import type { SourceExporter } from "../export/exporter.js";
@@ -137,12 +138,21 @@ export function createInternalApp(deps: RuntimeAppDeps): Hono<InternalEnv> {
       SELECT provider, status, external_account_id, created_at, updated_at FROM connections WHERE tenant_id = ${tenantId} ORDER BY provider
     `)) as unknown as Array<Record<string, unknown>>;
     const binding = await getTenantBinding(deps.db, tenantId);
+    // The caller's own personal accounts (its owner scope); other members' scopes are never listed here.
+    const scope = await findPersonalScope(deps.db, internalPrincipal(c));
+    const personal = scope
+      ? (await deps.db.execute(sql`
+          SELECT provider, status, external_account_id, created_at, updated_at FROM connections WHERE tenant_id = ${scope.scopeTenantId} ORDER BY provider
+        `)) as unknown as Array<Record<string, unknown>>
+      : [];
     return c.json({
       tenantId,
       runtime: { version: RUNTIME_VERSION, donor: DONOR },
       binding: binding ? { bindingId: binding.bindingId, publishUrl: binding.publishUrl, providers: binding.providers } : null,
       connections,
-      coverage: await deps.exporter.coverage(tenantId),
+      personal: scope ? { segment: scope.segment, connections: personal } : null,
+      // Owner-scoped coverage of other members is not the caller's business.
+      coverage: (await deps.exporter.coverage(tenantId)).filter((r) => !r.scope.startsWith(COVERAGE_SCOPE_PREFIX) || (scope !== null && r.scope.startsWith(`${COVERAGE_SCOPE_PREFIX}${scope.segment}/`))),
     });
   });
 
@@ -153,16 +163,32 @@ export function createInternalApp(deps: RuntimeAppDeps): Hono<InternalEnv> {
     const integration = byId(c.req.param("provider"));
     if (!integration?.connect) return c.json({ error: { code: "provider_not_found", message: "provider not found" } }, 404);
     const body = await c.req.json().catch(() => null);
-    const result = await integration.connect({ tenantId: c.get("tenantId"), body });
+    // A personal account is connected into the caller's own owner scope (core/personal-scope.ts): its credential,
+    // lane state and rows never mix with another member's, and yc_msaw serves them to this principal only.
+    const tenantId = PERSONAL_CONNECT_INTEGRATIONS[c.req.param("provider")] ? (await ensurePersonalScope(deps.db, internalPrincipal(c))).scopeTenantId : c.get("tenantId");
+    const result = await integration.connect({ tenantId, body });
     return c.json(result.body, result.status as ContentfulStatusCode);
   });
 
   // Donor disconnect sequence (aqueduct src/api/app.ts DELETE /v1/connections/:provider).
   app.delete("/tenants/:tenantId/connections/:provider", async (c) => {
-    const tenantId = c.get("tenantId");
     const provider = c.req.param("provider");
     const integration = byId(provider);
     if (!integration) return c.json({ error: { code: "provider_not_found", message: "provider not found" } }, 404);
+    let tenantId = c.get("tenantId");
+    if (PERSONAL_CONNECT_INTEGRATIONS[provider]) {
+      // Each member disconnects their own account. An organization-level connection of a personal integration
+      // (connected before owner scopes existed; its data stays sealed) is stopped only by an admin, explicitly.
+      const legacy = c.req.query("legacy") === "organization";
+      if (legacy && !internalPrincipal(c).scopes?.includes("memory:build")) {
+        return c.json({ error: { code: "forbidden", message: "Only an admin stops an organization-level legacy connection" } }, 403);
+      }
+      if (!legacy) {
+        const scope = await findPersonalScope(deps.db, internalPrincipal(c));
+        if (!scope) return c.json({ error: { code: "not_connected", message: `No ${provider} account of yours is connected` } }, 404);
+        tenantId = scope.scopeTenantId;
+      }
+    }
     await integration.disconnect?.({ tenantId });
     await deleteToken(tenantId, provider);
     await Promise.all((integration.taskKinds?.() ?? []).map((kind) => disableTaskSchedules(tenantId, kind)));

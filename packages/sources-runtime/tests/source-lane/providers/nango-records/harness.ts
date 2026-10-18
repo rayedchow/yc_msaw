@@ -33,8 +33,9 @@ export const SPECIALIZED: SourceProviderModule[] = [
 export const DEFAULT_CONFIG = {
   version: 1,
   sources: [
-    { source: "outlook", providerConfigKey: "acme-outlook", label: "Outlook mail", models: ["OutlookMessage", { model: "OutlookEvent", eventType: "outlook_calendar_event" }], pollSeconds: 300, maxConcurrentSyncs: 2 },
-    { source: "hubspot", providerConfigKey: "acme-hubspot", models: [], discoverModels: true },
+    // Organization sources: connected by an admin for the tenant itself (personal-owner-scopes.test.ts covers "personal").
+    { source: "outlook", providerConfigKey: "acme-outlook", label: "Outlook mail", models: ["OutlookMessage", { model: "OutlookEvent", eventType: "outlook_calendar_event" }], pollSeconds: 300, maxConcurrentSyncs: 2, audience: "organization" },
+    { source: "hubspot", providerConfigKey: "acme-hubspot", models: [], discoverModels: true, audience: "organization" },
   ],
 };
 

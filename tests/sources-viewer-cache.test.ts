@@ -24,9 +24,9 @@ describe("owner evidence cache", () => {
     const a = new SourceService(objects, () => new Date(now));
     const b = new SourceService(objects, () => new Date(now));
     const alice = { subject: "user_alice", issuer: "https://issuer.test" };
-    expect((await a.viewer("acme", alice)).access("granola/x.md")).toBe("deny");
-    await a.owners.claim("acme", "granola", alice, { hasUnownedData: false });
-    expect((await a.viewer("acme", alice)).access("granola/x.md")).toBe("allow"); // same process: immediate
+    expect((await a.viewer("acme", alice)).access("coding-sessions/x.md")).toBe("deny");
+    await a.bindings.create("acme", { kind: "device", providers: ["coding-sessions"], transport: "runtime-ingest" }, alice);
+    expect((await a.viewer("acme", alice)).access("coding-sessions/x.md")).toBe("allow"); // same process: immediate
     await b.bindings.create("acme", { kind: "device", providers: ["imessage"], transport: "runtime-ingest" }, alice);
     expect((await a.viewer("acme", alice)).access("imessage/x.md")).toBe("deny"); // other replica: cached
     now += 5_001;

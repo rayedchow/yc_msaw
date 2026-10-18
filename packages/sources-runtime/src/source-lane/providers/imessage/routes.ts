@@ -2,6 +2,7 @@ import type { Context, Hono } from "hono";
 import { sql } from "drizzle-orm";
 import { enqueueTask } from "../../../queue/queue.js";
 import { upsertTaskSchedule } from "../../../queue/sweeper.js";
+import { deviceDataTenant, deviceListTenants, ensurePersonalScope, registerPersonalDevice } from "../../core/personal-scope.js";
 import type { ExportContext, InternalRouteDeps } from "../../core/types.js";
 import { ackImessageCommand, CommandError, listImessageCommands, nextImessageCommand, requestImessageCommand } from "./commands.js";
 import { recordImessageLocalStatus, syncImessageContacts } from "./contacts.js";
@@ -148,6 +149,8 @@ export function registerImessageInternalRoutes(app: Hono, deps: InternalRouteDep
   const db = route.db;
   const log = route.log ?? ((m: string) => console.warn(`[imessage] ${m}`));
   const tenantOf = (c: Context) => deps.tenantOf(c as never);
+  /** Registry rows of a binding live in its owner scope (devices enrolled before owner scopes: the tenant itself). */
+  const deviceTenant = (c: Context) => deviceDataTenant(db, tenantOf(c), "imessage", c.req.param("bindingId") ?? "");
 
   // ------------------------------------------------------------ admin
   app.post("/tenants/:tenantId/devices/imessage", async (c) => {
@@ -158,7 +161,16 @@ export function registerImessageInternalRoutes(app: Hono, deps: InternalRouteDep
     const body = await readJson(c, MAX_ADMIN_BODY_BYTES);
     if (!body.ok) return body.response;
     const b = (body.value ?? {}) as Record<string, unknown>;
-    const tenantId = tenantOf(c);
+    // yc_msaw enrols every new Mac with layout "owner-segment": it writes into the enrolling member's own owner scope
+    // (core/personal-scope.ts), so its messages, contacts and projections are keyed apart from every other member's
+    // and published under their segment only. Without it: the tenant itself (devices enrolled before owner scopes).
+    let tenantId = tenantOf(c);
+    if (b.layout === "owner-segment") {
+      if (typeof b.bindingId !== "string" || !/^sb-[0-9a-f]{16}$/.test(b.bindingId)) return c.json({ error: { code: "invalid_input", message: "bindingId required" } }, 400);
+      const scope = await ensurePersonalScope(db, { tenantNs: tenantOf(c), issuer: who.issuer, subject: who.subject });
+      await registerPersonalDevice(db, scope, "imessage", b.bindingId);
+      tenantId = scope.scopeTenantId;
+    }
     try {
       const enrolled = await enrollImessageDevice(db, { tenantId, bindingId: b.bindingId, tokenSha256: b.tokenSha256, label: b.label, handles: b.handles, createdBy: who });
       // Projections are drained after every batch; this schedule re-arms anything a crash left dirty.
@@ -181,15 +193,23 @@ export function registerImessageInternalRoutes(app: Hono, deps: InternalRouteDep
   });
 
   app.get("/tenants/:tenantId/devices/imessage", async (c) => {
-    const tenantId = tenantOf(c);
-    const ctx: ExportContext = { tenantId, executor: db };
-    return c.json({ devices: await listImessageDevices(db, tenantId), coverage: await imessageCoverage(ctx) });
+    // Devices enrolled before owner scopes (the tenant itself) and the caller's own; never another member's.
+    const who = principalSubject(c);
+    const tenants = who ? await deviceListTenants(db, { tenantNs: tenantOf(c), issuer: who.issuer, subject: who.subject }) : [tenantOf(c)];
+    const devices = [];
+    const coverage = [];
+    for (const tenantId of tenants) {
+      devices.push(...(await listImessageDevices(db, tenantId)));
+      coverage.push(...(await imessageCoverage({ tenantId, executor: db } satisfies ExportContext)));
+    }
+    return c.json({ devices, coverage });
   });
 
   app.delete("/tenants/:tenantId/devices/imessage/:bindingId", async (c) => {
     const denied = requireEnrolScope(c);
     if (denied) return denied;
-    const device = await db.transaction((tx) => revokeImessageDevice(tx, tenantOf(c), c.req.param("bindingId") ?? ""));
+    const tenantId = await deviceTenant(c);
+    const device = await db.transaction((tx) => revokeImessageDevice(tx, tenantId, c.req.param("bindingId") ?? ""));
     return device ? c.json({ device, revoked: true }) : c.json({ error: { code: "not_found", message: "no iMessage device for this binding" } }, 404);
   });
 
@@ -201,7 +221,7 @@ export function registerImessageInternalRoutes(app: Hono, deps: InternalRouteDep
     const body = await readJson(c, MAX_ADMIN_BODY_BYTES);
     if (!body.ok) return body.response;
     try {
-      const r = await requestImessageCommand(db, { tenantId: tenantOf(c), bindingId: c.req.param("bindingId") ?? "", body: body.value, requestedBy: `${who.issuer} ${who.subject}` });
+      const r = await requestImessageCommand(db, { tenantId: await deviceTenant(c), bindingId: c.req.param("bindingId") ?? "", body: body.value, requestedBy: `${who.issuer} ${who.subject}` });
       return c.json(r, 201);
     } catch (e) {
       if (e instanceof CommandError) return c.json({ error: { code: e.code, message: e.message } }, e.code === "not_found" ? 404 : e.code === "device_revoked" ? 409 : 400);
@@ -210,7 +230,7 @@ export function registerImessageInternalRoutes(app: Hono, deps: InternalRouteDep
   });
 
   app.get("/tenants/:tenantId/devices/imessage/:bindingId/commands", async (c) => {
-    const tenantId = tenantOf(c);
+    const tenantId = await deviceTenant(c);
     const bindingId = c.req.param("bindingId") ?? "";
     if (!(await getImessageDevice(db, tenantId, bindingId))) return c.json({ error: { code: "not_found", message: "no iMessage device for this binding" } }, 404);
     return c.json({ commands: await listImessageCommands(db, tenantId, bindingId) });

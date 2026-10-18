@@ -58,6 +58,12 @@ export interface BindingRecord {
   origin?: "runtime-provision";
   /** The device enrolment failed at the runtime: no device ever held this binding, so it confers no ownership. */
   enrolmentFailed?: boolean;
+  /**
+   * `owner-segment`: the runtime enrols this device into its creator's owner scope, and its data is published under
+   * `<provider>/<creator's segment>/` (access.ts personalSegment). Absent: a device enrolled before owner scopes, whose
+   * data sits in the provider directory itself (one owner per provider).
+   */
+  layout?: "owner-segment";
 }
 
 export interface BindingRegistry {
@@ -136,7 +142,7 @@ export class SourceBindings {
   /** Mint a binding for `ns` (already the verified caller's namespace). Returns the token exactly once. */
   async create(
     ns: string,
-    input: { kind: BindingKind; providers: string[]; label?: string | null; transport?: BindingTransport; origin?: "runtime-provision" },
+    input: { kind: BindingKind; providers: string[]; label?: string | null; transport?: BindingTransport; origin?: "runtime-provision"; layout?: "owner-segment" },
     createdBy: { subject: string; issuer: string },
     opts: { unownedData?: (provider: string) => boolean } = {},
   ): Promise<{ binding: PublicBinding; token: string }> {
@@ -166,13 +172,15 @@ export class SourceBindings {
       revokedAt: null,
       ...(input.transport === "runtime-ingest" ? { transport: "runtime-ingest" as const } : {}),
       ...(input.origin === "runtime-provision" ? { origin: "runtime-provision" as const } : {}),
+      ...(input.kind === "device" && input.layout === "owner-segment" ? { layout: "owner-segment" as const } : {}),
     };
     await this.#update(ns, (reg) => {
       const active = Object.values(reg.bindings).filter((b) => !b.revokedAt).length;
       if (active >= MAX_BINDINGS) throw new SourceError("invalid_input", `At most ${MAX_BINDINGS} active bindings per tenant`);
       // A device provider's directory is personal and has exactly one owner (access.ts): every device binding
       // for it, revoked ones included, must come from the same principal. Checked inside the registry CAS.
-      if (input.kind === "device") {
+      // An owner-segment device writes only under its creator's own segment: any number of members enrol their own.
+      if (input.kind === "device" && input.layout !== "owner-segment") {
         for (const p of providers) {
           const prior = Object.values(reg.bindings).filter((b) => b.kind === "device" && !b.enrolmentFailed && b.providers.includes(p));
           if (prior.some((b) => b.createdBy.subject !== createdBy.subject || b.createdBy.issuer !== createdBy.issuer)) {

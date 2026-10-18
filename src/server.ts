@@ -519,18 +519,20 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         return runtimeStatusRoute(principal, runtime, sources);
       });
       server.post("/v1/sources/connect/:provider", async (c) => {
-        // A member connects their own personal account (they become its owner); shared workspace tools need an admin.
+        // A member connects their own personal account (into their own owner scope); shared workspace tools need an admin.
         const personal = Object.prototype.hasOwnProperty.call(PERSONAL_CONNECT_DIRS, c.req.param("provider"));
         const principal = await authenticateHttp(c.req.raw, auth, personal ? SCOPES.memoryRead : SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;
-        return connectRoute(c.req.raw, principal, runtime, c.req.param("provider"), sources);
+        return connectRoute(c.req.raw, principal, runtime, c.req.param("provider"));
       });
       server.delete("/v1/sources/connections/:provider", async (c) => {
-        // The owner of a personal account disconnects it themselves; shared tools need an admin.
+        // Each member disconnects their own personal account; shared tools, and an organization-level legacy connection
+        // of a personal integration (?legacy=organization), need an admin.
         const personal = Object.prototype.hasOwnProperty.call(PERSONAL_CONNECT_DIRS, c.req.param("provider"));
-        const principal = await authenticateHttp(c.req.raw, auth, personal ? SCOPES.memoryRead : SCOPES.memoryBuild);
+        const legacy = personal && c.req.query("legacy") === "organization";
+        const principal = await authenticateHttp(c.req.raw, auth, personal && !legacy ? SCOPES.memoryRead : SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;
-        return disconnectRoute(principal, runtime, c.req.param("provider"), sources);
+        return disconnectRoute(principal, runtime, c.req.param("provider"), { legacy });
       });
       // Google provider grants (OAuth / Composio / DWD allowlist) live in the runtime's google-auth module.
       server.get("/v1/sources/google/auth", async (c) => {
@@ -604,13 +606,15 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       });
       // Generic Nango records lane (operator-configured Nango integrations; runtime providers/nango-records).
       server.get("/v1/sources/nango-records", async (c) => {
-        // Admin-only: the lane status names connections and end users of sources members may not read.
-        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        // The runtime answers with the caller's own personal connections (owner scope), plus organization sources'
+        // connections for an admin; nobody sees another member's personal connections.
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
         if (principal instanceof Response) return principal;
         return nangoRecordsRoute(c.req.raw, principal, runtime, "status");
       });
       server.post("/v1/sources/nango-records/connect-sessions", async (c) => {
-        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        // A member connects their own account of a personal source; the runtime refuses organization sources to non-admins.
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
         if (principal instanceof Response) return principal;
         return nangoRecordsRoute(c.req.raw, principal, runtime, "session.create");
       });
@@ -620,12 +624,14 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         return nangoRecordsRoute(c.req.raw, principal, runtime, "session.get", { sessionId: c.req.param("sessionId") });
       });
       server.delete("/v1/sources/nango-records/connections/:source/:connectionId", async (c) => {
-        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        // Own personal connections only (runtime owner scope); organization connections need an admin (runtime).
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
         if (principal instanceof Response) return principal;
         return nangoRecordsRoute(c.req.raw, principal, runtime, "connection.delete", { source: c.req.param("source"), connectionId: c.req.param("connectionId") });
       });
       server.post("/v1/sources/nango-records/sync", async (c) => {
-        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
+        // Own personal connections; an admin also syncs organization sources (runtime).
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
         if (principal instanceof Response) return principal;
         return nangoRecordsRoute(c.req.raw, principal, runtime, "sync");
       });

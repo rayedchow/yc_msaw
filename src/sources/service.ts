@@ -1,5 +1,5 @@
 import type { ObjectStore } from "../store/objects.js";
-import { providerOwners, SourceOwners, SourceViewer, type GoogleAccountOwner, type Identity } from "./access.js";
+import { isOwnerSegmentProvider, personalSegment, providerOwners, SHARED_PROVIDERS, SourceOwners, SourceViewer, type GoogleAccountOwner, type Identity } from "./access.js";
 import { SourceBindings, type BindingRecord, type PublicBinding } from "./bindings.js";
 import type { GoogleAttributionSource, GoogleAttributionUnit } from "./runtime-client.js";
 import { SourceError } from "./paths.js";
@@ -90,6 +90,7 @@ export class SourceService {
   readonly #evidence = new Map<string, { at: number; epoch: string; value: { providerOwners: Map<string, Identity[]>; googleAccounts: GoogleAccountOwner[] } }>();
   #googleAttribution: GoogleAttributionSource | null = null;
   readonly #units = new Map<string, { at: number; epoch: number; value: readonly GoogleAttributionUnit[] }>();
+  readonly #personalDirs = new Map<string, { at: number; epoch: number; value: readonly string[] }>();
 
   /** One byte-bounded metadata cache for every tenant store of this process. */
   readonly nodeCache: SourceNodeCache;
@@ -153,10 +154,10 @@ export class SourceService {
    * an owner or a status report; another replica's change is picked up within the TTL.
    */
   async #ownerEvidence(ns: string): Promise<{ providerOwners: Map<string, Identity[]>; googleAccounts: GoogleAccountOwner[] }> {
-    const epoch = `${this.reportEpoch(ns)}/${this.bindings.epoch(ns)}/${this.owners.epoch(ns)}`;
+    const epoch = `${this.reportEpoch(ns)}/${this.bindings.epoch(ns)}`;
     const hit = this.#evidence.get(ns);
     if (hit && hit.epoch === epoch && this.now().getTime() - hit.at < VIEWER_TTL_MS) return hit.value;
-    const [bindings, owners] = await Promise.all([this.bindings.list(ns), this.owners.registry(ns)]);
+    const bindings = await this.bindings.list(ns);
     // Account owners are trusted only from the provisioned collector binding (its token never left the servers); an
     // admin-minted '*' publish binding cannot vouch for who owns a mailbox.
     const runtimeIds = new Set(bindings.filter((b) => !b.revokedAt && b.kind === "runtime" && b.origin === "runtime-provision" && b.providers.includes("*")).map((b) => b.bindingId));
@@ -165,7 +166,7 @@ export class SourceService {
     const known = new Set(reported.map((a) => a.account.trim().toLowerCase()));
     const unreported: GoogleAccountOwner[] = [...present.accounts].filter((a) => !known.has(a)).map((account) => ({ account, subject: null, issuer: null }));
     if (present.truncated) unreported.push({ account: "more-mailboxes@unlisted.invalid", subject: null, issuer: null });
-    const value = { providerOwners: providerOwners(bindings, owners.value), googleAccounts: [...reported, ...unreported] };
+    const value = { providerOwners: providerOwners(bindings), googleAccounts: [...reported, ...unreported] };
     this.#evidence.delete(ns);
     this.#evidence.set(ns, { at: this.now().getTime(), epoch, value });
     while (this.#evidence.size > MAX_CACHED_TENANTS) this.#evidence.delete(this.#evidence.keys().next().value!);
@@ -230,8 +231,38 @@ export class SourceService {
 
   /** What `who` (a verified principal of `ns`) may read; see access.ts. */
   async viewer(ns: string, who: Identity): Promise<SourceViewer> {
-    const evidence = await this.#ownerEvidence(ns);
-    return new SourceViewer(who, { ...evidence, sharedProviders: this.#sharedProviders, googleUnits: await this.#googleUnits(ns, who, evidence.googleAccounts) });
+    const segment = personalSegment(ns, who);
+    const [evidence, personalDirs] = await Promise.all([this.#ownerEvidence(ns), this.#personalDirsOf(ns, segment)]);
+    return new SourceViewer(who, {
+      ...evidence,
+      sharedProviders: this.#sharedProviders,
+      googleUnits: await this.#googleUnits(ns, who, evidence.googleAccounts),
+      personalSegment: segment,
+      personalDirs,
+    });
+  }
+
+  /**
+   * Connect-owned providers holding a `<provider>/<segment>/` subtree (the caller's own accounts), cached like owner
+   * evidence (a publish through this process applies at once). It only decides whether the provider directory is
+   * listed: paths under the segment are served either way.
+   */
+  async #personalDirsOf(ns: string, segment: string): Promise<readonly string[]> {
+    const key = `${ns}\n${segment}`;
+    const store = this.storeFor(ns);
+    const epoch = store.localCommits;
+    const hit = this.#personalDirs.get(key);
+    if (hit && hit.epoch === epoch && this.now().getTime() - hit.at < VIEWER_TTL_MS) return hit.value;
+    const root = (await store.head()).value.root;
+    const shared = new Set([...SHARED_PROVIDERS, ...this.#sharedProviders]);
+    const candidates: string[] = [];
+    for await (const [name, e] of store.children(root)) if (e.t === "d" && isOwnerSegmentProvider(name, shared)) candidates.push(name);
+    const found = await Promise.all(candidates.map(async (p) => ((await store.resolve(`${p}/${segment}`, root).catch(() => null))?.type === "dir" ? p : null)));
+    const value = found.filter((p): p is string => p !== null);
+    this.#personalDirs.delete(key);
+    this.#personalDirs.set(key, { at: this.now().getTime(), epoch, value });
+    while (this.#personalDirs.size > MAX_CACHED_TENANTS * 16) this.#personalDirs.delete(this.#personalDirs.keys().next().value!);
+    return value;
   }
 
   /**
@@ -270,7 +301,20 @@ export class SourceService {
     const { bindings: allBindings, reports } = await this.#statusInputs(ns);
     const names = new Set<string>(dirs.keys());
     for (const r of reports) for (const p of r.report.providers) names.add(p.provider);
-    if (viewer) for (const n of names) if (viewer.access(n) === "deny") names.delete(n);
+    // A provider is listed when the viewer may read some of it, or when one of its coverage reports is the viewer's
+    // own (a connected personal account that has not exported a file yet).
+    const ownReport = (n: string) => reports.some((r) => r.report.providers.some((p) => p.provider === n && viewer!.coverageVisible(n, p)));
+    if (viewer) for (const n of names) if (viewer.access(n) === "deny" && !ownReport(n)) names.delete(n);
+    const own = new Map<string, DirEntry>();
+    if (viewer) {
+      await Promise.all(
+        [...names].map(async (n) => {
+          const sub = dirs.has(n) ? viewer.personalDir(n) : null;
+          const r = sub ? await store.resolve(sub, head.root).catch(() => null) : null;
+          if (r && r.type === "dir" && r.entry) own.set(n, r.entry);
+        }),
+      );
+    }
     // Device bindings are listed to their own enroller only.
     const bindings = viewer ? allBindings.filter((b) => b.kind !== "device" || (b.createdBy.subject === viewer.who.subject && b.createdBy.issuer === viewer.who.issuer)) : allBindings;
     const nowMs = this.now().getTime();
@@ -295,8 +339,9 @@ export class SourceService {
       const lastSuccessfulCheckAt = coverage.reduce<string | null>((m, c) => (c.lastSuccessAt && (m === null || c.lastSuccessAt > m) ? c.lastSuccessAt : m), null);
       const health: CollectorHealth =
         coverage.length === 0 ? "unreported" : coverage.every((c) => c.stale) || coverage.some((c) => c.checkLate) ? "stale" : "healthy";
-      // Directory totals of a partly readable provider include other owners' data.
-      const totals = viewer && viewer.access(provider) !== "allow" ? undefined : dir;
+      // Directory totals of a partly readable provider include other owners' data; a connect-owned provider counts
+      // the caller's own owner segment.
+      const totals = viewer && viewer.access(provider) !== "allow" ? own.get(provider) : dir;
       return {
         provider,
         files: totals ? totals.files : viewer && dir ? null : 0,

@@ -97,8 +97,11 @@ describe("Mac coding-sessions agent with yc_msaw as the authority", () => {
     const up = await agent(cfg.apiUrl, "POST", "", cfg.agentToken, { userId: "rival", sessions: [rt.session()] });
     expect(await up.json()).toMatchObject({ stored: 1 });
     expect((await agent(cfg.apiUrl, "GET", "/command", cfg.agentToken)).status).toBe(200);
+    // Stored in the enrolling principal's owner scope of the tenant, never in the organization tenant itself.
     const rows = (await rt.pg.query(`SELECT tenant_id FROM coding_sessions`)).rows as Array<{ tenant_id: string }>;
-    expect(rows.map((r) => r.tenant_id)).toEqual(["acme"]);
+    const scope = ((await rt.pg.query(`SELECT scope_tenant_id FROM source_lane_personal_devices WHERE binding_id = $1`, [bindingId])).rows[0] as { scope_tenant_id: string }).scope_tenant_id;
+    expect(scope).toMatch(/^acme\.u-[0-9a-f]{24}$/);
+    expect(rows.map((r) => r.tenant_id)).toEqual([scope]);
 
     // The device key is not an MCP/admin/publish credential.
     for (const route of ["/v1/sources/status", "/v1/sources/bindings"]) expect((await call("GET", route, cfg.agentToken)).status).toBe(401);

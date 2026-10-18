@@ -34,6 +34,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { db as defaultDb } from "../../db/client.js";
 import { getTenantBinding } from "../../source-lane/export/bindings.js";
+import { deviceDataTenant, deviceListTenants, ensurePersonalScope, registerPersonalDevice, type OwnerIdentity } from "../../source-lane/core/personal-scope.js";
 import type { CoverageReport, ExportContext, ExtraTableExport, JournalInfo, SourceFileChange, SourceProviderModule, InternalRouteDeps } from "../../source-lane/core/types.js";
 
 export type Executor = Pick<typeof defaultDb, "execute">;
@@ -109,8 +110,11 @@ export function createYcDeviceAuthority(db: Executor, provider: string, fetchImp
 async function authenticate(ex: Executor, authority: DeviceAuthority, key: string | null | undefined): Promise<{ ok: true; device: DeviceKey } | { ok: false; status: 401 | 503; error: string }> {
   const parts = parseDeviceKey(key);
   if (!parts || !key) return { ok: false, status: 401, error: "Unauthorized" };
+  // SOURCE-LANE PATCH (personal-connection-attribution): a device enrolled into its member's owner scope keeps its
+  // registry row and data there (core/personal-scope.ts); the key names the organization tenant and the binding.
+  const tenantId = await deviceDataTenant(ex, parts.tenantNs, "coding-sessions", parts.bindingId);
   const [row] = rowsOf<{ token_sha256: string; status: string }>(await ex.execute(sql`
-    SELECT token_sha256, status FROM coding_session_devices WHERE tenant_id = ${parts.tenantNs} AND binding_id = ${parts.bindingId}
+    SELECT token_sha256, status FROM coding_session_devices WHERE tenant_id = ${tenantId} AND binding_id = ${parts.bindingId}
   `));
   const a = Buffer.from(sha256(key), "hex");
   const b = Buffer.from(row?.token_sha256 ?? "00".repeat(32), "hex");
@@ -118,11 +122,12 @@ async function authenticate(ex: Executor, authority: DeviceAuthority, key: strin
   const verdict = await authority.verify(key, parts);
   if (verdict.state === "unavailable") return { ok: false, status: 503, error: `Device authority unavailable: ${verdict.reason}` };
   if (verdict.state === "revoked") {
-    await revokeDevice(ex, parts.tenantNs, parts.bindingId);
+    await revokeDevice(ex, tenantId, parts.bindingId);
     return { ok: false, status: 401, error: "Unauthorized" };
   }
-  await ex.execute(sql`UPDATE coding_session_devices SET last_seen_at = now() WHERE tenant_id = ${parts.tenantNs} AND binding_id = ${parts.bindingId}`);
-  return { ok: true, device: parts };
+  await ex.execute(sql`UPDATE coding_session_devices SET last_seen_at = now() WHERE tenant_id = ${tenantId} AND binding_id = ${parts.bindingId}`);
+  // From here on the device acts in the tenant that holds its data (rows, commands, receipts).
+  return { ok: true, device: { tenantNs: tenantId, bindingId: parts.bindingId } };
 }
 
 export async function enrollDevice(ex: Executor, tenantId: string, input: { bindingId: string; tokenSha256: string; label?: string | null }): Promise<{ status: number; body: Record<string, unknown> }> {
@@ -408,7 +413,10 @@ export function registerCodingSessionsPublicRoutes(app: Hono, deps: { db?: Execu
 
 export function registerCodingSessionsInternalRoutes(app: Hono, deps: InternalRouteDeps & { db?: Executor }): void {
   const ex = () => deps.db ?? defaultDb;
-  const principal = (c: Context) => (c.get("principal" as never) as { subject?: string; scopes?: string[] } | undefined) ?? {};
+  const principal = (c: Context) => (c.get("principal" as never) as { subject?: string; issuer?: string; scopes?: string[] } | undefined) ?? {};
+  const owner = (c: Context): OwnerIdentity => ({ tenantNs: deps.tenantOf(c), issuer: String(principal(c).issuer ?? ""), subject: String(principal(c).subject ?? "") });
+  /** Registry rows of a binding live in its owner scope (devices enrolled before owner scopes: the tenant itself). */
+  const deviceTenant = (c: Context) => deviceDataTenant(ex(), deps.tenantOf(c), "coding-sessions", c.req.param("bindingId") ?? "");
   const canWrite = (c: Context) => {
     const scopes = principal(c).scopes ?? [];
     return scopes.includes("traces:write") || scopes.includes("memory:build");
@@ -417,26 +425,39 @@ export function registerCodingSessionsInternalRoutes(app: Hono, deps: InternalRo
     // Self-service enrolment (owner-only sources); yc_msaw mints the binding.
     if (!canWrite(c) && !(principal(c).scopes ?? []).includes("memory:read")) return c.json({ error: { code: "insufficient_scope" } }, 403);
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
-    const r = await enrollDevice(ex(), deps.tenantOf(c), { bindingId: String(body.bindingId ?? ""), tokenSha256: String(body.tokenSha256 ?? ""), label: typeof body.label === "string" ? body.label : null });
+    // yc_msaw enrols every new device with layout "owner-segment": it writes into the enrolling member's own owner
+    // scope (core/personal-scope.ts), so its data is theirs alone, with its own keys. Without it: the tenant itself.
+    const bindingId = String(body.bindingId ?? "");
+    let tenantId = deps.tenantOf(c);
+    if (body.layout === "owner-segment") {
+      const who = owner(c);
+      if (!who.subject || !who.issuer) return c.json({ error: { code: "principal_required" } }, 401);
+      if (!/^sb-[0-9a-f]{16}$/.test(bindingId)) return c.json({ error: "bindingId and tokenSha256 required" }, 400);
+      const scope = await ensurePersonalScope(ex(), who);
+      await registerPersonalDevice(ex(), scope, "coding-sessions", bindingId);
+      tenantId = scope.scopeTenantId;
+    }
+    const r = await enrollDevice(ex(), tenantId, { bindingId, tokenSha256: String(body.tokenSha256 ?? ""), label: typeof body.label === "string" ? body.label : null });
     return c.json(r.body, r.status as 200);
   });
   app.get("/tenants/:tenantId/devices/coding-sessions", async (c) => {
     const rows = rowsOf<Record<string, unknown>>(await ex().execute(sql`
-      SELECT binding_id, label, status, capabilities, last_seen_at, created_at, revoked_at FROM coding_session_devices WHERE tenant_id = ${deps.tenantOf(c)} ORDER BY created_at
+      SELECT binding_id, label, status, capabilities, last_seen_at, created_at, revoked_at FROM coding_session_devices
+       WHERE tenant_id = ANY(${`{${(await deviceListTenants(ex(), owner(c))).join(",")}}`}::text[]) ORDER BY created_at
     `));
     return c.json({ devices: rows });
   });
   app.delete("/tenants/:tenantId/devices/coding-sessions/:bindingId", async (c) => {
     // The device owner revokes it (yc_msaw checks ownership before forwarding).
     if (!canWrite(c) && !(principal(c).scopes ?? []).includes("memory:read")) return c.json({ error: { code: "insufficient_scope" } }, 403);
-    const ok = await revokeDevice(ex(), deps.tenantOf(c), c.req.param("bindingId"));
+    const ok = await revokeDevice(ex(), await deviceTenant(c), c.req.param("bindingId"));
     return ok ? c.json({ revoked: true }) : c.json({ error: { code: "not_found" } }, 404);
   });
   app.post("/tenants/:tenantId/devices/coding-sessions/:bindingId/commands", async (c) => {
     // The device owner commands it (yc_msaw checks ownership before forwarding).
     if (!canWrite(c) && !(principal(c).scopes ?? []).includes("memory:read")) return c.json({ error: { code: "insufficient_scope" } }, 403);
     const body = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
-    const r = await requestCommand(ex(), deps.tenantOf(c), c.req.param("bindingId"), body, principal(c).subject ?? null);
+    const r = await requestCommand(ex(), await deviceTenant(c), c.req.param("bindingId"), body, principal(c).subject ?? null);
     return c.json(r.body, r.status as 201);
   });
 }

@@ -372,23 +372,30 @@ export async function runtimeStatusRoute(principal: Principal, runtime: SourceRu
   // A non-200 body could still carry data: callers get a fixed error, never the runtime's body.
   if (r.status !== 200 || !r.body || typeof r.body !== "object") return error(502, "runtime_status_unavailable", `Source runtime status answered ${r.status}`);
   const viewer = await service.viewer(principal.tenantNs, who(principal));
-  const body = r.body as { coverage?: Array<{ provider?: unknown; scope?: unknown; reason?: unknown }>; connections?: Array<{ provider?: unknown; external_account_id?: unknown }> };
+  const body = r.body as {
+    coverage?: Array<{ provider?: unknown; scope?: unknown; reason?: unknown }>;
+    connections?: Array<{ provider?: unknown; external_account_id?: unknown }>;
+    personal?: { segment?: unknown } | null;
+  };
   const owned = new Set(viewer.googleAccounts);
   const filtered = {
     ...body,
     ...(Array.isArray(body.coverage)
-      ? { coverage: body.coverage.filter((c) => typeof c.provider === "string" && viewer.access(c.provider) !== "deny" && viewer.coverageVisible(c.provider, { scope: String(c.scope ?? ""), ...(typeof c.reason === "string" ? { reason: c.reason } : {}) })) }
+      ? { coverage: body.coverage.filter((c) => typeof c.provider === "string" && viewer.coverageVisible(c.provider, { scope: String(c.scope ?? ""), ...(typeof c.reason === "string" ? { reason: c.reason } : {}) })) }
       : {}),
     ...(Array.isArray(body.connections)
       ? {
           connections: body.connections.filter((c) => {
             if (c.provider === "google") return typeof c.external_account_id === "string" && owned.has(c.external_account_id.toLowerCase());
             if (typeof c.provider !== "string") return false;
+            // Organization-level connections of personal integrations predate owner scopes: their data is sealed.
             const dir = PERSONAL_CONNECT_DIRS[c.provider] ?? c.provider.replace(/_/g, "-");
             return viewer.access(dir) === "allow";
           }),
         }
       : {}),
+    // The runtime lists only the forwarded principal's own accounts; anything else is dropped.
+    personal: body.personal && typeof body.personal === "object" && body.personal.segment === viewer.personalSegment ? body.personal : null,
   };
   return json(200, filtered);
 }
@@ -404,7 +411,7 @@ export const PERSONAL_CONNECT_DIRS: Readonly<Record<string, string>> = {
 
 /**
  * True when sources/<provider>/ holds any history: live files or tombstones. A purge publishes ordinary deletes, and
- * every earlier version stays readable through sources_history, so purged legacy data must block a first claim too.
+ * every earlier version stays readable through sources_history, so purged legacy data must block a first device claim.
  */
 async function providerHasData(service: SourceService, ns: string, provider: string): Promise<boolean> {
   const r = await service.storeFor(ns).resolve(provider);
@@ -412,60 +419,29 @@ async function providerHasData(service: SourceService, ns: string, provider: str
 }
 
 /**
- * Whether the runtime already holds a connection of this integration (e.g. connected before owners were recorded):
- * its rows, exported or not, are not the new claimer's. Unknown (runtime unreachable) counts as yes: fail closed.
+ * `POST /v1/sources/connect/:provider`. A personal account (PERSONAL_CONNECT_DIRS) is connected into the caller's own
+ * runtime owner scope, so every member may connect theirs and nobody claims the provider for the tenant: its files
+ * appear under `$SOURCES/<dir>/<caller's segment>/` (access.ts personalSegment), readable by the caller only. Data
+ * captured before owner scopes (unsegmented paths) stays sealed whoever connects.
  */
-async function runtimeHasConnection(principal: Principal, runtime: SourceRuntimeClient, provider: string): Promise<boolean> {
-  try {
-    const r = await runtime.status(principal);
-    const conns = (r.body as { connections?: Array<{ provider?: unknown }> } | null)?.connections;
-    if (r.status !== 200 || !Array.isArray(conns)) return true;
-    return conns.some((c) => c.provider === provider);
-  } catch {
-    return true;
-  }
-}
-
-export async function connectRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, provider: string, service?: SourceService): Promise<Response> {
-  const dir = PERSONAL_CONNECT_DIRS[provider];
-  const who = { subject: principal.subject, issuer: principal.issuer };
-  let claimed = false;
+export async function connectRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, provider: string): Promise<Response> {
   try {
     const body = await readOptionalJson(request);
-    // A personal account is owned by the principal that connects it; another member's later connect is refused.
-    if (dir && service) {
-      const owners = (await service.owners.registry(principal.tenantNs)).value.entries.filter((e) => e.provider === dir);
-      // Only a first claim must prove there is no legacy data (in $SOURCES or still in the runtime).
-      const legacy = owners.length === 0 && ((await providerHasData(service, principal.tenantNs, dir)) || (await runtimeHasConnection(principal, runtime, provider)));
-      claimed = (await service.owners.claim(principal.tenantNs, dir, who, { hasUnownedData: legacy })).created;
-    }
-    let r: RuntimeResponse;
-    try {
-      r = await runtime.connect(principal, provider, body);
-    } catch (e) {
-      // Refused before sending (e.g. an invalid id): nothing was connected, so the new claim is rolled back. A send
-      // that never got an answer keeps it, since the connect may have happened and its data would stay sealed.
-      if (claimed && e instanceof SourceError) await service!.owners.release(principal.tenantNs, dir!, who);
-      throw e;
-    }
-    if (claimed && r.status >= 400) await service!.owners.release(principal.tenantNs, dir!, who);
-    return relay(r);
+    return relay(await runtime.connect(principal, provider, body));
   } catch (e) {
     return e instanceof SourceError || e instanceof TraceIngestError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
   }
 }
 
-export async function disconnectRoute(principal: Principal, runtime: SourceRuntimeClient, provider: string, service?: SourceService): Promise<Response> {
+/**
+ * `DELETE /v1/sources/connections/:provider`. For a personal integration the runtime disconnects the caller's own
+ * account (its owner scope); captured files and their history stay, readable by the caller. An admin stops an
+ * organization-level legacy connection of a personal integration with `?legacy=organization` (its data stays sealed).
+ */
+export async function disconnectRoute(principal: Principal, runtime: SourceRuntimeClient, provider: string, opts: { legacy?: boolean } = {}): Promise<Response> {
   try {
-    const dir = PERSONAL_CONNECT_DIRS[provider];
-    if (dir && service && !principal.scopes.includes(SCOPES.memoryBuild)) {
-      // A member disconnects only a personal account they own (ownership, and its sealed history, is kept).
-      const owners = (await service.owners.registry(principal.tenantNs)).value.entries.filter((e) => e.provider === dir);
-      if (!owners.some((e) => e.subject === principal.subject && e.issuer === principal.issuer)) {
-        return error(403, "forbidden", `Only the owner of ${dir} may disconnect it`);
-      }
-    }
-    return relay(await runtime.disconnect(principal, provider));
+    if (opts.legacy && !principal.scopes.includes(SCOPES.memoryBuild)) return error(403, "forbidden", "Only an admin stops an organization-level legacy connection");
+    return relay(await runtime.disconnect(principal, provider, opts));
   } catch (e) {
     return e instanceof SourceError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
   }
@@ -593,13 +569,13 @@ async function runtimeDeviceSetup<S extends z.ZodTypeAny>(
     const apiUrl = runtime.config.deviceApiUrl;
     if (!apiUrl) return error(503, "device_ingest_not_configured", "SOURCES_DEVICE_API_URL (the source runtime's public device host) is not configured");
     const label = input.label ?? spec.defaultLabel;
-    const hasData = await providerHasData(service, principal.tenantNs, spec.provider);
-    // The enrolling principal becomes the owner of this provider's $SOURCES directory (access.ts).
+    // The runtime enrols the device into the enrolling principal's owner scope: its data appears only under
+    // $SOURCES/<provider>/<their segment>/ (access.ts), so every member enrols their own devices and nothing captured
+    // before owner scopes (the provider directory itself) is handed to anyone.
     const { binding, token } = await service.bindings.create(
       principal.tenantNs,
-      { kind: "device", providers: [spec.provider], label, transport: "runtime-ingest" },
+      { kind: "device", providers: [spec.provider], label, transport: "runtime-ingest", layout: "owner-segment" },
       { subject: principal.subject, issuer: principal.issuer },
-      { unownedData: () => hasData },
     );
     const agentToken = deviceKeyForBindingToken(spec.provider, token);
     let r: RuntimeResponse;
@@ -608,6 +584,8 @@ async function runtimeDeviceSetup<S extends z.ZodTypeAny>(
         bindingId: binding.bindingId,
         tokenSha256: createHash("sha256").update(agentToken, "utf8").digest("hex"),
         label,
+        // The runtime enrols the device into this principal's owner scope (it reads the owner from the principal only).
+        layout: "owner-segment",
         ...spec.enrolExtra(input),
       });
     } catch (e) {

@@ -1,5 +1,6 @@
 import { sql } from "drizzle-orm";
 import { imessageHandlesFromInput } from "../../../lib/imessage-handles.js";
+import { deviceDataTenant } from "../../core/personal-scope.js";
 import { deviceKeyMatches, isBindingId, isTokenSha256, parseDeviceKey } from "./device-auth.js";
 import { query, type ImessageExecutor } from "./util.js";
 
@@ -192,15 +193,17 @@ export async function authenticateImessageDevice(executor: ImessageExecutor, key
     deviceKeyMatches(String(key ?? ""), null);
     return null;
   }
+  // A device enrolled into its member's owner scope keeps its registry row and data there (core/personal-scope.ts).
+  const tenantId = await deviceDataTenant(executor, parts.tenantNs, "imessage", parts.bindingId);
   const row = (
     await query<{ token_sha256: string; status: string }>(
       executor,
-      sql`SELECT token_sha256, status FROM imessage_devices WHERE tenant_id = ${parts.tenantNs} AND binding_id = ${parts.bindingId}`,
+      sql`SELECT token_sha256, status FROM imessage_devices WHERE tenant_id = ${tenantId} AND binding_id = ${parts.bindingId}`,
     )
   )[0];
   const match = deviceKeyMatches(key!, row?.token_sha256 ?? null);
   if (!row || !match || row.status !== "active") return null;
-  return { tenantId: parts.tenantNs, bindingId: parts.bindingId };
+  return { tenantId, bindingId: parts.bindingId };
 }
 
 export async function touchImessageDevice(

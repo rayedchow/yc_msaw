@@ -35,6 +35,7 @@ import type { Context, Hono } from "hono";
 import { db as defaultDb } from "../../db/client.js";
 import type { CoverageReport, ExportContext, ExtraTableExport, InternalRouteDeps, JournalInfo, SourceFileChange, SourceProviderModule } from "../../source-lane/core/types.js";
 import { createYcDeviceAuthority, type DeviceAuthority } from "../coding-sessions/lane.js";
+import { deviceDataTenant, ensurePersonalScope, personalScopeOf, personalScopesOf, registerPersonalDevice } from "../../source-lane/core/personal-scope.js";
 
 type Executor = Pick<typeof defaultDb, "execute">;
 export const OFFICE_AUDIO_PROVIDER = "office-audio";
@@ -147,12 +148,15 @@ const KEY_RE = /^goa_([a-z0-9][a-z0-9-]{0,79})\.(sb-[0-9a-f]{16})\.([A-Za-z0-9_-
 async function authenticate(ex: Executor, authority: DeviceAuthority, key: string | null | undefined): Promise<{ ok: true; tenantId: string; bindingId: string } | { ok: false; status: 401 | 503; error: string }> {
   const m = typeof key === "string" ? KEY_RE.exec(key) : null;
   if (!m || !key) return { ok: false, status: 401, error: "Unauthorized" };
-  const [tenantId, bindingId] = [m[1]!, m[2]!];
+  const [parentTenantId, bindingId] = [m[1]!, m[2]!];
+  // SOURCE-LANE PATCH (personal-connection-attribution): a device enrolled into its member's owner scope keeps its
+  // registry row and data there (core/personal-scope.ts); the key names the organization tenant and the binding.
+  const tenantId = await deviceDataTenant(ex, parentTenantId, "office-audio", bindingId);
   const [row] = rowsOf<{ token_sha256: string; status: string }>(await ex.execute(sql`SELECT token_sha256, status FROM office_audio_devices WHERE tenant_id = ${tenantId} AND binding_id = ${bindingId}`));
   const a = Buffer.from(sha256(key), "hex");
   const b = Buffer.from(row?.token_sha256 ?? "00".repeat(32), "hex");
   if (!row || row.status !== "active" || !timingSafeEqual(a, b)) return { ok: false, status: 401, error: "Unauthorized" };
-  const verdict = await authority.verify(key, { tenantNs: tenantId, bindingId });
+  const verdict = await authority.verify(key, { tenantNs: parentTenantId, bindingId });
   if (verdict.state === "unavailable") return { ok: false, status: 503, error: `Device authority unavailable: ${verdict.reason}` };
   if (verdict.state === "revoked") {
     await ex.execute(sql`UPDATE office_audio_devices SET status = 'revoked', revoked_at = now() WHERE tenant_id = ${tenantId} AND binding_id = ${bindingId}`);
@@ -193,7 +197,8 @@ export async function ingestOfficeAudio(ex: Executor, device: { tenantId: string
   const sessions = Array.isArray(body.sessions) ? body.sessions : [];
   if (!sessions.length) return { status: 400, body: { error: "sessions array is required" } };
   if (sessions.length > MAX_SESSIONS_PER_BATCH) return { status: 400, body: { error: `Maximum ${MAX_SESSIONS_PER_BATCH} sessions per batch` } };
-  const consented = await activeConsents(ex, device.tenantId);
+  // Recording consent is granted for the organization (admin-only): an owner scope reads its organization's grants.
+  const consented = await activeConsents(ex, (await personalScopeOf(ex, device.tenantId))?.parentTenantId ?? device.tenantId);
   let stored = 0;
   let updated = 0;
   let skipped = 0;
@@ -269,10 +274,13 @@ export async function revokeConsent(ex: Executor, tenantId: string, principal: {
   if (!r.length) return { status: 404, body: { error: "No active consent for that participant" } };
   let tombstoned = 0;
   if (deleteCaptured) {
-    tombstoned = rowsOf(await ex.execute(sql`
-      UPDATE office_audio_sessions SET deleted = true, deleted_reason = 'participant_consent_revoked', observed_at = now(), updated_at = now()
-      WHERE tenant_id = ${tenantId} AND NOT deleted AND participant_keys ? ${k} RETURNING id
-    `)).length;
+    // Sessions captured by members' own devices (their owner scopes) are covered by the organization's consent too.
+    for (const t of [tenantId, ...(await personalScopesOf(ex, tenantId)).map((s) => s.scopeTenantId)]) {
+      tombstoned += rowsOf(await ex.execute(sql`
+        UPDATE office_audio_sessions SET deleted = true, deleted_reason = 'participant_consent_revoked', observed_at = now(), updated_at = now()
+        WHERE tenant_id = ${t} AND NOT deleted AND participant_keys ? ${k} RETURNING id
+      `)).length;
+    }
   }
   return { status: 200, body: { participantKey: k, revoked: true, sessionsTombstoned: tombstoned } };
 }
@@ -309,15 +317,25 @@ export function registerOfficeAudioInternalRoutes(app: Hono, deps: InternalRoute
     if (!writer(c) && !(principal(c).scopes ?? []).includes("memory:read")) return c.json({ error: { code: "insufficient_scope" } }, 403);
     const b = (await c.req.json().catch(() => ({}))) as Record<string, unknown>;
     if (!/^sb-[0-9a-f]{16}$/.test(String(b.bindingId)) || !/^[0-9a-f]{64}$/.test(String(b.tokenSha256))) return c.json({ error: "bindingId and tokenSha256 required" }, 400);
-    const [prior] = rowsOf<{ token_sha256: string }>(await ex().execute(sql`SELECT token_sha256 FROM office_audio_devices WHERE tenant_id = ${deps.tenantOf(c)} AND binding_id = ${String(b.bindingId)}`));
+    // yc_msaw enrols every new device with layout "owner-segment": it writes into the enrolling member's own owner
+    // scope (core/personal-scope.ts). Without it: the tenant itself (devices enrolled before owner scopes).
+    let tenantId = deps.tenantOf(c);
+    if (b.layout === "owner-segment") {
+      if (!principal(c).subject || !principal(c).issuer) return c.json({ error: { code: "principal_required" } }, 401);
+      const scope = await ensurePersonalScope(ex(), { tenantNs: deps.tenantOf(c), issuer: String(principal(c).issuer), subject: principal(c).subject });
+      await registerPersonalDevice(ex(), scope, "office-audio", String(b.bindingId));
+      tenantId = scope.scopeTenantId;
+    }
+    const [prior] = rowsOf<{ token_sha256: string }>(await ex().execute(sql`SELECT token_sha256 FROM office_audio_devices WHERE tenant_id = ${tenantId} AND binding_id = ${String(b.bindingId)}`));
     if (prior) return prior.token_sha256 === b.tokenSha256 ? c.json({ created: false }) : c.json({ error: "device binding already enrolled differently" }, 409);
-    await ex().execute(sql`INSERT INTO office_audio_devices (tenant_id, binding_id, token_sha256, label) VALUES (${deps.tenantOf(c)}, ${String(b.bindingId)}, ${String(b.tokenSha256)}, ${typeof b.label === "string" ? b.label.slice(0, 200) : null})`);
+    await ex().execute(sql`INSERT INTO office_audio_devices (tenant_id, binding_id, token_sha256, label) VALUES (${tenantId}, ${String(b.bindingId)}, ${String(b.tokenSha256)}, ${typeof b.label === "string" ? b.label.slice(0, 200) : null})`);
     return c.json({ created: true, bindingId: b.bindingId, wire: "/api/office-audio/ingest" }, 201);
   });
   app.delete("/tenants/:tenantId/devices/office-audio/:bindingId", async (c) => {
     // The device owner revokes it (yc_msaw checks ownership before forwarding).
     if (!writer(c) && !(principal(c).scopes ?? []).includes("memory:read")) return c.json({ error: { code: "insufficient_scope" } }, 403);
-    const r = rowsOf(await ex().execute(sql`UPDATE office_audio_devices SET status = 'revoked', revoked_at = now() WHERE tenant_id = ${deps.tenantOf(c)} AND binding_id = ${c.req.param("bindingId")} AND status = 'active' RETURNING binding_id`));
+    const deviceTenant = await deviceDataTenant(ex(), deps.tenantOf(c), "office-audio", c.req.param("bindingId") ?? "");
+    const r = rowsOf(await ex().execute(sql`UPDATE office_audio_devices SET status = 'revoked', revoked_at = now() WHERE tenant_id = ${deviceTenant} AND binding_id = ${c.req.param("bindingId")} AND status = 'active' RETURNING binding_id`));
     return r.length ? c.json({ revoked: true }) : c.json({ error: { code: "not_found" } }, 404);
   });
   // Consent is granted and revoked only by an authorized actor (memory:build) of the verified tenant.
