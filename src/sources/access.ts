@@ -24,6 +24,11 @@ import { SourceError } from "./paths.js";
  *   `*` runtime binding may). A domain-wide-delegation mailbox has no such subject and stays
  *   unowned until its owner completes the OAuth grant for the same address.
  *
+ * A Doc a proven mailbox may only read or comment on (Drive `canReadRevisions` false) is a view-only unit: its shared
+ * directory (captured under another credential, with writer-only history, suggestions and permissions) is withheld,
+ * and the runtime captures that mailbox's own current view under its own credential into
+ * `google-docs/_accounts/<mailbox>/`, which, like `gmail/<mailbox>/`, belongs to the owner of that mailbox.
+ *
  * Anything unowned, owned by more than one principal, or not attributable to one account from its
  * path (e.g. the donor calendar month files that mix mailboxes) is denied to everyone. Shared
  * workspace providers (SHARED_PROVIDERS plus the operator's SOURCES_SHARED_PROVIDERS) stay readable
@@ -61,8 +66,10 @@ export const DEVICE_OWNED_PROVIDERS: readonly string[] = ["imessage", "coding-se
 export const CONNECT_OWNED_PROVIDERS: readonly string[] = ["granola", "zoom", "cursor-agents", "whatsapp-personal", "instagram-personal"];
 /** Google providers laid out per mailbox (`<mailbox>/` or `accounts/<mailbox>/`). */
 const GOOGLE_ACCOUNT_PROVIDERS: Readonly<Record<string, "first" | "accounts">> = { gmail: "first", calendar: "accounts", "google-contacts": "accounts" };
-/** Google providers with no mailbox in the path: readable only by the principal that owns every Google account. */
+/** Google providers with no mailbox in the path: readable per unit through runtime attribution. */
 const GOOGLE_WIDE_PROVIDERS: readonly string[] = ["google-docs"];
+/** `google-docs/_accounts/<mailbox>/`: one mailbox's own captures of Docs it may only view (runtime account-capture.ts). */
+const GOOGLE_ACCOUNT_VIEWS = "_accounts";
 /** Runtime credential lane that reports per-mailbox grant coverage (no files). */
 const GOOGLE_AUTH_STATUS_PROVIDER = "google-auth";
 /** Workspace providers every member of the tenant reads (org data, not one person's account). */
@@ -109,6 +116,8 @@ export class SourceViewer {
   /** Google-wide units (runtime attribution) this principal reads in full, and every directory above one. */
   readonly #units: ReadonlySet<string>;
   readonly #unitParents: ReadonlySet<string>;
+  /** The caller's mailboxes see some Doc view-only: their own current views live under `google-docs/_accounts/`. */
+  readonly #hasViewOnlyUnits: boolean;
 
   constructor(
     readonly who: Identity,
@@ -126,6 +135,7 @@ export class SourceViewer {
   ) {
     const units = new Set<string>();
     const parents = new Set<string>();
+    this.#hasViewOnlyUnits = (input.googleUnits ?? []).some((u) => !u.revisions && /^google-docs\/[^/]/.test(u.path));
     for (const u of input.googleUnits ?? []) {
       if (!u.revisions || !/^(google-docs|binary\/drive-pdf)\/[^/]/.test(u.path)) continue;
       units.add(u.path);
@@ -171,7 +181,14 @@ export class SourceViewer {
     const seg = stored.split("/");
     const provider = seg[0]!;
     if (DEVICE_OWNED_PROVIDERS.includes(provider) || CONNECT_OWNED_PROVIDERS.includes(provider)) return this.#owned.has(provider) ? "allow" : "deny";
-    if (GOOGLE_WIDE_PROVIDERS.includes(provider)) return this.#unitAccess(seg);
+    if (GOOGLE_WIDE_PROVIDERS.includes(provider)) {
+      if (seg[1] === GOOGLE_ACCOUNT_VIEWS) {
+        if (seg.length === 2) return this.#hasViewOnlyUnits && this.#ownedAccounts.size > 0 ? "mixed" : "deny";
+        return this.#ownedAccounts.has(decodeSegment(seg[2]!)) ? "allow" : "deny";
+      }
+      if (seg.length === 1 && this.#hasViewOnlyUnits && this.#ownedAccounts.size > 0) return "mixed";
+      return this.#unitAccess(seg);
+    }
     const layout = GOOGLE_ACCOUNT_PROVIDERS[provider];
     if (layout) return this.#googleAccountPath(seg, layout);
     // Status-only provider of the Google credential lane: its coverage names mailboxes.
@@ -234,7 +251,8 @@ export class SourceViewer {
     const access = this.access(provider);
     if (access === "allow") return true;
     if (access === "deny") return false;
-    if (GOOGLE_ACCOUNT_PROVIDERS[provider] || provider === GOOGLE_AUTH_STATUS_PROVIDER) {
+    // Docs coverage is tenant-wide except `account:<mailbox>` (that mailbox's own current views).
+    if (GOOGLE_ACCOUNT_PROVIDERS[provider] || provider === GOOGLE_AUTH_STATUS_PROVIDER || (provider === "google-docs" && c.scope.startsWith("account:"))) {
       // Whole-token match (an owner of an@x must not see dan@x), and the reason may name no other address.
       const tokens = (t: string) => t.toLowerCase().split(/[\s:/,;()[\]"'<>=]+/).filter(Boolean);
       const scopeTokens = tokens(c.scope);

@@ -80,7 +80,10 @@ export async function snapshotDocContent(
     }
   }
 
-  const doc = await fetchDocContent(userId, docId);
+  // SOURCE-LANE PATCH (google-viewer-content): fetch as the file's capture mailbox (the checkpoint mailbox, kept on a
+  // mailbox Drive lets read revisions; lifecycle.ts), not the tenant default credential, which may not see the doc at
+  // all or only see it view-only. No checkpoint (donor mocks, legacy) = the donor's default credential, as before.
+  const doc = await fetchDocContent(userId, docId, await captureMailboxToken(userId, docId));
   const revisionId = docRevisionId(doc);
 
   // Image bytes must be fetched now, while the response's contentUris are
@@ -211,6 +214,20 @@ export async function snapshotDocContent(
     tabRowsInserted: inserted,
     title: rendered.title,
   };
+}
+
+async function captureMailboxToken(userId: string, docId: string): Promise<string | undefined> {
+  const { getCheckpoint } = await import("../../../source-lane/providers/google-docs/checkpoints.js");
+  const mailbox = (await getCheckpoint(userId, docId).catch(() => null))?.mailbox;
+  if (!mailbox) return undefined;
+  const { getGoogleAccessToken, GOOGLE_DOCS_DELEGATION_SCOPES } = await import("../../../vault/google-auth.js");
+  try {
+    return await getGoogleAccessToken(userId, mailbox, GOOGLE_DOCS_DELEGATION_SCOPES);
+  } catch {
+    // No bearer for that mailbox (Composio, reauth, scope): the donor's default credential, as before this patch.
+    // The shared unit is only ever served to owners of mailboxes that may read its revisions.
+    return undefined;
+  }
 }
 
 /**

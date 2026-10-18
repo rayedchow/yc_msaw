@@ -67,7 +67,7 @@ const EXPORT_PREFERENCES: Record<string, string[]> = {
   "application/vnd.google-apps.script": ["application/vnd.google-apps.script+json"],
 };
 
-const DRIVE_FIELDS = [
+export const DRIVE_FIELDS = [
   "id", "name", "mimeType", "description", "size", "md5Checksum", "sha1Checksum", "sha256Checksum",
   "headRevisionId", "version", "modifiedTime", "createdTime", "trashed", "explicitlyTrashed", "parents", "driveId",
   "owners(displayName,emailAddress,permissionId)", "lastModifyingUser(displayName,emailAddress,permissionId)",

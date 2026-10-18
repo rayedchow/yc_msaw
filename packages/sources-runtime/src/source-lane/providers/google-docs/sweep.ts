@@ -7,7 +7,8 @@
  * - `runGdocsSourceSweep`: due retries (Retry-After / backoff honoured via
  *   checkpoint retry times) and not-yet-exported Sheets/Slides/Drive files.
  *   The 60s poll runs it bounded to non-Doc files; the hourly suggestion-sync
- *   runs it for everything (Docs content/history retries included).
+ *   runs it for everything (Docs content/history retries included, and due
+ *   per-account views of view-only Docs, account-capture.ts).
  *
  * Nothing here throws into the donor job: failures are recorded on the
  * checkpoint (and therefore in coverage) and retried.
@@ -167,6 +168,27 @@ export async function runGdocsSourceSweep(tenantId: string, options: SweepOption
       }
       out.results.push({ fileId: cp.fileId, lane: isDoc ? "doc" : "drive", state: "error", reason: err instanceof Error ? err.message : String(err) });
       out.processed++;
+    }
+  }
+  if (options.includeDocs && out.stoppedFor === null) {
+    try {
+      const { captureAccountDocView, listDueAccountCaptures, seedAccountCaptures } = await import("./account-capture.js");
+      await seedAccountCaptures(tenantId, options.maxFiles, options.deps);
+      for (const due of await listDueAccountCaptures(tenantId, now, options.maxFiles, options.deps)) {
+        if (Date.now() - started > options.budgetMs) {
+          out.stoppedFor = "budget";
+          break;
+        }
+        const r = await captureAccountDocView({ tenantId, docId: due.fileId, mailbox: due.mailbox, now, deps: options.deps });
+        out.results.push({ fileId: due.fileId, lane: "doc-account", state: r.state, reason: r.reason });
+        out.processed++;
+        if (r.reason === "rate_limited") {
+          out.stoppedFor = "rate_limited";
+          break;
+        }
+      }
+    } catch (err) {
+      console.warn(`[gdocs-source] account view sweep failed for ${tenantId}:`, err instanceof Error ? err.message : err);
     }
   }
   return out;

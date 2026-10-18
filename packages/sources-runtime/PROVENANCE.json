@@ -1585,6 +1585,17 @@
       ]
     },
     {
+      "path": "drizzle/9104_gdocs_account_captures.sql",
+      "sha256": "59ff0ee3c91c4b82d729f4fc56f1b05dad5e9962acc22a631809fa9be2b31aba",
+      "status": "new",
+      "owner": "google-viewer-content",
+      "reason": "google-viewer-content: gdocs_account_captures (per (file, mailbox) state of account views; bookkeeping only, not exported; google-docs range 9100-9149).",
+      "tests": [
+        "tests/source-lane/providers/google-docs/account-view.test.ts",
+        "tests/source-lane/core/account-view-e2e-pg.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9150_google_auth_grants.sql",
       "sha256": "15000b443fd5e524be3dc25d5e7779dbed848191c745fa54a850a90668a4cf62",
       "status": "new",
@@ -2431,14 +2442,16 @@
     },
     {
       "path": "src/integrations/google/gdocs/content-snapshot.ts",
-      "sha256": "cc34d60e499690c818b146d5101a68c2eaab84e0e158f424c4750f32d69d1bf0",
+      "sha256": "a2fbfa42585b793d2d6b6c0089a1c6ce05abe82d98854c3922b91c2e4af3de68",
       "status": "patched",
-      "owner": "google-docs, coordinator",
+      "owner": "google-docs, coordinator, google-viewer-content",
       "donorPath": "src/integrations/google/gdocs/content-snapshot.ts",
       "donorSha256": "45af553cfd33ada906fa719c2e4e495f90869fc8b271ae305a9eee213beddacf",
-      "reason": "Collects image bytes via onImage; forceMaterialize option re-stages the mirror for restored docs; fail-soft source export hook (native JSON, tabs, images, Drive permissions, snapshot diff) with failure recorded on the checkpoint for retry; result carries title. Coordinator (after google-docs finished): one revision's google_doc_tab_snapshots rows are written in a single transaction so the patched backfill (latest revision only) never sees a half-written revision.",
+      "reason": "Collects image bytes via onImage; forceMaterialize option re-stages the mirror for restored docs; fail-soft source export hook (native JSON, tabs, images, Drive permissions, snapshot diff) with failure recorded on the checkpoint for retry; result carries title. Coordinator (after google-docs finished): one revision's google_doc_tab_snapshots rows are written in a single transaction so the patched backfill (latest revision only) never sees a half-written revision. google-viewer-content: documents.get runs as the file's capture (checkpoint) mailbox instead of the tenant default credential, which may not see the doc or see it view-only; no checkpoint = donor default as before.",
       "tests": [
         "tests/mirror/gdocs-content-snapshot.test.ts (unchanged, passes) + doc-content-export.test.ts",
+        "tests/source-lane/core/account-view-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-docs/account-view.test.ts",
         "tests/source-lane/providers/google-docs/backfill-tombstones.test.ts"
       ]
     },
@@ -2505,16 +2518,18 @@
     },
     {
       "path": "src/integrations/google/index.ts",
-      "sha256": "64e944e94ee585fb31138fd9f66cfde58272a81639969ccf93777a2f14cdc0cb",
+      "sha256": "6568fcb3aef123fce33bd0d70b4df1306614394581f0328563756f1630e57011",
       "status": "patched",
-      "owner": "coordinator",
+      "owner": "coordinator, google-viewer-content",
       "donorPath": "src/integrations/google/index.ts",
       "donorSha256": "4a23d843a0fec53b25d634fb78fb3b9f4e1cd78a74710dc0733c606d4334bca4",
-      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. Coordinator (gmail patch request 2): gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds; truthful completeness is the gmail module's mailbox:<email> coverage. Coordinator (calendar-contacts patch request 2): calendar.poll passes the webhook channelId (targeted sync of that channel's calendar); calendar.setup/google.contacts_sync honour forceFull.",
+      "reason": "google-auth patch request 5: googleIntegration.disconnect = disconnectAllGoogleAccounts, so tenant disconnect revokes OAuth/Composio grants at the provider instead of leaving refresh tokens live. Coordinator (gmail patch request 2): gmail.backfill records no days-bounded coverage window and passes no days/maxMessages bounds; truthful completeness is the gmail module's mailbox:<email> coverage. Coordinator (calendar-contacts patch request 2): calendar.poll passes the webhook channelId (targeted sync of that channel's calendar); calendar.setup/google.contacts_sync honour forceFull. google-viewer-content: task gdocs.account-snapshot (current view of a Doc a mailbox may only read, captured under that mailbox's own credential; account-capture.ts).",
       "tests": [
+        "tests/source-lane/core/account-view-e2e-pg.test.ts",
         "tests/source-lane/core/shared-patches-gmail.test.ts",
         "tests/source-lane/core/shared-patches.test.ts",
-        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts"
+        "tests/source-lane/providers/google-calendar/calendar-lane.test.ts",
+        "tests/source-lane/providers/google-docs/account-view.test.ts"
       ]
     },
     {
@@ -4528,6 +4543,37 @@
       ]
     },
     {
+      "path": "src/source-lane/providers/google-docs/account-capture.ts",
+      "sha256": "21be7148dbbe8d5bcb30a82c3b2e3b140171be3f3e207a184867c4230bb1914a",
+      "status": "new",
+      "owner": "google-viewer-content",
+      "reason": "google-viewer-content: current view of a Doc for a mailbox without canReadRevisions, fetched under that mailbox's own credential (OAuth/DWD/Composio as resolved), exported under sources/google-docs/_accounts/<mailbox>/; no writer-only artifacts, no writes to donor shared tables; fail closed.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/account-view.test.ts",
+        "tests/source-lane/core/account-view-e2e-pg.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/google/gdocs/content.ts",
+          "use": "SUGGESTIONS_INLINE then PREVIEW_WITHOUT_SUGGESTIONS on 403 (fetchDocContent), parseDocContent renderer reused as-is"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/google/gdocs/images.ts",
+          "use": "collectImageRefs reused; capped streaming body read and per-run image cap mirrored without the donor's google_doc_images writes"
+        },
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/google/gdocs/content-snapshot.ts",
+          "use": "revisionId fallback (content digest) and redact-then-render order"
+        }
+      ]
+    },
+    {
       "path": "src/source-lane/providers/google-docs/auth-mode.ts",
       "sha256": "05677cc745cc47daca0b73e91e663d3de83ed1c8b3a5d755d52b07a77fbd66f8",
       "status": "new",
@@ -4613,12 +4659,14 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/coverage.ts",
-      "sha256": "ae742801f80ad8b0fe572aaa9ae97e93aa9306341e66ad1f148d8c6d5c823f0c",
+      "sha256": "b5197d0361202c7df759f83b3ce074f235c059bf471b386dc07ae1a61957aa0e",
       "status": "new",
-      "owner": "google-docs, coordinator",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: drive-inventory coverage is computed from the full Drive listing per roster mailbox (complete only after a gap-free listing of every mailbox) instead of a static partial.",
+      "owner": "google-docs, coordinator, google-viewer-content",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: drive-inventory coverage is computed from the full Drive listing per roster mailbox (complete only after a gap-free listing of every mailbox) instead of a static partial. google-viewer-content: per-mailbox `account:<mailbox>` coverage of account views, with view-only non-Doc files counted as withheld (viewer_current_content_not_captured).",
       "tests": [
+        "tests/source-lane/core/account-view-e2e-pg.test.ts",
         "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/account-view.test.ts",
         "tests/source-lane/providers/google-docs/coverage-and-jobs.test.ts",
         "tests/source-lane/providers/google-docs/inventory.test.ts"
       ]
@@ -4635,12 +4683,14 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/drive-export.ts",
-      "sha256": "72999b7f9f36cd62e98efa28b5a0eb7c36622d94fee3a5a256b8ff1bc461d6fb",
+      "sha256": "8523f816160e7edd324a06e8c0427ef5ae0444f72bd27bc2722beea3575aaf28",
       "status": "new",
-      "owner": "google-docs",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "owner": "google-docs, google-viewer-content",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) google-viewer-content: DRIVE_FIELDS exported (account captures read files.get with the same fields as that account).",
       "tests": [
-        "tests/source-lane/providers/google-docs/*"
+        "tests/source-lane/core/account-view-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/account-view.test.ts"
       ]
     },
     {
@@ -4702,15 +4752,17 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/lifecycle.ts",
-      "sha256": "a0fff8b95ab27d21bfdf012f970ae190d56f133b467f6b2c0ec45dd3c2859491",
+      "sha256": "8f3d89ac4f5631dce66fbe295871a6789185c40c5739c1e05ac8f3dc5beace8a",
       "status": "new",
-      "owner": "google-docs, coordinator, owner-runtime-fidelity",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: per-mailbox visibility (setFileVisibility/otherVisibleMailbox); removed-in-one-mailbox re-points the checkpoint instead of retiring. owner-runtime-fidelity: setFileVisibility records capabilities.canReadRevisions (COALESCE keeps the last observed value).",
+      "owner": "google-docs, coordinator, owner-runtime-fidelity, google-viewer-content",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: per-mailbox visibility (setFileVisibility/otherVisibleMailbox); removed-in-one-mailbox re-points the checkpoint instead of retiring. owner-runtime-fidelity: setFileVisibility records capabilities.canReadRevisions (COALESCE keeps the last observed value). google-viewer-content: the checkpoint (capture) mailbox is kept on a mailbox that may read revisions (keepRevisionReaderAsCaptureMailbox; otherVisibleMailbox prefers one), so a viewer's feed never becomes the credential of the shared unit's content/metadata/OT history; live changes call noteAccountView (canReadRevisions false schedules that mailbox's own current-view capture, true supersedes it); a mailbox's removed retires only its account copy; trash/tenant-wide retirement marks account captures retired.",
       "tests": [
+        "tests/source-lane/core/account-view-e2e-pg.test.ts",
         "tests/source-lane/core/owner-attribution-pg.test.ts",
         "tests/source-lane/core/owner-google-e2e-pg.test.ts",
         "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
         "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/account-view.test.ts",
         "tests/source-lane/providers/google-docs/owner-attribution.test.ts",
         "tests/source-lane/providers/google-docs/visibility.test.ts"
       ]
@@ -4757,12 +4809,14 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/sweep.ts",
-      "sha256": "877f3c3609a5ae6d4cce3486c24188835f35f0323983acf15ce19c935614dd95",
+      "sha256": "17c80bf88007a9bbc821bd8fb9441772987484604c02e5863d1b80b91267247b",
       "status": "new",
-      "owner": "google-docs",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
+      "owner": "google-docs, google-viewer-content",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) google-viewer-content: the hourly (includeDocs) sweep retries due account captures within the same budget; the 60 s poll sweep does not.",
       "tests": [
-        "tests/source-lane/providers/google-docs/*"
+        "tests/source-lane/core/account-view-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/account-view.test.ts"
       ]
     },
     {
@@ -6537,6 +6591,16 @@
       "donorSha256": "fee5f0c912e41f2d6e9ec1ade9cc9a32b48f201734d0aed58571616925569453"
     },
     {
+      "path": "tests/source-lane/core/account-view-e2e-pg.test.ts",
+      "sha256": "f05129961398f31a3b0b874700da8d71bf916d933b439c19057dedbf1c5b0be4",
+      "status": "new",
+      "owner": "google-viewer-content",
+      "reason": "google-viewer-content: regression test.",
+      "tests": [
+        "tests/source-lane/core/account-view-e2e-pg.test.ts"
+      ]
+    },
+    {
       "path": "tests/source-lane/core/owner-attribution-pg.test.ts",
       "sha256": "5d16797631c21d610c9dfd1805f28817a8c0a75d63938c75fdacf2cdb4fa69d8",
       "status": "new",
@@ -7094,6 +7158,16 @@
       "reason": "Contacts lane tests through production entrypoints and the real exporter.",
       "tests": [
         "tests/source-lane/providers/google-contacts/contacts-lane.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/account-view.test.ts",
+      "sha256": "81a911b705d26a66c0930d9fa72b8083e5bd37d8971800a253eb217b366dc329",
+      "status": "new",
+      "owner": "google-viewer-content",
+      "reason": "google-viewer-content: regression test.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/account-view.test.ts"
       ]
     },
     {

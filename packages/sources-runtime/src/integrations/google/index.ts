@@ -21,6 +21,7 @@ const GOOGLE_TASK_KINDS = [
   "gdocs.comment-refresh",
   "gdocs.suggestion-sync",
   "gdocs.content-snapshot",
+  "gdocs.account-snapshot",
 ];
 
 export const googleIntegration: AqueductIntegration = {
@@ -139,6 +140,18 @@ export const googleIntegration: AqueductIntegration = {
           updatedByEmail: payloadString(payload.updatedByEmail),
           updatedByName: payloadString(payload.updatedByName),
         }));
+      },
+      // SOURCE-LANE PATCH (google-viewer-content): current view of a Doc a mailbox may only read, under its own credential.
+      "gdocs.account-snapshot": async (payload, ctx) => {
+        const tenantId = taskTenantId(payload, ctx.task.tenantId);
+        const docId = typeof payload.docId === "string" ? payload.docId : "";
+        const mailbox = typeof payload.mailbox === "string" ? payload.mailbox : "";
+        if (!docId || !mailbox) return { status: "skipped_invalid" };
+        return await recordGoogleSourceTask(ctx, tenantId, "gdocs.account-snapshot", async () => {
+          const { captureAccountDocView } = await import("../../source-lane/providers/google-docs/account-capture.js");
+          const r = await captureAccountDocView({ tenantId, docId, mailbox });
+          return { status: r.state, reason: r.reason, apiCalls: r.apiCalls, imageFetches: r.imageFetches };
+        });
       },
       "calendar.poll": async (payload, ctx) => {
         const tenantId = taskTenantId(payload, ctx.task.tenantId);
