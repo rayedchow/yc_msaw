@@ -17,6 +17,7 @@
 import { DAY, iso, mulberry32, NOW, START, type Req, type Res } from "./common.js";
 import { ErpSystem } from "./erp.js";
 import { MailSystem } from "./mail.js";
+import { generateOrders, type Order } from "./orders.js";
 export { NOW, type Req, type Res };
 
 // ── static configuration ────────────────────────────────────────────────────
@@ -93,7 +94,7 @@ export const PROPERTIES: Record<string, { name: string; label: string; type: str
 export type Obj = { id: string; properties: Record<string, string> };
 export interface Change { object: "deal" | "contact" | "company"; id: string; property: string; old: string | null; new: string | null; changed_at: string; changed_by: string }
 export interface Snapshot { as_of: string; quarter: string; reported_commit_usd: number; deal_ids: string[] }
-export interface World { deals: Obj[]; contacts: Obj[]; companies: Obj[]; history: Change[]; snapshots: Snapshot[] }
+export interface World { deals: Obj[]; contacts: Obj[]; companies: Obj[]; history: Change[]; snapshots: Snapshot[]; orders: Order[] }
 
 export const TRUTH = {
   rules: [
@@ -243,6 +244,13 @@ export function generate(seed = 20261031): World {
     deals.push({ id, properties: p });
   }
 
+  // the order desk: order emails and how RevOps logged each one in the CRM (separate random stream)
+  const dealEvents = (id: string) => history.filter((h) => h.object === "deal" && h.id === id).sort((a, b) => a.changed_at.localeCompare(b.changed_at));
+  const orders = generateOrders({ deals, contacts, companies }, log, COUNTRIES, rootDomain,
+    (_o, id, t) => { const out: Record<string, string> = {}; for (const h of dealEvents(id)) if (Date.parse(h.changed_at) <= t && h.new != null) out[h.property] = h.new; return out; },
+    (stage) => CONTRACT.has(stage),
+    (id, t) => { for (let i = history.length - 1; i >= 0; i--) { const h = history[i]!; if (h.object === "deal" && h.id === id && Date.parse(h.changed_at) > t) history.splice(i, 1); } });
+
   // monthly forecast snapshots: what RevOps reported as the current quarter's commit at each month end
   const snapshots: Snapshot[] = [];
   for (let y = 2025, m = 0; Date.UTC(y, m + 1, 1) - 1 <= NOW; m === 11 ? (y++, (m = 0)) : m++) {
@@ -265,7 +273,7 @@ export function generate(seed = 20261031): World {
   }
 
   history.sort((a, b) => a.changed_at.localeCompare(b.changed_at));
-  return { deals, contacts, companies, history, snapshots };
+  return { deals, contacts, companies, history, snapshots, orders };
 }
 
 /** Reconstruct an object's properties as of a time from its field history. */
@@ -291,10 +299,10 @@ const singular: Record<ObjType, Change["object"]> = { deals: "deal", contacts: "
 
 /** All of GurtAI's simulated systems behind one host: the CRM + warehouse, the ERP (/erp) and the support inbox (/mail). */
 export class GurtaiSystem {
-  readonly world: World;
+  world: World;
   readonly erp: ErpSystem;
   readonly mail: MailSystem;
-  constructor(readonly token: string, seed?: number) {
+  constructor(readonly token: string, private readonly seed?: number) {
     this.world = generate(seed);
     this.erp = new ErpSystem();
     this.mail = new MailSystem();
@@ -308,6 +316,8 @@ export class GurtaiSystem {
     if (req.path === "/health") return { status: 200, body: { ok: true, system: "gurtai-crm" } };
     if (req.auth !== `Bearer ${this.token}`) return { status: 401, body: { status: "error", category: "INVALID_AUTHENTICATION", message: "Authentication credentials not found." } };
     const p = req.path.replace(/\/+$/, "");
+    if (req.method === "POST" && p === "/admin/reset") { this.world = generate(this.seed); return { status: 200, body: { reset: true, deals: this.world.deals.length, orders: this.world.orders.length } }; }
+    if (p.startsWith("/mail/gmail/v1/users/orders@gurtai.example/") || p === "/mail/export/orders") return this.orders(req, p);
     if (p.startsWith("/erp/")) return this.erp.handle(req.method, p, req.query);
     if (p.startsWith("/mail/")) return this.mail.handle(req.method, p, req.query);
     let m: RegExpMatchArray | null;
@@ -324,6 +334,8 @@ export class GurtaiSystem {
         const o = rows.find((x) => x.id === m![2]);
         return o ? { status: 200, body: this.view(o, req.query.properties) } : { status: 404, body: { status: "error", category: "OBJECT_NOT_FOUND", message: "Object not found." } };
       }
+      if (req.method === "POST" && !m[2]) return this.create(type, req);
+      if (req.method === "PATCH" && m[2] && !m[3]) return this.update(type, m[2], req);
       if (req.method === "POST" && m[2] === "search") {
         const b = (req.body ?? {}) as { filterGroups?: { filters: Filter[] }[]; properties?: string[]; limit?: number; after?: string };
         const limit = b.limit ?? 10;
@@ -359,6 +371,73 @@ export class GurtaiSystem {
       ] } };
     }
     return { status: 404, body: { status: "error", category: "NOT_FOUND", message: `No route ${req.method} ${p}` } };
+  }
+
+  private actor(req: Req): string {
+    return `api:${String((req.body as any)?.actor ?? req.query.actor ?? "agent").slice(0, 40)}`;
+  }
+
+  /** POST /crm/v3/objects/{type} { properties } — HubSpot-style create; the change lands in field history. */
+  private create(type: ObjType, req: Req): Res {
+    const props = ((req.body ?? {}) as { properties?: Record<string, unknown> }).properties;
+    if (!props || typeof props !== "object") return { status: 400, body: { status: "error", category: "VALIDATION_ERROR", message: "Body must be { properties: { ... } }" } };
+    const allowed = new Set(PROPERTIES[type]!.map((x) => x.name));
+    const bad = Object.keys(props).filter((k) => !allowed.has(k));
+    if (bad.length) return { status: 400, body: { status: "error", category: "VALIDATION_ERROR", message: `Property values were not valid: unknown ${bad.join(", ")}` } };
+    const rows = this.table(type)!;
+    const id = String(Math.max(...rows.map((r) => Number(r.id))) + 1);
+    const now = Date.now();
+    const properties: Record<string, string> = { ...Object.fromEntries(Object.entries(props).map(([k, v]) => [k, String(v)])), createdate: new Date(now).toISOString() };
+    rows.push({ id, properties });
+    for (const [k, v] of Object.entries(properties)) if (k !== "createdate") this.world.history.push({ object: singular[type], id, property: k, old: null, new: v, changed_at: new Date(now).toISOString(), changed_by: this.actor(req) });
+    return { status: 201, body: { id, properties, createdAt: properties.createdate } };
+  }
+
+  /** PATCH /crm/v3/objects/{type}/{id} { properties } — HubSpot-style update. */
+  private update(type: ObjType, id: string, req: Req): Res {
+    const props = ((req.body ?? {}) as { properties?: Record<string, unknown> }).properties;
+    const o = this.table(type)!.find((x) => x.id === id);
+    if (!o) return { status: 404, body: { status: "error", category: "OBJECT_NOT_FOUND", message: "Object not found." } };
+    if (!props || typeof props !== "object") return { status: 400, body: { status: "error", category: "VALIDATION_ERROR", message: "Body must be { properties: { ... } }" } };
+    const now = new Date().toISOString();
+    for (const [k, v] of Object.entries(props)) {
+      const nv = String(v);
+      if (o.properties[k] === nv) continue;
+      this.world.history.push({ object: singular[type], id, property: k, old: o.properties[k] ?? null, new: nv, changed_at: now, changed_by: this.actor(req) });
+      o.properties[k] = nv;
+    }
+    return { status: 200, body: { id, properties: o.properties, updatedAt: now } };
+  }
+
+  /** orders@gurtai.example: Gmail-style threads (list, get, modify labels) plus an export for history. */
+  private orders(req: Req, p: string): Res {
+    const base = "/mail/gmail/v1/users/orders@gurtai.example";
+    const list = this.world.orders;
+    const thread = (o: (typeof list)[number]) => ({ id: o.id, historyId: "1", messages: [{ id: o.id, threadId: o.id, labelIds: o.labels, snippet: o.body.slice(0, 120), internalDate: String(Date.parse(o.received_at)),
+      payload: { headers: [{ name: "From", value: o.from }, { name: "To", value: o.to }, { name: "Subject", value: o.subject }, { name: "Date", value: new Date(o.received_at).toUTCString() }], body: { data: o.body } } }] });
+    let m: RegExpMatchArray | null;
+    if (req.method === "GET" && p === "/mail/export/orders") return { status: 200, body: { results: list } };
+    if (req.method === "GET" && p === `${base}/threads`) {
+      let rows = list;
+      const q = (req.query.q ?? "").toLowerCase();
+      if (/-label:logged/.test(q)) rows = rows.filter((o) => !o.labels.includes("Logged"));
+      else if (/label:logged/.test(q)) rows = rows.filter((o) => o.labels.includes("Logged"));
+      const after = /after:(\d{4})\/(\d{2})\/(\d{2})/.exec(q);
+      if (after) rows = rows.filter((o) => o.received_at.slice(0, 10) >= `${after[1]}-${after[2]}-${after[3]}`);
+      const max = Math.max(1, Math.min(Number(req.query.maxResults ?? 100), 500));
+      return { status: 200, body: { threads: rows.slice(-max).reverse().map((o) => ({ id: o.id, snippet: o.body.slice(0, 120), historyId: "1" })), resultSizeEstimate: rows.length } };
+    }
+    if ((m = p.match(new RegExp(`^${base}/threads/([0-9a-f]+)(/modify)?$`)))) {
+      const o = list.find((x) => x.id === m![1]);
+      if (!o) return { status: 404, body: { error: { code: 404, message: "Requested entity was not found." } } };
+      if (req.method === "POST" && m[2]) {
+        const b = (req.body ?? {}) as { addLabelIds?: string[]; removeLabelIds?: string[] };
+        o.labels = [...new Set([...o.labels.filter((l) => !(b.removeLabelIds ?? []).includes(l)), ...(b.addLabelIds ?? [])])];
+        return { status: 200, body: thread(o) };
+      }
+      if (req.method === "GET") return { status: 200, body: thread(o) };
+    }
+    return { status: 404, body: { error: { code: 404, message: `No route ${req.method} ${p}` } } };
   }
 
   private view(o: Obj, props?: string) {

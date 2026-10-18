@@ -12,6 +12,10 @@ export class SystemClient {
     const r = await fetch(this.baseUrl.replace(/\/$/, "") + p, { method: "POST", headers: { authorization: `Bearer ${this.token}`, "content-type": "application/json" }, body: JSON.stringify(body) });
     return { status: r.status, body: await r.json().catch(() => null) };
   }
+  async patch(p: string, body: unknown): Promise<{ status: number; body: any }> {
+    const r = await fetch(this.baseUrl.replace(/\/$/, "") + p, { method: "PATCH", headers: { authorization: `Bearer ${this.token}`, "content-type": "application/json" }, body: JSON.stringify(body) });
+    return { status: r.status, body: await r.json().catch(() => null) };
+  }
   /** Page through a { results, paging.next.after } endpoint. */
   async all(p: string, limit = 200): Promise<any[]> {
     const out: any[] = [];

@@ -9,8 +9,9 @@ import { spawn } from "node:child_process";
 import { existsSync, promises as fs } from "node:fs";
 import path from "node:path";
 import "../env.js";
+import { REPO_DIR } from "../paths.js";
 
-const REPO = path.resolve(path.dirname(new URL(import.meta.url).pathname), "../..");
+const REPO = REPO_DIR;
 
 const LINK = ".mcp-use/cloud/link.json";
 export const isLinked = (dir: string) => existsSync(path.join(dir, LINK));

@@ -30,13 +30,15 @@ async function check(base: string): Promise<Record<string, unknown>> {
   const events = await (await fetch(base + "/mail/export/events?limit=1", { headers: h })).json();
   const out = { unauthStatus: unauth, owners: owners.results?.length, deals: deals.results?.length, snapshots: snaps.results?.length, bookedChanges: fh.total,
     bills: bills.totalResults, paymentRuns: runs.total, threads: threads.resultSizeEstimate, mailEvents: events.total };
-  const ok = unauth === 401 && owners.results?.length === 5 && deals.results?.length === 5 && snaps.results?.length === 22 && fh.total > 300
+  const orders = await (await fetch(base + "/mail/gmail/v1/users/orders@gurtai.example/threads?q=-label:logged", { headers: h })).json();
+  (out as any).pendingOrders = orders.resultSizeEstimate;
+  const ok = orders.resultSizeEstimate === 4 && unauth === 401 && owners.results?.length === 5 && deals.results?.length === 5 && snaps.results?.length === 22 && fh.total > 300
     && bills.totalResults > 1000 && runs.total > 90 && threads.resultSizeEstimate > 1000 && events.total > 3000;
   if (!ok) throw new Error(`system checks failed at ${base}: ${JSON.stringify(out)}`);
   return out;
 }
 
-await writeSystemProject(dir);
+const hash = await writeSystemProject(dir);
 console.log("project written:", dir);
 const local = await runLocal(dir, { GURTAI_TOKEN: token }, 4411);
 try {
@@ -49,7 +51,7 @@ if (deploy) {
   const t0 = Date.now();
   const r = await deployToManufact(dir, "gurtai-crm", { GURTAI_TOKEN: token }, { isNew: !isLinked(dir), org: process.env.MANUFACT_ORG_SLUG ?? "org-ec5ae13b-z5isn" });
   console.log("deploy:", r.ok ? "ok" : "FAILED", r.url ?? "", "\n", r.log.slice(-1500));
-  const live = r.ok ? await waitForDeployment(String((r.raw as any)?.serverId), { since: t0 }) : null;
+  const live = r.ok ? await waitForDeployment(String((r.raw as any)?.serverId), { since: t0, expectHash: hash }) : null;
   console.log("deployment:", live?.status, live?.mcpUrl);
   if (!live || live.status !== "running" || !live.url) process.exit(1);
   const base = live.url;

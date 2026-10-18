@@ -4,6 +4,7 @@ import type { Decision } from "../../mine/data.js";
 import { aggregateSet, HELD_OUT_FROM } from "../../mine/backtest.js";
 import type { Domain, ReplayCase } from "../types.js";
 import { fetchData, makeCtx, openAt, type ErpData } from "./runtime.js";
+import { WALTER_DIR } from "../../paths.js";
 
 const month = (iso: string) => iso.slice(0, 7);
 
@@ -15,7 +16,7 @@ export const erp: Domain<ErpData> = {
   systems: ["GurtAI ERP", "AP payment runs"],
   integrations: [["gurtai-erp.md", "GurtAI ERP", "SuiteTalk REST · read only", "GURTAI_TOKEN"], ["gurtai-ap-runs.md", "AP payment runs", "system notes · run log", "GURTAI_TOKEN"]],
   mdFile: "gurtai-erp.md",
-  dir: path.dirname(new URL(import.meta.url).pathname),
+  dir: path.join(WALTER_DIR, "domains", "erp"),
   fetchData, makeCtx,
   ctxHelp: 'ctx.stateAt("vendorbill" | "vendor", id, epochMs) -> fields as of that time, ctx.vendor(vendorId) -> vendor record, ctx.bills / ctx.accounts (Map id -> record), ctx.DAY (ms in a day)',
 

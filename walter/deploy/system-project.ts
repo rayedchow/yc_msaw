@@ -1,4 +1,5 @@
 /** The GurtAI CRM simulator as an mcp-use project for Manufact: REST routes for the CRM and warehouse. */
+import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { writeProject } from "./project.js";
@@ -6,6 +7,7 @@ import { writeProject } from "./project.js";
 const INDEX = `import { MCPServer } from "mcp-use";
 import { z } from "zod";
 import { GurtaiSystem } from "./src/gurtai.ts";
+import { WALTER_DIR } from "../paths.js";
 
 // Simulated third-party system (HubSpot-style CRM + warehouse) for the walter demo. Token comes from Manufact env.
 const system = new GurtaiSystem(process.env.GURTAI_TOKEN ?? "");
@@ -30,21 +32,29 @@ const route = async (c: any) => {
   return c.json(out.body, out.status);
 };
 server.get("/health", route);
+server.get("/walter/health", (c: any) => c.json({ ok: true, name: "gurtai-crm", hash: "__HASH__" }));
 server.get("/crm/*", route);
 server.post("/crm/*", route);
 server.get("/warehouse/*", route);
 server.get("/erp/*", route);
 server.get("/mail/*", route);
+server.post("/mail/*", route);
+server.patch("/crm/*", route);
+server.post("/admin/*", route);
 
 export default server;
 `;
 
-export async function writeSystemProject(dir: string): Promise<void> {
-  const here = path.join(path.dirname(new URL(import.meta.url).pathname), "../system");
-  const files: Record<string, string> = { "index.ts": INDEX };
-  for (const f of ["gurtai", "common", "erp", "mail"]) {
+/** Writes the project and returns its build hash (served at /walter/health so walter knows which build is live). */
+export async function writeSystemProject(dir: string): Promise<string> {
+  const here = path.join(WALTER_DIR, "system");
+  const files: Record<string, string> = {};
+  for (const f of ["gurtai", "common", "erp", "mail", "orders"]) {
     // bundle-friendly relative imports inside the project
     files[`src/${f}.ts`] = (await fs.readFile(path.join(here, `${f}.ts`), "utf8")).replace(/from "\.\/(\w+)\.js"/g, 'from "./$1.ts"');
   }
+  const hash = createHash("sha256").update(INDEX + Object.values(files).join("")).digest("hex").slice(0, 12);
+  files["index.ts"] = INDEX.replace("__HASH__", hash);
   await writeProject(dir, "gurtai-crm", "Simulated GurtAI systems for the walter demo", files);
+  return hash;
 }

@@ -9,8 +9,9 @@ import type { ReplayCase } from "../evals/replay.js";
 import type { WalterState } from "../state.js";
 import { DOMAINS, domainOf } from "../domains/index.js";
 import type { Domain } from "../domains/types.js";
+import { WALTER_DIR } from "../paths.js";
 
-const HERE = path.dirname(new URL(import.meta.url).pathname);
+const HERE = path.join(WALTER_DIR, "platform");
 const md = (f: string) => readFileSync(path.join(HERE, "../integrations", f), "utf8");
 
 const COMMON_TOOLS = [

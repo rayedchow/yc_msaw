@@ -4,6 +4,7 @@ import type { Decision } from "../../mine/data.js";
 import { HELD_OUT_FROM } from "../../mine/backtest.js";
 import type { Domain, ReplayCase } from "../types.js";
 import { asReceived, fetchData, makeCtx, type MailData } from "./runtime.js";
+import { WALTER_DIR } from "../../paths.js";
 
 const month = (iso: string) => iso.slice(0, 7);
 const QUEUES = new Set(["Support", "Billing", "Automated"]);
@@ -25,7 +26,7 @@ export const mail: Domain<MailData> = {
   systems: ["Gmail (support@)", "mailbox export"],
   integrations: [["gurtai-mail.md", "Gmail support@", "Gmail API · read only", "GURTAI_TOKEN"], ["gurtai-mail-export.md", "Mailbox export", "label & assignment history", "GURTAI_TOKEN"]],
   mdFile: "gurtai-mail.md",
-  dir: path.dirname(new URL(import.meta.url).pathname),
+  dir: path.join(WALTER_DIR, "domains", "mail"),
   fetchData, makeCtx,
   ctxHelp: 'ctx.domainOf(email) -> "kraftwerk.de", ctx.localOf(email) -> "noreply", ctx.users -> [{ email, name, team }]',
 

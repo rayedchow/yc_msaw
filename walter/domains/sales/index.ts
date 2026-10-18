@@ -5,7 +5,23 @@ import { aggregateSet } from "../../mine/backtest.js";
 import { HELD_OUT_FROM } from "../../mine/backtest.js";
 import { quarterOf } from "../../mine/data.js";
 import type { Domain, ReplayCase } from "../types.js";
-import { fetchData, makeCtx, type SalesData } from "./runtime.js";
+import { asReceivedOrder, fetchData, makeCtx, type SalesData } from "./runtime.js";
+import { WALTER_DIR } from "../../paths.js";
+
+const ORDER_SIG = "(order, ctx) where order = { id, from, subject, body, received_at } as it arrived; ctx.parseOrder(order) gives { customer, country, plan, seats, onboarding, total, po, kind, email, domain }; ctx.companiesAt(t) / ctx.contactsAt(t) / ctx.dealsAt(t) list records that existed at time t; ctx.stateAt('deal', id, t) gives a deal's fields at t";
+
+/** What RevOps did for each logged order: the deal it ended up on, and whether that deal was created for the order. */
+function loggedOrders(ds: SalesData, ctx: any) {
+  return ds.orders.filter((o) => o.logged_deal && ctx.deals.has(o.logged_deal)).map((o) => {
+    const deal = ctx.deals.get(o.logged_deal);
+    const t = Date.parse(o.received_at);
+    const created = Date.parse(deal.properties.createdate) >= t;
+    const after = ctx.stateAt("deal", deal.id, t + 3 * 86_400_000); // as logged, before RevOps books it
+    const company = ctx.companies.get(deal.properties.company_id);
+    const companyWasNew = company ? Date.parse(company.properties.createdate) >= t : false;
+    return { o, deal, t, created, after, company, companyWasNew };
+  });
+}
 
 const month = (iso: string) => iso.slice(0, 7);
 
@@ -17,9 +33,9 @@ export const sales: Domain<SalesData> = {
   systems: ["GurtAI CRM", "warehouse"],
   integrations: [["gurtai-crm.md", "GurtAI CRM", "REST · read only", "GURTAI_TOKEN"], ["gurtai-warehouse.md", "GurtAI warehouse", "field history · snapshots", "GURTAI_TOKEN"]],
   mdFile: "gurtai-crm.md",
-  dir: path.dirname(new URL(import.meta.url).pathname),
+  dir: path.join(WALTER_DIR, "domains", "sales"),
   fetchData, makeCtx,
-  ctxHelp: 'ctx.stateAt(object, id, epochMs) -> properties as of that time (object is "deal" | "contact" | "company"), ctx.quarterOf(ms), ctx.quarterRange("2026-Q3"), ctx.rootDomain(s), ctx.deals / ctx.companies (Map id -> record)',
+  ctxHelp: 'ctx.stateAt(object, id, epochMs) -> properties as of that time (object is "deal" | "contact" | "company"), ctx.quarterOf(ms), ctx.quarterRange("2026-Q3"), ctx.rootDomain(s), ctx.deals / ctx.companies / ctx.contacts (Map id -> record), ctx.companiesAt(t) / ctx.contactsAt(t) / ctx.dealsAt(t) (records created by t), ctx.parseOrder(order) (fields of an order email)',
 
   kinds: {
     commit_membership: {
@@ -42,6 +58,34 @@ export const sales: Domain<SalesData> = {
       description: "When an existing contact showed up again (last_event changed in 2026), what owner did it have 30 days later?",
       signature: "(contact, ownerBefore, ctx) where contact = { id, properties }, ownerBefore = owner id before it showed up again",
       returns: "owner id as a string", unit: "returning contacts",
+    },
+    order_target: {
+      description: "When RevOps logged an order email from orders@, did it close an existing deal on the account (which one) or create a new deal?",
+      signature: ORDER_SIG, returns: 'the id of the existing deal that was closed, or "new"', unit: "orders",
+    },
+    order_company: {
+      description: "When RevOps logged an order, which existing company record did it attach to, or did it create a new company?",
+      signature: ORDER_SIG, returns: 'the id of the existing company, or "new"', unit: "orders",
+    },
+    order_pipeline: {
+      description: "For orders that created a new deal: which pipeline was the deal put in?",
+      signature: ORDER_SIG, returns: "pipeline id as a string", unit: "new-deal orders",
+    },
+    order_arr: {
+      description: "What ARR (USD) did RevOps record on the deal for an order?",
+      signature: ORDER_SIG, returns: "ARR in USD (number)", unit: "orders",
+    },
+    order_amount: {
+      description: "What amount (USD) did RevOps record on the deal for an order?",
+      signature: ORDER_SIG, returns: "amount in USD (number)", unit: "orders",
+    },
+    order_owner: {
+      description: "For orders that created a new deal: which owner got the deal?",
+      signature: ORDER_SIG, returns: "owner id as a string", unit: "new-deal orders",
+    },
+    order_deal_name: {
+      description: "For orders that created a new deal: what was the deal named?",
+      signature: ORDER_SIG, returns: "the deal name (string)", unit: "new-deal orders",
     },
     same_company: {
       description: "Were two company records the same company (RevOps merged them)? Pairs include every merge plus non-merged pairs.",
@@ -80,6 +124,19 @@ export const sales: Domain<SalesData> = {
       const a: any = companies.get(m.id), b: any = companies.get(String(m.new));
       if (a && b) out.push({ kind: "same_company", month: month(m.changed_at), key: `${a.id}~${b.id}`, args: [a.properties.domain, b.properties.domain], recorded: true });
     }
+    // the order desk: what RevOps did with each logged order email
+    for (const x of loggedOrders(ds, ctx)) {
+      const m = month(x.o.received_at), key = x.o.id, args = [asReceivedOrder(x.o)];
+      out.push({ kind: "order_target", month: m, key, args, recorded: x.created ? "new" : x.deal.id });
+      out.push({ kind: "order_company", month: m, key, args, recorded: x.companyWasNew ? "new" : x.company?.id ?? "new" });
+      out.push({ kind: "order_arr", month: m, key, args, recorded: Number(x.after.arr) });
+      out.push({ kind: "order_amount", month: m, key, args, recorded: Number(x.after.amount) });
+      if (x.created) {
+        out.push({ kind: "order_pipeline", month: m, key, args, recorded: x.after.pipeline });
+        out.push({ kind: "order_owner", month: m, key, args, recorded: x.after.hubspot_owner_id });
+        out.push({ kind: "order_deal_name", month: m, key, args, recorded: x.after.dealname });
+      }
+    }
     // non-merged pairs (deterministic sample): neighbours in id order that were never merged
     const live = ds.companies.filter((c: any) => !c.properties.merged_into);
     for (let i = 0; i + 1 < live.length; i += 2) {
@@ -91,12 +148,14 @@ export const sales: Domain<SalesData> = {
 
   async describe(ds, c) {
     return {
-      endpoints: ["GET /crm/v3/objects/{deals|contacts|companies}?limit&after&properties", "GET /crm/v3/objects/{type}/{id}", "POST /crm/v3/objects/{type}/search", "GET /crm/v3/pipelines/deals", "GET /crm/v3/owners", "GET /crm/v3/properties/{type}", "GET /warehouse/tables", "GET /warehouse/field_history?object&property&id&since&until&limit&after", "GET /warehouse/forecast_snapshots"],
-      counts: { deals: ds.deals.length, contacts: ds.contacts.length, companies: ds.companies.length, history: ds.history.length, snapshots: ds.snapshots.length },
+      endpoints: ["GET /crm/v3/objects/{deals|contacts|companies}?limit&after&properties", "GET /crm/v3/objects/{type}/{id}", "POST /crm/v3/objects/{type}/search", "GET /crm/v3/pipelines/deals", "GET /crm/v3/owners", "GET /crm/v3/properties/{type}", "GET /warehouse/tables", "GET /warehouse/field_history?object&property&id&since&until&limit&after", "GET /warehouse/forecast_snapshots",
+        "GET /mail/gmail/v1/users/orders@gurtai.example/threads?q=-label:logged", "GET /mail/gmail/v1/users/orders@gurtai.example/threads/{id}", "GET /mail/export/orders (every order email, its labels and the deal RevOps logged it on)"],
+      counts: { deals: ds.deals.length, contacts: ds.contacts.length, companies: ds.companies.length, history: ds.history.length, snapshots: ds.snapshots.length, orders: ds.orders.length },
+      sample_order: ds.orders.find((o) => o.logged_deal),
       properties: { deals: Object.keys(ds.deals[0]!.properties), contacts: Object.keys(ds.contacts[0]!.properties), companies: [...new Set(ds.companies.flatMap((x: any) => Object.keys(x.properties)))] },
       pipelines: ds.pipelines, owners: ds.owners,
       warehouse: (await c.get("/warehouse/tables")).body,
-      analyze_data: "data = { deals, contacts, companies, history, snapshots, pipelines, owners }",
+      analyze_data: "data = { deals, contacts, companies, history, snapshots, pipelines, owners, orders }",
     };
   },
 
@@ -117,6 +176,9 @@ export const sales: Domain<SalesData> = {
     { name: "get_commit", sig: "get_commit(quarter, as_of)", d: "Commit for a quarter, counted the way RevOps reports it", kinds: ["commit_membership", "commit_total"], task: "Month-end commit, as RevOps reported it" },
     { name: "route_contact", sig: "route_contact(email, country)", d: "Who should own a contact", kinds: ["new_contact_owner", "returning_contact_owner"], task: "Contact owner, as assigned" },
     { name: "find_account", sig: "find_account(query)", d: "The one company for a domain or name", kinds: ["same_company"], task: "Company merges, as RevOps did them" },
+    { name: "list_new_orders", sig: "list_new_orders()", d: "Order emails in orders@ not logged in the CRM yet", kinds: ["order_target"] },
+    { name: "plan_order_sync", sig: "plan_order_sync(order_id)", d: "The CRM changes an order needs, field by field", kinds: ["order_target", "order_company", "order_pipeline", "order_arr", "order_amount", "order_owner", "order_deal_name"], task: "Order logging, as RevOps did it" },
+    { name: "apply_order_sync", sig: "apply_order_sync(order_id)", d: "Write an order into the CRM the company's way", kinds: ["order_target"] },
   ],
 
   async replay(mcp, ds) {
@@ -145,6 +207,19 @@ export const sales: Domain<SalesData> = {
         const after = ds.history.filter((x: any) => x.object === "contact" && x.id === h.id && x.property === "hubspot_owner_id" && Date.parse(x.changed_at) <= t).pop()?.new;
         const r = await mcp.call("route_contact", { contact_id: c.id });
         push({ tool: "route_contact", month: h.changed_at.slice(0, 7), label: `returning contact ${c.id}`, expected: after, got: r.data?.owner_id ?? null, ok: r.data?.owner_id === after });
+      }
+    }
+    if (names.has("plan_order_sync")) {
+      const xs = loggedOrders(ds, makeCtx(ds));
+      const step = Math.max(1, Math.floor(xs.length / 60));
+      for (let i = 0; i < xs.length; i += step) {
+        const x = xs[i]!;
+        const r = await mcp.call("plan_order_sync", { order_id: x.o.id, as_of: x.o.received_at });
+        const d = r.data?.deal;
+        const want = { target: x.created ? "new" : x.deal.id, arr: Number(x.after.arr), amount: Number(x.after.amount), ...(x.created ? { pipeline: x.after.pipeline, owner: x.after.hubspot_owner_id, name: x.after.dealname } : {}) };
+        const got = d ? { target: d.action === "create" ? "new" : d.id, arr: Number(d.properties?.arr), amount: Number(d.properties?.amount), ...(x.created ? { pipeline: d.properties?.pipeline, owner: d.properties?.hubspot_owner_id, name: d.properties?.dealname } : {}) } : null;
+        const ok = !!got && JSON.stringify(got) === JSON.stringify(want);
+        push({ tool: "plan_order_sync", month: x.o.received_at.slice(0, 7), label: `${x.o.subject} (${x.o.from})`, expected: JSON.stringify(want), got: got ? JSON.stringify(got) : r.text.slice(0, 160), ok });
       }
     }
     if (names.has("find_account")) {
