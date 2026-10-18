@@ -262,7 +262,7 @@ The UI keeps the honeyflow grid style (dark, pastel violet accent) and has two v
 - **MCPs:** every internal MCP the company has, with its systems, status (live, mining, needs an answer), agents
   connected, calls in the last 24 h and rules compiled.
 - **One MCP:** its status and two tabs, **Overview · Evals** (the Evals tab carries the MCP's success rate). The
-  Overview opens with an evals strip (rules confirmed, replays matching history, changes detected), then one **grid tree** that unifies everything: the MCP in the center, its
+  Overview is one **grid tree** that unifies everything: the MCP in the center, its
   integrations on the left (`.md` plus secret name), its tools on the right, and its mined tribal knowledge as rule
   nodes below (held-out score or "asked"). Hovering a node shows its details in a strip under the tree (rule text, evidence, code;
   tool description; integration context) and lights up how it connects: a tool lights the rules compiled into it, a rule
