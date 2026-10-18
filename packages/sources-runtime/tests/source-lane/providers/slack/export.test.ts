@@ -60,6 +60,33 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
+describe("Slack direct messages are withheld from $SOURCES (owner-only personal sources)", () => {
+  it("exports channels but no DM / group DM content, label or DM-only file", async () => {
+    const dmFile = {
+      id: "F2", name: "private.pdf", title: "Private", mimetype: "application/pdf", filetype: "pdf", size: 12, created: 1800000000,
+      url_private: `https://files.slack.com/files-pri/${TEAM}-F2/private.pdf`,
+      url_private_download: `https://files.slack.com/files-pri/${TEAM}-F2/download/private.pdf`,
+    };
+    fake.hostFile(dmFile, Buffer.from("%PDF-private"));
+    fake.channel("C1", { name: "general" });
+    fake.channel("D0DM12345", { name: "D0DM12345", is_channel: false, is_im: true, user: "U2" });
+    fake.channel("G0MPIM123", { name: "mpdm-a--b--c-1", is_channel: false, is_mpim: true, is_group: true });
+    fake.post("C1", { ts: ts(START - 3_600_000), user: "U1", text: "team update" });
+    fake.post("D0DM12345", { ts: ts(START - 3_500_000), user: "U2", text: "private dm text", files: [dmFile] });
+    fake.post("G0MPIM123", { ts: ts(START - 3_400_000), user: "U3", text: "group dm text" });
+    await discoverSlackConversations(T, { now: clock.now, sleep: clock.sleep });
+    await syncSlackHistory(T, { now: clock.now, sleep: clock.sleep, enqueueContinuation: false });
+    await drain();
+    const live = store.live("sources/slack/");
+    const text = live.map((p) => store.current(p)!.bytes?.toString("utf8") ?? "").join("\n");
+    expect(text).toContain("team update");
+    expect(text).not.toContain("private dm text");
+    expect(text).not.toContain("group dm text");
+    expect(live.some((p) => p.includes("D0DM12345") || p.includes("G0MPIM123") || p.includes("/files/F2/"))).toBe(false);
+    expect(store.current(conversationLabelPath(TEAM, "C1"))).toBeTruthy();
+  });
+});
+
 describe("Slack export to sources/slack/", () => {
   it("publishes raw ledger rows, folded-ready projections, conversation labels and exact file bytes; deletions are tombstones", async () => {
     const file = {

@@ -64,9 +64,14 @@ How it is enforced:
 - Google owners come from the runtime's status heartbeat (`googleAccounts`). They are accepted only from the
   tenant's active `*` runtime binding, so a new grant becomes readable at the next heartbeat (≤ 5 min by default).
 - Shared workspace providers stay readable by every member of the tenant: Slack channels, Notion, Confluence, Jira,
-  GitHub, Bitbucket, Linear, Discord, Stripe and Nango generic records. The exception is Slack direct messages
-  (`D…` conversations), which are denied. Slack file bytes are not attributable to a conversation by path and stay
-  shared. `binary/upload/` has no recorded owner and is denied.
+  GitHub, Bitbucket, Linear, Discord, Stripe and Nango generic records.
+- Slack direct messages and group DMs are personal, but their participants are Slack users, not yc_msaw
+  principals. So nobody may read them: the runtime withholds them at export. That covers their projections, raw
+  records, conversation labels, and files shared only in DMs (delete reason `slack_direct_message_withheld`;
+  `providers/slack/direct.ts`). yc_msaw also denies any `D…` conversation path. The data stays in the runtime
+  database. Exception: Slack files captured by the donor before this lane (`binary/slack/`) carry no conversation
+  and stay shared. No tenant has such legacy rows yet.
+- `binary/upload/` has no recorded owner and is denied.
 
 Migration and enrolment:
 

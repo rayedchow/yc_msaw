@@ -1,6 +1,7 @@
 import { sql } from "drizzle-orm";
 import { getBlob, isoOrNull, loadChunk, rowsOf, type SlackConversationRow, type SlackFileRow } from "../../../integrations/slack/source-store.js";
 import type { ExportContext, ExtraTableExport, JournalInfo, SourceFileChange } from "../../core/types.js";
+import { DIRECT_MESSAGE_WITHHELD, isDirectChannel, isDirectConversationType } from "./direct.js";
 import { conversationLabelPath, fileBytesPath, fileMetadataPath, PROVIDER, splitSourceKey } from "./paths.js";
 
 /**
@@ -39,6 +40,9 @@ export async function mapConversationRow(ctx: ExportContext, rowKey: string, jou
   const provenance = { provider: PROVIDER, table: "slack_source_conversations", rowKey };
   if (!row) return deletesFor(previousPaths, new Set(), "conversation_row_deleted", journal.enqueuedAt, provenance);
   const path = conversationLabelPath(row.team_id, row.channel_id);
+  if (isDirectConversationType(row.channel_type) || (await isDirectChannel(ctx, row.channel_id))) {
+    return deletesFor([...new Set([...previousPaths, path])], new Set(), DIRECT_MESSAGE_WITHHELD, journal.enqueuedAt, provenance);
+  }
   const completeAt = isoOrNull(row.history_complete_at);
   const label = {
     schema: "procmem.slack.conversation/v1",
@@ -102,6 +106,11 @@ export async function mapFileRow(ctx: ExportContext, rowKey: string, journal: Jo
     const at = isoOrNull(row.deleted_at) ?? journal.enqueuedAt;
     return deletesFor(previousPaths, new Set(), `slack_${row.deleted_reason ?? "file_deleted"}`, at, { ...provenance, deletedReason: row.deleted_reason });
   }
+  // A file seen only in DMs / group DMs (or in no known conversation) is withheld like the DMs themselves (./direct.ts).
+  const channels = jsonArray(row.channel_ids);
+  let sharedSomewhere = false;
+  for (const c of channels) if (!(await isDirectChannel(ctx, c))) sharedSomewhere = true;
+  if (!sharedSomewhere) return deletesFor(previousPaths, new Set(), DIRECT_MESSAGE_WITHHELD, journal.enqueuedAt, provenance);
   let metadata: unknown = null;
   if (row.metadata_json) {
     try {

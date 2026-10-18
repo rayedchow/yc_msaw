@@ -1,5 +1,6 @@
 import type { SourceProviderModule } from "../../core/types.js";
 import { slackCoverage } from "./coverage.js";
+import { mapSlackEvent, mapSlackMirror } from "./direct.js";
 import { SLACK_EXTRA_TABLES } from "./export-map.js";
 
 /**
@@ -21,5 +22,8 @@ export const slackProvider: SourceProviderModule = {
   eventSources: ["slack"],
   mirrorRoots: ["sources/slack/"],
   extraTables: SLACK_EXTRA_TABLES,
+  // Direct messages and group DMs are withheld from $SOURCES (./direct.ts).
+  mapEvent: mapSlackEvent,
+  mapMirror: mapSlackMirror,
   coverage: slackCoverage,
 };
