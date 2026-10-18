@@ -123,6 +123,39 @@
   .st.p { color: var(--tertiary); }
   .st.p i { background: var(--border-strong); }
   .empty { padding: 4px 28px 24px; color: var(--tertiary); font-size: 14px; }
+  /* knowledge tree */
+  .treewrap { position: relative; padding: 18px 0 8px;
+    background-size: 24px 24px; background-image: linear-gradient(to right, rgba(255,255,255,0.025) 1px, transparent 1px), linear-gradient(to bottom, rgba(255,255,255,0.025) 1px, transparent 1px); }
+  .tree { display: block; width: 100%; height: auto; font-family: var(--sans); }
+  .tree .edge { fill: none; stroke: #3A3A3A; stroke-width: 1.2; transition: stroke .2s, opacity .2s; }
+  .tree .edge.hl { stroke: var(--accent); stroke-width: 1.6; stroke-dasharray: 4 4; animation: flow 1s linear infinite; }
+  @keyframes flow { to { stroke-dashoffset: -16; } }
+  .tree .node { cursor: default; transition: opacity .2s; }
+  .tree .node rect:not(.logo) { fill: #161616; stroke: #333; transition: stroke .2s, fill .2s; }
+  .tree .node.hl rect:not(.logo) { stroke: var(--accent); fill: #1D1B24; }
+  .tree.focus .node:not(.hl), .tree.focus .edge:not(.hl) { opacity: .35; }
+  .tree .nl { fill: var(--text); font-size: 13px; font-family: var(--mono); }
+  .tree .ns { fill: var(--tertiary); font-size: 11.5px; }
+  .tree .nh { fill: var(--muted); font-size: 11px; font-family: var(--mono); }
+  .tree .rule.asked rect { stroke: var(--accent); stroke-dasharray: 3 3; }
+  .tree .rule.asked .nh { fill: var(--accent); }
+  .tree .rule.running .nh { fill: var(--tertiary); }
+  .tree .center rect:not(.logo) { fill: #1F1F1F; stroke: #4A4A4A; }
+  .tree .center .logo { fill: var(--accent); stroke: none; }
+  .tree .center .logot { fill: #141414; font-weight: 700; font-size: 18px; }
+  .tree .cl { fill: var(--text); font-size: 15px; font-weight: 600; letter-spacing: -0.02em; }
+  .tree .cs { fill: var(--muted); font-size: 12px; }
+  .tree .blabel { fill: var(--tertiary); font-size: 12px; }
+  .tip { position: absolute; width: 340px; padding: 14px 16px; background: #111; border: 1px solid var(--border-strong); box-shadow: 0 12px 32px rgba(0,0,0,.45);
+    pointer-events: none; opacity: 0; transform: translateY(4px); transition: opacity .15s, transform .15s; z-index: 5; }
+  .tip.on { opacity: 1; transform: none; }
+  .tip .tk { font-size: 11px; color: var(--accent); font-family: var(--mono); margin-bottom: 4px; }
+  .tip .tt { font-size: 14.5px; font-weight: 600; }
+  .tip .td { font-size: 13px; color: var(--muted); margin-top: 4px; }
+  .tip .tm { font-size: 12.5px; color: var(--muted); margin-top: 10px; }
+  .tip .tm b { color: var(--text); font-family: var(--mono); font-weight: 500; }
+  .tip pre { margin: 10px 0 0; padding: 10px 12px; font-size: 11.5px; line-height: 1.6; color: var(--muted); background: var(--surface); border: 1px solid var(--border); white-space: pre-wrap; }
+  .q { margin: 24px 28px; }
 </style>
 </head>
 <body>
@@ -285,21 +318,106 @@ function renderList() {
 }
 
 // ── detail ────────────────────────────────────────────────────────────────
+const SHORT = {
+  R1: "booked gate", R2: "arr, not amount", R3: "sandbox excluded", R4: "owner by territory", R5: "keep existing owner", R6: "root domain",
+  B1: "recurring only", B2: "qa_ is test", B3: "5-day grace", B4: "skip disputed",
+  S1: "4h escalation", S2: "billing → finance", S3: "7-day auto-close",
+  F1: "custbody_14 approves", F2: "closed periods locked",
+};
+const strip = (h) => h.replace(/<[^>]+>/g, "");
+const esc = (t) => String(t).replace(/&/g, "&amp;").replace(/</g, "&lt;");
+
+function treeModel(m) {
+  const W = 1032, cx = W / 2, cy = 150;
+  const NW = 196, NH = 46, CW = 220, CH = 72;
+  const col = (items, x) => items.map((it, i) => ({ ...it, x, y: cy - ((items.length - 1) * 62) / 2 + i * 62 - NH / 2 }));
+  const integ = col(m.integrations.map(([f, n, d, s]) => ({ kind: "integ", key: f, label: n, sub: f, f, n, d, s })), 24);
+  const tools = col(m.tools.map(([sig, d, r]) => ({ kind: "tool", key: sig, label: sig.replace(/\(.*$/, ""), sub: r === "feedback" ? "agent feedback" : r, sig, d, rules: r.split(" ").filter((x) => /^[A-Z]\d$/.test(x)) })), W - 24 - NW);
+  const busY = 290, ruleY = 330, RW = Math.min(150, (W - 48 - (m.rules.length - 1) * 14) / m.rules.length);
+  const totalW = m.rules.length * RW + (m.rules.length - 1) * 14;
+  const rules = m.rules.map(([id, t, ev, h, code], i) => ({ kind: "rule", key: id, id, t, ev, h, code, x: cx - totalW / 2 + i * (RW + 14), y: ruleY, w: RW }));
+  for (const r of rules) r.tools = tools.filter((t) => t.rules.includes(r.id)).map((t) => t.key);
+  const H = rules.length ? ruleY + 60 + 24 : cy + 120;
+  return { W, H, cx, cy, NW, NH, CW, CH, busY, integ, tools, rules };
+}
+
+function treeSvg(m, T) {
+  const { W, H, cx, cy, NW, NH, CW, CH, busY } = T;
+  const left = cx - CW / 2, right = cx + CW / 2;
+  const edges = [];
+  for (const n of T.integ) {
+    const y = n.y + NH / 2, mx = (n.x + NW + left) / 2;
+    edges.push(`<path class="edge" data-for="${esc(n.key)}" d="M${n.x + NW} ${y} H${mx} V${cy} H${left}"/>`);
+  }
+  for (const n of T.tools) {
+    const y = n.y + NH / 2, mx = (right + n.x) / 2;
+    edges.push(`<path class="edge" data-for="${esc(n.key)}" data-rules="${n.rules.join(" ")}" d="M${right} ${cy} H${mx} V${y} H${n.x}"/>`);
+  }
+  if (T.rules.length) {
+    const first = T.rules[0], last = T.rules[T.rules.length - 1];
+    edges.push(`<path class="edge trunk" d="M${cx} ${cy + CH / 2} V${busY}"/>`);
+    edges.push(`<path class="edge bus" d="M${first.x + first.w / 2} ${busY} H${last.x + last.w / 2}"/>`);
+    for (const r of T.rules) edges.push(`<path class="edge" data-for="${r.key}" d="M${r.x + r.w / 2} ${busY} V${r.y}"/>`);
+  }
+  const label = (x, y, text, anchor = "start") => `<text class="blabel" x="${x}" y="${y}" text-anchor="${anchor}">${text}</text>`;
+  const box = (n, w, extra = "") => `
+    <g class="node ${n.kind} ${extra}" data-key="${esc(n.key)}" transform="translate(${n.x} ${n.y})">
+      <rect width="${w}" height="${NH}" rx="3"/>
+      <text class="nl" x="14" y="20">${esc(n.label)}</text>
+      <text class="ns" x="14" y="35">${esc(n.sub)}</text>
+    </g>`;
+  const ruleBox = (r) => {
+    const st = r.h === "asked" ? "asked" : r.h === "running" ? "running" : "ok";
+    return `
+    <g class="node rule ${st}" data-key="${r.key}" transform="translate(${r.x} ${r.y})">
+      <rect width="${r.w}" height="${NH + 6}" rx="3"/>
+      <text class="nl mono" x="12" y="20">${r.id}</text>
+      <text class="nh" x="${r.w - 12}" y="20" text-anchor="end">${r.h === "asked" ? "asked" : r.h === "running" ? "testing" : r.h}</text>
+      <text class="ns" x="12" y="38">${esc(SHORT[r.id] ?? "")}</text>
+    </g>`;
+  };
+  const mark = m.systems[0][0];
+  return `
+  <svg viewBox="0 0 ${W} ${H}" class="tree" role="img" aria-label="${esc(m.name)} knowledge tree">
+    ${T.integ.length ? label(24, T.integ[0].y - 14, `Integrations · ${T.integ.length}`) : ""}
+    ${T.tools.length ? label(W - 24, T.tools[0].y - 14, `Tools · ${T.tools.length}`, "end") : label(W - 24, cy - 40, "Tools · generated after backtests", "end")}
+    ${T.rules.length ? label(24, busY - 12, `Tribal knowledge · ${T.rules.length} rules · ${m.mined}`) : ""}
+    ${edges.join("")}
+    ${T.integ.map((n) => box(n, NW)).join("")}
+    ${T.tools.map((n) => box(n, NW)).join("")}
+    ${T.rules.map(ruleBox).join("")}
+    <g class="node center" data-key="__center" transform="translate(${left} ${cy - CH / 2})">
+      <rect width="${CW}" height="${CH}" rx="4"/>
+      <g transform="translate(16 18)"><rect class="logo" width="36" height="36" rx="8"/><text class="logot" x="18" y="24" text-anchor="middle">${mark}</text></g>
+      <text class="cl" x="66" y="32">${esc(m.name.replace("GurtAI ", ""))}</text>
+      <text class="cs" x="66" y="50">${STATUS[m.status][1]}${m.status === "live" ? " · " + m.version : ""}</text>
+    </g>
+  </svg>`;
+}
+
+function tipHtml(m, T, key) {
+  if (key === "__center") return `<div class="tt">${esc(m.name)}</div><div class="tm mono">${esc(m.url)}</div><div class="td">${m.systems.join(" · ")} · ${T.tools.length} tools · ${T.rules.length} rules</div>`;
+  const r = T.rules.find((x) => x.key === key);
+  if (r) return `<div class="tk">${r.id} · ${r.h === "asked" ? "waiting on an answer" : r.h === "running" ? "backtest running" : "held-out " + r.h}</div>
+    <div class="tt">${r.t}</div><div class="td">${r.ev}</div><pre>${esc(r.code)}</pre>
+    ${r.tools.length ? `<div class="tm">Compiled into ${r.tools.map((t) => `<code>${esc(t.replace(/\(.*$/, ""))}</code>`).join(", ")}</div>` : ""}`;
+  const t = T.tools.find((x) => x.key === key);
+  if (t) return `<div class="tk">Tool</div><div class="tt mono">${esc(t.sig)}</div><div class="td">${t.d}</div>
+    <div class="tm">${t.rules.length ? "Rules applied: " + t.rules.map((id) => `<b>${id}</b> ${esc(SHORT[id] ?? "")}`).join(" · ") : "How agents report a wrong result or a missing capability"}</div>`;
+  const n = T.integ.find((x) => x.key === key);
+  if (n) return `<div class="tk">${n.f}</div><div class="tt">${esc(n.n)}</div><div class="td">${n.d} · <span class="mono">${n.s} ••••••</span> injected by the host</div><pre>${esc(m.md)}</pre>`;
+  return "";
+}
+
 function renderDetail(m) {
-  let openRule = 0;
   $("#crumb").innerHTML = `<button id="back">MCPs</button><span>/</span><span class="cur">${m.name}</span>`;
   $("#back").onclick = () => (location.hash = "");
-
+  const T = treeModel(m);
   const snippets = {
     url: `${m.url}\nAuthorization: Bearer <agent token>`,
     claude: `{ "mcpServers": { "gurtai-${m.id}": {\n  "url": "${m.url}" } } }`,
     cursor: `// .cursor/mcp.json\n{ "mcpServers": { "gurtai-${m.id}": {\n  "url": "${m.url}" } } }`,
   };
-  const held = (h) => h === "asked" ? '<span class="tag v">asked</span>' : h === "running" ? '<span class="dim">testing</span>' : h;
-  const rulesHtml = () => m.rules.map(([id, t, ev, h, code], i) => `
-    <div class="it rule click ${i === openRule ? "sel" : ""}" data-i="${i}">
-      <span class="rid">${id}</span><span>${t}</span><span class="muted">${ev}</span><span class="mono" style="font-size:13px">${held(h)}</span>
-    </div>${i === openRule ? `<pre class="code">${code}</pre>` : ""}`).join("");
 
   $("#app").innerHTML = `
     <section class="pad head">
@@ -317,26 +435,18 @@ function renderDetail(m) {
       <div class="cell stat"><div class="l">Rules compiled</div><div class="v">${m.stats.rules}</div></div>
     </section>
 
+    <section class="treewrap" id="treewrap">
+      ${treeSvg(m, T)}
+      <div class="tip" id="tip"></div>
+    </section>
+
+    ${m.question ? `
     <section>
-      <div class="sechead"><h2>Tribal knowledge</h2><span class="dim" style="font-size:13px">${m.mined}</span></div>
-      <div class="list" id="rules">${rulesHtml()}</div>
-      ${m.question ? `
       <div class="q" id="question">
         <div class="body"><div class="dim" style="font-size:13px;margin-bottom:6px">Question for a human · history can't settle this</div>${m.question.text}</div>
         ${m.question.options.map((o, i) => `<div class="opt" data-a="${i}"><b>${"AB"[i]}</b>${o}</div>`).join("")}
-      </div>` : ""}
-    </section>
-
-    <section>
-      <div class="sechead"><h2>Tools</h2><span class="dim" style="font-size:13px">rules are compiled into each tool</span></div>
-      <div class="list">${m.tools.length ? m.tools.map(([s, d, r]) => `<div class="it tool"><span class="sig">${s}</span><span class="muted">${d}</span><span class="tag">${r}</span></div>`).join("") : `<div class="empty">Tools are generated once mining and backtests finish.</div>`}</div>
-    </section>
-
-    <section>
-      <div class="sechead"><h2>Integrations</h2><span class="dim" style="font-size:13px">secrets are injected by the host · no model sees them</span></div>
-      <div class="list">${m.integrations.map(([f, n, d, s]) => `<div class="it integ"><span><span class="mono dim" style="font-size:12px">${f}</span><br>${n}</span><span class="muted">${d}</span><span class="mono dim" style="font-size:12px">${s} ••••••</span><span class="status"><i></i>connected</span></div>`).join("")}</div>
-      <div style="padding:0 28px 24px"><pre class="box">${m.md}</pre></div>
-    </section>
+      </div>
+    </section>` : ""}
 
     <section class="row c2">
       <div>
@@ -351,17 +461,45 @@ function renderDetail(m) {
       </div>
     </section>`;
 
-  const bindRules = () => $$("#rules .rule").forEach((r) => r.onclick = () => { openRule = +r.dataset.i; $("#rules").innerHTML = rulesHtml(); bindRules(); });
-  bindRules();
-  $$("#tabs button").forEach((b) => b.onclick = () => { $$("#tabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#snippet").textContent = snippets[b.dataset.c]; });
+  // hover: highlight the node, its branch and related nodes; show the card
+  const wrap = $("#treewrap"), tip = $("#tip"), svg = $(".tree", wrap);
+  const clear = () => { $$(".hl", svg).forEach((e) => e.classList.remove("hl")); svg.classList.remove("focus"); tip.classList.remove("on"); };
+  const lightRule = (id) => { $(`.node[data-key="${id}"]`, svg)?.classList.add("hl"); $(`.edge[data-for="${id}"]`, svg)?.classList.add("hl"); $$(".trunk, .bus", svg).forEach((e) => e.classList.add("hl")); };
+  $$(".node", svg).forEach((g) => {
+    g.addEventListener("mouseenter", () => {
+      clear();
+      const key = g.dataset.key;
+      svg.classList.add("focus");
+      g.classList.add("hl");
+      $(".node.center", svg).classList.add("hl");
+      $$(`.edge[data-for="${CSS.escape(key)}"]`, svg).forEach((e) => e.classList.add("hl"));
+      const tool = T.tools.find((t) => t.key === key);
+      if (tool) tool.rules.forEach(lightRule);
+      const rule = T.rules.find((r) => r.key === key);
+      if (rule) { lightRule(rule.id); rule.tools.forEach((k) => { $(`.node[data-key="${CSS.escape(k)}"]`, svg)?.classList.add("hl"); $(`.edge[data-for="${CSS.escape(k)}"]`, svg)?.classList.add("hl"); }); }
+      if (key === "__center") $$(".node, .edge", svg).forEach((e) => e.classList.add("hl"));
+      tip.innerHTML = tipHtml(m, T, key);
+      const wr = wrap.getBoundingClientRect(), nr = g.getBoundingClientRect();
+      const tw = 340;
+      let x = nr.left - wr.left + nr.width / 2 - tw / 2;
+      x = Math.max(16, Math.min(wr.width - tw - 16, x));
+      const below = nr.top - wr.top < wr.height / 2;
+      tip.style.left = x + "px";
+      tip.style.top = below ? nr.bottom - wr.top + 10 + "px" : "auto";
+      tip.style.bottom = below ? "auto" : wr.bottom - nr.top + 10 + "px";
+      tip.classList.add("on");
+    });
+  });
+  svg.addEventListener("mouseleave", clear);
+
   $("#snippet").textContent = snippets.url;
+  $$("#tabs button").forEach((b) => b.onclick = () => { $$("#tabs button").forEach((x) => x.classList.toggle("on", x === b)); $("#snippet").textContent = snippets[b.dataset.c]; });
   $("#copy").onclick = () => navigator.clipboard?.writeText(m.url);
   $$("#question .opt").forEach((o) => o.onclick = () => {
     $$("#question .opt").forEach((x) => x.classList.toggle("picked", x === o));
     const r = m.rules[m.question.rule];
     if (r[3] === "asked") r[3] = "100%";
-    openRule = m.question.rule;
-    $("#rules").innerHTML = rulesHtml(); bindRules();
+    setTimeout(() => renderDetail(m), 350);
   });
 }
 
@@ -415,8 +553,12 @@ function startDots() {
 }
 
 function route() {
-  const m = MCPS.find((x) => x.id === location.hash.slice(1));
+  const [id, opt] = location.hash.slice(1).split(",");
+  const m = MCPS.find((x) => x.id === id);
   m ? renderDetail(m) : renderList();
+  // #sales,hover=R1 opens a node's card (handy for screenshots and demos)
+  const hover = /^hover=(.+)$/.exec(opt ?? "")?.[1];
+  if (m && hover) setTimeout(() => $(`.node[data-key="${CSS.escape(decodeURIComponent(hover))}"]`)?.dispatchEvent(new Event("mouseenter")), 50);
   window.scrollTo({ top: 0 });
 }
 window.addEventListener("hashchange", route);
