@@ -23,7 +23,7 @@ const pct = (x: { n: number; ok: number }) => (x.n ? `${Math.round((100 * x.ok) 
 const html = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;");
 const code = (s: string) => html(s).replace(/`([^`]+)`/g, "<code>$1</code>");
 
-export interface Usage { usage: { tool: string; client: string | null; at: string; ok: boolean }[]; feedback: unknown[] }
+export interface Usage { usage: { tool: string; client: string | null; at: string; ok: boolean; ms?: number }[]; feedback: unknown[] }
 export interface Job { id: string; mcp: string; kind: string; status: "running" | "done" | "failed"; steps: { at: string; text: string }[]; startedAt: string; error?: string }
 
 export function uiMcp(id: string, k: Knowledge, st: WalterState, usage: Usage | null, job: Job | null) {
@@ -34,6 +34,10 @@ export function uiMcp(id: string, k: Knowledge, st: WalterState, usage: Usage | 
   const tools = toolsOf(cfg).filter((t) => !t.kinds.length || t.kinds.some((kd) => live.some((r) => r.kind === kd)));
   const status = job?.status === "running" ? "build" : !dep ? (open.length ? "ask" : "build") : "live";
   const now = Date.now();
+  // The last 144 calls of the past 24h, one dot each: [tool index, agent call?, ok?, latency ms]
+  const names = toolsOf(cfg).map((t) => t.name);
+  const calls = (usage?.usage ?? []).filter((u) => now - Date.parse(u.at) < 86_400_000).slice(-144)
+    .map((u) => [Math.max(0, names.indexOf(u.tool)), u.client && !u.client.startsWith("walter") ? 1 : 0, u.ok ? 1 : 0, Math.round(u.ms ?? 0)]);
   const volume = Array.from({ length: 24 }, () => 0);
   for (const u of usage?.usage ?? []) {
     const h = Math.floor((now - Date.parse(u.at)) / 3_600_000);
@@ -45,7 +49,7 @@ export function uiMcp(id: string, k: Knowledge, st: WalterState, usage: Usage | 
     url: dep?.mcpUrl ?? "not deployed yet", webUrl: dep?.webUrl ?? null,
     systems: cfg.systems,
     stats: { agents: new Set((usage?.usage ?? []).map((u) => u.client ?? "unknown").filter((c) => !c.startsWith("walter"))).size, calls: (usage?.usage.length ?? 0).toLocaleString(), success: usage?.usage.length ? `${Math.round((100 * usage.usage.filter((u) => u.ok).length) / usage.usage.length)}%` : "—", rules: live.length },
-    volume,
+    volume, calls, toolNames: names,
     integrations: cfg.integrations, md: md(cfg.mdFile),
     tools: tools.map((t) => [t.sig, t.d, t.kinds.length ? live.filter((r) => t.kinds.includes(r.kind)).map((r) => r.id).join(" ") : t.name === "report_outcome" ? "feedback" : ""]),
     rules: live.map((r) => [r.id, code(r.title), r.evidence ?? "", open.some((x) => x.rule_id === r.id) ? "asked" : r.change && r.status !== "confirmed" ? "change" : pct(r.heldOut.n ? r.heldOut : r.train), r.code, r.short ?? ""]),
