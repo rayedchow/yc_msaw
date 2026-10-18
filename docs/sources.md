@@ -21,30 +21,62 @@ The usual verbs take `$SOURCES/...` paths and run host-side (no workspace or san
 | `read` | Text: line slices (`offset`/`limit`, first 4 MiB) or byte slices. Binary: byte slices returned base64 (`encoding: "base64"`). Every receipt has `source` (versionId, sha256, size, `capturedAt`, `sourceUpdatedAt`, `ageSeconds`, `captureLagSeconds`, coverage state/health) and `provenance`. A deleted file answers with when and why it was deleted. |
 | `find` | Glob over the tree (basename unless the pattern has `/`). |
 | `grep` | Regex (worker-isolated, timeout) or literal over text files; binaries and files over 4 MiB are counted in `filesSkipped`, never coerced. |
-| `sources_status` | Per provider: files, newest capture, data age, last successful check, last heartbeat, `health` (healthy/stale/unreported) and `coverageState` (complete/partial/blocked/pending/unreported) with each collector's reasons. |
+| `sources_status` | Per provider: files, newest capture, data age, last successful check, last heartbeat, `health` (healthy/stale/unreported: stale when no heartbeat arrived within 3 report intervals, or a scope that declares `expectedIntervalSeconds` last succeeded more than 3 such intervals ago, i.e. a dead worker behind a live exporter) and `coverageState` (complete/partial/blocked/pending/unreported) with each collector's reasons. |
 | `sources_history` | Versions of one path, newest first, including deletion tombstones; `versionId` + byte range reads an exact prior version. |
 
 `$SOURCES` is not mounted in `shell` sandboxes. Data age, collector health and coverage
 are separate on purpose: a provider can be `complete` but `stale` (collector stopped), or
 `healthy` with old data (nothing changed upstream). `unreported` never means complete.
 
-### Who can read `$SOURCES` (decide before connecting real accounts)
+### Who can read `$SOURCES`: personal sources are owner-only
 
-Reads use the existing auth unchanged. `$SOURCES`, `sources_status` and `sources_history` need only `memory:read`,
-which every verified user receives implicitly (`DEFAULT_IMPLICIT_SCOPES` in `src/auth/scopes.ts`). The namespace is
-the principal's tenant, and with WorkOS organizations that tenant is shared by every member (`docs/auth.md`). There
-is no per-source or per-owner ACL: Slack and Drive permission labels are recorded but not enforced.
+Login and tenant authority are unchanged (WorkOS/OIDC; `memory:read` for `$SOURCES`, `sources_status` and
+`sources_history`). Members of one WorkOS organization still share a tenant. Within it, **personal sources are
+served only to their owner** (`src/sources/access.ts`). The owner is a verified principal (token issuer + subject),
+never a request field or provider payload:
 
-So in an organization tenant, any member's MCP client can read everything the tenant captured:
+| `$SOURCES/...` | Owner | Enrolment |
+| --- | --- | --- |
+| `imessage/`, `coding-sessions/`, `office-audio/` | the principal that created the device bindings (all of them, revoked ones included) | `POST /v1/sources/devices/<provider>/setup` (`traces:write` or `memory:build`) |
+| `granola/`, `zoom/`, `cursor-agents/`, `whatsapp-personal/`, `instagram-personal/` | the principal that connected the account | `POST /v1/sources/connect/<provider>` (`memory:build`) |
+| `gmail/<mailbox>/`, `calendar/accounts/<mailbox>/`, `google-contacts/accounts/<mailbox>/` | the principal that completed the Google OAuth (or Composio) grant for that address; Google's account check at the callback proves control of it | `POST /v1/sources/google/auth/oauth/start` (`memory:build`) |
+| `google-docs/`, `binary/drive-pdf/`, and Google files outside a mailbox directory (e.g. the donor `calendar/<yyyy>/<mm>/` files, which mix mailboxes) | the principal that owns **every** Google address the tenant collects | as above |
 
-- every domain-wide-delegated mailbox;
-- each member's Mac iMessage, coding-session and office-audio sources;
-- the Slack channels and DMs the app can see.
+How it is enforced:
 
-This is an open product decision (final-audit H3). The options are a dedicated non-implicit scope (for example
-`sources:read`, granted by role), or per-provider / per-owner visibility, with device-originated personal sources
-visible to their owner only. Until one is chosen, connect only sources every member of the tenant may read, or
-use single-user tenants.
+- Every verb applies it: `ls`, `find`, `grep`, `read`, `sources_history` (listing and exact `versionId` reads),
+  `sources_status`, and the admin `GET /v1/sources/status`. Admins are members too and get no exception.
+- Another owner's path answers exactly like a missing path (`not_found`; empty history). Walks skip denied subtrees
+  without reading them.
+- Directories that also hold other owners' data list only the caller's children. Their totals (`liveFiles`,
+  `files`, `capturedAt`) are `null`; the root sums only fully readable providers.
+- In status, providers the caller cannot read are omitted. For a partly readable provider, only coverage
+  reports naming one of the caller's own accounts are kept.
+- Device bindings are listed in `sources_status` to their enroller only.
+- **Fail closed:**
+  - unowned data is readable by nobody. That covers a domain-wide-delegation-only mailbox, data captured before
+    owners were recorded, a donor Google connection without a mailbox, and an owner list the runtime could not
+    report;
+  - so is data with more than one claimed owner;
+  - a provider directory has exactly one owner. A second member's device setup or connect is refused with
+    `409 owner_conflict`, and so is an enrolment over pre-existing unowned data (`reason: unowned_legacy_data`).
+    That data stays sealed and is not handed to whoever enrols first.
+- Google owners come from the runtime's status heartbeat (`googleAccounts`). They are accepted only from the
+  tenant's active `*` runtime binding, so a new grant becomes readable at the next heartbeat (≤ 5 min by default).
+- Shared workspace providers stay readable by every member of the tenant: Slack channels, Notion, Confluence, Jira,
+  GitHub, Bitbucket, Linear, Discord, Stripe and Nango generic records. The exception is Slack direct messages
+  (`D…` conversations), which are denied. Slack file bytes are not attributable to a conversation by path and stay
+  shared. `binary/upload/` has no recorded owner and is denied.
+
+Migration and enrolment:
+
+- A domain-wide-delegated mailbox becomes readable once its owner completes the Google OAuth grant for the same
+  address.
+- Device and connected-account data captured before this change is sealed. To re-capture it under an owner, the
+  operator removes that provider's runtime data, then the owner enrols.
+- Ownership of a provider directory cannot be transferred.
+- Per-account layouts (several owners per tenant) exist only for Gmail, Calendar and Contacts. For the other
+  personal providers, one member per tenant can own the provider (for example one Mac owner's iMessage).
 
 ## Layout
 
@@ -88,7 +120,7 @@ The existing auth stays the only authority: WorkOS/OIDC (or static keys on loopb
 | `GET /v1/sources/bindings`, `DELETE /v1/sources/bindings/:id` | `memory:build` | List (no secrets) / revoke |
 | `GET /v1/sources/status` | `memory:read` | Same data as `sources_status` |
 | `PUT /v1/sources/blobs/:sha256`, `POST /v1/sources/publish`, `POST /v1/sources/status-report` | binding token `psb_<tenant>.<id>.<secret>` only | Collector publication |
-| `POST /v1/sources/runtime/provision` | `memory:build` | Mint a runtime binding and hand it to the runtime (token never returned) |
+| `POST /v1/sources/runtime/provision` | `memory:build` | Mint a runtime binding and hand it to the runtime (token never returned). Once the runtime accepts it, earlier `sources-runtime` bindings are revoked (`revokedPrevious`) |
 | `GET /v1/sources/runtime/status` | `memory:read` | Runtime connections, binding and coverage |
 | `POST /v1/sources/connect/:provider`, `DELETE /v1/sources/connections/:provider` | `memory:build` | Donor connect / disconnect flows in the runtime |
 | `POST /v1/sources/devices/:provider` | `traces:write` | Device enrolment for providers without a dedicated setup route |

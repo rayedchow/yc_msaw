@@ -14,6 +14,10 @@
  *                         files (alt=media) with their explicit size limits.
  *
  * Lag is reported as counts of not-yet-exported files and the oldest pending age.
+ *
+ *  - docs-poll            recency of the last completed gdocs.poll (scheduled every 60 s). When it is older than
+ *                         DOCS_POLL_LAG_SECONDS (or never ran while files are tracked), no scope may claim
+ *                         `complete`: checkpoints say what was captured, not that edits are still being captured.
  */
 import { sql } from "drizzle-orm";
 import type { CoverageReport, CoverageState, ExportContext } from "../../core/types.js";
@@ -66,6 +70,10 @@ export function scopeState(counts: Record<string, number>, total: number): Cover
   if ((counts.partial ?? 0) + (counts.error ?? 0) + (counts.blocked ?? 0) + (counts.unsupported ?? 0) > 0) return "partial";
   return "pending";
 }
+
+/** gdocs.poll runs every 60 s (queue/dispatch.ts); 15 minutes without a completed poll means capture stopped. */
+export const DOCS_POLL_INTERVAL_SECONDS = 60;
+export const DOCS_POLL_LAG_SECONDS = 15 * 60;
 
 export async function googleDocsCoverage(ctx: ExportContext, now: Date = new Date()): Promise<CoverageReport[]> {
   const rows = rowsOf<Row>(await ctx.executor.execute(sql`
@@ -154,5 +162,37 @@ export async function googleDocsCoverage(ctx: ExportContext, now: Date = new Dat
     lastSuccessAt: maxIso(drive.map((r) => r.content_exported_at)),
     counts: { ...driveCounts, files: drive.length, oldestPendingSeconds: oldestPendingSeconds(drive, "content_state") },
   });
+
+  const [poll] = rowsOf<{ last_completed: Date | string | null; last_failed: Date | string | null }>(await ctx.executor.execute(sql`
+    SELECT max(completed_at) FILTER (WHERE status = 'completed') AS last_completed,
+           max(failed_at) FILTER (WHERE status = 'failed') AS last_failed
+    FROM source_sync_runs
+    WHERE user_id = ${ctx.tenantId} AND provider = 'google' AND metadata->>'taskKind' = 'gdocs.poll'
+  `));
+  const lastPoll = iso(poll?.last_completed);
+  const pollAge = lastPoll ? Math.max(0, Math.round((now.getTime() - Date.parse(lastPoll)) / 1000)) : null;
+  const pollFresh = pollAge !== null && pollAge <= DOCS_POLL_LAG_SECONDS;
+  const lastFailed = iso(poll?.last_failed);
+  reports.push({
+    provider: GOOGLE_DOCS_PROVIDER_ID,
+    scope: "docs-poll",
+    state: pollFresh ? "complete" : rows.length === 0 && pollAge === null ? "pending" : "partial",
+    reason: pollFresh
+      ? `edits polled ${pollAge} s ago`
+      : pollAge === null
+        ? "no completed gdocs.poll yet: edits since the last capture are not being collected"
+        : `last completed gdocs.poll was ${pollAge} s ago (bound ${DOCS_POLL_LAG_SECONDS} s): edits since then are not captured`,
+    ...(lastPoll ? { lastSuccessAt: lastPoll } : {}),
+    ...(lastFailed ? { lastErrorAt: lastFailed } : {}),
+    expectedIntervalSeconds: DOCS_POLL_INTERVAL_SECONDS * 5,
+  });
+  if (!pollFresh) {
+    for (const r of reports) {
+      if (r.scope !== "docs-poll" && r.state === "complete") {
+        r.state = "partial";
+        r.reason = `${r.reason ? `${r.reason}; ` : ""}not current: no completed gdocs.poll within ${DOCS_POLL_LAG_SECONDS} s`;
+      }
+    }
+  }
   return reports;
 }

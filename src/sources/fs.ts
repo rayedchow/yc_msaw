@@ -1,6 +1,7 @@
 import { z } from "zod";
 import { FindSchema, GrepSchema, LsSchema, ReadSchema } from "../customer/tools.js";
 import { globMatcher, grepTree, MAX_GREP_SCAN_BYTES, MAX_LIST_LIMIT, MAX_READ_BYTES, readLinesSlice, VTree } from "../customer/tree.js";
+import type { SourceViewer } from "./access.js";
 import { agentToStored, displaySourcePath, providerOf, SourceError } from "./paths.js";
 import type { ProviderStatus, SourceService } from "./service.js";
 import { isTextualContentType, isVersionId, type FileEntry, type SourceStore, type SourceVersion, type TreeChild } from "./store.js";
@@ -14,6 +15,9 @@ import { isTextualContentType, isVersionId, type FileEntry, type SourceStore, ty
  * open a sandbox and never call a provider: they serve the stored versions.
  * Every file receipt carries freshness (capturedAt/sourceUpdatedAt/age/lag),
  * version identity and the provider's reported coverage state.
+ *
+ * Every call carries the caller's SourceViewer (access.ts): personal sources of other owners are
+ * absent from listings, walks, reads, history and status, and answer exactly like a missing path.
  */
 
 /** Line-mode reads load at most this prefix; byte reads reach any offset of any size. */
@@ -23,6 +27,7 @@ const MAX_GREP_FILES = 5_000;
 /** Upper bound on tree entries visited by find/grep. */
 const MAX_WALK_ENTRIES = 200_000;
 const STATUS_TTL_MS = 15_000;
+const MAX_STATUS_CACHE = 256;
 
 export const SourcesStatusSchema = z
   .object({
@@ -68,14 +73,17 @@ export class SourceFs {
     private readonly now: () => Date = () => new Date(),
   ) {}
 
-  async #coverage(ns: string, provider: string | null): Promise<Freshness["coverage"]> {
+  async #coverage(ns: string, viewer: SourceViewer, provider: string | null): Promise<Freshness["coverage"]> {
     if (!provider) return { state: "unreported", health: "unreported", lastSuccessfulCheckAt: null, reasons: [] };
-    let cached = this.#statusCache.get(ns);
+    const key = `${ns}\n${viewer.who.issuer}\n${viewer.who.subject}`;
+    let cached = this.#statusCache.get(key);
     const epoch = this.service.reportEpoch(ns);
     if (!cached || cached.epoch !== epoch || this.now().getTime() - cached.at > STATUS_TTL_MS) {
-      const st = await this.service.status(ns);
+      const st = await this.service.status(ns, viewer);
       cached = { at: this.now().getTime(), epoch, providers: new Map(st.providers.map((p) => [p.provider, p])) };
-      this.#statusCache.set(ns, cached);
+      this.#statusCache.delete(key);
+      this.#statusCache.set(key, cached);
+      while (this.#statusCache.size > MAX_STATUS_CACHE) this.#statusCache.delete(this.#statusCache.keys().next().value!);
     }
     const p = cached.providers.get(provider);
     if (!p) return { state: "unreported", health: "unreported", lastSuccessfulCheckAt: null, reasons: [] };
@@ -87,7 +95,7 @@ export class SourceFs {
     };
   }
 
-  async #freshness(ns: string, stored: string, v: SourceVersion): Promise<Freshness> {
+  async #freshness(ns: string, viewer: SourceViewer, stored: string, v: SourceVersion): Promise<Freshness> {
     const nowMs = this.now().getTime();
     const cap = Date.parse(v.capturedAt);
     const upd = v.sourceUpdatedAt ? Date.parse(v.sourceUpdatedAt) : null;
@@ -101,38 +109,39 @@ export class SourceFs {
       sourceUpdatedAt: v.sourceUpdatedAt,
       ageSeconds: Math.max(0, Math.round((nowMs - cap) / 1000)),
       captureLagSeconds: upd === null ? null : Math.max(0, Math.round((cap - upd) / 1000)),
-      coverage: await this.#coverage(ns, providerOf(stored)),
+      coverage: await this.#coverage(ns, viewer, providerOf(stored)),
     };
   }
 
-  async run(ns: string, tool: SourceRoutedTool, rawInput: unknown): Promise<Record<string, unknown>> {
+  async run(ns: string, viewer: SourceViewer, tool: SourceRoutedTool, rawInput: unknown): Promise<Record<string, unknown>> {
     const started = Date.now();
-    const body = await this.#dispatch(ns, tool, rawInput);
+    const body = await this.#dispatch(ns, viewer, tool, rawInput);
     return { tool, ok: true, durationMs: Date.now() - started, ...body };
   }
 
-  async #dispatch(ns: string, tool: SourceRoutedTool, rawInput: unknown): Promise<Record<string, unknown>> {
+  async #dispatch(ns: string, viewer: SourceViewer, tool: SourceRoutedTool, rawInput: unknown): Promise<Record<string, unknown>> {
     switch (tool) {
       case "ls": {
         const { after, ...rest } = (rawInput ?? {}) as Record<string, unknown>;
         if (after !== undefined && (typeof after !== "string" || after.length === 0 || after.length > 255)) throw new SourceError("invalid_input", "after must be an entry name");
-        return this.ls(ns, { ...LsSchema.parse(rest), ...(typeof after === "string" ? { after } : {}) });
+        return this.ls(ns, viewer, { ...LsSchema.parse(rest), ...(typeof after === "string" ? { after } : {}) });
       }
       case "read":
-        return this.read(ns, ReadSchema.parse(rawInput));
+        return this.read(ns, viewer, ReadSchema.parse(rawInput));
       case "find":
-        return this.find(ns, FindSchema.parse(rawInput ?? {}));
+        return this.find(ns, viewer, FindSchema.parse(rawInput ?? {}));
       case "grep":
-        return this.grep(ns, GrepSchema.parse(rawInput));
+        return this.grep(ns, viewer, GrepSchema.parse(rawInput));
     }
   }
 
-  async ls(ns: string, input: z.output<typeof LsSchema> & { after?: string }): Promise<Record<string, unknown>> {
+  async ls(ns: string, viewer: SourceViewer, input: z.output<typeof LsSchema> & { after?: string }): Promise<Record<string, unknown>> {
     const stored = agentToStored(input.path);
     const store = this.service.storeFor(ns);
     const head = (await store.head()).value;
-    const r = await store.resolve(stored, head.root);
     const path = displaySourcePath(stored);
+    const access = viewer.access(stored);
+    const r = access === "deny" ? null : await store.resolve(stored, head.root);
     if (!r) throw new SourceError("not_found", `No such file or directory: ${path}`);
     if (r.type === "file") {
       return { path, type: r.entry.t === "x" ? "deleted" : "file", entries: [lsEntry(stored.split("/").pop() ?? stored, r.entry)], total: 1, truncated: false, seq: head.seq };
@@ -140,13 +149,16 @@ export class SourceFs {
     const cap = Math.min(input.limit, MAX_LIST_LIMIT);
     // Paged directories can be huge: list one window (resume with `after`), never load every page.
     const page = await store.list(stored, { limit: cap, ...(input.after !== undefined ? { after: input.after } : {}) }, head.root);
-    const agg = r.entry ?? (await rootAggregate(store, r.sha));
+    const child = (name: string) => (stored ? `${stored}/${name}` : name);
+    const visible = access === "allow" ? page.entries : page.entries.filter((e) => viewer.access(child(e.name)) !== "deny");
+    // Totals of a partly readable directory would count other owners' files: only readable children are summed.
+    const agg = access === "allow" ? (r.entry ?? (await rootAggregate(store, r.sha))) : stored === "" ? await rootAggregate(store, r.sha, (name) => viewer.access(name) === "allow") : null;
     return {
       path,
       type: "dir",
-      entries: page.entries.map((e) => lsEntry(e.name, e.entry)),
-      liveFiles: agg.files,
-      deletedFiles: agg.deleted,
+      entries: visible.map((e) => lsEntry(e.name, e.entry, access === "allow" || viewer.access(child(e.name)) === "allow")),
+      liveFiles: agg ? agg.files : null,
+      deletedFiles: agg ? agg.deleted : null,
       truncated: page.nextAfter !== null,
       ...(page.nextAfter !== null ? { nextAfter: page.nextAfter } : {}),
       seq: head.seq,
@@ -154,11 +166,11 @@ export class SourceFs {
     };
   }
 
-  async read(ns: string, input: z.output<typeof ReadSchema>): Promise<Record<string, unknown>> {
+  async read(ns: string, viewer: SourceViewer, input: z.output<typeof ReadSchema>): Promise<Record<string, unknown>> {
     const stored = agentToStored(input.path);
     const path = displaySourcePath(stored);
     const store = this.service.storeFor(ns);
-    const r = await store.resolve(stored);
+    const r = viewer.access(stored) === "deny" ? null : await store.resolve(stored);
     if (!r) throw new SourceError("not_found", `No such file or directory: ${path}`);
     if (r.type === "dir") throw new SourceError("not_a_file", `${path} is a directory; use ls or find`);
     if (r.entry.t === "x") {
@@ -166,15 +178,15 @@ export class SourceFs {
       throw new SourceError("not_found", `${path} was deleted at ${v.deleted?.at ?? v.capturedAt} (${v.deleted?.reason ?? "deleted"}); use sources_history to read prior versions`);
     }
     const version = await store.version(r.entry.v);
-    const source = await this.#freshness(ns, stored, version);
+    const source = await this.#freshness(ns, viewer, stored, version);
     return { ...(await sliceVersion(store, path, version, input)), source, provenance: version.provenance };
   }
 
-  async find(ns: string, input: z.output<typeof FindSchema>): Promise<Record<string, unknown>> {
+  async find(ns: string, viewer: SourceViewer, input: z.output<typeof FindSchema>): Promise<Record<string, unknown>> {
     const stored = agentToStored(input.path);
     const path = displaySourcePath(stored);
     const store = this.service.storeFor(ns);
-    const r = await store.resolve(stored);
+    const r = viewer.access(stored) === "deny" ? null : await store.resolve(stored);
     if (!r) throw new SourceError("not_found", `No such file or directory: ${path}`);
     const match = globMatcher(input.pattern);
     const cap = Math.min(input.limit, MAX_LIST_LIMIT);
@@ -185,7 +197,7 @@ export class SourceFs {
       return { path, pattern: input.pattern, matches, truncated };
     }
     let visited = 0;
-    for await (const item of store.walk(stored)) {
+    for await (const item of store.walk(stored, { skip: (p) => viewer.access(p) === "deny" })) {
       if (++visited > MAX_WALK_ENTRIES) {
         truncated = true;
         break;
@@ -201,11 +213,11 @@ export class SourceFs {
     return { path, pattern: input.pattern, matches, truncated };
   }
 
-  async grep(ns: string, input: z.output<typeof GrepSchema>): Promise<Record<string, unknown>> {
+  async grep(ns: string, viewer: SourceViewer, input: z.output<typeof GrepSchema>): Promise<Record<string, unknown>> {
     const stored = agentToStored(input.path);
     const path = displaySourcePath(stored);
     const store = this.service.storeFor(ns);
-    const r = await store.resolve(stored);
+    const r = viewer.access(stored) === "deny" ? null : await store.resolve(stored);
     if (!r) throw new SourceError("not_found", `No such file or directory: ${path}`);
     const globMatch = input.glob && r.type === "dir" ? globMatcher(input.glob) : null;
     const files = new Map<string, Buffer>();
@@ -217,7 +229,7 @@ export class SourceFs {
     if (r.type === "file") {
       if (r.entry.t === "f") candidates.push({ path: stored, entry: r.entry });
     } else {
-      for await (const item of store.walk(stored)) {
+      for await (const item of store.walk(stored, { skip: (p) => viewer.access(p) === "deny" })) {
         if (++visited > MAX_WALK_ENTRIES) {
           truncated = true;
           break;
@@ -251,8 +263,8 @@ export class SourceFs {
     return { path, pattern: input.pattern, matches, filesSearched: files.size, filesSkipped: filesSkipped + g.filesSkipped, truncated: truncated || g.truncated };
   }
 
-  async status(ns: string, input: z.output<typeof SourcesStatusSchema>): Promise<Record<string, unknown>> {
-    const st = await this.service.status(ns);
+  async status(ns: string, viewer: SourceViewer, input: z.output<typeof SourcesStatusSchema>): Promise<Record<string, unknown>> {
+    const st = await this.service.status(ns, viewer);
     const providers = input.provider ? st.providers.filter((p) => p.provider === input.provider) : st.providers;
     return {
       tool: "sources_status",
@@ -262,21 +274,26 @@ export class SourceFs {
       updatedAt: st.head.updatedAt,
       providers,
       bindings: st.bindings.filter((b) => !b.revokedAt).map((b) => ({ bindingId: b.bindingId, kind: b.kind, providers: b.providers, label: b.label, createdAt: b.createdAt })),
-      note: "coverageState is the worst reported coverage (what was captured); health is whether a collector reported recently (is it still running); captureAgeSeconds is data age. 'unreported' means unknown, never complete.",
+      note: "coverageState is the worst reported coverage (what was captured); health is whether a collector reported recently (is it still running); captureAgeSeconds is data age. 'unreported' means unknown, never complete. Personal sources (mail, calendar, contacts, Docs, Messages, recordings, notes) are listed only to their owner; files: null means the directory also holds other owners' data.",
     };
   }
 
-  async history(ns: string, input: z.output<typeof SourcesHistorySchema>): Promise<Record<string, unknown>> {
+  async history(ns: string, viewer: SourceViewer, input: z.output<typeof SourcesHistorySchema>): Promise<Record<string, unknown>> {
     const stored = agentToStored(input.path);
     const path = displaySourcePath(stored);
     const store = this.service.storeFor(ns);
+    // Same answer as a path that never existed (no existence oracle for other owners' files).
+    if (stored === "" || viewer.access(stored) === "deny") {
+      if (input.versionId !== undefined) throw new SourceError("not_found", `Version ${input.versionId} does not belong to ${path}`);
+      return { tool: "sources_history", ok: true, path, versions: [], nextBefore: null };
+    }
     if (input.versionId !== undefined) {
       if (!isVersionId(input.versionId)) throw new SourceError("invalid_input", `Invalid versionId ${JSON.stringify(input.versionId)}`);
       const v = await store.version(input.versionId);
       if (v.path !== stored) throw new SourceError("not_found", `Version ${input.versionId} does not belong to ${path}`);
       if (v.kind === "tombstone") return { tool: "sources_history", ok: true, path, version: versionSummary(v), content: null, note: "tombstone: the file was deleted at this version" };
       const slice = await sliceVersion(store, path, v, { byteOffset: input.byteOffset ?? 0, ...(input.byteLimit !== undefined ? { byteLimit: input.byteLimit } : {}) });
-      return { tool: "sources_history", ok: true, version: versionSummary(v), source: await this.#freshness(ns, stored, v), ...slice };
+      return { tool: "sources_history", ok: true, version: versionSummary(v), source: await this.#freshness(ns, viewer, stored, v), ...slice };
     }
     const h = await store.history(stored, { ...(input.limit !== undefined ? { limit: input.limit } : {}), ...(input.before !== undefined ? { before: input.before } : {}) });
     return { tool: "sources_history", ok: true, path, versions: h.versions.map(versionSummary), nextBefore: h.nextBefore };
@@ -331,11 +348,12 @@ function versionSummary(v: SourceVersion) {
   };
 }
 
-/** files/deleted totals of the root directory (the root has no parent entry carrying them). */
-async function rootAggregate(store: SourceStore, sha: string): Promise<{ files: number; deleted: number }> {
+/** files/deleted totals of the root directory (the root has no parent entry carrying them), over `include`d children. */
+async function rootAggregate(store: SourceStore, sha: string, include: (name: string) => boolean = () => true): Promise<{ files: number; deleted: number }> {
   let files = 0;
   let deleted = 0;
-  for await (const [, e] of store.children(sha)) {
+  for await (const [name, e] of store.children(sha)) {
+    if (!include(name)) continue;
     if (e.t === "d") {
       files += e.files;
       deleted += e.deleted;
@@ -345,8 +363,13 @@ async function rootAggregate(store: SourceStore, sha: string): Promise<{ files: 
   return { files, deleted };
 }
 
-function lsEntry(name: string, e: TreeChild): Record<string, unknown> {
-  if (e.t === "d") return { name: `${name}/`, type: "dir", size: 0, files: e.files, capturedAt: e.capturedAt, sourceUpdatedAt: e.sourceUpdatedAt };
+/** `whole`: false for a directory that also holds other owners' data (its totals and times are withheld). */
+function lsEntry(name: string, e: TreeChild, whole = true): Record<string, unknown> {
+  if (e.t === "d") {
+    return whole
+      ? { name: `${name}/`, type: "dir", size: 0, files: e.files, capturedAt: e.capturedAt, sourceUpdatedAt: e.sourceUpdatedAt }
+      : { name: `${name}/`, type: "dir", size: 0, files: null, capturedAt: null, sourceUpdatedAt: null };
+  }
   return {
     name,
     type: e.t === "x" ? "deleted" : "file",

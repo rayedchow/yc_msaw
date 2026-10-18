@@ -68,7 +68,13 @@ function deps(fetch: ReturnType<typeof fakeFetch>, extra: Partial<InventoryDeps>
   };
 }
 
-const coverage = async () => (await googleDocsProvider.coverage!({ tenantId: T, executor: db as never })).find((r) => r.scope === "drive-inventory")!;
+/** final-audit M4: Docs coverage is complete only while gdocs.poll keeps succeeding; record one that just did. */
+const polledNow = (tenant: string) =>
+  query(`INSERT INTO source_sync_runs (user_id, provider, status, coverage_to, metadata, completed_at) VALUES ($1, 'google', 'completed', now(), '{"taskKind":"gdocs.poll"}', now())`, [tenant]);
+const coverage = async () => {
+  await polledNow(T);
+  return (await googleDocsProvider.coverage!({ tenantId: T, executor: db as never })).find((r) => r.scope === "drive-inventory")!;
+};
 
 async function connectMailboxes(...emails: string[]) {
   for (const e of emails) {

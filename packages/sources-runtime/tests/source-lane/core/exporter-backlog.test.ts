@@ -4,8 +4,9 @@ import { PGlite } from "@electric-sql/pglite";
 import { drizzle } from "drizzle-orm/pglite";
 import { beforeAll, describe, expect, it } from "vitest";
 import { MIGRATIONS_DIR, planMigrations } from "../../../src/source-lane/core/migrations.js";
+import { setTenantBinding } from "../../../src/source-lane/export/bindings.js";
 import { SourceExporter } from "../../../src/source-lane/export/exporter.js";
-import { defaultRegistry } from "../../../src/source-lane/registry.js";
+import { defaultRegistry, SourceProviderRegistry } from "../../../src/source-lane/registry.js";
 
 /**
  * Coordinator regression for final-audit H1: the per-tenant export backlog in coverage is aggregated in SQL and joins
@@ -56,5 +57,49 @@ describe("exporter backlog coverage", () => {
     };
     walk(join(__dirname, "../../../src/source-lane"));
     expect(offenders).toEqual([]);
+  });
+});
+
+describe("status heartbeat off the export critical path", () => {
+  it("keeps exporting while a slow coverage check is pending, and reports account owners with the heartbeat", async () => {
+    let release!: () => void;
+    const gate = new Promise<void>((r) => (release = r));
+    const bodies: Array<Record<string, unknown>> = [];
+    const registry = new SourceProviderRegistry([
+      {
+        id: "slow",
+        eventSources: [],
+        mirrorRoots: [],
+        coverage: async () => {
+          await gate;
+          return [{ provider: "slow", scope: "all", state: "complete" }];
+        },
+        accountOwners: async () => [{ account: "ada@corp.example", subject: "user_ada", issuer: "https://auth.example.test" }],
+      },
+    ]);
+    await setTenantBinding(db as never, { tenantId: "tenant-heartbeat", bindingId: "sb-0123456789abcdef", token: `psb_tenant-heartbeat.sb-0123456789abcdef.${"a".repeat(43)}`, publishUrl: "http://127.0.0.1:9", providers: ["*"] });
+    class Counting extends SourceExporter {
+      passes = 0;
+      override async runOnce() {
+        this.passes++;
+        return { claimed: 1, acked: 1, deadLettered: 0, released: 0, tenants: 1 };
+      }
+    }
+    const fetchImpl = (async (_url: string, init: RequestInit) => {
+      bodies.push(JSON.parse(String(init.body)) as Record<string, unknown>);
+      return new Response("{}", { status: 200, headers: { "content-type": "application/json" } });
+    }) as unknown as typeof fetch;
+    const exporter = new Counting({ db: db as never, registry, fetchImpl, reportIntervalSeconds: 10, log: () => {} });
+    const abort = new AbortController();
+    const running = exporter.run(abort.signal);
+    await new Promise((r) => setTimeout(r, 600));
+    // Coverage is still blocked, yet the export loop kept running passes.
+    expect(exporter.passes).toBeGreaterThanOrEqual(3);
+    expect(bodies).toHaveLength(0);
+    release();
+    await new Promise((r) => setTimeout(r, 100));
+    abort.abort();
+    await running;
+    expect(bodies[0]).toMatchObject({ googleAccounts: [{ account: "ada@corp.example", subject: "user_ada" }] });
   });
 });

@@ -1,4 +1,5 @@
 import type { ObjectStore } from "../store/objects.js";
+import { providerOwners, SourceOwners, SourceViewer, type GoogleAccountOwner, type Identity } from "./access.js";
 import { SourceBindings, type BindingRecord, type PublicBinding } from "./bindings.js";
 import { SourceError } from "./paths.js";
 import { DEFAULT_NODE_CACHE_BYTES, SourceNodeCache, SourceStore, type DirEntry } from "./store.js";
@@ -24,12 +25,16 @@ export interface CoverageReport {
   lastErrorAt?: string;
   lastError?: string;
   counts?: Record<string, number>;
+  /** How often this scope promises a successful check (drives `checkLate`). */
+  expectedIntervalSeconds?: number;
 }
 
 export interface StatusReport {
   providers: CoverageReport[];
   /** reportIntervalSeconds: how often this collector promises to report; drives the stale-heartbeat check. */
   runtime?: { version?: string; donorCommit?: string; host?: string; reportIntervalSeconds?: number };
+  /** Every Google address the runtime collects and the verified subject of its grant (honoured from `*` runtime bindings only). */
+  googleAccounts?: GoogleAccountOwner[];
 }
 
 export interface StoredStatus {
@@ -43,8 +48,9 @@ export type CollectorHealth = "healthy" | "stale" | "unreported";
 
 export interface ProviderStatus {
   provider: string;
-  files: number;
-  deleted: number;
+  /** null: withheld, the directory also holds data of other owners. */
+  files: number | null;
+  deleted: number | null;
   /** Newest capture/provider-edit time in this provider tree: data age, NOT collector health. */
   lastCapturedAt: string | null;
   lastSourceUpdatedAt: string | null;
@@ -55,11 +61,11 @@ export interface ProviderStatus {
   /** Newest status report (heartbeat) received for this provider. */
   lastReportAt: string | null;
   reportAgeSeconds: number | null;
-  /** stale: no heartbeat or successful check within 3x the collector's report interval. */
+  /** stale: no heartbeat within 3x the collector's report interval, or a scope's last success is 3x older than its declared interval. */
   health: CollectorHealth;
   /** Worst reported coverage across collectors; says nothing about whether the collector is still running. */
   coverageState: CoverageState | "unreported";
-  coverage: Array<CoverageReport & { bindingId: string; reportedAt: string; reportAgeSeconds: number; stale: boolean }>;
+  coverage: Array<CoverageReport & { bindingId: string; reportedAt: string; reportAgeSeconds: number; stale: boolean; checkLate: boolean }>;
 }
 
 /** Report interval assumed when a collector does not declare one. */
@@ -71,6 +77,7 @@ export const statusRef = (bindingId: string) => `sources/status/${bindingId}`;
 
 export class SourceService {
   readonly bindings: SourceBindings;
+  readonly owners: SourceOwners;
   readonly #stores = new Map<string, SourceStore>();
   readonly #reportEpoch = new Map<string, number>();
 
@@ -83,6 +90,7 @@ export class SourceService {
     opts: { nodeCacheBytes?: number } = {},
   ) {
     this.bindings = new SourceBindings(objects);
+    this.owners = new SourceOwners(objects);
     this.nodeCache = new SourceNodeCache(opts.nodeCacheBytes ?? DEFAULT_NODE_CACHE_BYTES);
   }
 
@@ -123,21 +131,45 @@ export class SourceService {
     throw new SourceError("conflict", "Status ref is busy; retry");
   }
 
-  /** Freshness, collector health and coverage per provider directory, merged across active bindings. */
-  async status(ns: string): Promise<{ head: { seq: number; commitId: string | null; updatedAt: string | null }; providers: ProviderStatus[]; bindings: PublicBinding[] }> {
-    const store = this.storeFor(ns);
-    const head = (await store.head()).value;
-    const dirs = new Map<string, DirEntry>();
-    for await (const [name, e] of store.children(head.root)) if (e.t === "d") dirs.set(name, e);
-    const bindings = await this.bindings.list(ns);
+  /** Latest status report of every active binding. */
+  async #reports(ns: string, bindings: readonly PublicBinding[]): Promise<StoredStatus[]> {
     const reports: StoredStatus[] = [];
     for (const b of bindings) {
       if (b.revokedAt) continue;
       const ref = await this.objects.getRef(ns, statusRef(b.bindingId));
       if (ref) reports.push(ref.value as StoredStatus);
     }
+    return reports;
+  }
+
+  /** What `who` (a verified principal of `ns`) may read; see access.ts. */
+  async viewer(ns: string, who: Identity): Promise<SourceViewer> {
+    const [bindings, owners] = await Promise.all([this.bindings.list(ns), this.owners.registry(ns)]);
+    const runtimeIds = new Set(bindings.filter((b) => !b.revokedAt && b.kind === "runtime" && b.providers.includes("*")).map((b) => b.bindingId));
+    const reports = (await this.#reports(ns, bindings)).filter((r) => runtimeIds.has(r.bindingId));
+    return new SourceViewer(who, {
+      providerOwners: providerOwners(bindings, owners.value),
+      googleAccounts: reports.flatMap((r) => r.report.googleAccounts ?? []),
+    });
+  }
+
+  /**
+   * Freshness, collector health and coverage per provider directory, merged across active bindings.
+   * With a viewer: providers it cannot read are omitted; for a partly readable provider only its own
+   * coverage reports are kept and tenant-wide counts are withheld (null).
+   */
+  async status(ns: string, viewer?: SourceViewer): Promise<{ head: { seq: number; commitId: string | null; updatedAt: string | null }; providers: ProviderStatus[]; bindings: PublicBinding[] }> {
+    const store = this.storeFor(ns);
+    const head = (await store.head()).value;
+    const dirs = new Map<string, DirEntry>();
+    for await (const [name, e] of store.children(head.root)) if (e.t === "d") dirs.set(name, e);
+    const allBindings = await this.bindings.list(ns);
+    const reports = await this.#reports(ns, allBindings);
     const names = new Set<string>(dirs.keys());
     for (const r of reports) for (const p of r.report.providers) names.add(p.provider);
+    if (viewer) for (const n of names) if (viewer.access(n) === "deny") names.delete(n);
+    // Device bindings are listed to their own enroller only.
+    const bindings = viewer ? allBindings.filter((b) => b.kind !== "device" || (b.createdBy.subject === viewer.who.subject && b.createdBy.issuer === viewer.who.issuer)) : allBindings;
     const nowMs = this.now().getTime();
     const age = (iso: string | null | undefined) => (iso ? Math.max(0, Math.round((nowMs - Date.parse(iso)) / 1000)) : null);
     const providers: ProviderStatus[] = [...names].sort().map((provider) => {
@@ -146,20 +178,29 @@ export class SourceService {
         const interval = r.report.runtime?.reportIntervalSeconds ?? DEFAULT_REPORT_INTERVAL_SECONDS;
         const reportAge = age(r.receivedAt)!;
         return r.report.providers
-          .filter((p) => p.provider === provider)
-          .map((p) => ({ ...p, bindingId: r.bindingId, reportedAt: r.receivedAt, reportAgeSeconds: reportAge, stale: reportAge > 3 * interval }));
+          .filter((p) => p.provider === provider && (!viewer || viewer.coverageVisible(provider, p)))
+          .map((p) => {
+            // A scope that declares how often it succeeds is late once its last success is 3 intervals old, even
+            // while the exporter process keeps heartbeating (a dead worker or sweeper).
+            const successAge = age(p.lastSuccessAt);
+            const checkLate = p.expectedIntervalSeconds !== undefined && successAge !== null && successAge > 3 * p.expectedIntervalSeconds;
+            return { ...p, bindingId: r.bindingId, reportedAt: r.receivedAt, reportAgeSeconds: reportAge, stale: reportAge > 3 * interval || checkLate, checkLate };
+          });
       });
       const worst = coverage.reduce<CoverageState | null>((acc, c) => (acc === null || STATE_RANK[c.state] > STATE_RANK[acc] ? c.state : acc), null);
       const lastReportAt = coverage.reduce<string | null>((m, c) => (m === null || c.reportedAt > m ? c.reportedAt : m), null);
       const lastSuccessfulCheckAt = coverage.reduce<string | null>((m, c) => (c.lastSuccessAt && (m === null || c.lastSuccessAt > m) ? c.lastSuccessAt : m), null);
-      const health: CollectorHealth = coverage.length === 0 ? "unreported" : coverage.every((c) => c.stale) ? "stale" : "healthy";
+      const health: CollectorHealth =
+        coverage.length === 0 ? "unreported" : coverage.every((c) => c.stale) || coverage.some((c) => c.checkLate) ? "stale" : "healthy";
+      // Directory totals of a partly readable provider include other owners' data.
+      const totals = viewer && viewer.access(provider) !== "allow" ? undefined : dir;
       return {
         provider,
-        files: dir?.files ?? 0,
-        deleted: dir?.deleted ?? 0,
-        lastCapturedAt: dir?.capturedAt ?? null,
-        lastSourceUpdatedAt: dir?.sourceUpdatedAt ?? null,
-        captureAgeSeconds: age(dir?.capturedAt),
+        files: totals ? totals.files : viewer && dir ? null : 0,
+        deleted: totals ? totals.deleted : viewer && dir ? null : 0,
+        lastCapturedAt: totals?.capturedAt ?? null,
+        lastSourceUpdatedAt: totals?.sourceUpdatedAt ?? null,
+        captureAgeSeconds: age(totals?.capturedAt),
         lastSuccessfulCheckAt,
         checkAgeSeconds: age(lastSuccessfulCheckAt),
         lastReportAt,

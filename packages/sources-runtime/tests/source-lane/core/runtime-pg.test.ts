@@ -34,6 +34,7 @@ let ycDir: string;
 let ycBase: string;
 let ycMcp: string;
 let keys: { admin: string; reader: string; rival: string };
+let readerSubject: string;
 let fakeNango: Server;
 let nangoBase: string;
 let nangoPages: Record<string, unknown[]> = {};
@@ -161,6 +162,7 @@ describe.skipIf(!PG)("source runtime on real PostgreSQL with the real yc_msaw se
     const reader = auth.generateStaticKey("acme", ["memory:read"]);
     const rival = auth.generateStaticKey("rival", ["memory:read", "memory:build"]);
     keys = { admin: admin.key, reader: reader.key, rival: rival.key };
+    readerSubject = `static:${reader.hash.slice(0, 12)}`;
     ycDir = await mkdtemp(path.join(os.tmpdir(), "runtime-pg-yc-"));
     const { createApp } = await importYc("src/app.ts");
     const { DirectoryObjectStore } = await importYc("src/store/objects.ts");
@@ -404,6 +406,12 @@ describe.skipIf(!PG)("source runtime on real PostgreSQL with the real yc_msaw se
     const exporter = new mods.exporter.SourceExporter({ db: mods.db.db, log: () => {} });
     await drainExporter(exporter);
     const reader = await mcp(keys.reader);
+    // Granola is a personal source (yc_msaw src/sources/access.ts): with no recorded owner nobody may read it.
+    expect((await call(reader, "find", { path: "$SOURCES/granola/_raw/tenant", pattern: "*.json" })).code).toBe("not_found");
+    // Record the reader as the connecting owner (what POST /v1/sources/connect/granola does) and read it back.
+    const { SourceOwners } = await importYc("src/sources/access.ts");
+    const { DirectoryObjectStore } = await importYc("src/store/objects.ts");
+    await new SourceOwners(new DirectoryObjectStore(path.join(ycDir, "objects"))).claim("acme", "granola", { subject: readerSubject, issuer: "urn:procmem:static" }, { hasUnownedData: false });
     const found = await call(reader, "find", { path: "$SOURCES/granola/_raw/tenant", pattern: "*.json" });
     expect(found.matches).toEqual(["$SOURCES/granola/_raw/tenant/meeting_note:g9/2026-10/granola:g9:1.json"]);
     const raw = await call(reader, "read", { path: found.matches[0] });

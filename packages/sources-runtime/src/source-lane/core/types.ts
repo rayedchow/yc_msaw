@@ -104,6 +104,12 @@ export interface JournalInfo {
 
 export type CoverageState = "complete" | "partial" | "blocked" | "pending";
 
+export interface AccountOwner {
+  account: string;
+  subject: string | null;
+  issuer: string | null;
+}
+
 export interface CoverageReport {
   provider: string;
   scope: string;
@@ -114,6 +120,8 @@ export interface CoverageReport {
   lastErrorAt?: string;
   lastError?: string;
   counts?: Record<string, number>;
+  /** How often this scope promises a successful check; yc_msaw reports the collector stale past 3x. */
+  expectedIntervalSeconds?: number;
 }
 
 /**
@@ -156,6 +164,12 @@ export interface SourceProviderModule {
   extraTables?: readonly ExtraTableExport[];
   /** Truthful coverage per scope; reported to yc_msaw after each export pass. */
   coverage?(ctx: ExportContext): Promise<CoverageReport[]>;
+  /**
+   * Every account this module collects for the tenant and the verified yc_msaw principal that granted it
+   * (null = nobody, e.g. domain-wide delegation). Reported with the status heartbeat; yc_msaw serves a
+   * personal account's files to that principal only (yc_msaw src/sources/access.ts).
+   */
+  accountOwners?(ctx: ExportContext): Promise<AccountOwner[]>;
   /** Provider-facing public routes (OAuth callbacks, webhooks, device uploaders); each must authenticate itself. */
   publicRoutes?(app: Hono): void;
   /** yc_msaw → runtime routes, mounted under /internal/v1 behind the service token. */

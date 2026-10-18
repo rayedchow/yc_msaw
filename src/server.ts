@@ -298,7 +298,8 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
           const { workspaceId, after, ...toolInput } = input;
           // $SOURCES reads are host-side over the tenant's source store; they never open a sandbox.
           if (routedToSources(def.name, toolInput)) {
-            return json(await sourceFs!.run(p.tenantNs, def.name, { ...toolInput, ...(after !== undefined ? { after } : {}) }));
+            const viewer = await deps.sources!.viewer(p.tenantNs, { subject: p.subject, issuer: p.issuer });
+            return json(await sourceFs!.run(p.tenantNs, viewer, def.name, { ...toolInput, ...(after !== undefined ? { after } : {}) }));
           }
           if (after !== undefined) {
             return json(toolErrorReceipt(def.name, Object.assign(new Error("after is only supported for $SOURCES directories"), { code: "invalid_input" })), true);
@@ -354,7 +355,8 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       async (input, ctx) => {
         try {
           const p = principalOf(ctx, SCOPES.memoryRead);
-          return json(await sourceFs.status(p.tenantNs, SourcesStatusSchema.parse(input ?? {})));
+          const viewer = await deps.sources!.viewer(p.tenantNs, { subject: p.subject, issuer: p.issuer });
+          return json(await sourceFs.status(p.tenantNs, viewer, SourcesStatusSchema.parse(input ?? {})));
         } catch (error) {
           return json(toolErrorReceipt("sources_status", error), true);
         }
@@ -373,7 +375,8 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       async (input, ctx) => {
         try {
           const p = principalOf(ctx, SCOPES.memoryRead);
-          return json(await sourceFs.history(p.tenantNs, SourcesHistorySchema.parse(input)));
+          const viewer = await deps.sources!.viewer(p.tenantNs, { subject: p.subject, issuer: p.issuer });
+          return json(await sourceFs.history(p.tenantNs, viewer, SourcesHistorySchema.parse(input)));
         } catch (error) {
           return json(toolErrorReceipt("sources_history", error), true);
         }
@@ -515,7 +518,7 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       server.post("/v1/sources/connect/:provider", async (c) => {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;
-        return connectRoute(c.req.raw, principal, runtime, c.req.param("provider"));
+        return connectRoute(c.req.raw, principal, runtime, c.req.param("provider"), sources);
       });
       server.delete("/v1/sources/connections/:provider", async (c) => {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);

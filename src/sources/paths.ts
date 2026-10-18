@@ -29,7 +29,8 @@ export type SourceErrorCode =
   | "integrity"
   | "conflict"
   | "batch_conflict"
-  | "too_large";
+  | "too_large"
+  | "owner_conflict";
 
 export class SourceError extends Error {
   constructor(

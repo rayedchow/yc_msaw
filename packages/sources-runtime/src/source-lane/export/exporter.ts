@@ -2,7 +2,7 @@ import { randomBytes } from "node:crypto";
 import { hostname } from "node:os";
 import { sql } from "drizzle-orm";
 import { DONOR, RUNTIME_VERSION } from "../core/donor.js";
-import type { ActivityEventRow, CoverageReport, DbExecutor, ExportContext, JournalInfo, MirrorFileRow, SourceFileChange } from "../core/types.js";
+import type { AccountOwner, ActivityEventRow, CoverageReport, DbExecutor, ExportContext, JournalInfo, MirrorFileRow, SourceFileChange } from "../core/types.js";
 import { defaultRegistry, type SourceProviderRegistry } from "../registry.js";
 import { boundTenants, getTenantBinding } from "./bindings.js";
 import { defaultEventChanges, defaultMirrorChanges, rawEventDir } from "./mapping.js";
@@ -76,6 +76,7 @@ const MAX_BATCH_CHANGES = 1_000;
 const MAX_BATCH_JSON_BYTES = 3 * 1024 * 1024;
 const DEAD_LETTER_RETRY_SECONDS = 3_600;
 const DEAD_LETTER_MAX_ATTEMPTS = 50;
+const MAX_REPORTED_OWNERS = 1_000;
 /** Modules fed by the donor's single Google (DWD) connection when they do not declare connectionProviders. */
 const GOOGLE_CONNECTION_MODULES = new Set(["gmail", "calendar", "google-docs"]);
 
@@ -632,18 +633,44 @@ export class SourceExporter {
     const binding = await getTenantBinding(this.db, tenantId);
     if (!binding) return false;
     const client = new SourcePublishClient(binding.publishUrl, binding.token, this.#fetch);
-    await client.reportStatus(await this.coverage(tenantId), {
-      version: RUNTIME_VERSION,
-      donorCommit: DONOR.commit,
-      reportIntervalSeconds: this.reportIntervalSeconds,
-      host: hostname().slice(0, 200),
-    });
+    await client.reportStatus(
+      await this.coverage(tenantId),
+      {
+        version: RUNTIME_VERSION,
+        donorCommit: DONOR.commit,
+        reportIntervalSeconds: this.reportIntervalSeconds,
+        host: hostname().slice(0, 200),
+      },
+      await this.accountOwners(tenantId),
+    );
     return true;
   }
 
-  /** Long-running loop: drain the journal, heartbeat coverage per bound tenant, re-arm old dead letters. */
+  /**
+   * Account owners of every module (yc_msaw serves personal accounts to their owner only). A module whose
+   * owner query fails reports nothing, which yc_msaw treats as "no owner" for that data: reads fail closed.
+   */
+  async accountOwners(tenantId: string): Promise<AccountOwner[]> {
+    const ctx: ExportContext = { tenantId, executor: this.db };
+    const out: AccountOwner[] = [];
+    for (const m of this.registry.modules) {
+      if (!m.accountOwners) continue;
+      try {
+        out.push(...(await m.accountOwners(ctx)));
+      } catch (error) {
+        this.#log(`account owners of ${m.id} for ${tenantId} failed: ${errText(error)}`);
+      }
+    }
+    // yc_msaw accepts 1,000 entries; past that, an ownerless placeholder keeps "owns every account" false.
+    return out.length > MAX_REPORTED_OWNERS ? [...out.slice(0, MAX_REPORTED_OWNERS - 1), { account: "truncated@owners.invalid", subject: null, issuer: null }] : out;
+  }
+
+  /**
+   * Long-running loops: drain the journal and re-arm old dead letters; separately, heartbeat coverage per bound
+   * tenant. Coverage queries can be slow on a large tenant, so the heartbeat never delays the next export pass.
+   */
   async run(signal?: AbortSignal): Promise<void> {
-    let nextReport = 0;
+    const reports = this.#reportLoop(signal);
     let nextRetry = 0;
     while (!signal?.aborted) {
       let pass: ExportPassResult = { claimed: 0, acked: 0, deadLettered: 0, released: 0, tenants: 0 };
@@ -655,20 +682,43 @@ export class SourceExporter {
           await this.retryDeadLetters();
           nextRetry = now + DEAD_LETTER_RETRY_SECONDS * 1000;
         }
-        if (now >= nextReport) {
-          for (const t of await boundTenants(this.db)) {
-            try {
-              await this.reportStatus(t);
-            } catch (error) {
-              this.#log(`status report for ${t} failed: ${errText(error)}`);
-            }
-          }
-          nextReport = now + this.reportIntervalSeconds * 1000;
-        }
       } catch (error) {
         this.#log(`export loop error: ${errText(error)}`);
       }
-      await new Promise((r) => setTimeout(r, pass.claimed > 0 ? 100 : 2_000));
+      await sleep(pass.claimed > 0 ? 100 : 2_000, signal);
+    }
+    await reports;
+  }
+
+  async #reportLoop(signal?: AbortSignal): Promise<void> {
+    while (!signal?.aborted) {
+      const started = Date.now();
+      try {
+        for (const t of await boundTenants(this.db)) {
+          if (signal?.aborted) break;
+          try {
+            await this.reportStatus(t);
+          } catch (error) {
+            this.#log(`status report for ${t} failed: ${errText(error)}`);
+          }
+        }
+      } catch (error) {
+        this.#log(`status report loop error: ${errText(error)}`);
+      }
+      await sleep(Math.max(1_000, this.reportIntervalSeconds * 1000 - (Date.now() - started)), signal);
     }
   }
+}
+
+function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  return new Promise((resolve) => {
+    if (signal?.aborted) return resolve();
+    const t = setTimeout(done, ms);
+    function done() {
+      clearTimeout(t);
+      signal?.removeEventListener("abort", done);
+      resolve();
+    }
+    signal?.addEventListener("abort", done, { once: true });
+  });
 }

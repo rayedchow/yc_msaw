@@ -124,6 +124,7 @@ export class SourceBindings {
     ns: string,
     input: { kind: BindingKind; providers: string[]; label?: string | null; transport?: BindingTransport },
     createdBy: { subject: string; issuer: string },
+    opts: { unownedData?: (provider: string) => boolean } = {},
   ): Promise<{ binding: PublicBinding; token: string }> {
     const providers = [...new Set(input.providers)].sort();
     if (providers.length === 0 || providers.length > 32) throw new SourceError("invalid_input", "providers must list 1-32 provider ids");
@@ -154,6 +155,19 @@ export class SourceBindings {
     await this.#update(ns, (reg) => {
       const active = Object.values(reg.bindings).filter((b) => !b.revokedAt).length;
       if (active >= MAX_BINDINGS) throw new SourceError("invalid_input", `At most ${MAX_BINDINGS} active bindings per tenant`);
+      // A device provider's directory is personal and has exactly one owner (access.ts): every device binding
+      // for it, revoked ones included, must come from the same principal. Checked inside the registry CAS.
+      if (input.kind === "device") {
+        for (const p of providers) {
+          const prior = Object.values(reg.bindings).filter((b) => b.kind === "device" && b.providers.includes(p));
+          if (prior.some((b) => b.createdBy.subject !== createdBy.subject || b.createdBy.issuer !== createdBy.issuer)) {
+            throw new SourceError("owner_conflict", `${p} in this tenant is already enrolled by another member; personal sources have exactly one owner`, { provider: p });
+          }
+          if (prior.length === 0 && opts.unownedData?.(p)) {
+            throw new SourceError("owner_conflict", `$SOURCES/${p} already holds data captured before owners were recorded; it stays unreadable and cannot be claimed by enrolling`, { provider: p, reason: "unowned_legacy_data" });
+          }
+        }
+      }
       reg.bindings[bindingId] = record;
     });
     return { binding: publicBinding(record), token };

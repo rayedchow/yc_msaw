@@ -48,6 +48,7 @@ const SOURCE_ERROR_STATUS: Record<string, number> = {
   conflict: 409,
   batch_conflict: 409,
   too_large: 413,
+  owner_conflict: 409,
 };
 
 export function sourceErrorResponse(e: unknown): Response {
@@ -137,10 +138,24 @@ export const StatusReportSchema = z
             lastErrorAt: IsoTime.optional(),
             lastError: z.string().max(2_000).optional(),
             counts: z.record(z.string().max(100), z.number().int().nonnegative()).optional(),
+            /** How often this scope promises a successful check; an older lastSuccessAt makes the collector stale. */
+            expectedIntervalSeconds: z.number().int().min(10).max(30 * 86_400).optional(),
           })
           .strict(),
       )
       .max(500),
+    googleAccounts: z
+      .array(
+        z
+          .object({
+            account: z.string().min(3).max(320),
+            subject: z.string().min(1).max(500).nullable(),
+            issuer: z.string().min(1).max(500).nullable(),
+          })
+          .strict(),
+      )
+      .max(1_000)
+      .optional(),
     runtime: z
       .object({
         version: z.string().max(100).optional(),
@@ -216,7 +231,8 @@ export async function revokeBindingRoute(principal: Principal, service: SourceSe
 
 export async function statusRoute(principal: Principal, service: SourceService): Promise<Response> {
   try {
-    return json(200, await service.status(principal.tenantNs));
+    // Admins are members too: other owners' personal sources are filtered exactly as on the MCP.
+    return json(200, await service.status(principal.tenantNs, await service.viewer(principal.tenantNs, { subject: principal.subject, issuer: principal.issuer })));
   } catch (e) {
     return sourceErrorResponse(e);
   }
@@ -293,10 +309,12 @@ async function readOptionalJson(request: Request): Promise<unknown> {
   return readJson(request, MAX_ADMIN_BODY_BYTES);
 }
 
+const RUNTIME_BINDING_LABEL = "sources-runtime";
+
 /** Mint a runtime binding for the caller's tenant and hand it to the runtime; the token never leaves the servers. */
 export async function provisionRuntimeRoute(principal: Principal, service: SourceService, runtime: SourceRuntimeClient): Promise<Response> {
   try {
-    const { binding, token } = await service.bindings.create(principal.tenantNs, { kind: "runtime", providers: ["*"], label: "sources-runtime" }, { subject: principal.subject, issuer: principal.issuer });
+    const { binding, token } = await service.bindings.create(principal.tenantNs, { kind: "runtime", providers: ["*"], label: RUNTIME_BINDING_LABEL }, { subject: principal.subject, issuer: principal.issuer });
     let r: RuntimeResponse;
     try {
       r = await runtime.provisionBinding(principal, { bindingId: binding.bindingId, token, providers: ["*"] });
@@ -308,7 +326,14 @@ export async function provisionRuntimeRoute(principal: Principal, service: Sourc
       await service.bindings.revoke(principal.tenantNs, binding.bindingId);
       return json(502, { error: { code: "runtime_rejected", message: "Source runtime rejected the binding", runtime: r.body } });
     }
-    return json(201, { binding, runtime: r.body });
+    // The runtime now holds the new token; earlier runtime bindings must not stay usable if one leaked.
+    const replaced: string[] = [];
+    for (const b of await service.bindings.list(principal.tenantNs)) {
+      if (b.bindingId === binding.bindingId || b.revokedAt || b.kind !== "runtime" || b.label !== RUNTIME_BINDING_LABEL || b.providers.join() !== "*") continue;
+      await service.bindings.revoke(principal.tenantNs, b.bindingId);
+      replaced.push(b.bindingId);
+    }
+    return json(201, { binding, runtime: r.body, revokedPrevious: replaced });
   } catch (e) {
     return sourceErrorResponse(e);
   }
@@ -322,9 +347,34 @@ export async function runtimeStatusRoute(principal: Principal, runtime: SourceRu
   }
 }
 
-export async function connectRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, provider: string): Promise<Response> {
+/** Runtime integration id -> the personal $SOURCES directory its connection fills (owner-only, access.ts). */
+export const PERSONAL_CONNECT_DIRS: Readonly<Record<string, string>> = {
+  granola: "granola",
+  zoom: "zoom",
+  cursor_background_agents: "cursor-agents",
+  whatsapp_personal: "whatsapp-personal",
+  instagram_personal: "instagram-personal",
+};
+
+/** True when sources/<provider>/ holds any file or tombstone. */
+async function providerHasData(service: SourceService, ns: string, provider: string): Promise<boolean> {
+  const r = await service.storeFor(ns).resolve(provider);
+  return r !== null && r.type === "dir" && (r.entry === null || r.entry.files + r.entry.deleted > 0);
+}
+
+export async function connectRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, provider: string, service?: SourceService): Promise<Response> {
+  const dir = PERSONAL_CONNECT_DIRS[provider];
+  const who = { subject: principal.subject, issuer: principal.issuer };
+  let claimed = false;
   try {
-    return relay(await runtime.connect(principal, provider, await readOptionalJson(request)));
+    const body = await readOptionalJson(request);
+    // A personal account is owned by the principal that connects it; another member's later connect is refused.
+    if (dir && service) claimed = (await service.owners.claim(principal.tenantNs, dir, who, { hasUnownedData: await providerHasData(service, principal.tenantNs, dir) })).created;
+    const r = await runtime.connect(principal, provider, body);
+    // A definite refusal rolls the new claim back. An unreachable runtime keeps it: the connect may have
+    // happened, and data without an owner would stay sealed.
+    if (claimed && r.status >= 400) await service!.owners.release(principal.tenantNs, dir!, who);
+    return relay(r);
   } catch (e) {
     return e instanceof SourceError || e instanceof TraceIngestError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
   }
@@ -458,10 +508,13 @@ async function runtimeDeviceSetup<S extends z.ZodTypeAny>(
     const apiUrl = runtime.config.deviceApiUrl;
     if (!apiUrl) return error(503, "device_ingest_not_configured", "SOURCES_DEVICE_API_URL (the source runtime's public device host) is not configured");
     const label = input.label ?? spec.defaultLabel;
+    const hasData = await providerHasData(service, principal.tenantNs, spec.provider);
+    // The enrolling principal becomes the owner of this provider's $SOURCES directory (access.ts).
     const { binding, token } = await service.bindings.create(
       principal.tenantNs,
       { kind: "device", providers: [spec.provider], label, transport: "runtime-ingest" },
       { subject: principal.subject, issuer: principal.issuer },
+      { unownedData: () => hasData },
     );
     const agentToken = deviceKeyForBindingToken(spec.provider, token);
     let r: RuntimeResponse;

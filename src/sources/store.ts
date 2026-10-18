@@ -512,7 +512,8 @@ export class SourceStore {
   }
 
   /** Depth-first, name-sorted walk below `stored` (excluding itself). */
-  async *walk(stored: string, opts: { includeDeleted?: boolean } = {}, root?: string): AsyncGenerator<WalkItem> {
+  /** Depth-first walk. `skip(path)` true omits that entry and, for a directory, everything below it. */
+  async *walk(stored: string, opts: { includeDeleted?: boolean; skip?: (path: string) => boolean } = {}, root?: string): AsyncGenerator<WalkItem> {
     const r = await this.resolve(stored, root);
     if (!r) throw new SourceError("not_found", `No such source path: ${stored || "(root)"}`);
     if (r.type !== "dir") {
@@ -524,6 +525,7 @@ export class SourceStore {
       for await (const [name, entry] of self.children(sha)) {
         if (!opts.includeDeleted && !isLive(entry)) continue;
         const path = dir ? `${dir}/${name}` : name;
+        if (opts.skip?.(path)) continue;
         yield { path, entry };
         if (entry.t === "d") yield* visit(path, entry.tree);
       }

@@ -66,20 +66,20 @@ beforeAll(async () => {
     log: () => undefined,
   });
   ({ url: base, mcpUrl } = await app.listen(0));
-  const created = await fetch(`${base}/v1/sources/bindings`, { method: "POST", headers: { Authorization: `Bearer ${admin.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ providers: ["slack", "google-docs"] }) });
+  const created = await fetch(`${base}/v1/sources/bindings`, { method: "POST", headers: { Authorization: `Bearer ${admin.key}`, "Content-Type": "application/json" }, body: JSON.stringify({ providers: ["jira", "confluence"] }) });
   expect(created.status).toBe(201);
   token = ((await created.json()) as { token: string }).token;
-  const many = Array.from({ length: 30 }, (_, i) => put(`sources/slack/C1/2026-10-${String(i + 1).padStart(2, "0")}.md`, `day ${i + 1}\nneedle-${i % 3}\n`));
+  const many = Array.from({ length: 30 }, (_, i) => put(`sources/jira/C1/2026-10-${String(i + 1).padStart(2, "0")}.md`, `day ${i + 1}\nneedle-${i % 3}\n`));
   await publish(
     [
       ...many,
-      put("sources/google-docs/Team Handbook/Tab 1.md", "line one\nline two\nline three\n", { sourceUpdatedAt: new Date(Date.now() - 3_600_000).toISOString(), sourceVersion: { ref: "rev-9", ordinal: 9 } }),
-      put("sources/google-docs/d1/image.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3, 0xff]), { kind: "binary", contentType: "image/png" }),
-      put("sources/slack/C1/gone.md", "soon deleted\nneedle-0\n"),
+      put("sources/confluence/Team Handbook/Tab 1.md", "line one\nline two\nline three\n", { sourceUpdatedAt: new Date(Date.now() - 3_600_000).toISOString(), sourceVersion: { ref: "rev-9", ordinal: 9 } }),
+      put("sources/confluence/d1/image.png", Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3, 0xff]), { kind: "binary", contentType: "image/png" }),
+      put("sources/jira/C1/gone.md", "soon deleted\nneedle-0\n"),
     ],
     "seed",
   );
-  await publish([{ op: "delete", path: "sources/slack/C1/gone.md", deletedAt: new Date(Date.now() - 1_000).toISOString(), reason: "message_deleted", capturedAt: new Date(Date.now() - 1_000).toISOString() }], "delete");
+  await publish([{ op: "delete", path: "sources/jira/C1/gone.md", deletedAt: new Date(Date.now() - 1_000).toISOString(), reason: "message_deleted", capturedAt: new Date(Date.now() - 1_000).toISOString() }], "delete");
   reader = await connect(readerKey.key);
 });
 
@@ -99,13 +99,13 @@ describe("$SOURCES over the filesystem MCP", () => {
 
   it("lists the root with orientation and pages large directories with after", async () => {
     const root = await call(reader, "ls", { path: "$SOURCES" });
-    expect(root.entries.map((e: any) => e.name)).toEqual(["google-docs/", "slack/"]);
+    expect(root.entries.map((e: any) => e.name)).toEqual(["confluence/", "jira/"]);
     expect(root.orientation).toContain("$SOURCES");
-    const first = await call(reader, "ls", { path: "$SOURCES/slack/C1", limit: 10 });
+    const first = await call(reader, "ls", { path: "$SOURCES/jira/C1", limit: 10 });
     expect(first.entries).toHaveLength(10);
     expect(first.truncated).toBe(true);
     expect(first.deletedFiles).toBe(1);
-    const second = await call(reader, "ls", { path: "$SOURCES/slack/C1", limit: 25, after: first.nextAfter });
+    const second = await call(reader, "ls", { path: "$SOURCES/jira/C1", limit: 25, after: first.nextAfter });
     expect(second.entries).toHaveLength(20);
     expect(second.truncated).toBe(false);
     expect([...first.entries, ...second.entries].map((e: any) => e.name)).not.toContain("gone.md");
@@ -115,30 +115,30 @@ describe("$SOURCES over the filesystem MCP", () => {
   });
 
   it("reads text by lines and bytes, binaries as base64, with freshness and provenance", async () => {
-    const lines = await call(reader, "read", { path: "$SOURCES/google-docs/Team Handbook/Tab 1.md", offset: 2, limit: 1 });
+    const lines = await call(reader, "read", { path: "$SOURCES/confluence/Team Handbook/Tab 1.md", offset: 2, limit: 1 });
     expect(lines).toMatchObject({ ok: true, content: "line two", mode: "lines", totalLines: 3, nextOffset: 3 });
     expect(lines.source).toMatchObject({ kind: "projection", contentType: "text/markdown" });
     expect(lines.source.captureLagSeconds).toBeGreaterThan(0);
     expect(lines.source.coverage.state).toBe("unreported");
-    const bytes = await call(reader, "read", { path: "$SOURCES/google-docs/Team Handbook/Tab 1.md", byteOffset: 5, byteLimit: 3 });
+    const bytes = await call(reader, "read", { path: "$SOURCES/confluence/Team Handbook/Tab 1.md", byteOffset: 5, byteLimit: 3 });
     expect(bytes).toMatchObject({ content: "one", encoding: "utf8", mode: "bytes", nextByteOffset: 8 });
-    const png = await call(reader, "read", { path: "$SOURCES/google-docs/d1/image.png" });
+    const png = await call(reader, "read", { path: "$SOURCES/confluence/d1/image.png" });
     expect(png.encoding).toBe("base64");
     expect(Buffer.from(png.content, "base64")).toEqual(Buffer.from([0x89, 0x50, 0x4e, 0x47, 0, 1, 2, 3, 0xff]));
-    const badLines = await call(reader, "read", { path: "$SOURCES/google-docs/d1/image.png", offset: 1 });
+    const badLines = await call(reader, "read", { path: "$SOURCES/confluence/d1/image.png", offset: 1 });
     expect(badLines.isError).toBe(true);
   });
 
   it("finds and greps without loading binaries, and rejects traversal", async () => {
     const found = await call(reader, "find", { path: "$SOURCES", pattern: "*.png" });
-    expect(found.matches).toEqual(["$SOURCES/google-docs/d1/image.png"]);
+    expect(found.matches).toEqual(["$SOURCES/confluence/d1/image.png"]);
     const grep = await call(reader, "grep", { path: "$SOURCES", pattern: "needle-[0]", glob: "*.md" });
     expect(grep.matches).toHaveLength(10);
-    expect(grep.matches.every((m: any) => m.path.startsWith("$SOURCES/slack/C1/"))).toBe(true);
-    const lit = await call(reader, "grep", { path: "$SOURCES/google-docs", pattern: "line t", literal: true });
+    expect(grep.matches.every((m: any) => m.path.startsWith("$SOURCES/jira/C1/"))).toBe(true);
+    const lit = await call(reader, "grep", { path: "$SOURCES/confluence", pattern: "line t", literal: true });
     expect(lit.matches.map((m: any) => m.line)).toEqual([2, 3]);
     expect(lit.filesSkipped).toBe(1);
-    for (const bad of ["$SOURCES/../KNOWLEDGE/index.md", "$SOURCES/slack/../../x", "$SOURCES/slack/\u0000"]) {
+    for (const bad of ["$SOURCES/../KNOWLEDGE/index.md", "$SOURCES/jira/../../x", "$SOURCES/jira/\u0000"]) {
       const r = await call(reader, "read", { path: bad });
       expect(r.isError, bad).toBe(true);
       expect(r.code).toBe("invalid_path");
@@ -146,14 +146,14 @@ describe("$SOURCES over the filesystem MCP", () => {
   });
 
   it("explains deletions and serves the full history including the tombstone", async () => {
-    const gone = await call(reader, "read", { path: "$SOURCES/slack/C1/gone.md" });
+    const gone = await call(reader, "read", { path: "$SOURCES/jira/C1/gone.md" });
     expect(gone.isError).toBe(true);
     expect(gone.error).toContain("message_deleted");
-    const h = await call(reader, "sources_history", { path: "$SOURCES/slack/C1/gone.md" });
+    const h = await call(reader, "sources_history", { path: "$SOURCES/jira/C1/gone.md" });
     expect(h.versions.map((v: any) => v.kind)).toEqual(["tombstone", "projection"]);
-    const prior = await call(reader, "sources_history", { path: "$SOURCES/slack/C1/gone.md", versionId: h.versions[1].versionId });
+    const prior = await call(reader, "sources_history", { path: "$SOURCES/jira/C1/gone.md", versionId: h.versions[1].versionId });
     expect(prior.content).toBe("soon deleted\nneedle-0\n");
-    const wrong = await call(reader, "sources_history", { path: "$SOURCES/slack/C1/2026-10-01.md", versionId: h.versions[1].versionId });
+    const wrong = await call(reader, "sources_history", { path: "$SOURCES/jira/C1/2026-10-01.md", versionId: h.versions[1].versionId });
     expect(wrong.isError).toBe(true);
   });
 
@@ -161,7 +161,7 @@ describe("$SOURCES over the filesystem MCP", () => {
     const report = await fetch(`${base}/v1/sources/status-report`, {
       method: "POST",
       headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ providers: [{ provider: "slack", scope: "workspace:T1", state: "partial", reason: "private channels not granted", lastSuccessAt: new Date().toISOString() }], runtime: { reportIntervalSeconds: 60 } }),
+      body: JSON.stringify({ providers: [{ provider: "jira", scope: "workspace:T1", state: "partial", reason: "private channels not granted", lastSuccessAt: new Date().toISOString() }], runtime: { reportIntervalSeconds: 60 } }),
     });
     expect(report.status).toBe(200);
     const forbidden = await fetch(`${base}/v1/sources/status-report`, {
@@ -171,12 +171,12 @@ describe("$SOURCES over the filesystem MCP", () => {
     });
     expect(forbidden.status).toBe(403);
     const st = await call(reader, "sources_status", {});
-    const slack = st.providers.find((p: any) => p.provider === "slack");
+    const slack = st.providers.find((p: any) => p.provider === "jira");
     expect(slack).toMatchObject({ files: 30, deleted: 1, coverageState: "partial", health: "healthy" });
     expect(slack.coverage[0].reason).toBe("private channels not granted");
-    const docs = st.providers.find((p: any) => p.provider === "google-docs");
+    const docs = st.providers.find((p: any) => p.provider === "confluence");
     expect(docs).toMatchObject({ coverageState: "unreported", health: "unreported" });
-    const read = await call(reader, "read", { path: "$SOURCES/slack/C1/2026-10-01.md" });
+    const read = await call(reader, "read", { path: "$SOURCES/jira/C1/2026-10-01.md" });
     expect(read.source.coverage).toMatchObject({ state: "partial", health: "healthy" });
   });
 

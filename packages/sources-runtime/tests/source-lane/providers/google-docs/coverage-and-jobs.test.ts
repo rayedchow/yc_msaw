@@ -35,7 +35,13 @@ async function seedToken(metadata: Record<string, unknown>) {
   await query(`INSERT INTO integration_tokens (user_id, provider, access_token, metadata) VALUES ($1, 'google', 'enc', $2::jsonb)`, [TENANT, JSON.stringify(metadata)]);
 }
 
-const coverage = () => googleDocsProvider.coverage!({ tenantId: TENANT, executor: db as never });
+/** final-audit M4: Docs coverage is complete only while gdocs.poll keeps succeeding; record one that just did. */
+const polledNow = (tenant: string) =>
+  query(`INSERT INTO source_sync_runs (user_id, provider, status, coverage_to, metadata, completed_at) VALUES ($1, 'google', 'completed', now(), '{"taskKind":"gdocs.poll"}', now())`, [tenant]);
+const coverage = async () => {
+  await polledNow(TENANT);
+  return googleDocsProvider.coverage!({ tenantId: TENANT, executor: db as never });
+};
 
 describe("google-docs provider module", () => {
   it("is registered with the core registry and owns its export table", () => {
@@ -53,6 +59,21 @@ describe("coverage reflects checkpoints, errors and auth mode (never a static co
     // listing it is pending, and it is complete only after a gap-free listing (inventory.test.ts).
     expect(reports.find((r) => r.scope === "drive-inventory")!.state).toBe("pending");
     expect(reports.find((r) => r.scope === "docs-content")!.state).toBe("pending");
+  });
+
+  it("never claims complete once gdocs.poll stopped succeeding (final-audit M4)", async () => {
+    await seedToken({ authMode: "domain_wide_delegation" });
+    await recordDriveFileSeen(TENANT, { fileId: "d1", mailbox: "m", mimeType: DOC_MIME, name: "d1", version: "v", modifiedTime: "2026-10-01T00:00:00Z" }, deps);
+    await setContentState(TENANT, "d1", { state: "complete", version: "v" }, deps);
+    await query(`DELETE FROM source_sync_runs WHERE user_id = $1`, [TENANT]);
+    await query(`INSERT INTO source_sync_runs (user_id, provider, status, coverage_to, metadata, completed_at) VALUES ($1, 'google', 'completed', now(), '{"taskKind":"gdocs.poll"}', now() - interval '1 hour')`, [TENANT]);
+    const stale = await googleDocsProvider.coverage!({ tenantId: TENANT, executor: db as never });
+    expect(stale.find((r) => r.scope === "docs-poll")).toMatchObject({ state: "partial", expectedIntervalSeconds: 300 });
+    expect(stale.find((r) => r.scope === "docs-content")).toMatchObject({ state: "partial" });
+    expect(stale.find((r) => r.scope === "docs-content")!.reason).toContain("not current");
+    const fresh = await coverage();
+    expect(fresh.find((r) => r.scope === "docs-content")!.state).toBe("complete");
+    expect(fresh.find((r) => r.scope === "docs-poll")!.state).toBe("complete");
   });
 
   it("surfaces a partial changelog and per-scope counts", async () => {

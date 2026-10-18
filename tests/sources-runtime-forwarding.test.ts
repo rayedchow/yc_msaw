@@ -148,6 +148,15 @@ describe("runtime forwarding uses only the verified principal", () => {
     const refusedId = (seen[1]!.body as { bindingId: string }).bindingId;
     expect(list.bindings.find((b) => b.bindingId === refusedId)?.revokedAt).toBeTruthy();
     expect(list.bindings.find((b) => b.bindingId === sent.bindingId)?.revokedAt).toBeNull();
+
+    // final-audit L4: once the runtime accepts a new binding, the previous runtime binding is revoked.
+    reply = { status: 200, body: { ok: true } };
+    const again = await req("POST", "/v1/sources/runtime/provision", admin.key);
+    expect(again.status).toBe(201);
+    expect(((await again.json()) as { revokedPrevious: string[] }).revokedPrevious).toEqual([sent.bindingId]);
+    const after = (await (await req("GET", "/v1/sources/bindings", admin.key)).json()) as { bindings: Array<{ bindingId: string; revokedAt: string | null }> };
+    expect(after.bindings.find((b) => b.bindingId === sent.bindingId)?.revokedAt).toBeTruthy();
+    expect(after.bindings.filter((b) => !b.revokedAt)).toHaveLength(1);
   });
 
   it("forwards connect, disconnect and device enrolment with the right scopes", async () => {

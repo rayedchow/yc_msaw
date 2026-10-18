@@ -1,5 +1,5 @@
 import { createHash } from "node:crypto";
-import type { CoverageReport, SourceChunkedContent } from "../core/types.js";
+import type { AccountOwner, CoverageReport, SourceChunkedContent } from "../core/types.js";
 
 /**
  * Client for yc_msaw's binding-token publish protocol (yc_msaw src/sources/http.ts):
@@ -187,7 +187,12 @@ export class SourcePublishClient {
     return (await res.json()) as PublishReceipt;
   }
 
-  async reportStatus(providers: CoverageReport[], runtime: { version: string; donorCommit: string; reportIntervalSeconds: number; host?: string }): Promise<void> {
-    await this.#request("POST", "/v1/sources/status-report", JSON.stringify({ providers, runtime }), "application/json");
+  async reportStatus(
+    providers: CoverageReport[],
+    runtime: { version: string; donorCommit: string; reportIntervalSeconds: number; host?: string },
+    googleAccounts?: AccountOwner[],
+  ): Promise<void> {
+    const body = { providers, runtime, ...(googleAccounts ? { googleAccounts } : {}) };
+    await this.#request("POST", "/v1/sources/status-report", JSON.stringify(body), "application/json");
   }
 }
