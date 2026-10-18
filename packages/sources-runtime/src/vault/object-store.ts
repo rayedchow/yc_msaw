@@ -62,6 +62,48 @@ export async function getSignedDownloadUrl(
   return getSignedUrl(store, new GetObjectCommand({ Bucket: bucket, Key: key }), { expiresIn });
 }
 
+/**
+ * SOURCE-LANE PATCH (binary lane): bounded reads for the source exporter. `headObject` returns the stored size;
+ * `getObjectRange` reads one inclusive byte range so a large object is streamed chunk by chunk instead of
+ * materialised whole. A short or over-long body is an error (never silently truncated bytes).
+ */
+export async function headObject(key: string, client?: ObjectStoreClient): Promise<{ size: number; contentType: string | null }> {
+  const out = (await objectStoreClient(client).send(new HeadObjectCommand({ Bucket: objectStoreBucket(), Key: key }))) as Record<string, unknown>;
+  const size = Number(out.ContentLength);
+  if (!Number.isSafeInteger(size) || size < 0) throw new Error(`object ${key}: HEAD returned no usable ContentLength`);
+  return { size, contentType: typeof out.ContentType === "string" ? out.ContentType : null };
+}
+
+export async function getObjectRange(key: string, start: number, endInclusive: number, client?: ObjectStoreClient): Promise<Buffer> {
+  const want = endInclusive - start + 1;
+  if (!Number.isSafeInteger(start) || start < 0 || want <= 0) throw new Error(`object ${key}: invalid range ${start}-${endInclusive}`);
+  const out = (await objectStoreClient(client).send(
+    new GetObjectCommand({ Bucket: objectStoreBucket(), Key: key, Range: `bytes=${start}-${endInclusive}` }),
+  )) as Record<string, unknown>;
+  const bytes = await bodyBytes(out.Body);
+  if (bytes.length !== want) throw new Error(`object ${key}: range ${start}-${endInclusive} returned ${bytes.length} bytes, expected ${want}`);
+  return bytes;
+}
+
+/** The only key shape putObject writes; anything else is not this tenant's content-addressed object. */
+export function isTenantBinaryObjectKey(tenantId: string, sha256: string, key: string): boolean {
+  return /^[0-9a-f]{64}$/.test(sha256) && tenantId.length > 0 && !tenantId.includes("/") && key === binaryObjectKey(tenantId, sha256);
+}
+
+async function bodyBytes(body: unknown): Promise<Buffer> {
+  if (body == null) return Buffer.alloc(0);
+  if (Buffer.isBuffer(body)) return body;
+  if (body instanceof Uint8Array) return Buffer.from(body);
+  const b = body as { transformToByteArray?: () => Promise<Uint8Array>; [Symbol.asyncIterator]?: () => AsyncIterator<Uint8Array> };
+  if (typeof b.transformToByteArray === "function") return Buffer.from(await b.transformToByteArray());
+  if (typeof b[Symbol.asyncIterator] === "function") {
+    const parts: Buffer[] = [];
+    for await (const part of body as AsyncIterable<Uint8Array>) parts.push(Buffer.from(part));
+    return Buffer.concat(parts);
+  }
+  throw new Error("object body is not readable");
+}
+
 function objectStoreBucket(): string {
   if (!env.AQUEDUCT_S3_BUCKET) {
     throw new Error("object store not configured: AQUEDUCT_S3_BUCKET is unset");

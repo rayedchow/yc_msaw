@@ -897,6 +897,16 @@
       ]
     },
     {
+      "path": "drizzle/9600_binary_source_versions.sql",
+      "sha256": "dfcef31c6c0949e3f06a700d10933a3b109175581db2384d3e671928600c47b0",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "binary_document_versions append-only history captured by trigger from binary_documents (backfilled), tombstone propagation, journal triggers for both tables (manifest bookkeeping ignored).",
+      "tests": [
+        "tests/source-lane/providers/binary/binary.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9650_nango_records.sql",
       "sha256": "cbb1b1ef5fbacb2e3a95355cb08d791ae725d493bd8715b52c2ed6559ac67c7e",
       "status": "new",
@@ -1130,6 +1140,24 @@
       "status": "verbatim",
       "donorPath": "src/integrations/binary/intake.ts",
       "donorSha256": "7add349ad4e7df53977f7e1002d61aeb367ab0bced53a4cb21c7c3e5460dc85e"
+    },
+    {
+      "path": "src/integrations/binary/source-bytes.ts",
+      "sha256": "78905263f15cb8d7682b09718961f305b4f1e0444481359c325ca3f576df531a",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Exact-bytes S3 transport for the binary source lane: tenant-scoped storage_key guard, 8 MiB ranged manifest build verified against size/sha256, per-chunk ranged loader re-verified at publish.",
+      "tests": [
+        "tests/source-lane/providers/binary/binary.test.ts"
+      ],
+      "derivedFrom": [
+        {
+          "repo": "askshepherd/aqueduct",
+          "commit": "b26d3f46236a36d64f841539abff2b1ffdace5cf",
+          "path": "src/integrations/binary/intake.ts",
+          "use": "binary_documents row semantics, content-addressed binary/<tenant>/<sha256> keys"
+        }
+      ]
     },
     {
       "path": "src/integrations/bitbucket/index.ts",
@@ -2672,6 +2700,16 @@
       "donorSha256": "06c381c91fa8152fecca86d780b23c6f101b2637354005890e4bc97ab59e2e36"
     },
     {
+      "path": "src/source-lane/providers/binary/index.ts",
+      "sha256": "e48e1804851099324882f0d8e598961d37362cec238fb608de5eccb403bd81d9",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Binary provider module: binary_documents (meta.json + current bytes) and binary_document_versions (immutable history) extraTables, tombstone/restore/purge deletes, gmail-attachment and slack rows left to their own lanes, truthful coverage.",
+      "tests": [
+        "tests/source-lane/providers/binary/binary.test.ts"
+      ]
+    },
+    {
       "path": "src/source-lane/providers/calendar/coverage.ts",
       "sha256": "adad7e84b86d81cfbc8dff42c41601102f62369d7bc75271da5030ec12afaf0a",
       "status": "new",
@@ -3673,11 +3711,12 @@
     },
     {
       "path": "src/source-lane/providers/index.ts",
-      "sha256": "e39896ead6c5a37b32efe1fb5dd9597e0180db855c23e704c895ba29eda17d54",
+      "sha256": "d0f56262cb0603a592efb70b650f15ad42253b9f2fa8110be55026471cf9c22e",
       "status": "new",
       "owner": "coordinator",
       "reason": "Provider registry (+ stripe, discord, cursor-agents, coding-sessions, office-audio, zoom, linear, whatsapp-personal, instagram-personal).",
       "tests": [
+        "tests/source-lane/providers/binary/binary.test.ts",
         "tests/source-lane/providers/coding-sessions/coding-sessions.test.ts",
         "tests/source-lane/providers/cursor-agents/cursor-agents.test.ts",
         "tests/source-lane/providers/discord/discord.test.ts",
@@ -4271,10 +4310,15 @@
     },
     {
       "path": "src/vault/object-store.ts",
-      "sha256": "9f9ee5ec64926454fa972ff7bb0a89beaaef390b5e669b39eef9a897a240c4e1",
-      "status": "verbatim",
+      "sha256": "03642d45527d90bfa745522c7de646111e8138afa3718fec9bce95a4a3f1dab9",
+      "status": "patched",
+      "owner": "coordinator",
       "donorPath": "src/vault/object-store.ts",
-      "donorSha256": "9f9ee5ec64926454fa972ff7bb0a89beaaef390b5e669b39eef9a897a240c4e1"
+      "donorSha256": "9f9ee5ec64926454fa972ff7bb0a89beaaef390b5e669b39eef9a897a240c4e1",
+      "reason": "SOURCE-LANE PATCH: headObject / getObjectRange (exact inclusive ranges, short reads are errors) and isTenantBinaryObjectKey for the binary source lane; donor functions unchanged.",
+      "tests": [
+        "tests/source-lane/providers/binary/binary.test.ts"
+      ]
     },
     {
       "path": "src/vault/redaction.ts",
@@ -4886,6 +4930,16 @@
       "reason": "Confluence + GitHub shared-patch regressions.",
       "tests": [
         "tests/source-lane/core/shared-patches-confluence.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/binary/binary.test.ts",
+      "sha256": "1662dd72bd64763ee4fc0be5c9a983ba94937c4c14d5cb3c6d00d5574923b2ae",
+      "status": "new",
+      "owner": "coordinator",
+      "reason": "Binary lane tests: non-UTF-8, empty, >8 MiB ranged, range/tamper, transient retry with checkpointed manifest, replace history, tombstone/restore, purge, cross-tenant forged key, integrity refusal, provider ownership.",
+      "tests": [
+        "tests/source-lane/providers/binary/binary.test.ts"
       ]
     },
     {

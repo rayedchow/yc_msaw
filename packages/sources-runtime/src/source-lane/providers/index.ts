@@ -1,4 +1,5 @@
 import type { SourceProviderModule } from "../core/types.js";
+import { binaryProvider } from "./binary/index.js";
 import { bitbucketProvider } from "./bitbucket/index.js";
 import { calendarProvider } from "./calendar/index.js";
 import { codingSessionsProvider } from "./coding-sessions/index.js";
@@ -28,6 +29,7 @@ import { zoomProvider } from "./zoom/index.js";
  * merge conflicts are resolved by the core lead (CONTRACT.md §5).
  */
 const SPECIALIZED_PROVIDERS: readonly SourceProviderModule[] = [
+  binaryProvider,
   bitbucketProvider,
   calendarProvider,
   codingSessionsProvider,
