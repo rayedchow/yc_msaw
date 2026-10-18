@@ -149,7 +149,13 @@ export function registerGoogleAuthInternalRoutes(app: Hono, deps: GoogleAuthInte
       const principal = principalFor(c, deps, SCOPE_READ);
       if (principal instanceof Response) return principal;
       c.header("Cache-Control", "no-store");
-      return c.json(await googleAttributionFor(tenantFor(c, deps), principal, db as unknown as DbExecutor));
+      // yc_msaw re-asks every few seconds per viewer and the answer (~100 B per unit) rarely changes: an unchanged
+      // answer is a 304 without a body (perf-verification-2: 1.1 MB per refresh at 12k units).
+      const text = JSON.stringify(await googleAttributionFor(tenantFor(c, deps), principal, db as unknown as DbExecutor));
+      const etag = `"${sha256Hex(text).slice(0, 32)}"`;
+      c.header("ETag", etag);
+      if (c.req.header("if-none-match") === etag) return c.body(null, 304);
+      return c.body(text, 200, { "Content-Type": "application/json" });
     } catch (err) {
       return errorResponse(c, err);
     }

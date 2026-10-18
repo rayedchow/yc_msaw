@@ -55,6 +55,8 @@ const NANGO_SESSION_ID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0
 export interface RuntimeResponse {
   status: number;
   body: unknown;
+  /** The runtime's ETag, when it sent one. */
+  etag?: string;
 }
 
 export class SourceRuntimeClient {
@@ -74,13 +76,14 @@ export class SourceRuntimeClient {
     });
   }
 
-  async #call(p: Principal, method: string, route: string, body?: unknown): Promise<RuntimeResponse> {
+  async #call(p: Principal, method: string, route: string, body?: unknown, ifNoneMatch?: string): Promise<RuntimeResponse> {
     const res = await this.fetchImpl(`${this.config.url}/tenants/${encodeURIComponent(p.tenantNs)}${route}`, {
       method,
       headers: {
         Authorization: `Bearer ${this.config.serviceToken}`,
         [PRINCIPAL_HEADER]: this.#principalHeader(p),
         ...(body !== undefined ? { "Content-Type": "application/json" } : {}),
+        ...(ifNoneMatch ? { "If-None-Match": ifNoneMatch } : {}),
       },
       ...(body !== undefined ? { body: JSON.stringify(body) } : {}),
       signal: AbortSignal.timeout(TIMEOUT_MS),
@@ -92,7 +95,13 @@ export class SourceRuntimeClient {
     } catch {
       parsed = { error: { code: "runtime_invalid_response", message: text.slice(0, 500) } };
     }
-    return { status: res.status, body: parsed };
+    const etag = res.headers.get("etag");
+    return { status: res.status, body: parsed, ...(etag ? { etag } : {}) };
+  }
+
+  /** Google attribution of one principal; `etag` of the previous answer makes an unchanged one a body-less 304. */
+  googleAttribution(p: Principal, etag?: string): Promise<RuntimeResponse> {
+    return this.#call(p, "GET", "/google/auth/attribution", undefined, etag);
   }
 
   provisionBinding(p: Principal, binding: { bindingId: string; token: string; providers: string[] }): Promise<RuntimeResponse> {
@@ -219,9 +228,15 @@ export type GoogleAttributionSource = (ns: string, who: { subject: string; issue
  * failure throws; the caller then serves none of them (fail closed).
  */
 export function googleAttributionFrom(client: SourceRuntimeClient): GoogleAttributionSource {
+  // The last answer per principal, revalidated by ETag: an unchanged answer returns the same object (no re-parse, and
+  // the viewer built from it is reused).
+  const last = new Map<string, { etag: string; value: { units: GoogleAttributionUnit[]; truncated: boolean } }>();
   return async (ns, who) => {
     const principal = { tenantNs: ns, subject: who.subject, issuer: who.issuer, scopes: ["memory:read"], provider: "oidc" } as Principal;
-    const r = await client.googleAuth(principal, "attribution");
+    const key = `${ns}\n${who.issuer}\n${who.subject}`;
+    const prior = last.get(key);
+    const r = await client.googleAttribution(principal, prior?.etag);
+    if (r.status === 304 && prior && r.etag === prior.etag) return prior.value;
     const b = r.body as { schema?: unknown; units?: unknown; truncated?: unknown } | null;
     if (r.status !== 200 || !b || b.schema !== "procmem.google-attribution/v1" || !Array.isArray(b.units)) {
       throw new Error(`Google attribution unavailable (HTTP ${r.status})`);
@@ -230,6 +245,10 @@ export function googleAttributionFrom(client: SourceRuntimeClient): GoogleAttrib
       (u): u is GoogleAttributionUnit =>
         !!u && typeof (u as GoogleAttributionUnit).path === "string" && typeof (u as GoogleAttributionUnit).revisions === "boolean" && Array.isArray((u as GoogleAttributionUnit).accounts),
     );
-    return { units, truncated: b.truncated === true };
+    const value = { units, truncated: b.truncated === true };
+    last.delete(key);
+    if (r.etag) last.set(key, { etag: r.etag, value });
+    while (last.size > 1024) last.delete(last.keys().next().value!);
+    return value;
   };
 }

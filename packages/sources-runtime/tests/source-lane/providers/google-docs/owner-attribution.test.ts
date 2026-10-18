@@ -199,5 +199,14 @@ describe("Google-wide units are attributed per mailbox from the runtime's own vi
     expect((await get(ada, "Bearer wrong")).status).toBe(401);
     expect((await get({ ...ada, tenantNs: "tenant-other" })).status).toBe(403);
     expect((await get({ ...ada, scopes: [] })).status).toBe(403);
+    // Revalidation: an unchanged answer is a body-less 304 for the same principal; another principal's ETag is not.
+    const etag = ok.headers.get("etag")!;
+    expect(etag).toMatch(/^"[0-9a-f]{32}"$/);
+    const again = await app.request(`/internal/v1/tenants/${T}/google/auth/attribution`, { headers: { authorization: `Bearer ${token}`, "x-procmem-principal": JSON.stringify(ada), "if-none-match": etag } });
+    expect(again.status).toBe(304);
+    expect(await again.text()).toBe("");
+    const other = await app.request(`/internal/v1/tenants/${T}/google/auth/attribution`, { headers: { authorization: `Bearer ${token}`, "x-procmem-principal": JSON.stringify({ ...ada, subject: "user_carol" }), "if-none-match": etag } });
+    expect(other.status).toBe(200);
+    expect(((await other.json()) as { units: unknown[] }).units).toEqual([]);
   });
 });
