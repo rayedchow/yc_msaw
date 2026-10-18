@@ -241,8 +241,8 @@ model (GLM 5p3 on Fireworks), plus a second vendor (e.g. Claude Haiku 5.5) to sh
 
 | Time | On screen | Say |
 |---|---|---|
-| 0:00–0:15 | An agent on the raw CRM answers "Q4 commit?" → **$493k** | "Agents can use HubSpot. They don't know *Halcyon's* HubSpot. The real answer is $605k." |
-| 0:15–0:45 | Mining: rules appear with evidence and backtest scores; one question to Halcyon | "It digs the unwritten rules out of the data and history, and asks one question history can't answer." |
+| 0:00–0:15 | An agent on the raw CRM answers "Q4 commit?" → **$493k** | "Agents can use HubSpot. They don't know *GurtAI's* HubSpot. The real answer is $605k." |
+| 0:15–0:45 | Mining: rules appear with evidence and backtest scores; one question to GurtAI | "It digs the unwritten rules out of the data and history, and asks one question history can't answer." |
 | 0:45–1:05 | Generated `get_commit` plus tests → Manufact preview → evals → promoted | "Rules become code and tests. Every change goes through a Manufact preview and evals." |
 | 1:05–1:15 | The same agent makes one call → **$605k** | "One call. The agent read nothing. The rule can't be skipped." |
 | 1:15–1:40 | A rule changes → a backtest fails → a fix ships via preview → a *different* agent gets it right | "When the business changes, the fix reaches every agent." |
@@ -277,7 +277,7 @@ Every screen is in `mock-ui/index.html` (open it directly; → steps through the
 
 | Piece | Where | Reuse as |
 |---|---|---|
-| Simulated Halcyon CRM with hidden rules + oracle | `eval/world/crm.ts` (branch `crm-integration`) | The demo system and the proof harness. It still needs generated **history** and planted drift |
+| Simulated GurtAI CRM with hidden rules + oracle | `eval/world/crm.ts` (branch `crm-integration`) | The demo system and the proof harness. It still needs generated **history** and planted drift |
 | CRM transfer benchmark (HubSpot / Pipedrive / Zoho / Attio fixtures + docs) | `eval/crm/`, `templates/integration/demo/crm/` | Extra systems and contract fixtures |
 | Recursive build harness, Modal sandboxes, transcripts | `src/harness/` | The builder agent |
 | Integration repo, sealed validation, publish, rollback | `src/integrations/` | The compile → verify → ship pipeline. Change: produce owner-approved revisions instead of self-publishing |
