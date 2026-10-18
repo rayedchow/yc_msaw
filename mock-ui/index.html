@@ -8,26 +8,26 @@
 <link href="https://fonts.googleapis.com/css2?family=Geist+Mono:wght@400;500;700&family=Inter+Tight:wght@400;500;600;700&display=swap" rel="stylesheet" />
 <style>
   :root {
-    --bg: #1A1A1A;
-    --surface: #111111;
-    --raise: #202020;
-    --border: #262626;
-    --border-strong: #3A3A3A;
-    --text: #EAEAEA;
-    --muted: #9A9A9A;
-    --tertiary: #6E6E6E;
+    --bg: #FFFFFF;
+    --surface: #FAFAFA;
+    --raise: #F5F5F5;
+    --border: #EAEAEA;
+    --border-strong: #D1D1D1;
+    --text: #111111;
+    --muted: #555555;
+    --tertiary: #8A8A8A;
     --accent: #FEC508;
-    --accent-glow: rgba(254, 197, 8, 0.14);
-    --grid-line: rgba(255, 255, 255, 0.035);
-    --ok: #4ADE80;
-    --bad: #F87171;
+    --accent-glow: rgba(254, 197, 8, 0.2);
+    --grid-line: rgba(0, 0, 0, 0.035);
+    --ok: #1A7F37;
+    --bad: #C62828;
     --maxw: 68rem;
     --sans: "Neue Haas Grotesk", "Helvetica Neue", "Inter Tight", Helvetica, Arial, sans-serif;
     --mono: "Geist Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   }
   * { box-sizing: border-box; -webkit-font-smoothing: antialiased; }
   html, body { margin: 0; }
-  body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.5; font-size: 14px; }
+  body { background: var(--bg); color: var(--text); font-family: var(--sans); line-height: 1.55; font-size: 15px; }
   h1 { margin: 0; font-weight: 700; letter-spacing: -0.045em; font-size: 32px; line-height: 1.05; }
   button { font: inherit; color: inherit; background: none; border: 0; cursor: pointer; padding: 0; }
   code, pre, .mono { font-family: var(--mono); }
@@ -43,22 +43,22 @@
   .top { position: sticky; top: 0; z-index: 20; }
   .strip { max-width: var(--maxw); margin: 0 auto; background: var(--accent); color: #000; text-align: center; font-size: 11px; font-weight: 600; padding: 8px 16px; min-height: 33px; }
   nav { max-width: var(--maxw); margin: 0 auto; height: 58px; padding: 0 28px; display: flex; align-items: center; justify-content: space-between;
-    background: rgba(26,26,26,0.92); backdrop-filter: blur(8px); border: 1px solid var(--border); border-top: 0; }
+    background: rgba(255,255,255,0.92); backdrop-filter: blur(8px); border: 1px solid var(--border); border-top: 0; }
   .brand { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -0.04em; font-size: 17px; }
   .brand i { width: 16px; height: 16px; border: 2px solid var(--text); position: relative; }
   .brand i::after { content: ""; position: absolute; inset: 3px; background: var(--accent); }
   .tabs { display: flex; gap: 24px; margin-left: 32px; }
   .tab, .label { font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; }
   .tab { color: var(--tertiary); padding: 21px 0; border-bottom: 2px solid transparent; }
-  .tab.on { color: var(--text); border-bottom-color: var(--accent); }
+  .tab.on { color: var(--text); border-bottom-color: var(--text); }
   .label { color: var(--tertiary); }
   .eye { display: flex; align-items: center; gap: 10px; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--muted); }
   .switch { width: 32px; height: 18px; border: 1px solid var(--border-strong); border-radius: 999px; position: relative; transition: background .2s; }
   .switch::after { content: ""; position: absolute; top: 2px; left: 2px; width: 12px; height: 12px; border-radius: 50%; background: var(--muted); transition: transform .2s, background .2s; }
-  body.agent .eye { color: var(--accent); }
-  body.agent .switch { border-color: var(--accent); }
-  body.agent .switch::after { transform: translateX(14px); background: var(--accent); }
-  .pill { padding: 9px 18px; border-radius: 999px; background: var(--text); color: #0A0A0A; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
+  body.agent .eye { color: var(--text); }
+  body.agent .switch { border-color: var(--text); background: var(--accent); }
+  body.agent .switch::after { transform: translateX(14px); background: var(--text); }
+  .pill { padding: 9px 18px; border-radius: 999px; background: var(--text); color: #FFFFFF; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; }
   .pill.ghost { background: transparent; color: var(--text); border: 1px solid var(--border-strong); }
   .pill:hover { opacity: .85; }
 
@@ -73,7 +73,7 @@
   .ok { color: var(--ok); }
   .bad { color: var(--bad); }
   .badge { white-space: nowrap; padding: 2px 7px; border: 1px solid var(--border-strong); font-family: var(--mono); font-size: 10px; font-weight: 700; color: var(--muted); }
-  .badge.y { border-color: var(--accent); color: var(--accent); }
+  .badge.y { border-color: var(--accent); background: var(--accent); color: #000; }
   .dot { width: 6px; height: 6px; border-radius: 50%; display: inline-block; background: var(--ok); margin-right: 8px; vertical-align: middle; }
   .dot.y { background: var(--accent); box-shadow: 0 0 0 3px var(--accent-glow); }
   .dot.g { background: var(--border-strong); }
@@ -89,7 +89,7 @@
   .hov:hover { background: var(--surface); cursor: pointer; }
   .sel { background: var(--surface); box-shadow: inset 2px 0 0 var(--accent); }
 
-  pre { margin: 0; font-size: 12px; line-height: 1.65; white-space: pre-wrap; word-break: break-word; color: #CFCFCF; }
+  pre { margin: 0; font-size: 12.5px; line-height: 1.7; white-space: pre-wrap; word-break: break-word; color: #222; }
   .code { background: var(--surface); border: 1px solid var(--border); padding: 14px 16px; }
 
   /* connections */
@@ -102,7 +102,7 @@
   .stepc.active { box-shadow: inset 0 -2px 0 var(--accent); }
   .rules { width: 100%; border-collapse: collapse; }
   .rules th { text-align: left; padding: 12px 28px; border-bottom: 1px solid var(--border); }
-  .rules td { padding: 14px 28px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 13px; }
+  .rules td { padding: 14px 28px; border-bottom: 1px solid var(--border); vertical-align: top; font-size: 14px; }
   .rules tr { transition: opacity .35s; }
   .rules tr.hidden { opacity: 0; }
   .rules tbody tr:hover { background: var(--surface); cursor: pointer; }
@@ -112,14 +112,14 @@
   .q .opt { display: flex; gap: 12px; padding: 12px 18px; border-top: 1px solid var(--border); }
   .q .opt:hover { background: var(--surface); cursor: pointer; }
   .q .opt.picked { background: var(--accent-glow); }
-  .q .opt b { font-family: var(--mono); color: var(--accent); }
+  .q .opt b { font-family: var(--mono); }
 
   /* mcp */
   .tool .sig { font-family: var(--mono); font-size: 13px; font-weight: 700; }
   .tool .rl { margin-top: 10px; font-family: var(--mono); font-size: 11px; color: var(--tertiary); }
   .ctabs { display: flex; gap: 18px; padding: 0 28px; border-bottom: 1px solid var(--border); }
   .ctab { padding: 12px 0; font-family: var(--mono); font-size: 10px; font-weight: 700; letter-spacing: .16em; text-transform: uppercase; color: var(--tertiary); border-bottom: 2px solid transparent; }
-  .ctab.on { color: var(--text); border-bottom-color: var(--accent); }
+  .ctab.on { color: var(--text); border-bottom-color: var(--text); }
   .ver { display: grid; grid-template-columns: 60px 1fr 1fr 1fr 1.3fr; border-top: 1px solid var(--border); font-family: var(--mono); font-size: 11px; }
   .ver > div { padding: 12px 28px 12px 0; }
   .ver > div:first-child { padding-left: 28px; font-weight: 700; }
@@ -139,7 +139,7 @@
   @keyframes flash { from { background: var(--accent-glow); } to { background: transparent; } }
   .bar .track { height: 90px; background: var(--surface); position: relative; margin: 14px 0 10px; }
   .bar .fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: var(--text); transition: height 1s cubic-bezier(.2,.7,.2,1); }
-  .bar .fill.t { background: repeating-linear-gradient(45deg, var(--accent) 0 6px, #8a6b00 6px 12px); }
+  .bar .fill.t { background: repeating-linear-gradient(45deg, var(--accent) 0 6px, #ffe27a 6px 12px); }
   .bar .v { font-family: var(--mono); font-size: 20px; font-weight: 700; }
 
   .demo { position: fixed; right: 20px; bottom: 20px; z-index: 30; display: flex; gap: 6px; align-items: center; background: var(--surface); border: 1px solid var(--border-strong); padding: 5px; font-family: var(--mono); font-size: 10px; font-weight: 700; }
