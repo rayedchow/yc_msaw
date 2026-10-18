@@ -270,10 +270,14 @@ The UI keeps the honeyflow grid style (dark, pastel violet accent) and has two v
   versions (tests → evals → live).
 
 - **Evals tab:** answers "is walter's understanding of this system right?", checked only against the system's own
-  history (learned on older months, held out on recent ones). It shows rules confirmed, past work replayed exactly,
-  custom fields understood and changes detected; **replays** of past work (recorded vs MCP result, train or held-out,
-  with the diff and the rule that explains it); **rule evidence** (decisions each rule explains, month-by-month
-  agreement that exposes when a rule changes, and counterexamples). It deliberately does not compare models.
+  history. It is generic, so it works for any MCP whatever its tools do: everything is computed from two kinds of
+  checks every MCP has.
+  - **Replays:** each tool re-run on past work and compared exactly with what was recorded, tagged train or
+    held-out, with the diff and the rule that explains it.
+  - **Rule evidence:** the decisions each rule explains, plus month-by-month agreement over that MCP's own history
+    window (learned months vs held-out months), which exposes when a rule changes; and counterexamples.
+  The summary is one line: rules confirmed, replays matching the record, changes detected. It deliberately does not
+  compare models.
 
 All views are in `mock-ui/index.html` (open it directly; no build step; `#sales/evals` opens an evals page).
 

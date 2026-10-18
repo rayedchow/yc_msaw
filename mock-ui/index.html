@@ -228,11 +228,13 @@
   .rp { grid-template-columns: 1.8fr 1fr 1fr 100px 80px; font-size: 14px; }
   .rpd { display: none; grid-template-columns: 1fr 2.4fr; gap: 16px; padding: 0 28px 16px; font-size: 13.5px; color: var(--muted); background: var(--surface); }
   .rpd.on { display: grid; }
-  .re { grid-template-columns: 32px 1.5fr 1.2fr 220px 120px; font-size: 14px; }
+  .re { grid-template-columns: 32px 1.5fr 1.1fr auto 100px; column-gap: 28px; font-size: 14px; }
   .sbar { display: block; height: 3px; background: var(--border); margin-top: 6px; width: 140px; }
   .sbar i { display: block; height: 100%; background: var(--accent); }
-  .mstrip { display: grid; grid-template-columns: repeat(10, 1fr); gap: 4px; align-items: center; }
-  .mstrip span { font-family: var(--mono); font-size: 10px; text-align: center; }
+  .mstrip { width: calc(var(--n) * 24px - 4px); display: grid; grid-template-columns: repeat(var(--n), 20px); gap: 4px; align-items: center; }
+  .mrange { display: grid; width: calc(var(--n) * 24px - 4px); grid-template-columns: calc(var(--h) * 24px - 4px) 1fr; gap: 4px; font-size: 11.5px; }
+  .mrange span { border-top: 1px solid var(--border-strong); padding-top: 4px; white-space: nowrap; }
+  .mrange span:last-child { border-top-color: var(--accent); }
   .sq { width: 16px; height: 16px; display: inline-block; border-radius: 2px; justify-self: center; }
   .sq.hi { background: var(--accent); }
   .sq.mid { background: rgba(196,181,253,0.4); }
@@ -249,6 +251,13 @@
   .chip-d.understood { background: rgba(196,181,253,0.6); }
   .chip-d.deprecated { background: var(--border-strong); }
   .chip-d.unknown { border: 1px dashed var(--warn); }
+  .evline { display: flex; flex-wrap: wrap; gap: 10px 36px; padding: 18px 28px; font-size: 14.5px; color: var(--muted); }
+  .evline b { color: var(--text); font-weight: 600; }
+  .evline .dt { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 10px; vertical-align: 1px; }
+  .dt.ok { background: var(--ok); }
+  .dt.mid { background: var(--accent); }
+  .dt.warn { background: var(--warn); }
+  .rtool { display: block; font-size: 11.5px; color: var(--tertiary); margin-top: 2px; }
 </style>
 </head>
 <body>
@@ -611,9 +620,9 @@ function renderDetail(m) {
 // ── evals: is walter's understanding of the system correct? ───────────────
 // Everything is checked against the system's own history: replays of past work compared with what was recorded,
 // each rule against the decisions people made, and coverage of the system's custom fields.
-const MONTHS = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct"];
 const EVALS = {
   sales: {
+    window: { months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct"], heldOutFrom: 6 },
     source: "HubSpot field history and forecast_snapshots, Jan–Oct 2026. Learned on Jan–Jun, held out Jul–Oct.",
     replays: [
       { task: "Q1 2026 commit, as of Mar 31", truth: "$512,000", got: "$512,000", split: "train", ok: true, via: "get_commit · R1 R2 R3", diff: "Exact match with the reported number in forecast_snapshots." },
@@ -631,20 +640,9 @@ const EVALS = {
       { id: "R5", text: "Existing contacts keep their owner", support: [5, 6], unit: "exceptions", months: null, asked: true, counter: ["1 existing contact was moved to the territory owner in March"] },
       { id: "R6", text: "Companies match on root domain", support: [41, 41], unit: "merges", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
     ],
-    fields: [
-      ["booked", "understood", "Revenue gate set by RevOps (R1)"],
-      ["arr", "understood", "Recurring value used for commit (R2)"],
-      ["lead_source", "understood", "Required on create; EVENT for event leads"],
-      ["event_name", "understood", "Name of the event a lead came from"],
-      ["hs_lead_status", "understood", "NEW for imported leads"],
-      ["territory", "understood", "Derived from country (R4)"],
-      ["forecast_override", "deprecated", "Not set since March 2025"],
-      ["zz_region_old", "deprecated", "Empty on every record since 2025"],
-      ["partner_tier", "unknown", "Set on 30% of deals; no rule explains when"],
-      ["renewal_flag", "unknown", "Agrees with 'Renewal' deal names only 64% of the time"],
-    ],
   },
   billing: {
+    window: { months: ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep"], heldOutFrom: 6 },
     source: "Stripe invoices and finance's MRR reports, Jan–Sep 2026. Learned on Jan–Jun, held out Jul–Sep.",
     replays: [
       { task: "June 2026 MRR", truth: "$214,300", got: "$214,300", split: "train", ok: true, via: "get_mrr · B1 B2", diff: "Exact match with finance's report." },
@@ -652,17 +650,10 @@ const EVALS = {
       { task: "Dunning list, September", truth: "62 invoices", got: "60 of 62", split: "held-out", ok: false, via: "find_overdue · B3 B4", diff: "2 invoices were chased on day 4. Grace period may be shorter for enterprise plans; not enough cases to tell yet." },
     ],
     rules: [
-      { id: "B1", text: "MRR excludes one-time line items", support: [9, 9], unit: "months", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, null], counter: [] },
-      { id: "B2", text: "Customers prefixed <code>qa_</code> are test data", support: [214, 214], unit: "customers", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, null], counter: [] },
-      { id: "B3", text: "Overdue starts after a 5-day grace period", support: [588, 601], months: [98, 97, 98, 99, 98, 97, 98, 98, 96, null], counter: ["11 invoices chased on day 4 or 5, all enterprise plans", "2 invoices never chased (paid same day)"] },
-      { id: "B4", text: "Disputed invoices are never chased", support: [37, 37], unit: "disputes", months: [100, 100, 100, 100, 100, 100, 100, 100, 100, null], counter: [] },
-    ],
-    fields: [
-      ["metadata.plan", "understood", "Plan tier; enterprise gets a shorter grace (being checked)"],
-      ["customer.id", "understood", "qa_ prefix marks test customers (B2)"],
-      ["invoice.disputed", "understood", "Never chased (B4)"],
-      ["metadata.legacy_sku", "deprecated", "Not used since 2024"],
-      ["metadata.region", "unknown", "Set on 40% of customers; no rule found"],
+      { id: "B1", text: "MRR excludes one-time line items", support: [9, 9], unit: "months", months: [100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
+      { id: "B2", text: "Customers prefixed <code>qa_</code> are test data", support: [214, 214], unit: "customers", months: [100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
+      { id: "B3", text: "Overdue starts after a 5-day grace period", support: [588, 601], months: [98, 97, 98, 99, 98, 97, 98, 98, 96], counter: ["11 invoices chased on day 4 or 5, all enterprise plans", "2 invoices never chased (paid same day)"] },
+      { id: "B4", text: "Disputed invoices are never chased", support: [37, 37], unit: "disputes", months: [100, 100, 100, 100, 100, 100, 100, 100, 100], counter: [] },
     ],
   },
 };
@@ -672,8 +663,7 @@ function evalScore(m) {
   if (!E) return null;
   const confirmed = E.rules.filter((r) => !r.asked).length;
   const replaysOk = E.replays.filter((r) => r.ok).length;
-  const understood = E.fields.filter(([, s]) => s !== "unknown").length;
-  return { confirmed, rules: E.rules.length, replaysOk, replays: E.replays.length, understood, fields: E.fields.length, open: E.rules.filter((r) => r.asked).length, drift: E.rules.filter((r) => r.drift).length };
+  return { confirmed, rules: E.rules.length, replaysOk, replays: E.replays.length, open: E.rules.filter((r) => r.asked).length, drift: E.rules.filter((r) => r.drift).length };
 }
 
 function renderEvals(m) {
@@ -689,17 +679,17 @@ function renderEvals(m) {
     return;
   }
   const sc = evalScore(m);
+  const W = E.window;
   const shade = (v) => v == null ? "none" : v >= 97 ? "hi" : v >= 90 ? "mid" : "low";
 
   $("#app").innerHTML = `
     ${mcpHeader(m, "evals")}
     <section class="pad" style="padding-top:20px;padding-bottom:20px"><span class="muted">Is walter's understanding of GurtAI right? Every check below is against the system's own history. </span><span class="dim">${E.source}</span></section>
 
-    <section class="row c4 evsum">
-      <div class="cell"><div class="l">Rules confirmed by history</div><div class="v">${sc.confirmed}<span>/${sc.rules}</span></div><div class="dim s">${sc.open ? `${sc.open} waiting on an answer` : "all confirmed"}</div></div>
-      <div class="cell"><div class="l">Past work replayed exactly</div><div class="v">${sc.replaysOk}<span>/${sc.replays}</span></div><div class="dim s">compared with what was recorded</div></div>
-      <div class="cell"><div class="l">Custom fields understood</div><div class="v">${sc.understood}<span>/${sc.fields}</span></div><div class="dim s">${sc.fields - sc.understood} still unknown</div></div>
-      <div class="cell"><div class="l">Changes detected</div><div class="v ${sc.drift ? "warn" : ""}">${sc.drift}</div><div class="dim s">${sc.drift ? "a rule stopped matching recent history" : "rules still match recent history"}</div></div>
+    <section class="evline">
+      <span><i class="dt ${sc.confirmed === sc.rules ? "ok" : "mid"}"></i><b>${sc.confirmed} of ${sc.rules}</b> rules confirmed by history${sc.open ? ` <span class="dim">· ${sc.open} waiting on an answer</span>` : ""}</span>
+      <span><i class="dt ${sc.replaysOk === sc.replays ? "ok" : "mid"}"></i><b>${sc.replaysOk} of ${sc.replays}</b> replays match the record</span>
+      <span><i class="dt ${sc.drift ? "warn" : "ok"}"></i><b>${sc.drift ? sc.drift + (sc.drift === 1 ? " change" : " changes") : "No changes"}</b> detected</span>
     </section>
 
     <section>
@@ -708,26 +698,26 @@ function renderEvals(m) {
         <div class="it rp dim" style="font-size:12px"><span>Task</span><span>Recorded</span><span>MCP</span><span>Period</span><span></span></div>
         ${E.replays.map((r, i) => `
           <div class="it rp click" data-i="${i}">
-            <span>${r.task}</span>
+            <span>${r.task}<span class="rtool mono">${r.via.split(" · ")[0]}</span></span>
             <span class="mono">${r.truth}</span>
             <span class="mono ${r.ok ? "" : "warnc"}">${r.got}</span>
             <span><span class="tag ${r.split === "held-out" ? "v" : ""}">${r.split}</span></span>
             <span class="${r.ok ? "okc" : "warnc"}">${r.ok ? "match" : "differs"}</span>
           </div>
-          <div class="rpd" id="rpd-${i}"><span class="mono dim">${r.via}</span><span>${r.diff}</span></div>`).join("")}
+          <div class="rpd" id="rpd-${i}"><span class="mono dim">rules ${r.via.split(" · ")[1] ?? "—"}</span><span>${r.diff}</span></div>`).join("")}
       </div>
     </section>
 
     <section>
       <div class="sechead"><h2>Rule evidence</h2><span class="legend"><i class="sq hi"></i>agrees <i class="sq mid"></i>mostly <i class="sq low"></i>breaks</span></div>
       <div class="list">
-        <div class="it re dim" style="font-size:12px"><span></span><span>Rule</span><span>Decisions it explains</span><span class="mstrip">${MONTHS.map((mo) => `<span>${mo[0]}</span>`).join("")}</span><span>Counterexamples</span></div>
+        <div class="it re dim" style="font-size:12px"><span></span><span>Rule</span><span>Decisions it explains</span><span class="mrange" style="--n:${W.months.length};--h:${W.heldOutFrom}"><span>learned ${W.months[0]}–${W.months[W.heldOutFrom - 1]}</span><span>held out ${W.months[W.heldOutFrom]}–${W.months.at(-1)}</span></span><span>Counterexamples</span></div>
         ${E.rules.map((r) => `
           <div class="it re click" data-id="${r.id}">
             <span class="rid">${r.id}</span>
             <span>${r.text}</span>
             <span><span class="mono" style="font-size:13px">${r.support[0].toLocaleString()} / ${r.support[1].toLocaleString()}</span> <span class="dim" style="font-size:12px">${r.unit ?? "decisions"}</span><span class="sbar"><i style="width:${(r.support[0] / r.support[1]) * 100}%"></i></span></span>
-            <span class="mstrip">${r.months ? r.months.map((v, i) => `<i class="sq ${shade(v)} ${i >= 6 ? "ho" : ""}" title="${MONTHS[i]}: ${v ?? "—"}%"></i>`).join("") : `<span class="tag v">asked</span>`}</span>
+            <span class="mstrip" style="--n:${W.months.length}">${r.months ? r.months.map((v, i) => `<i class="sq ${shade(v)} ${i >= W.heldOutFrom ? "ho" : ""}" title="${W.months[i]}: ${v ?? "—"}%"></i>`).join("") : `<span class="tag v" style="grid-column: 1 / -1; justify-self: start">asked · history can't settle it</span>`}</span>
             <span class="${r.support[1] - r.support[0] ? "" : "dim"}">${r.support[1] - r.support[0] ? (r.support[1] - r.support[0]) + (r.support[1] - r.support[0] === 1 ? " case" : " cases") : "none"}</span>
           </div>`).join("")}
       </div>
@@ -742,7 +732,7 @@ function renderEvals(m) {
   });
 
   const tip = $("#evtip");
-  const idle = `<div class="tk">Hover a rule</div><div class="td">Each square is one month. Jan–Jun is what walter learned from; Jul–Oct (outlined) is held out. A rule that stops agreeing with recent history is flagged as a change.</div>`;
+  const idle = `<div class="tk">Hover a rule</div><div class="td">Each square is one month. ${W.months[0]}–${W.months[W.heldOutFrom - 1]} is what walter learned from; ${W.months[W.heldOutFrom]}–${W.months.at(-1)} (outlined) is held out. A rule that stops agreeing with recent history is flagged as a change.</div>`;
   tip.innerHTML = idle;
   $$(".re.click").forEach((row) => {
     row.addEventListener("mouseenter", () => {
