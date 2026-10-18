@@ -1,0 +1,69 @@
+{
+  "kind": "sdk-conversation-hosted-wire-smoke",
+  "at": "2026-10-18T00:13:11.905Z",
+  "baseUrl": "https://wild-zero-kq08i.run.mcp-use.com",
+  "sourceCommit": "a039d505441b06bbab2af98e98dc9335e88c6ae9",
+  "conversationId": "verification/hosted-mvd2n98x",
+  "checks": [
+    {
+      "name": "http.newCorrelatedChunkAccepted",
+      "ok": true,
+      "detail": {
+        "sessionId": "ses-mvd2n98x-399c659ea532",
+        "day": "2026-10-18"
+      }
+    },
+    {
+      "name": "http.lostAckResendDeduplicated",
+      "ok": true
+    },
+    {
+      "name": "http.identicalEventRetryCannotRetargetConversation",
+      "ok": true
+    },
+    {
+      "name": "outbox.fullyDeliveredTombstone",
+      "ok": true
+    },
+    {
+      "name": "modal.authenticatedTenantContainsCorrelation",
+      "ok": true
+    },
+    {
+      "name": "modal.childParentLinksPersisted",
+      "ok": true
+    },
+    {
+      "name": "modal.conversationMemberCount",
+      "ok": true
+    },
+    {
+      "name": "modal.otherTenantHasNoMembership",
+      "ok": true
+    },
+    {
+      "name": "http.oldSdkChunkStillAccepted",
+      "ok": true
+    },
+    {
+      "name": "http.oldSdkRetryStillIdempotent",
+      "ok": true
+    },
+    {
+      "name": "http.legacyRetryCannotAddCorrelation",
+      "ok": true
+    },
+    {
+      "name": "modal.legacySessionRemainsUncorrelated",
+      "ok": true
+    },
+    {
+      "name": "credentials.providerCalledPerRequest",
+      "ok": true,
+      "detail": {
+        "requests": 8
+      }
+    }
+  ],
+  "verificationScript": "scripts/sdk-conversation-hosted-smoke.mjs"
+}

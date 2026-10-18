@@ -1,6 +1,6 @@
 {
   "kind": "parent-followup-deploy-verification",
-  "at": "2026-10-17T23:47:09.476Z",
+  "at": "2026-10-18T00:12:59.810Z",
   "baseUrl": "https://wild-zero-kq08i.run.mcp-use.com",
   "checks": [
     {
@@ -65,22 +65,24 @@
       "detail": {
         "sha": "e43507d88d2e7545f54724fea6509ba00f40f57d",
         "status": 200,
-        "requestId": "85C8:388F58:5999F1:121C664:6AD408FC"
+        "requestId": "DCF2:E932C:73F122:1782B32:6AD40F0B"
       }
     }
   ],
+  "sourceCommit": "a039d505441b06bbab2af98e98dc9335e88c6ae9",
   "deployment": {
-    "id": "b665baed-a734-4a10-8813-c54e39845e6f",
-    "trigger": "webhook",
+    "id": "c7ac7552-bac3-44f1-bff1-4a236ef311a4",
     "status": "running",
-    "managedCommit": "06783a5d3348964949ed523921863322f691222a",
-    "serverId": "f2352b28-1558-4c0c-9520-738517ab933d",
-    "account": "ishan@askshepherd.ai",
+    "managedGitCommitSha": "a6b88866401c00dabe60f9dd03b1109a097c0e64",
+    "serverId": "f2352b28-1558-4c0c-9520-738517ab933d"
+  },
+  "manufact": {
+    "email": "ishan@askshepherd.ai",
     "orgSlug": "org-84350150-jpcs9"
   },
-  "oauth": {
-    "kind": "existing approved WorkOS CLI grant refreshed automatically; authenticated tools/list",
-    "toolCount": 12,
-    "at": "2026-10-17T23:47:54.783Z"
+  "oauthCli": {
+    "approvedExistingGrant": true,
+    "toolsListSucceeded": true,
+    "tools": 12
   }
 }
