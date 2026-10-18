@@ -192,7 +192,7 @@
     </div>
     <div class="cell conn hov" data-conn="warehouse">
       <span class="label">warehouse.md</span>
-      <h3>acme_analytics</h3>
+      <h3>halcyon_analytics</h3>
       <div class="muted" style="font-size:13px">Postgres · read only</div>
       <div class="secret"><span>WAREHOUSE_URL</span><span>••••••••</span></div>
     </div>
@@ -240,8 +240,8 @@
 <div class="view" id="v-mcp">
   <section class="pad head">
     <div>
-      <h1>Acme Sales MCP</h1>
-      <p class="mono" style="font-size:12px"><span class="dot y"></span>v3 · acme-sales.run.mcp-use.com/mcp</p>
+      <h1>Halcyon Sales MCP</h1>
+      <p class="mono" style="font-size:12px"><span class="dot y"></span>v3 · halcyon-sales.run.mcp-use.com/mcp</p>
     </div>
   </section>
   <section class="row split">
@@ -280,7 +280,7 @@
       <div class="meta">14 calls · 41k tokens</div>
     </div>
     <div class="cell" id="gapMcp">
-      <div class="label">Acme Sales MCP</div>
+      <div class="label">Halcyon Sales MCP</div>
       <div class="big ok">$605,000</div>
       <div class="meta">1 call · 0.9k tokens</div>
     </div>
@@ -307,7 +307,7 @@ const $$ = (s) => [...document.querySelectorAll(s)];
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 
 const MD = {
-  hubspot: `# HubSpot CRM (Acme)
+  hubspot: `# HubSpot CRM (Halcyon)
 Sales system of record.
 
 ## Notes
@@ -315,7 +315,7 @@ Sales system of record.
 - Ask RevOps before trusting "Closed Won"
 
 secret: HUBSPOT_TOKEN · scopes: read, write (sandbox)`,
-  warehouse: `# acme_analytics (Postgres)
+  warehouse: `# halcyon_analytics (Postgres)
 Read-only replica RevOps reports from.
 
 ## Tables
@@ -349,20 +349,20 @@ const TOOLS = [
 ];
 
 const SNIP = {
-  url: `https://acme-sales.run.mcp-use.com/mcp
+  url: `https://halcyon-sales.run.mcp-use.com/mcp
 Authorization: Bearer <agent token>`,
-  claude: `{ "mcpServers": { "acme-sales": {
-    "url": "https://acme-sales.run.mcp-use.com/mcp" } } }`,
+  claude: `{ "mcpServers": { "halcyon-sales": {
+    "url": "https://halcyon-sales.run.mcp-use.com/mcp" } } }`,
   cursor: `// .cursor/mcp.json
-{ "mcpServers": { "acme-sales": {
-    "url": "https://acme-sales.run.mcp-use.com/mcp" } } }`,
+{ "mcpServers": { "halcyon-sales": {
+    "url": "https://halcyon-sales.run.mcp-use.com/mcp" } } }`,
 };
 
 
 const FEED = [
-  ["02:10:04", "acme-ops-bot", "get_commit → $605k"],
+  ["02:10:04", "halcyon-ops-bot", "get_commit → $605k"],
   ["02:10:11", "claude-desktop", "find_account → 30103"],
-  ["02:10:19", "acme-sdr-agent", "import_leads → plan · 6 create"],
+  ["02:10:19", "halcyon-sdr-agent", "import_leads → plan · 6 create"],
   ["02:10:31", "cursor", "get_commit → Q3"],
 ];
 
@@ -390,9 +390,9 @@ async function term(title, sub, lines, speed = 1) {
 }
 const T = {
   mcp: ["agent session", "glm-5p3 · connected over MCP", [
-    ["p", "agent --mcp https://acme-sales.run.mcp-use.com/mcp"],
+    ["p", "agent --mcp https://halcyon-sales.run.mcp-use.com/mcp"],
     ["o", "→ initialize"],
-    ["i", "← serverInfo { name: \"acme-sales\", version: \"3\" }"],
+    ["i", "← serverInfo { name: \"halcyon-sales\", version: \"3\" }"],
     ["o", "→ tools/list"],
     ["i", "← get_commit · import_leads · find_account · report_outcome"],
     ["", "user: what's our Q4 commit?", 500],
@@ -400,7 +400,7 @@ const T = {
     ["i", "← { \"total_usd\": 605000, \"deals\": 7, \"rules_applied\": [\"R1@v3\", \"R2@v3\", \"R3@v3\"], \"assumptions\": [] }"],
     ["g", "agent: Q4 commit is $605,000 across 7 deals."],
   ]],
-  discovery: ["miner", "hubspot + acme_analytics · read only", [
+  discovery: ["miner", "hubspot + halcyon_analytics · read only", [
     ["p", "sql: select count(*) from hubspot_field_history where changed_at > now() - interval '2 years'"],
     ["i", "3104"],
     ["p", "sql: select changed_by_team, count(*) from hubspot_field_history where property = 'booked' group by 1"],
@@ -416,14 +416,14 @@ const T = {
     ["p", "connect hubspot   (HUBSPOT_TOKEN from secrets · never shown to models)"],
     ["i", "GET /crm/v3/objects/deals?limit=1   → 200"],
     ["i", "GET /crm/v3/pipelines/deals         → 3 pipelines"],
-    ["p", "connect acme_analytics   (WAREHOUSE_URL from secrets · read only)"],
+    ["p", "connect halcyon_analytics   (WAREHOUSE_URL from secrets · read only)"],
     ["i", "tables: forecast_snapshots · hubspot_field_history · lead_assignments"],
     ["g", "2 systems ready for discovery"],
   ]],
-  live: ["mcp traffic", "all agents · acme-sales", [
-    ["i", "02:10:04  acme-ops-bot     glm-5p3       get_commit 2026-Q4       → $605,000"],
+  live: ["mcp traffic", "all agents · halcyon-sales", [
+    ["i", "02:10:04  halcyon-ops-bot     glm-5p3       get_commit 2026-Q4       → $605,000"],
     ["i", "02:10:11  claude-desktop   claude-haiku  find_account hooli.com   → 30103"],
-    ["i", "02:10:19  acme-sdr-agent   minimax-m3    import_leads 7 leads     → plan: 6 create, 1 skip"],
+    ["i", "02:10:19  halcyon-sdr-agent   minimax-m3    import_leads 7 leads     → plan: 6 create, 1 skip"],
     ["i", "02:10:31  cursor                         get_commit 2026-Q3       → ok"],
   ]],
 };
@@ -477,7 +477,7 @@ async function ship() { for (let s = 0; s <= 4; s++) { renderVersions(s); await 
 
 async function drift() {
   await term("mcp traffic", "rule change detected", [
-    ["i", "02:14:02  acme-ops-bot     get_commit 2026-Q4   → $605,000   R1@v3"],
+    ["i", "02:14:02  halcyon-ops-bot     get_commit 2026-Q4   → $605,000   R1@v3"],
     ["r", "02:14:05  backtest         R1 fails on the new forecast snapshot (Contract Sent excluded since Oct 1)"],
     ["o", "02:14:06  builder          v4 preview · R1′ + 12 tests"],
     ["o", "02:14:40  manufact         evals: claude ✓  glm ✓  minimax ✓"],
@@ -506,7 +506,7 @@ $$(".tab").forEach((t) => t.onclick = () => go(t.dataset.tab));
 $$("[data-go]").forEach((b) => b.onclick = () => go(b.dataset.go));
 
 const STEPS = [
-  ["Agents can use HubSpot. They don't know Acme's HubSpot.", async () => { go("live"); $("#gapMcp").classList.add("dim"); }],
+  ["Agents can use HubSpot. They don't know Halcyon's HubSpot.", async () => { go("live"); $("#gapMcp").classList.add("dim"); }],
   ["Point it at the systems. Context in a .md, access in a secret.", async () => { go("connections"); showMd("hubspot"); }],
   ["It mines the unwritten rules from history and backtests each one.", async () => {
     go("discovery"); openRule = 0; renderRules(0);
