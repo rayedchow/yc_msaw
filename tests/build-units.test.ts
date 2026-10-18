@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { BudgetConfigError, DEFAULT_BUILD_BUDGET, resolveBudget } from "../src/harness/budget.js";
+import { AgentMeter, BudgetConfigError, DEFAULT_BUILD_BUDGET, resolveBudget } from "../src/harness/budget.js";
 import { computePatch, findConflicts, lineDiff } from "../src/harness/patch.js";
 import { createProfileRegistry, DEFAULT_PROFILES, ProfileError } from "../src/harness/profiles.js";
 import { parseScope, scopeAllows, scopesOverlap, scopeWithin } from "../src/harness/scope.js";
@@ -13,6 +13,23 @@ describe("budget", () => {
     expect(() => resolveBudget({ maxDepth: 99 })).toThrow(BudgetConfigError);
     expect(() => resolveBudget({ maxTurns: 1.5 })).toThrow(BudgetConfigError);
     expect(() => resolveBudget({ maxConcurrentAgents: 0 })).toThrow(BudgetConfigError);
+  });
+
+  it("accepts explicit operator budgets up to the 100x turn/tool ceilings and still enforces them", () => {
+    const big = resolveBudget({ maxTurns: 4_000, maxToolCalls: 16_000 });
+    expect(big).toMatchObject({ maxTurns: 4_000, maxToolCalls: 16_000, maxDepth: 4, maxSessions: 4 });
+    expect(resolveBudget({ maxTurns: 20_000, maxToolCalls: 100_000 })).toMatchObject({ maxTurns: 20_000, maxToolCalls: 100_000 });
+    expect(() => resolveBudget({ maxTurns: 20_001 })).toThrow(/exceeds hard ceiling 20000/);
+    expect(() => resolveBudget({ maxToolCalls: 100_001 })).toThrow(/exceeds hard ceiling 100000/);
+    const meter = new AgentMeter(big);
+    for (let i = 0; i < 3_999; i++) meter.beginTurn(1);
+    expect(meter.boundary(1)).toBeNull();
+    meter.beginTurn(1);
+    expect(meter.boundary(1)).toBe("turns");
+    meter.startNewSession("turns");
+    for (let i = 0; i < 16_000; i++) meter.recordToolCall();
+    expect(meter.boundary(1)).toBe("tool_calls");
+    expect(meter.usage).toMatchObject({ sessions: 2, turns: 4_000, toolCalls: 16_000 });
   });
 });
 

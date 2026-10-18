@@ -61,12 +61,19 @@ export const DEFAULT_BUILD_BUDGET: Readonly<InvestigationBudget> = Object.freeze
   maxWallClockMs: 2 * 60 * 60 * 1000,
 });
 
+/**
+ * Hard ceilings for explicit operator/eval overrides. maxTurns and maxToolCalls are 100x the original
+ * 200/1_000 so an operator can deliberately grant long-running builders (e.g. 4_000 turns / 16_000 tool
+ * calls per session) without a code change. This only widens what an explicit override may request:
+ * DEFAULT_BUILD_BUDGET above stays at the bounded AEye values, every other ceiling is unchanged, and the
+ * orchestrator still enforces whatever limit is resolved (session boundaries, maxSessions, wall clock).
+ */
 const CEILINGS: Readonly<InvestigationBudget> = Object.freeze({
   maxDepth: 8,
   maxChildren: 64,
   maxDescendants: 128,
-  maxTurns: 200,
-  maxToolCalls: 1_000,
+  maxTurns: 20_000,
+  maxToolCalls: 100_000,
   maxInputBytes: 1024 * 1024 * 1024,
   maxOutputBytes: 128 * 1024 * 1024,
   maxConcurrentAgents: 32,
