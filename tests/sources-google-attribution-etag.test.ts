@@ -20,7 +20,7 @@ describe("Google attribution revalidation", () => {
       const body = { schema: "procmem.google-attribution/v1", units: [{ path: `google-docs/${who}-${version}-doc-x`, accounts: [`${who}@acme.test`], revisions: true }], truncated: false };
       return new Response(JSON.stringify(body), { status: 200, headers: { etag, "content-type": "application/json" } });
     }) as typeof fetch;
-    const source = googleAttributionFrom(new SourceRuntimeClient({ url: "http://runtime.test", serviceToken: "svc", publishUrl: "http://yc.test" }, fetchImpl));
+    const source = googleAttributionFrom(new SourceRuntimeClient({ url: "http://runtime.test", serviceToken: "svc", publishUrl: "http://yc.test", deviceApiUrl: null }, fetchImpl));
     const alice = { subject: "alice", issuer: "https://issuer.test" };
     const first = await source("acme", alice);
     expect(first.units.map((u) => u.path)).toEqual(["google-docs/alice-v1-doc-x"]);
@@ -41,7 +41,7 @@ describe("Google attribution revalidation", () => {
 
   it("fails closed on a 304 it cannot match", async () => {
     const fetchImpl = (async () => new Response(null, { status: 304, headers: { etag: '"x"' } })) as unknown as typeof fetch;
-    const source = googleAttributionFrom(new SourceRuntimeClient({ url: "http://runtime.test", serviceToken: "svc", publishUrl: "http://yc.test" }, fetchImpl));
+    const source = googleAttributionFrom(new SourceRuntimeClient({ url: "http://runtime.test", serviceToken: "svc", publishUrl: "http://yc.test", deviceApiUrl: null }, fetchImpl));
     await expect(source("acme", { subject: "alice", issuer: "https://issuer.test" })).rejects.toThrow(/unavailable/);
   });
 });
