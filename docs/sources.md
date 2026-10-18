@@ -40,8 +40,9 @@ device or account, and becomes its owner.
 | --- | --- | --- |
 | `imessage/`, `coding-sessions/`, `office-audio/` | the principal whose device setup succeeded (revoked devices still count, so revoking a Mac does not hand its history to anyone; a setup the runtime refused counts for nothing) | `POST /v1/sources/devices/<provider>/setup` |
 | `granola/`, `zoom/`, `cursor-agents/`, `whatsapp-personal/`, `instagram-personal/` | the principal that connected the account | `POST /v1/sources/connect/<integration>` (`granola`, `zoom`, `cursor_background_agents`, `whatsapp_personal`, `instagram_personal`) |
-| `gmail/<mailbox>/`, `calendar/accounts/<mailbox>/`, `google-contacts/accounts/<mailbox>/` | the principal that completed the Google OAuth (or Composio) grant for that address. Google's account check at the callback proves control of it. | `POST /v1/sources/google/auth/oauth/start` |
-| `google-docs/`, `binary/drive-pdf/`, and Google files outside a mailbox directory (e.g. the donor `calendar/<yyyy>/<mm>/` files, which mix mailboxes) | the principal that owns **every** Google address of the tenant. That covers every address the runtime reports and every mailbox directory present in `$SOURCES`. | as above |
+| `gmail/<mailbox>/`, `calendar/accounts/<mailbox>/`, `google-contacts/accounts/<mailbox>/` | the principal that last proved control of that address through Google: a data grant (OAuth/Composio), or for a domain-wide-delegated mailbox an identity-only ownership proof (`openid email`, no tokens kept, collection stays DWD) | `POST /v1/sources/google/auth/oauth/start` (data grant) or `POST /v1/sources/google/auth/ownership/start` (proof) |
+| `google-docs/<doc>/`, `google-docs/_drive/…/<file>/`, `google-docs/_raw/document:<id>/`, `binary/drive-pdf/<id>/` | per unit: readable by the principal whose proven mailbox sees the file in Drive **and may read its revisions** (`capabilities.canReadRevisions`). A unit that mailbox can only view is withheld, since its history, changelog and comments are part of it. The runtime answers this attribution only for the calling principal (internal route; nobody can publish it). If the runtime is unreachable, nothing is served. | as above |
+| Google files outside a mailbox or unit (e.g. the donor `calendar/<yyyy>/<mm>/` files, which mix mailboxes) | the principal that owns **every** Google address of the tenant. That covers every address the runtime reports and every mailbox directory present in `$SOURCES`. | as above |
 
 How it is enforced:
 
@@ -96,17 +97,17 @@ How it is enforced:
 
 Migration, enrolment and current limits (owner-only is enforced; these are decisions pending the user):
 
-- **DWD:** a domain-wide-delegated mailbox is collected but sealed until its user completes the self-service Google
-  OAuth grant for the same address. Everything captured so far under `gmail/<mailbox>/` (and the Calendar/Contacts
-  account directories) then becomes theirs. From then on the runtime collects that mailbox with the user's grant
-  instead of DWD.
+- **DWD:** a domain-wide-delegated mailbox is collected, but sealed until its user completes the identity-only
+  ownership proof for that address (`POST /v1/sources/google/auth/ownership/start`). This needs a Google OAuth client
+  with the runtime's redirect URI registered. Collection stays DWD. Everything captured under the mailbox (and the
+  Docs/Drive units it can read revisions of) then becomes theirs.
 - **One owner per provider** for the providers whose paths have no account segment: iMessage, coding sessions,
   office audio, Granola, Zoom, Cursor, WhatsApp/Instagram. A second member's iMessage cannot be enrolled in the
   same tenant. Gmail, Calendar and Contacts are per mailbox.
-- **Google Docs/Drive** (and the donor calendar month files) are readable only while one member owns every Google
-  account of the tenant. A second Google member, or any unowned or DWD-only mailbox, seals them for everyone.
-  Removing this limit needs per-mailbox attribution of Docs (the runtime tracks per-mailbox visibility in
-  `gdocs_file_visibility`), which is not built.
+- **Google Docs/Drive** are attributed per unit, so several members each read their own. Units captured before the
+  per-mailbox visibility records existed are re-attributed when the inventory next lists them; units no current
+  mailbox sees stay sealed. The donor calendar month files (which mix mailboxes) still need one owner of every
+  Google account.
 - Legacy data captured before owners existed stays sealed, and so does a provider whose runtime connection
   predates owner records. Releasing it needs an operator to delete those runtime rows (database-level). No tenant
   has such data yet.

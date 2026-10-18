@@ -1,6 +1,7 @@
 import type { ObjectStore } from "../store/objects.js";
 import { providerOwners, SourceOwners, SourceViewer, type GoogleAccountOwner, type Identity } from "./access.js";
 import { SourceBindings, type BindingRecord, type PublicBinding } from "./bindings.js";
+import type { GoogleAttributionSource, GoogleAttributionUnit } from "./runtime-client.js";
 import { SourceError } from "./paths.js";
 import { DEFAULT_NODE_CACHE_BYTES, SourceNodeCache, SourceStore, type DirEntry } from "./store.js";
 
@@ -87,6 +88,8 @@ export class SourceService {
   readonly #sharedProviders: readonly string[];
   readonly #statusInputCache = new Map<string, { at: number; epoch: string; value: { bindings: PublicBinding[]; reports: StoredStatus[] } }>();
   readonly #evidence = new Map<string, { at: number; epoch: string; value: { providerOwners: Map<string, Identity[]>; googleAccounts: GoogleAccountOwner[] } }>();
+  #googleAttribution: GoogleAttributionSource | null = null;
+  readonly #units = new Map<string, { at: number; epoch: number; value: readonly GoogleAttributionUnit[] }>();
 
   /** One byte-bounded metadata cache for every tenant store of this process. */
   readonly nodeCache: SourceNodeCache;
@@ -220,9 +223,38 @@ export class SourceService {
     return value;
   }
 
+  /** Where Google-wide units (Docs/Drive dirs, Drive PDFs) are attributed to their mailboxes' owners (the runtime). */
+  useGoogleAttribution(source: GoogleAttributionSource): void {
+    this.#googleAttribution = source;
+  }
+
   /** What `who` (a verified principal of `ns`) may read; see access.ts. */
   async viewer(ns: string, who: Identity): Promise<SourceViewer> {
-    return new SourceViewer(who, { ...(await this.#ownerEvidence(ns)), sharedProviders: this.#sharedProviders });
+    const evidence = await this.#ownerEvidence(ns);
+    return new SourceViewer(who, { ...evidence, sharedProviders: this.#sharedProviders, googleUnits: await this.#googleUnits(ns, who, evidence.googleAccounts) });
+  }
+
+  /**
+   * Google-wide units of `who`, from the runtime (asked as that principal; it answers from its own grants, proofs and
+   * per-mailbox Drive visibility). Asked only for a principal the collector reports as owning a Google account;
+   * cached like owner evidence. Any failure serves none (fail closed); per-mailbox paths do not depend on it.
+   */
+  async #googleUnits(ns: string, who: Identity, accounts: readonly GoogleAccountOwner[]): Promise<readonly GoogleAttributionUnit[]> {
+    if (!this.#googleAttribution || !accounts.some((a) => a.subject === who.subject && a.issuer === who.issuer)) return [];
+    const key = `${ns}\n${who.issuer}\n${who.subject}`;
+    const epoch = this.reportEpoch(ns);
+    const hit = this.#units.get(key);
+    if (hit && hit.epoch === epoch && this.now().getTime() - hit.at < VIEWER_TTL_MS) return hit.value;
+    let value: readonly GoogleAttributionUnit[] = [];
+    try {
+      value = (await this.#googleAttribution(ns, who)).units;
+    } catch {
+      value = [];
+    }
+    this.#units.delete(key);
+    this.#units.set(key, { at: this.now().getTime(), epoch, value });
+    while (this.#units.size > MAX_CACHED_TENANTS * 16) this.#units.delete(this.#units.keys().next().value!);
+    return value;
   }
 
   /**

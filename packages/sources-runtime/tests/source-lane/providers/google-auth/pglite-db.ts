@@ -12,7 +12,7 @@ import { INCLUDED_DONOR_MIGRATIONS, MIGRATIONS_DIR } from "../../../../src/sourc
  */
 export async function createGoogleAuthTestDb() {
   const client = new PGlite();
-  for (const file of [...INCLUDED_DONOR_MIGRATIONS, "9150_google_auth_grants.sql"]) {
+  for (const file of [...INCLUDED_DONOR_MIGRATIONS, "9150_google_auth_grants.sql", "9152_google_account_owner_proofs.sql"]) {
     await client.exec(readFileSync(join(MIGRATIONS_DIR, file), "utf8"));
   }
   const db = drizzle(client);
@@ -21,6 +21,6 @@ export async function createGoogleAuthTestDb() {
 
 export async function resetGoogleAuthTables(client: PGlite): Promise<void> {
   await client.exec(`
-    TRUNCATE google_oauth_states, google_oauth_grants, connections, integration_tokens;
+    TRUNCATE google_oauth_states, google_oauth_grants, google_account_owner_proofs, connections, integration_tokens;
   `);
 }

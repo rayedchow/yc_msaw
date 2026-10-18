@@ -542,6 +542,13 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
         if (principal instanceof Response) return principal;
         return googleAuthRoute(c.req.raw, principal, runtime, "oauth.start");
       });
+      server.post("/v1/sources/google/auth/ownership/start", async (c) => {
+        // Self-service: a member proves they control a Google address (e.g. a domain-wide-delegation mailbox) with an
+        // identity-only Google sign-in and becomes its owner; the address keeps its collection mode.
+        const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
+        if (principal instanceof Response) return principal;
+        return googleAuthRoute(c.req.raw, principal, runtime, "ownership.start");
+      });
       server.post("/v1/sources/google/auth/dwd/mailboxes", async (c) => {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
         if (principal instanceof Response) return principal;

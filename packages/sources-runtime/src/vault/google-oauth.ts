@@ -444,6 +444,29 @@ export async function startGoogleOAuthAuthorization(
   return start;
 }
 
+/**
+ * Identity-only Google sign-in that proves the principal controls a Google address (owner-only sources),
+ * without a data grant: scopes `openid email`, online access, no incremental scopes. The callback stores
+ * only a google_account_owner_proofs row, so a domain-wide-delegation mailbox stays collected by DWD.
+ * A state is an ownership proof exactly when it requests no data scopes (every data capability has some).
+ */
+export async function startGoogleOwnershipProof(
+  input: { tenantId: string; principal: GoogleAuthPrincipal; account?: unknown },
+  deps: GoogleAuthDeps = {},
+): Promise<GoogleAuthorizationStart> {
+  const config = requireConfig(deps);
+  const { start } = await createGoogleAuthorizationState({
+    tenantId: input.tenantId,
+    principal: input.principal,
+    mode: "oauth_direct",
+    capabilities: [],
+    account: normalizeGoogleExpectedAccount(input.account),
+    redirectUri: config.redirectUri,
+    publicBaseUrl: config.publicBaseUrl,
+  }, deps);
+  return start;
+}
+
 function oidcNonceFor(state: string): string {
   return sha256Base64Url(`procmem.google.oidc-nonce.v1|${state}`);
 }
@@ -457,14 +480,16 @@ export function buildGoogleAuthorizeUrl(input: {
   nonce: string;
   loginHint?: string | null;
 }): string {
+  // No data scopes = ownership proof: identity only, no refresh token, no previously granted scopes folded in.
+  const identityOnly = input.scopes.length === 0;
   const params = new URLSearchParams({
     client_id: input.clientId,
     redirect_uri: input.redirectUri,
     response_type: "code",
-    scope: ["openid", "email", "profile", ...input.scopes].join(" "),
-    access_type: "offline",
-    prompt: "consent",
-    include_granted_scopes: "true",
+    scope: (identityOnly ? ["openid", "email"] : ["openid", "email", "profile", ...input.scopes]).join(" "),
+    access_type: identityOnly ? "online" : "offline",
+    prompt: identityOnly ? "select_account" : "consent",
+    ...(identityOnly ? {} : { include_granted_scopes: "true" }),
     state: input.state,
     code_challenge: input.codeChallenge,
     code_challenge_method: "S256",
@@ -616,6 +641,8 @@ export interface GoogleConnectedAccount {
   missingScopes: string[];
   capabilities: GoogleOAuthCapability[];
   connectedBy: { subject: string; issuer: string };
+  /** Identity-only sign-in (startGoogleOwnershipProof): ownership recorded, no grant, no connection to activate. */
+  ownershipProof?: true;
 }
 
 interface TokenResponse {
@@ -661,8 +688,11 @@ export async function completeGoogleOAuthCallback(
       nowMs: depsNow(deps),
     });
     const email = claims.email;
+    const ownershipProof = textArray(row.requested_scopes).length === 0;
     if (!row.expected_email || email !== row.expected_email) {
-      await revokeGoogleToken(tokens.refresh_token ?? tokens.access_token, deps).catch(() => undefined);
+      // An identity-only token carries no data scope and expires on its own; revoking it would revoke that Google
+      // user's whole grant to this OAuth client (including a data grant they hold elsewhere).
+      if (!ownershipProof) await revokeGoogleToken(tokens.refresh_token ?? tokens.access_token, deps).catch(() => undefined);
       throw new GoogleOAuthError(
         "The Google account that consented is not the account this connection was started for.",
         { code: "account_mismatch", status: 403 },
@@ -682,6 +712,11 @@ export async function completeGoogleOAuthCallback(
       capabilities: textArray(row.capabilities) as GoogleOAuthCapability[],
       connectedBy: { subject: row.principal_subject, issuer: row.principal_issuer },
     };
+    if (ownershipProof) {
+      await storeGoogleOwnershipProof(account, deps);
+      await recordGoogleAuthorizationOutcome(state, "ownership_proven", deps);
+      return { ...account, missingScopes: [], ownershipProof: true };
+    }
     await storeGoogleOAuthGrant(account, tokens, deps);
     await recordGoogleAuthorizationOutcome(state, account.missingScopes.length ? "connected_partial_scopes" : "connected", deps);
     return account;
@@ -850,6 +885,22 @@ async function storeGoogleOAuthGrant(account: GoogleConnectedAccount, tokens: To
         updated_at = EXCLUDED.updated_at
     `);
   });
+}
+
+/** Record (or refresh) that `account.connectedBy` proved control of `account.email`; no token is kept. */
+async function storeGoogleOwnershipProof(account: GoogleConnectedAccount, deps: GoogleAuthDeps): Promise<void> {
+  if (!account.googleSub) throw new GoogleOAuthError("Google did not return a subject", { code: "id_token_invalid", status: 502 });
+  await depsDb(deps).execute(sql`
+    INSERT INTO google_account_owner_proofs (tenant_id, account_email, google_sub, hosted_domain, proven_by_subject, proven_by_issuer, verified_at)
+    VALUES (${account.tenantId}, ${account.email}, ${account.googleSub}, ${account.hostedDomain},
+            ${account.connectedBy.subject}, ${account.connectedBy.issuer}, ${iso(depsNow(deps))}::timestamptz)
+    ON CONFLICT (tenant_id, account_email) DO UPDATE SET
+      google_sub = EXCLUDED.google_sub,
+      hosted_domain = EXCLUDED.hosted_domain,
+      proven_by_subject = EXCLUDED.proven_by_subject,
+      proven_by_issuer = EXCLUDED.proven_by_issuer,
+      verified_at = EXCLUDED.verified_at
+  `);
 }
 
 export async function findGoogleOAuthGrant(

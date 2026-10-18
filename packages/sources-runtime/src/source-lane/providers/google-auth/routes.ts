@@ -12,11 +12,14 @@ import {
   GoogleOAuthError,
   launchGoogleAuthorization,
   startGoogleOAuthAuthorization,
+  startGoogleOwnershipProof,
   type GoogleAuthPrincipal,
   type GoogleConnectedAccount,
 } from "../../../vault/google-oauth.js";
 import { sha256Hex } from "../../../vault/google-grant-crypto.js";
-import type { InternalRouteDeps } from "../../core/types.js";
+import { db } from "../../../db/client.js";
+import type { DbExecutor, InternalRouteDeps } from "../../core/types.js";
+import { googleAttributionFor } from "./attribution.js";
 import { googleAuthStatus } from "./status.js";
 
 /**
@@ -139,6 +142,32 @@ export function registerGoogleAuthInternalRoutes(app: Hono, deps: GoogleAuthInte
     }
   });
 
+  // Owner-only attribution of mailbox-less Google paths (Docs/Drive dirs, Drive PDFs) for the FORWARDED principal only:
+  // its proven Google accounts and the units those mailboxes see. yc_msaw asks per viewer; nobody can report it.
+  app.get(`${base}/attribution`, async (c) => {
+    try {
+      const principal = principalFor(c, deps, SCOPE_READ);
+      if (principal instanceof Response) return principal;
+      c.header("Cache-Control", "no-store");
+      return c.json(await googleAttributionFor(tenantFor(c, deps), principal, db as unknown as DbExecutor));
+    } catch (err) {
+      return errorResponse(c, err);
+    }
+  });
+
+  // Body: {account?: "self" | {email}}. Identity-only Google sign-in: proves the member controls the address (e.g. a
+  // domain-wide-delegation mailbox) and records them as its owner; no data grant, the collection mode is unchanged.
+  app.post(`${base}/ownership/start`, async (c) => {
+    try {
+      const principal = principalFor(c, deps, SCOPE_READ);
+      if (principal instanceof Response) return principal;
+      const body = await readJson(c);
+      return c.json(await startGoogleOwnershipProof({ tenantId: tenantFor(c, deps), principal, account: body.account }), 201);
+    } catch (err) {
+      return errorResponse(c, err);
+    }
+  });
+
   // Body: {email}. The mailbox must be inside the operator-approved DWD allowlist.
   app.post(`${base}/dwd/mailboxes`, async (c) => {
     try {
@@ -193,6 +222,7 @@ async function activate(account: GoogleConnectedAccount): Promise<void> {
 }
 
 function successBody(account: GoogleConnectedAccount): string {
+  if (account.ownershipProof) return `${account.email} is verified as yours. Its data stays collected the way it was set up; you can close this window.`;
   const partial = account.missingScopes.length
     ? ` Some requested permissions were not granted (${account.missingScopes.length}); those data sources stay blocked until you reconnect and grant them.`
     : "";
@@ -229,6 +259,7 @@ export function registerGoogleAuthPublicRoutes(app: Hono): void {
         error: c.req.query("error"),
         bindingCookie: cookieName ? getCookie(c, cookieName) : undefined,
       });
+      if (account.ownershipProof) return page(c, { title: "Google account verified", body: successBody(account) }, 200);
       await activate(account);
       return page(c, { title: "Google connected", body: successBody(account) }, 200);
     } catch (err) {

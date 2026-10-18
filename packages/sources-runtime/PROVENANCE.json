@@ -1572,11 +1572,37 @@
       ]
     },
     {
+      "path": "drizzle/9103_gdocs_visibility_capabilities.sql",
+      "sha256": "e105c9d55621982e955b896333e41f520f542d2096da1c27012df2d58c24713e",
+      "status": "new",
+      "owner": "owner-runtime-fidelity",
+      "reason": "owner-runtime-fidelity: per-mailbox canReadRevisions + (tenant, mailbox) visible index on gdocs_file_visibility.",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9150_google_auth_grants.sql",
       "sha256": "15000b443fd5e524be3dc25d5e7779dbed848191c745fa54a850a90668a4cf62",
       "status": "new",
       "owner": "google-auth",
       "reason": "google_oauth_states + google_oauth_grants (range 9150-9159)."
+    },
+    {
+      "path": "drizzle/9152_google_account_owner_proofs.sql",
+      "sha256": "81e4bc7b697f15277854dade9a90da8688c0aa9905b4afcda028ff1f99aa2177",
+      "status": "new",
+      "owner": "owner-runtime-fidelity",
+      "reason": "owner-runtime-fidelity: google_account_owner_proofs (identity-only ownership proof; no tokens; DWD mode unchanged).",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
+      ]
     },
     {
       "path": "drizzle/9160_gmail_source_lane.sql",
@@ -3592,14 +3618,18 @@
     },
     {
       "path": "src/polling/_archived-gdocs/gdocs-api.ts",
-      "sha256": "28894057e4ca63442196e0de4e76a9df8ce4c15778143140f1e2ccc110a196e4",
+      "sha256": "6c81be76c43abf023973aef212b329bac12be8a20559bc6c6e3fe455d9a172bd",
       "status": "patched",
-      "owner": "coordinator",
+      "owner": "coordinator, owner-runtime-fidelity",
       "donorPath": "src/polling/_archived-gdocs/gdocs-api.ts",
       "donorSha256": "f8ae3f0cd5ecef3f4062abd4344b897442640064fdc8c3eabc15dac2cfd2b5ba",
-      "reason": "Coordinator patch: gFetch cools down per credential (sha256-prefix key) for userRateLimitExceeded and keeps the process-wide google-workspace cooldown for project-wide limits, so one mailbox no longer stalls every tenant poll in the process.",
+      "reason": "Coordinator patch: gFetch cools down per credential (sha256-prefix key) for userRateLimitExceeded and keeps the process-wide google-workspace cooldown for project-wide limits, so one mailbox no longer stalls every tenant poll in the process. owner-runtime-fidelity: changes.list fields add file capabilities(canReadRevisions); DriveChange.file.capabilities type.",
       "tests": [
-        "tests/source-lane/providers/google-docs/gfetch-cooldown.test.ts"
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/gfetch-cooldown.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
       ]
     },
     {
@@ -3681,15 +3711,19 @@
     },
     {
       "path": "src/polling/_archived-gdocs/gdocs.ts",
-      "sha256": "0cf0870fe87753f50ec83362889042e8066597c58b296708ec7aab59adb25496",
+      "sha256": "c562118705a75ce15bf465edda97547d5d09d3c2b2963776b3d4fe7c01ca43c2",
       "status": "patched",
-      "owner": "google-docs, coordinator",
+      "owner": "google-docs, coordinator, owner-runtime-fidelity",
       "donorPath": "src/polling/_archived-gdocs/gdocs.ts",
       "donorSha256": "ac9b327017bb8ddb43a754bad2b318617eac4ed4500617bef215e8097cfbfc31",
-      "reason": "Re-trash/restore tombstone gap: first dead episode keeps the exact donor key gdocs:tombstone:<id>:<kind>, later episodes get :g<generation>; doc_restored events (gdocs:restored:<id>:g<n>); dead transitions tombstone exported source files and the donor mirror directory; per-file source checkpoints recorded for every live non-PDF/non-folder change (writeDocTombstones gains optional mailbox arg; recordSourceLaneLiveChanges added). Coordinator: writeDocTombstones skips tombstone + export retirement when the removal is access loss in one mailbox while another roster mailbox still sees the file (per-mailbox visibility, migration 9102).",
+      "reason": "Re-trash/restore tombstone gap: first dead episode keeps the exact donor key gdocs:tombstone:<id>:<kind>, later episodes get :g<generation>; doc_restored events (gdocs:restored:<id>:g<n>); dead transitions tombstone exported source files and the donor mirror directory; per-file source checkpoints recorded for every live non-PDF/non-folder change (writeDocTombstones gains optional mailbox arg; recordSourceLaneLiveChanges added). Coordinator: writeDocTombstones skips tombstone + export retirement when the removal is access loss in one mailbox while another roster mailbox still sees the file (per-mailbox visibility, migration 9102). owner-runtime-fidelity: processDrivePdfChanges takes the polling mailbox: per-mailbox PDF visibility; a removal from one mailbox no longer tombstones a PDF another mailbox still sees.",
       "tests": [
         "tests/mirror/gdocs-discovery.test.ts, gdocs-edit-freshness.test.ts (unchanged, pass) + lifecycle.test.ts",
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
         "tests/source-lane/providers/google-docs/lifecycle.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts",
         "tests/source-lane/providers/google-docs/visibility.test.ts"
       ]
     },
@@ -4387,18 +4421,43 @@
       "reason": "Operator documentation."
     },
     {
-      "path": "src/source-lane/providers/google-auth/index.ts",
-      "sha256": "bc718357e4e0eaeacb6e9e4dddf8eb8884091950e87b05414bbadad6355e7130",
+      "path": "src/source-lane/providers/google-auth/attribution.ts",
+      "sha256": "38be75c4862d3eacbbeccdbe34724a31d1e3e31f8c3d4657fee6e44b2c3081ee",
       "status": "new",
-      "owner": "google-auth",
-      "reason": "SourceProviderModule: coverage + public/internal routes."
+      "owner": "owner-runtime-fidelity",
+      "reason": "owner-runtime-fidelity: per-principal attribution of mailbox-less Google units (Docs/Drive dirs, comment raw ledger, Drive PDFs).",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
+      ]
+    },
+    {
+      "path": "src/source-lane/providers/google-auth/index.ts",
+      "sha256": "7c74634d65db959fe22931d642a0794523a9730c486cea0fefb2e740d87be78f",
+      "status": "new",
+      "owner": "google-auth, owner-runtime-fidelity",
+      "reason": "SourceProviderModule: coverage + public/internal routes. owner-runtime-fidelity: googleAccountOwners = newest of grant/ownership proof.",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
+      ]
     },
     {
       "path": "src/source-lane/providers/google-auth/routes.ts",
-      "sha256": "368abf44fe9d1f413114e19ffb0cc0a6238e75203dc3d13def85a0788bbde887",
+      "sha256": "13bde813e9e67c428f7834f7283900d51d6add1b10b7f9c79ba910292a7facba",
       "status": "new",
-      "owner": "google-auth",
-      "reason": "Internal setup API + public launch/callback routes.",
+      "owner": "google-auth, owner-runtime-fidelity",
+      "reason": "Internal setup API + public launch/callback routes. owner-runtime-fidelity: internal POST ownership/start (memory:read), GET attribution (forwarded principal only); proof callback page skips activation.",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
+      ],
       "derivedFrom": [
         {
           "repo": "askshepherd/gigabrain",
@@ -4629,22 +4688,30 @@
     },
     {
       "path": "src/source-lane/providers/google-docs/inventory.ts",
-      "sha256": "0e239c7803e0230e952be03031b3a51f6df16e8d1e4f5bdb611cb458395855be",
+      "sha256": "8eb63519229e935aff16d74c9206c8b10b8e9a47f1f469a7d3a8cb6bb7d43379",
       "status": "new",
-      "owner": "coordinator",
-      "reason": "Resumable full Drive inventory per mailbox: corpora=user then every shared drive (corpora=drive), page token persisted per page, Retry-After/backoff, credential blocks per mailbox, gaps (incompleteSearch, unlistable drive) reported partial; files flow through donor recordSourceLaneLiveChanges / enqueueContentSnapshotsForDocs / processDrivePdfChanges.",
+      "owner": "coordinator, owner-runtime-fidelity",
+      "reason": "Resumable full Drive inventory per mailbox: corpora=user then every shared drive (corpora=drive), page token persisted per page, Retry-After/backoff, credential blocks per mailbox, gaps (incompleteSearch, unlistable drive) reported partial; files flow through donor recordSourceLaneLiveChanges / enqueueContentSnapshotsForDocs / processDrivePdfChanges. owner-runtime-fidelity: inventory requests capabilities(canReadRevisions); PDF hook gets the mailbox.",
       "tests": [
-        "tests/source-lane/providers/google-docs/inventory.test.ts"
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/inventory.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
       ]
     },
     {
       "path": "src/source-lane/providers/google-docs/lifecycle.ts",
-      "sha256": "b5e8bbb9f73a2ded6130df7b169e25f0539bebca6bd647d7cc291736fa125dec",
+      "sha256": "a0fff8b95ab27d21bfdf012f970ae190d56f133b467f6b2c0ec45dd3c2859491",
       "status": "new",
-      "owner": "google-docs, coordinator",
-      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: per-mailbox visibility (setFileVisibility/otherVisibleMailbox); removed-in-one-mailbox re-points the checkpoint instead of retiring.",
+      "owner": "google-docs, coordinator, owner-runtime-fidelity",
+      "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests) Coordinator: per-mailbox visibility (setFileVisibility/otherVisibleMailbox); removed-in-one-mailbox re-points the checkpoint instead of retiring. owner-runtime-fidelity: setFileVisibility records capabilities.canReadRevisions (COALESCE keeps the last observed value).",
       "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
         "tests/source-lane/providers/google-docs/*",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts",
         "tests/source-lane/providers/google-docs/visibility.test.ts"
       ]
     },
@@ -5795,10 +5862,16 @@
     },
     {
       "path": "src/vault/google-oauth.ts",
-      "sha256": "2d61dfcb507f85003b140d4d51451a1987bbdbaa7836c4802f7157064c482aaf",
+      "sha256": "4f3c129f6fee91835cf2dc39957d945e9c5eefd93dce620e71f75894e8684f17",
       "status": "new",
-      "owner": "google-auth",
-      "reason": "Direct 3-legged Google OAuth: hashed single-use DB state bound to tenant/principal/expected account, launch browser binding, PKCE S256, OIDC nonce, ID token claim checks, AAD-encrypted grants, FOR UPDATE refresh with re-read + rotation, reauth marking, revoke.",
+      "owner": "google-auth, owner-runtime-fidelity",
+      "reason": "Direct 3-legged Google OAuth: hashed single-use DB state bound to tenant/principal/expected account, launch browser binding, PKCE S256, OIDC nonce, ID token claim checks, AAD-encrypted grants, FOR UPDATE refresh with re-read + rotation, reauth marking, revoke. owner-runtime-fidelity: startGoogleOwnershipProof + identity-only authorize URL + proof branch of the direct callback (no grant, no revoke).",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
+      ],
       "derivedFrom": [
         {
           "repo": "askshepherd/gigabrain",
@@ -6464,6 +6537,32 @@
       "donorSha256": "fee5f0c912e41f2d6e9ec1ade9cc9a32b48f201734d0aed58571616925569453"
     },
     {
+      "path": "tests/source-lane/core/owner-attribution-pg.test.ts",
+      "sha256": "5d16797631c21d610c9dfd1805f28817a8c0a75d63938c75fdacf2cdb4fa69d8",
+      "status": "new",
+      "owner": "owner-runtime-fidelity",
+      "reason": "owner-runtime-fidelity regression test.",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+      "sha256": "54f64955cf24bf312b13c810968c6d17ea326e51deaa108f5af781d1e6a81183",
+      "status": "new",
+      "owner": "owner-runtime-fidelity",
+      "reason": "owner-runtime-fidelity regression test.",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
+      ]
+    },
+    {
       "path": "tests/source-lane/core/runtime-pg.test.ts",
       "sha256": "bcdcf4b48962c3eb755c5f3318505597396c47eecf79b65f24a6912be2c82801",
       "status": "new",
@@ -6899,11 +6998,30 @@
       ]
     },
     {
-      "path": "tests/source-lane/providers/google-auth/pglite-db.ts",
-      "sha256": "857b9803757868e150538e7325036497f3c72a1d5bc890ca8bab040f9c3f8956",
+      "path": "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+      "sha256": "1d54e87d0f5d093e03cef1c18e74326e2daf3300c8c6ba1453744ed3e97a09ad",
       "status": "new",
-      "owner": "google-auth",
-      "reason": "PGlite harness applying real donor + 9150 migrations."
+      "owner": "owner-runtime-fidelity",
+      "reason": "owner-runtime-fidelity regression test.",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-auth/pglite-db.ts",
+      "sha256": "84fab83accbd579b4ed0e7439648adb660389b4237c289a89e4233a7ca23e015",
+      "status": "new",
+      "owner": "google-auth, owner-runtime-fidelity",
+      "reason": "PGlite harness applying real donor + 9150 migrations. owner-runtime-fidelity: test harness includes migration 9152.",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
+      ]
     },
     {
       "path": "tests/source-lane/providers/google-auth/routes.test.ts",
@@ -7087,6 +7205,19 @@
       "reason": "google-docs source-lane provider (migration range 9100-9149 / providers/google-docs / tests)",
       "tests": [
         "tests/source-lane/providers/google-docs/*"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/google-docs/owner-attribution.test.ts",
+      "sha256": "942513161bdc257a15b19709ec65a381b17322a03edb306fee481ee158b47f09",
+      "status": "new",
+      "owner": "owner-runtime-fidelity",
+      "reason": "owner-runtime-fidelity regression test.",
+      "tests": [
+        "tests/source-lane/core/owner-attribution-pg.test.ts",
+        "tests/source-lane/core/owner-google-e2e-pg.test.ts",
+        "tests/source-lane/providers/google-auth/ownership-proof.test.ts",
+        "tests/source-lane/providers/google-docs/owner-attribution.test.ts"
       ]
     },
     {

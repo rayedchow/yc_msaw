@@ -37,14 +37,23 @@ describe("owner evidence cache", () => {
 describe("Google-wide paths", () => {
   const alice = { subject: "user_alice", issuer: "https://issuer.test" };
   const owned = { account: "alice@acme.test", subject: "user_alice", issuer: "https://issuer.test" };
-  it("are readable by the owner of every Google account and by nobody once any account is unowned or another's", () => {
+  it("are served per unit the caller's proven mailboxes can read, never by owning every account", () => {
+    // Owning every reported Google account no longer unlocks Docs/Drive: only attributed units do.
     const only = new SourceViewer(alice, { providerOwners: new Map(), googleAccounts: [owned] });
-    expect(only.access("google-docs/Plan-doc-1/document.md")).toBe("allow");
-    expect(only.access("binary/drive-pdf/f1/current.pdf")).toBe("allow");
+    expect(only.access("google-docs/Plan-doc-1/document.md")).toBe("deny");
     expect(only.access("gmail")).toBe("mixed"); // a mailbox container is always filtered per mailbox
-    const withUnowned = new SourceViewer(alice, { providerOwners: new Map(), googleAccounts: [owned, { account: "dwd@acme.test", subject: null, issuer: null }] });
-    expect(withUnowned.access("google-docs/Plan-doc-1/document.md")).toBe("deny");
-    expect(withUnowned.access("gmail/alice@acme.test/messages/x.md")).toBe("allow");
+    const units = [
+      { path: "google-docs/Plan-doc-1", revisions: true },
+      { path: "binary/drive-pdf/f1", revisions: true },
+      { path: "google-docs/Viewer-doc-2", revisions: false },
+    ];
+    const attributed = new SourceViewer(alice, { providerOwners: new Map(), googleAccounts: [owned, { account: "dwd@acme.test", subject: null, issuer: null }], googleUnits: units });
+    expect(attributed.access("google-docs/Plan-doc-1/document.md")).toBe("allow");
+    expect(attributed.access("binary/drive-pdf/f1/current.pdf")).toBe("allow");
+    // A unit the mailbox can only view carries history it may not see: withheld.
+    expect(attributed.access("google-docs/Viewer-doc-2/document.md")).toBe("deny");
+    expect(attributed.access("google-docs/Someone-elses-doc-3/document.md")).toBe("deny");
+    expect(attributed.access("gmail/alice@acme.test/messages/x.md")).toBe("allow");
   });
 
   it("matches coverage to whole addresses only", () => {

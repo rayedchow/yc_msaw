@@ -46,7 +46,7 @@ export function loadSourceRuntimeConfig(env: NodeJS.ProcessEnv, publicUrl: strin
   return { url: u.href.replace(/\/+$/, ""), serviceToken, publishUrl, deviceApiUrl };
 }
 
-export type GoogleAuthAction = "status" | "oauth.start" | "dwd.add" | "account.delete";
+export type GoogleAuthAction = "status" | "oauth.start" | "ownership.start" | "dwd.add" | "account.delete" | "attribution";
 
 /** Generic Nango records lane setup (runtime providers/nango-records). */
 export type NangoRecordsAction = "status" | "session.create" | "session.get" | "connection.delete" | "sync";
@@ -120,6 +120,10 @@ export class SourceRuntimeClient {
         return this.#call(p, "GET", "/google/auth");
       case "oauth.start":
         return this.#call(p, "POST", "/google/auth/oauth/start", input.body ?? {});
+      case "ownership.start":
+        return this.#call(p, "POST", "/google/auth/ownership/start", input.body ?? {});
+      case "attribution":
+        return this.#call(p, "GET", "/google/auth/attribution");
       case "dwd.add":
         return this.#call(p, "POST", "/google/auth/dwd/mailboxes", input.body ?? {});
       case "account.delete": {
@@ -199,4 +203,33 @@ export class SourceRuntimeClient {
 
 function assertProvider(provider: string): void {
   if (!PROVIDER_RE.test(provider)) throw new SourceError("invalid_input", "Invalid provider id");
+}
+
+/** Google-wide units (Docs/Drive dirs, Drive PDFs) the runtime attributes to one principal; see runtime google-auth/attribution.ts. */
+export interface GoogleAttributionUnit {
+  path: string;
+  accounts: string[];
+  revisions: boolean;
+}
+
+export type GoogleAttributionSource = (ns: string, who: { subject: string; issuer: string }) => Promise<{ units: GoogleAttributionUnit[]; truncated: boolean }>;
+
+/**
+ * Asks the runtime, as the verified principal itself, which mailbox-less Google units its proven accounts see. A
+ * failure throws; the caller then serves none of them (fail closed).
+ */
+export function googleAttributionFrom(client: SourceRuntimeClient): GoogleAttributionSource {
+  return async (ns, who) => {
+    const principal = { tenantNs: ns, subject: who.subject, issuer: who.issuer, scopes: ["memory:read"], provider: "oidc" } as Principal;
+    const r = await client.googleAuth(principal, "attribution");
+    const b = r.body as { schema?: unknown; units?: unknown; truncated?: unknown } | null;
+    if (r.status !== 200 || !b || b.schema !== "procmem.google-attribution/v1" || !Array.isArray(b.units)) {
+      throw new Error(`Google attribution unavailable (HTTP ${r.status})`);
+    }
+    const units = b.units.filter(
+      (u): u is GoogleAttributionUnit =>
+        !!u && typeof (u as GoogleAttributionUnit).path === "string" && typeof (u as GoogleAttributionUnit).revisions === "boolean" && Array.isArray((u as GoogleAttributionUnit).accounts),
+    );
+    return { units, truncated: b.truncated === true };
+  };
 }

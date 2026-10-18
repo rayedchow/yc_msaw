@@ -32,7 +32,7 @@ import { resolveDb, rowsOf, type StoreDeps } from "./store.js";
 import type { DriveChange } from "../../../polling/_archived-gdocs/gdocs-api.js";
 
 const DRIVE_API = "https://www.googleapis.com/drive/v3";
-const FILE_FIELDS = "id,name,mimeType,modifiedTime,md5Checksum,headRevisionId,parents,trashed,owners(displayName,emailAddress),lastModifyingUser(displayName,emailAddress)";
+const FILE_FIELDS = "id,name,mimeType,modifiedTime,md5Checksum,headRevisionId,parents,trashed,owners(displayName,emailAddress),lastModifyingUser(displayName,emailAddress),capabilities(canReadRevisions)";
 
 function intEnv(name: string, fallback: number, min: number): number {
   const n = Math.floor(Number(process.env[name] ?? fallback));
@@ -82,7 +82,7 @@ export interface InventoryDeps extends StoreDeps {
 export interface InventoryHooks {
   recordLive(tenantId: string, mailbox: string, changes: DriveChange[]): Promise<number>;
   enqueueDocSnapshots(tenantId: string, files: NonNullable<DriveChange["file"] & { id: string }>[]): Promise<number>;
-  processPdfs(tenantId: string, changes: DriveChange[], accessToken: string): Promise<unknown>;
+  processPdfs(tenantId: string, changes: DriveChange[], accessToken: string, mailbox: string): Promise<unknown>;
 }
 
 export interface InventoryRunOptions {
@@ -197,7 +197,7 @@ async function defaultHooks(): Promise<InventoryHooks> {
         updatedByName: f.lastModifyingUser?.displayName ?? null,
       };
     })),
-    processPdfs: (tenantId, changes, accessToken) => donor.processDrivePdfChanges(tenantId, changes, accessToken),
+    processPdfs: (tenantId, changes, accessToken, mailbox) => donor.processDrivePdfChanges(tenantId, changes, accessToken, mailbox),
   };
 }
 
@@ -358,7 +358,7 @@ export async function runDriveInventory(tenantId: string, options: InventoryRunO
         const docs = listed.filter((f) => f.mimeType === GOOGLE_DOC_MIME);
         const docsNeedingContent = await docsWithoutCompleteContent(tenantId, docs.map((d) => d.id), deps);
         if (docsNeedingContent.size) await hooks.enqueueDocSnapshots(tenantId, docs.filter((d) => docsNeedingContent.has(d.id)));
-        if (pdfs.length) await hooks.processPdfs(tenantId, pdfs, accessToken);
+        if (pdfs.length) await hooks.processPdfs(tenantId, pdfs, accessToken, mailbox);
         if (data.incompleteSearch) row.gaps.push({ phase, reason: "incompleteSearch" });
         row.pages += 1;
         row.filesListed += listed.length;

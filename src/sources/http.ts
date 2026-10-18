@@ -672,6 +672,7 @@ const GoogleAuthStartSchema = z
   })
   .strict();
 const GoogleDwdMailboxSchema = z.object({ email: z.string().email().max(320) }).strict();
+const GoogleOwnershipStartSchema = z.object({ account: z.union([z.literal("self"), z.object({ email: z.string().email().max(320) }).strict()]).optional() }).strict();
 
 const NangoSourceId = z.string().regex(/^[a-z0-9][a-z0-9-]{0,62}$/);
 const NangoSessionSchema = z.object({ source: NangoSourceId }).strict();
@@ -804,8 +805,11 @@ export async function googleAuthRoute(request: Request, principal: Principal, ru
   try {
     const body =
       action === "oauth.start" ? GoogleAuthStartSchema.parse(await readOptionalJson(request))
+      : action === "ownership.start" ? GoogleOwnershipStartSchema.parse(await readOptionalJson(request))
       : action === "dwd.add" ? GoogleDwdMailboxSchema.parse(await readOptionalJson(request))
       : undefined;
+    // Attribution is read by SourceService for the viewer itself, never relayed to a caller.
+    if (action === "attribution") return error(404, "not_found", "Not found");
     const r = await runtime.googleAuth(principal, action, { ...(body !== undefined ? { body } : {}), ...(email !== undefined ? { email } : {}) });
     // Members see only their own Google accounts. Admins manage grants and DWD mailboxes, so they see every
     // account's auth metadata (never its data).

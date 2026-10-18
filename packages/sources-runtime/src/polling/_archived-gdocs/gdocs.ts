@@ -113,7 +113,7 @@ async function pollGoogleDocsMailbox(userId: string, userEmail: string): Promise
   const docChanges = changes.filter(
     (c) => c.file && WORKSPACE_MIMES.has(c.file.mimeType) && !c.removed && !c.file.trashed,
   );
-  await processDrivePdfChanges(userId, changes, accessToken);
+  await processDrivePdfChanges(userId, changes, accessToken, userEmail);
 
   // Deletion propagation: `removed: true` (file deleted or access lost - no
   // file payload) and `trashed: true` changes must deactivate the watermark,
@@ -207,7 +207,10 @@ export async function processDrivePdfChanges(
   userId: string,
   changes: DriveChange[],
   accessToken: string,
+  /** The roster mailbox whose changes feed / listing this is (per-mailbox visibility; null = unattributed). */
+  mailbox: string | null = null,
 ): Promise<DrivePdfChangeResult> {
+  const { otherVisibleMailbox, setFileVisibility } = await import("../../source-lane/providers/google-docs/lifecycle.js");
   const result: DrivePdfChangeResult = {
     stored: 0,
     skipped: 0,
@@ -218,6 +221,11 @@ export async function processDrivePdfChanges(
 
   for (const change of changes) {
     if (change.removed) {
+      // Access lost in this mailbox only: the PDF stays live for the tenant while another mailbox still sees it.
+      if (mailbox) {
+        await setFileVisibility(userId, change.fileId, mailbox, false);
+        if (await otherVisibleMailbox(userId, change.fileId, mailbox)) continue;
+      }
       result.tombstoned += await tombstoneBinaryDocument({
         tenantId: userId,
         provider: "drive-pdf",
@@ -239,6 +247,7 @@ export async function processDrivePdfChanges(
       continue;
     }
 
+    await setFileVisibility(userId, change.fileId, mailbox, true, undefined, file.capabilities);
     const intake = await intakeBinaryDocument({
       tenantId: userId,
       provider: "drive-pdf",

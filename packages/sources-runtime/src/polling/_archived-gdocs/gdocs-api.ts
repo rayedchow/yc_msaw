@@ -51,6 +51,8 @@ export interface DriveChange {
     owners?: Array<{ displayName?: string; emailAddress?: string }>;
     parents?: string[];
     trashed: boolean;
+    /** What the polling mailbox itself may do (owner-only attribution of revisions/history). */
+    capabilities?: { canReadRevisions?: boolean };
   };
   removed?: boolean;
 }
@@ -334,7 +336,7 @@ export async function pollDriveChanges(
     url.searchParams.set("pageSize", "100");
     url.searchParams.set(
       "fields",
-      "nextPageToken,newStartPageToken,changes(fileId,removed,file(name,mimeType,modifiedTime,md5Checksum,headRevisionId,lastModifyingUser(displayName,emailAddress),owners(displayName,emailAddress),trashed,parents))",
+      "nextPageToken,newStartPageToken,changes(fileId,removed,file(name,mimeType,modifiedTime,md5Checksum,headRevisionId,lastModifyingUser(displayName,emailAddress),owners(displayName,emailAddress),trashed,parents,capabilities(canReadRevisions)))",
     );
     url.searchParams.set("includeRemoved", "true");
     url.searchParams.set("supportsAllDrives", "true");

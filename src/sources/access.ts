@@ -106,11 +106,34 @@ export class SourceViewer {
   readonly #ownsAllGoogle: boolean;
 
   readonly #shared: ReadonlySet<string>;
+  /** Google-wide units (runtime attribution) this principal reads in full, and every directory above one. */
+  readonly #units: ReadonlySet<string>;
+  readonly #unitParents: ReadonlySet<string>;
 
   constructor(
     readonly who: Identity,
-    input: { providerOwners: ReadonlyMap<string, readonly Identity[]>; googleAccounts: readonly GoogleAccountOwner[]; sharedProviders?: readonly string[] },
+    input: {
+      providerOwners: ReadonlyMap<string, readonly Identity[]>;
+      googleAccounts: readonly GoogleAccountOwner[];
+      sharedProviders?: readonly string[];
+      /**
+       * Mailbox-less Google units (google-docs/<doc>, google-docs/_drive/<class>/<file>, google-docs/_raw/document:<id>,
+       * binary/drive-pdf/<id>) that one of this principal's proven mailboxes sees in Drive. Only units that mailbox may
+       * also read revisions of are served: their history, changelog and comments are part of the unit.
+       */
+      googleUnits?: readonly { path: string; revisions: boolean }[];
+    },
   ) {
+    const units = new Set<string>();
+    const parents = new Set<string>();
+    for (const u of input.googleUnits ?? []) {
+      if (!u.revisions || !/^(google-docs|binary\/drive-pdf)\/[^/]/.test(u.path)) continue;
+      units.add(u.path);
+      const seg = u.path.split("/");
+      for (let i = 1; i < seg.length; i++) parents.add(seg.slice(0, i).join("/"));
+    }
+    this.#units = units;
+    this.#unitParents = parents;
     this.#shared = new Set([...SHARED_PROVIDERS, ...(input.sharedProviders ?? [])].filter((p) => !PERSONAL_PROVIDERS.includes(p) && p !== "binary"));
     this.#owned = new Set();
     for (const [provider, owners] of input.providerOwners) {
@@ -140,14 +163,14 @@ export class SourceViewer {
     const seg = stored.split("/");
     const provider = seg[0]!;
     if (DEVICE_OWNED_PROVIDERS.includes(provider) || CONNECT_OWNED_PROVIDERS.includes(provider)) return this.#owned.has(provider) ? "allow" : "deny";
-    if (GOOGLE_WIDE_PROVIDERS.includes(provider)) return this.#ownsAllGoogle ? "allow" : "deny";
+    if (GOOGLE_WIDE_PROVIDERS.includes(provider)) return this.#unitAccess(seg);
     const layout = GOOGLE_ACCOUNT_PROVIDERS[provider];
     if (layout) return this.#googleAccountPath(seg, layout);
     // Status-only provider of the Google credential lane: its coverage names mailboxes.
     if (provider === GOOGLE_AUTH_STATUS_PROVIDER) return this.#ownsAllGoogle ? "allow" : this.#ownedAccounts.size > 0 ? "mixed" : "deny";
     if (provider === "binary") {
-      if (seg.length === 1) return this.#ownsAllGoogle ? "mixed" : "deny";
-      if (BINARY_GOOGLE.has(seg[1]!)) return this.#ownsAllGoogle ? "allow" : "deny";
+      if (seg.length === 1) return this.#unitParents.has("binary") ? "mixed" : "deny";
+      if (BINARY_GOOGLE.has(seg[1]!)) return this.#unitAccess(seg);
       return "deny";
     }
     if (provider === "slack") {
@@ -158,6 +181,12 @@ export class SourceViewer {
     }
     // Default deny: a provider nobody declared shared (e.g. an operator-configured Nango source) has no owner.
     return this.#shared.has(provider) ? "allow" : "deny";
+  }
+
+  /** A Google-wide path: inside one of the caller's units, a directory above some, or nobody's business. */
+  #unitAccess(seg: readonly string[]): Access {
+    for (let i = 1; i <= seg.length; i++) if (this.#units.has(seg.slice(0, i).join("/"))) return "allow";
+    return this.#unitParents.has(seg.join("/")) ? "mixed" : "deny";
   }
 
   #googleAccountPath(seg: string[], layout: "first" | "accounts"): Access {

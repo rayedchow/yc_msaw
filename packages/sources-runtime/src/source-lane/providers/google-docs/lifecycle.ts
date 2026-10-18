@@ -34,6 +34,7 @@ export interface DriveChangeLike {
     headRevisionId?: string;
     parents?: string[];
     trashed?: boolean;
+    capabilities?: { canReadRevisions?: boolean };
   };
 }
 
@@ -57,15 +58,27 @@ export function isSourceLaneFile(mimeType: string | undefined | null): boolean {
   return Boolean(mimeType) && mimeType !== PDF_MIME && mimeType !== GOOGLE_FOLDER_MIME;
 }
 
-/** Record whether `mailbox` currently sees the file. Fail-soft (donor-test mocks have no table). */
-export async function setFileVisibility(tenantId: string, fileId: string, mailbox: string | null, visible: boolean, deps?: StoreDeps): Promise<void> {
+/**
+ * Record whether `mailbox` currently sees the file and, when the feed said, whether that mailbox may read its
+ * revisions (`capabilities.canReadRevisions`; owner-only attribution of history). Fail-soft (donor-test mocks have no table).
+ */
+export async function setFileVisibility(
+  tenantId: string,
+  fileId: string,
+  mailbox: string | null,
+  visible: boolean,
+  deps?: StoreDeps,
+  capabilities?: { canReadRevisions?: boolean } | null,
+): Promise<void> {
   if (!mailbox) return;
+  const canReadRevisions = typeof capabilities?.canReadRevisions === "boolean" ? capabilities.canReadRevisions : null;
   try {
     const db = await resolveDb(deps);
     await db.execute(sql`
-      INSERT INTO gdocs_file_visibility (tenant_id, file_id, mailbox, visible, changed_at)
-      VALUES (${tenantId}, ${fileId}, ${mailbox.toLowerCase()}, ${visible}, now())
+      INSERT INTO gdocs_file_visibility (tenant_id, file_id, mailbox, visible, can_read_revisions, changed_at)
+      VALUES (${tenantId}, ${fileId}, ${mailbox.toLowerCase()}, ${visible}, ${canReadRevisions}, now())
       ON CONFLICT (tenant_id, file_id, mailbox) DO UPDATE SET visible = EXCLUDED.visible,
+        can_read_revisions = COALESCE(EXCLUDED.can_read_revisions, gdocs_file_visibility.can_read_revisions),
         changed_at = CASE WHEN gdocs_file_visibility.visible <> EXCLUDED.visible THEN now() ELSE gdocs_file_visibility.changed_at END
     `);
   } catch (err) {
@@ -165,7 +178,7 @@ export async function recordLiveChange(
     version: file.headRevisionId ?? file.md5Checksum ?? file.modifiedTime ?? null,
     modifiedTime: file.modifiedTime ?? null,
   }, deps);
-  await setFileVisibility(tenantId, change.fileId, mailbox, true, deps);
+  await setFileVisibility(tenantId, change.fileId, mailbox, true, deps, file.capabilities);
   return transitionLifecycle(tenantId, change.fileId, "active", { mailbox, name: file.name ?? null, mimeType: file.mimeType ?? null }, deps);
 }
 

@@ -5,7 +5,7 @@ import { CustomerWorkspaceManager } from "./customer/index.js";
 import { DailyBuildService, type MemoryBuilder } from "./daily/service.js";
 import { createProcmemServer, type IntegrationCatalogPort, type ServerDeps } from "./server.js";
 import type { SandboxLease } from "./sandbox/types.js";
-import { loadSourceRuntimeConfig, SourceRuntimeClient } from "./sources/runtime-client.js";
+import { googleAttributionFrom, loadSourceRuntimeConfig, SourceRuntimeClient } from "./sources/runtime-client.js";
 import { SourceService } from "./sources/service.js";
 import { CachedObjectStore, DirectoryObjectStore, type ObjectStore } from "./store/objects.js";
 import { TraceIngestor } from "./traces/index.js";
@@ -98,6 +98,9 @@ export async function createApp(opts: AppOptions = {}): Promise<App> {
   });
   const sources = config.sources ? new SourceService(store, undefined, { sharedProviders: config.sourcesSharedProviders }) : null;
   const runtimeConfig = sources ? loadSourceRuntimeConfig(env, config.publicUrl) : null;
+  const sourceRuntime = runtimeConfig ? new SourceRuntimeClient(runtimeConfig) : null;
+  // Owner-only Docs/Drive/PDF reads: the runtime attributes each mailbox-less Google unit to its mailboxes' owners.
+  if (sources && sourceRuntime) sources.useGoogleAttribution(googleAttributionFrom(sourceRuntime));
   const server = createProcmemServer({
     auth,
     store,
@@ -105,7 +108,7 @@ export async function createApp(opts: AppOptions = {}): Promise<App> {
     workspaces,
     builds,
     ...(sources ? { sources } : {}),
-    ...(runtimeConfig ? { sourceRuntime: new SourceRuntimeClient(runtimeConfig) } : {}),
+    ...(sourceRuntime ? { sourceRuntime } : {}),
     ...(await (async () => {
       const catalog = opts.integrationCatalog === null ? undefined : (opts.integrationCatalog ?? (await defaultIntegrationCatalog(store, env, log)));
       return catalog ? { integrationCatalog: catalog } : {};

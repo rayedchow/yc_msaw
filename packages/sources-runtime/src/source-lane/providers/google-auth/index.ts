@@ -26,9 +26,10 @@ export const googleAuthProvider: SourceProviderModule = {
 export const GOOGLE_UNATTRIBUTED_ACCOUNT = "unattributed@google.invalid";
 
 /**
- * Every Google address of the tenant (connections and grants) with the yc_msaw principal that started its
- * newest OAuth/Composio grant. The callback refused any Google account other than the expected one, so that
- * subject proved control of the address. Domain-wide-delegation-only mailboxes have no subject.
+ * Every Google address of the tenant (connections, grants, ownership proofs) with the yc_msaw principal that most
+ * recently proved control of it: the starter of its newest OAuth/Composio grant, or of an identity-only ownership
+ * sign-in (google_account_owner_proofs, which leaves a DWD mailbox collected by DWD), whichever is newer. Both
+ * callbacks refused any Google account other than the expected one. A DWD mailbox nobody proved has no subject.
  */
 export async function googleAccountOwners(tenantId: string, executor: DbExecutor): Promise<AccountOwner[]> {
   const res = (await executor.execute(sql`
@@ -37,13 +38,19 @@ export async function googleAccountOwners(tenantId: string, executor: DbExecutor
        WHERE tenant_id = ${tenantId} AND provider = 'google' AND external_account_id IS NOT NULL AND external_account_id <> ''
       UNION
       SELECT account_email FROM google_oauth_grants WHERE tenant_id = ${tenantId}
+      UNION
+      SELECT account_email FROM google_account_owner_proofs WHERE tenant_id = ${tenantId}
     )
-    SELECT a.email, g.connected_by_subject AS subject, g.connected_by_issuer AS issuer
+    SELECT a.email, g.subject, g.issuer
     FROM accounts a
     LEFT JOIN LATERAL (
-      SELECT connected_by_subject, connected_by_issuer FROM google_oauth_grants
-       WHERE tenant_id = ${tenantId} AND account_email = a.email
-       ORDER BY updated_at DESC NULLS LAST LIMIT 1
+      SELECT subject, issuer FROM (
+        SELECT connected_by_subject AS subject, connected_by_issuer AS issuer, updated_at AS at FROM google_oauth_grants
+         WHERE tenant_id = ${tenantId} AND account_email = a.email
+        UNION ALL
+        SELECT proven_by_subject, proven_by_issuer, verified_at FROM google_account_owner_proofs
+         WHERE tenant_id = ${tenantId} AND account_email = a.email
+      ) owners ORDER BY at DESC NULLS LAST LIMIT 1
     ) g ON true
     UNION ALL
     SELECT ${GOOGLE_UNATTRIBUTED_ACCOUNT}, NULL, NULL
