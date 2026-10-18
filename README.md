@@ -220,13 +220,13 @@ Production env:
 - integrations: `PROCMEM_INTEGRATIONS=required`, `PROCMEM_INTEGRATION_DEPLOY=1`
 - credentials (host-side only): Modal, Fireworks, Exa, `MCP_USE_API_KEY`, `INTEGRATION_CHILD_SIGNING_JWK`
 
-`npm run deploy:check` reproduces the CLI's upload selection. The CLI has no deploy-specific ignore file, so `.github/workflows/ci.yml` is uploaded too. If the managed repository refuses workflow files, run `npx tsx scripts/check-deploy-tree.ts --stage <empty dir>` and deploy that directory: it holds the same files minus `.github/`, plus the server link.
+`npm run deploy:check` reproduces the CLI's upload selection. The CLI has no deploy-specific ignore file; the repository has no `.github/workflows/` files, so none are uploaded. To deploy from a clean copy, run `npx tsx scripts/check-deploy-tree.ts --stage <empty dir>` and deploy that directory: it holds the same files plus the server link.
 
 Manufact containers are ephemeral. All durable state lives in the Modal Volume, and a cold container restores the same revision. The server refuses a public bind without Modal store and sandbox plus auth. Do not set `MCP_ALLOWED_HOSTS` behind Manufact: edge probes use internal Host headers. See `docs/auth.md` for the WorkOS resource indicator.
 
 ## Verification
 
-- **CI** (`.github/workflows/ci.yml`, Node 22, read-only permissions, no secrets): typecheck, offline tests, `mcp-use build`, archive check, SDK pack (tgz uploaded as an artifact).
+- **Local** (manual; there is no automatic CI workflow): run the typecheck, offline tests, `mcp-use build`, archive check, and SDK pack commands locally before pushing.
 - **Live scripts** (need credentials):
   - `npm run modal:smoke`
   - `npm run durability:smoke`
