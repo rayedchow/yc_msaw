@@ -18,13 +18,13 @@ export interface ToolSpec { type: "function"; function: { name: string; descript
 
 export const usage = { input: 0, output: 0, calls: 0 };
 
-export async function chat(model: string, messages: Msg[], tools: ToolSpec[] = [], opts: { maxTokens?: number; temperature?: number; timeoutMs?: number; retries?: number } = {}): Promise<Msg> {
+export async function chat(model: string, messages: Msg[], tools: ToolSpec[] = [], opts: { maxTokens?: number; temperature?: number; timeoutMs?: number; retries?: number; json?: boolean } = {}): Promise<Msg> {
   const key = fireworksKey();
   for (let attempt = 0; ; attempt++) {
     const r = await fetch("https://api.fireworks.ai/inference/v1/chat/completions", {
       method: "POST",
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
-      body: JSON.stringify({ model, messages, ...(tools.length ? { tools, tool_choice: "auto" } : {}), max_tokens: opts.maxTokens ?? 4096, temperature: opts.temperature ?? 0.2 }),
+      body: JSON.stringify({ model, messages, ...(tools.length ? { tools, tool_choice: "auto" } : {}), max_tokens: opts.maxTokens ?? 4096, temperature: opts.temperature ?? 0.2, ...(opts.json ? { response_format: { type: "json_object" } } : {}) }),
       signal: AbortSignal.timeout(opts.timeoutMs ?? 240_000),
     }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) }) as unknown as Response);
     if (r.ok) {

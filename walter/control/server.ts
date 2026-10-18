@@ -180,7 +180,7 @@ export function createWalterServer(fleet: Fleet, opts: { auth?: boolean; hash?: 
       if (missing.length) return ok({ created: false, needs: missing, next: `Connect ${missing.map((m) => m.template).join(", ")} with connect_system first, then call create_agent again.` });
       const run = a.run_now ? fleet.run(user, agent.id) : null;
       // stay well under client tool timeouts: at most ~25 s for the whole call, then agent_status waits for the rest
-      if (run) await waitFor(() => run.status !== "running", Math.max(0, 25 - (Date.now() - started) / 1000));
+      if (run) await waitFor(() => run.status !== "running", Math.max(0, 30 - (Date.now() - started) / 1000));
       return ok({ created: true, agent_id: agent.id, name: agent.name, mcps: agent.mcps.map((m) => m.name), schedule: agent.schedule ?? "on demand", instructions: agent.instructions,
         ...(run ? { run_id: run.id, run_status: run.status, tool_calls: run.toolCalls, report: run.answer ?? null, ...(run.error ? { error: run.error } : {}),
           next: run.status === "running" ? "The run is still going; call agent_status with this run_id (it waits for the result)." : "Done. agent_status with this run_id and detail: true shows every tool call it made." }

@@ -81,6 +81,8 @@ function buildLog(k: Knowledge, domain: { kinds: Record<string, { unit: string }
 }
 const decisionCount = (k: Knowledge) => k.rules.filter((r) => r.status !== "retired").reduce((s, r) => s + r.train.n + r.heldOut.n, 0);
 
+const DESIGNER = "You design operations agents for a company. Given a goal and the company MCPs available, reply with a JSON object only: {\"name\": short agent name, \"mcps\": [ids of MCPs the agent needs], \"instructions\": an array of short steps the agent follows each run, using the MCP tools by name, \"schedule\": \"daily 08:00 UTC\" style text or null}. Pick only MCPs whose tools are needed. Keep runs lean: use the fewest tool calls, prefer end-to-end and batch tools (plan_*/apply_*/payment_run) over lookups they already cover (read each tool's description), never call a per-item tool (explain_*, find_*) for items a batch result already explains, pass lists or run dates to tools that accept them in one call, and do not load playbooks or company_rules unless a result needs explaining. The company rules are already applied inside the tools. End with a check that nothing is left, and report_outcome only if a result looks wrong.";
+
 export class Fleet {
   private mcps = new Map<string, FleetMcp>();
   private spaces = new Map<string, Workspace>();
@@ -201,13 +203,24 @@ export class Fleet {
   async createAgent(user: string, input: { goal: string; name?: string; mcps?: string[]; schedule?: string | null }): Promise<{ agent: AgentSpec; missing: { template: string; why: string }[] }> {
     const w = this.space(user);
     const catalog = [...this.mcps.values()].map((m) => ({ id: m.id, name: m.name, connected: w.connected.has(m.id), template: m.template?.id ?? null, systems: m.systems, tools: m.tools.map((t) => `${t.name}: ${t.description}`) }));
-    const reply = await chat(MODELS.glm, [
-      { role: "system", content: "You design operations agents for a company. Given a goal and the company MCPs available, reply with JSON only: {\"name\": short agent name, \"mcps\": [ids of MCPs the agent needs], \"instructions\": an array of short steps the agent follows each run, using the MCP tools by name, \"schedule\": \"daily 08:00 UTC\" style text or null}. Pick only MCPs whose tools are needed. Keep runs lean: use the fewest tool calls, prefer end-to-end and batch tools (plan_*/apply_*/payment_run) over lookups they already cover (read each tool's description), never call a per-item tool (explain_*, find_*) for items a batch result already explains, pass lists to tools that accept them in one call, and do not load playbooks or company_rules unless a result needs explaining. The company rules are already applied inside the tools. End with a check that nothing is left, and report_outcome only if a result looks wrong." },
-      { role: "user", content: JSON.stringify({ goal: input.goal, requested_mcps: input.mcps ?? null, requested_schedule: input.schedule ?? null, available: catalog }) },
-    ], [], { maxTokens: 4000, temperature: 0 });
-    const text = String(reply.content ?? "");
-    let design: { name?: string; mcps?: string[]; instructions?: string | string[]; schedule?: string | null };
-    try { design = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1)); } catch { throw new Error("could not design the agent (model did not return JSON); try again"); }
+    // the design call is bounded and in JSON mode; if the model still fails, walter designs a plain agent itself
+    let design: { name?: string; mcps?: string[]; instructions?: string | string[]; schedule?: string | null } = {};
+    for (let attempt = 0; attempt < 2 && !design.mcps; attempt++) {
+      try {
+        const reply = await chat(MODELS.glm, [
+          { role: "system", content: DESIGNER },
+          { role: "user", content: JSON.stringify({ goal: input.goal, requested_mcps: input.mcps ?? null, requested_schedule: input.schedule ?? null, available: catalog }) },
+        ], [], { maxTokens: 2500, temperature: 0, timeoutMs: 20_000, retries: 0, json: true });
+        const text = String(reply.content ?? "");
+        design = JSON.parse(text.slice(text.indexOf("{"), text.lastIndexOf("}") + 1));
+      } catch { design = {}; }
+    }
+    if (!design.mcps) {
+      const words = input.goal.toLowerCase();
+      const pick = catalog.filter((m) => m.connected && m.tools.some((t) => t.toLowerCase().split(/[^a-z]+/).some((x) => x.length > 4 && words.includes(x))));
+      design = { name: "ops agent", mcps: (pick.length ? pick : catalog.filter((m) => m.connected)).map((m) => m.id),
+        instructions: [`Work toward the goal using the tools of the company MCPs: ${input.goal}`, "Prefer batch and end-to-end tools; read each tool's description.", "Finish with a short report of what changed."], schedule: input.schedule ?? null };
+    }
     const want = (input.mcps?.length ? input.mcps : design.mcps ?? []).filter((id) => this.mcps.has(id));
     if (!want.length) throw new Error("no company MCP fits this goal. Call list_templates and connect_system first.");
     const missing = want.filter((id) => !w.connected.has(id)).map((id) => ({ template: this.mcps.get(id)!.template?.id ?? id, why: `${this.mcps.get(id)!.name} is needed for this goal` }));
