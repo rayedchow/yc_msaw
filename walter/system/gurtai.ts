@@ -300,7 +300,7 @@ const singular: Record<ObjType, Change["object"]> = { deals: "deal", contacts: "
 /** All of GurtAI's simulated systems behind one host: the CRM + warehouse, the ERP (/erp) and the support inbox (/mail). */
 export class GurtaiSystem {
   world: World;
-  readonly erp: ErpSystem;
+  erp: ErpSystem;
   readonly mail: MailSystem;
   constructor(readonly token: string, private readonly seed?: number) {
     this.world = generate(seed);
@@ -316,9 +316,9 @@ export class GurtaiSystem {
     if (req.path === "/health") return { status: 200, body: { ok: true, system: "gurtai-crm" } };
     if (req.auth !== `Bearer ${this.token}`) return { status: 401, body: { status: "error", category: "INVALID_AUTHENTICATION", message: "Authentication credentials not found." } };
     const p = req.path.replace(/\/+$/, "");
-    if (req.method === "POST" && p === "/admin/reset") { this.world = generate(this.seed); return { status: 200, body: { reset: true, deals: this.world.deals.length, orders: this.world.orders.length } }; }
+    if (req.method === "POST" && p === "/admin/reset") { this.world = generate(this.seed); this.erp = new ErpSystem(); return { status: 200, body: { reset: true, deals: this.world.deals.length, orders: this.world.orders.length, ap_proposals: 0 } }; }
     if (p.startsWith("/mail/gmail/v1/users/orders@gurtai.example/") || p === "/mail/export/orders") return this.orders(req, p);
-    if (p.startsWith("/erp/")) return this.erp.handle(req.method, p, req.query);
+    if (p.startsWith("/erp/")) return this.erp.handle(req.method, p, req.query, req.body);
     if (p.startsWith("/mail/")) return this.mail.handle(req.method, p, req.query);
     let m: RegExpMatchArray | null;
 

@@ -18,14 +18,14 @@ export interface ToolSpec { type: "function"; function: { name: string; descript
 
 export const usage = { input: 0, output: 0, calls: 0 };
 
-export async function chat(model: string, messages: Msg[], tools: ToolSpec[] = [], opts: { maxTokens?: number; temperature?: number } = {}): Promise<Msg> {
+export async function chat(model: string, messages: Msg[], tools: ToolSpec[] = [], opts: { maxTokens?: number; temperature?: number; timeoutMs?: number; retries?: number } = {}): Promise<Msg> {
   const key = fireworksKey();
   for (let attempt = 0; ; attempt++) {
     const r = await fetch("https://api.fireworks.ai/inference/v1/chat/completions", {
       method: "POST",
       headers: { authorization: `Bearer ${key}`, "content-type": "application/json" },
       body: JSON.stringify({ model, messages, ...(tools.length ? { tools, tool_choice: "auto" } : {}), max_tokens: opts.maxTokens ?? 4096, temperature: opts.temperature ?? 0.2 }),
-      signal: AbortSignal.timeout(240_000),
+      signal: AbortSignal.timeout(opts.timeoutMs ?? 240_000),
     }).catch((e) => ({ ok: false, status: 0, text: async () => String(e) }) as unknown as Response);
     if (r.ok) {
       const j = (await r.json()) as { choices: { message: Msg }[]; usage?: { prompt_tokens: number; completion_tokens: number } };
@@ -36,7 +36,7 @@ export async function chat(model: string, messages: Msg[], tools: ToolSpec[] = [
       return { role: "assistant", content: m.content ?? null, ...(m.tool_calls?.length ? { tool_calls: m.tool_calls } : {}) };
     }
     const text = (await r.text()).slice(0, 400).replace(key, "<redacted>");
-    if (attempt >= 4 || (r.status >= 400 && r.status < 500 && r.status !== 429)) throw new Error(`Fireworks ${r.status}: ${text}`);
+    if (attempt >= (opts.retries ?? 4) || (r.status >= 400 && r.status < 500 && r.status !== 429)) throw new Error(`Fireworks ${r.status}: ${text}`);
     await new Promise((res) => setTimeout(res, 2000 * 2 ** attempt));
   }
 }

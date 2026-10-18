@@ -31,8 +31,10 @@ export async function runAgent(spec: AgentSpec, run: AgentRun, opts: { maxSteps?
       { role: "system", content: `You are "${spec.name}", an operations agent at GurtAI.\n\n${spec.instructions}\n\nUse the company MCP tools; they already apply GurtAI's rules. Do the work, then finish with a short report of what you changed.` },
       { role: "user", content: `Run now. Goal: ${spec.goal}` },
     ];
+    const deadline = Date.now() + 6 * 60_000; // a run that takes longer than this is stuck, not busy
     for (let i = 0; i < (opts.maxSteps ?? 24); i++) {
-      const r = await chat(spec.model ?? MODELS.glm, messages, tools, { maxTokens: 16_000, temperature: 0 });
+      if (Date.now() > deadline) throw new Error("the run took longer than 6 minutes and was stopped");
+      const r = await chat(spec.model ?? MODELS.glm, messages, tools, { maxTokens: 8_000, temperature: 0, timeoutMs: 90_000, retries: 2 });
       messages.push(r);
       if (!r.tool_calls?.length) {
         if (String(r.content ?? "").trim()) { run.answer = String(r.content); break; }

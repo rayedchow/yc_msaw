@@ -3,11 +3,11 @@ import { createHash } from "node:crypto";
 import { promises as fs } from "node:fs";
 import path from "node:path";
 import { writeProject } from "./project.js";
+import { WALTER_DIR } from "../paths.js";
 
 const INDEX = `import { MCPServer } from "mcp-use";
 import { z } from "zod";
 import { GurtaiSystem } from "./src/gurtai.ts";
-import { WALTER_DIR } from "../paths.js";
 
 // Simulated third-party system (HubSpot-style CRM + warehouse) for the walter demo. Token comes from Manufact env.
 const system = new GurtaiSystem(process.env.GURTAI_TOKEN ?? "");
@@ -37,6 +37,7 @@ server.get("/crm/*", route);
 server.post("/crm/*", route);
 server.get("/warehouse/*", route);
 server.get("/erp/*", route);
+server.post("/erp/*", route);
 server.get("/mail/*", route);
 server.post("/mail/*", route);
 server.patch("/crm/*", route);

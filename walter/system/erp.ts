@@ -160,9 +160,41 @@ const page = (rows: Rec[], q: Record<string, string>) => {
   return { links: [], count: items.length, hasMore: offset + items.length < rows.length, offset, totalResults: rows.length, items };
 };
 
+export interface Proposal { id: string; run_date: string; bill_ids: string[]; total_usd: number; held: { bill_id: string; reason: string }[]; prepared_by: string; status: "awaiting_approval"; created_at: string }
+export interface ApprovalRequest { id: string; bill_id: string; tranid: string; approver: string; reason: string; requested_by: string; status: "pending"; created_at: string }
+
 export class ErpSystem {
   readonly world = generateErp();
-  handle(method: string, p: string, q: Record<string, string>): Res {
+  proposals: Proposal[] = [];
+  approvals: ApprovalRequest[] = [];
+  handle(method: string, p: string, q: Record<string, string>, body?: unknown): Res {
+    const b = (body ?? {}) as Record<string, any>;
+    // AP writes: a proposed payment run (for the controller to release) and approval requests to the CFO
+    if (p === "/erp/payment_runs/proposals") {
+      if (method === "GET") return { status: 200, body: { results: this.proposals } };
+      if (method === "POST") {
+        if (!b.run_date || !Array.isArray(b.bill_ids)) return { status: 400, body: { title: "Invalid proposal", status: 400, "o:errorDetails": [{ detail: "run_date and bill_ids are required" }] } };
+        const unknown = b.bill_ids.filter((id: string) => !this.world.bills.some((x) => x.id === id));
+        if (unknown.length) return { status: 400, body: { title: "Invalid proposal", status: 400, "o:errorDetails": [{ detail: `unknown bills: ${unknown.join(", ")}` }] } };
+        const existing = this.proposals.find((x) => x.run_date.slice(0, 10) === String(b.run_date).slice(0, 10));
+        if (existing) return { status: 200, body: existing };
+        const prop: Proposal = { id: `PR-${1000 + this.proposals.length + 1}`, run_date: String(b.run_date), bill_ids: b.bill_ids, total_usd: Number(b.total_usd ?? 0), held: b.held ?? [], prepared_by: String(b.prepared_by ?? "agent"), status: "awaiting_approval", created_at: iso(Date.now()) };
+        this.proposals.push(prop);
+        return { status: 201, body: prop };
+      }
+    }
+    if (p === "/erp/approval_requests") {
+      if (method === "GET") return { status: 200, body: { results: this.approvals } };
+      if (method === "POST") {
+        const bill = this.world.bills.find((x) => x.id === b.bill_id || x.tranid === b.bill_id);
+        if (!bill) return { status: 404, body: { title: "Record not found", status: 404, "o:errorDetails": [{ detail: `vendorBill ${b.bill_id} does not exist.` }] } };
+        const existing = this.approvals.find((x) => x.bill_id === bill.id && x.approver === String(b.approver ?? "e-1"));
+        if (existing) return { status: 200, body: existing };
+        const req: ApprovalRequest = { id: `AR-${2000 + this.approvals.length + 1}`, bill_id: bill.id, tranid: bill.tranid!, approver: String(b.approver ?? "e-1"), reason: String(b.reason ?? ""), requested_by: String(b.requested_by ?? "agent"), status: "pending", created_at: iso(Date.now()) };
+        this.approvals.push(req);
+        return { status: 201, body: req };
+      }
+    }
     if (method !== "GET") return { status: 405, body: { title: "Method not allowed", status: 405 } };
     const base = "/erp/services/rest/record/v1/";
     let m: RegExpMatchArray | null;

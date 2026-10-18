@@ -41,7 +41,8 @@ const ctxDesc = (kinds) => {
   const rs = RULES.filter((r) => kinds.includes(r.kind));
   return rs.length ? ` GurtAI rules applied: ${rs.map((r) => `${r.id} ${r.title}`).join("; ")}. Details: walter://playbook.` : "";
 };
-const ok = (data) => ({ content: [{ type: "text", text: JSON.stringify(data, null, 2) }], structuredContent: data });
+// compact JSON: agents read every character of a result
+const ok = (data) => ({ content: [{ type: "text", text: JSON.stringify(data) }], structuredContent: data });
 function tracked(name, fn) {
   return async (args, ctx) => {
     let client = null;

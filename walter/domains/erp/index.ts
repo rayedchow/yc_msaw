@@ -77,6 +77,8 @@ export const erp: Domain<ErpData> = {
     { name: "payment_run", sig: "payment_run(run_date)", d: "Which bills a payment run pays, and the total", kinds: ["bill_in_run", "run_total"], task: "Payment run, as AP paid it" },
     { name: "explain_bill", sig: "explain_bill(bill)", d: "Will this bill be paid, and if not why", kinds: ["bill_in_run"] },
     { name: "code_bill", sig: "code_bill(vendor)", d: "The GL account a new bill is coded to", kinds: ["gl_account"], task: "GL coding, as AP entered it" },
+    { name: "submit_payment_run", sig: "submit_payment_run(run_date)", d: "Submit the proposed run for release", kinds: ["bill_in_run", "run_total"] },
+    { name: "request_cfo_approval", sig: "request_cfo_approval(bills)", d: "Ask the CFO to sign off bills", kinds: ["bill_in_run"] },
   ],
 
   async replay(mcp, d) {
@@ -86,7 +88,7 @@ export const erp: Domain<ErpData> = {
     if (names.has("payment_run")) {
       for (const run of d.runs) {
         const r = await mcp.call("payment_run", { run_date: run.run_date });
-        const ids: string[] = r.data?.bills?.map((b: any) => b.id) ?? [];
+        const ids: string[] = (r.data?.pays?.bills ?? r.data?.bills ?? []).map((b: any) => b.id);
         const exact = r.data?.total_usd === run.total_usd && ids.length === run.bill_ids.length && ids.every((id) => run.bill_ids.includes(id));
         push({ tool: "payment_run", month: run.run_date.slice(0, 7), label: `payment run ${run.run_date.slice(0, 10)}`, expected: run.total_usd, got: r.data?.total_usd ?? r.text.slice(0, 160), ok: exact });
       }
