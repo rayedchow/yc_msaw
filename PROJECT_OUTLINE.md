@@ -257,16 +257,19 @@ The $493k / $605k figures come from a real GLM run on the Q4 forecast task.
 The UI is for humans, but it should make clear that agents are the users. The MCPs are the hero; the agent harness
 stays out of sight.
 
-- **Connections:** `.md` cards plus a secrets list (names only, values never shown).
-- **Discovery:** rules with evidence, backtest scores (train vs held-out) and status; the question inbox.
-- **MCP:** tools, the rules compiled into each, a **Connect** panel (URL, Claude Desktop, Cursor, curl) and versions
-  (preview → evals per model → promoted).
-- **Agent's eye:** a toggle that shows exactly what an agent receives: `tools/list` JSON, an example call, and a
-  structured response with provenance and assumptions.
-- **Live:** calls arriving from different MCP clients, with failures, `needs_decision` and `report_outcome` turning
-  into the next version.
+The UI is an app shell: a sidebar with the company's servers first, and a **terminal docked under every page** that
+shows what agents actually see. The agent view is never hidden behind a toggle.
 
-A mock of every screen is in `mock-ui/index.html` (open it directly; no build step).
+- **Servers (the MCP):** tools with the rules compiled into each, a **Connect** panel (URL, Claude, Cursor) and
+  versions (tests → evals → live). The terminal shows an agent connecting: `initialize`, `tools/list`, `tools/call`,
+  and the structured response with `rules_applied` and `assumptions`.
+- **Knowledge:** mined rules with evidence, held-out backtest scores and each rule's code, plus the one question for a
+  human. The terminal shows the miner's queries and backtests.
+- **Connections:** each system's `.md` and its secret (name only). The terminal shows host-injected connection checks.
+- **Activity:** wrong vs right answer, the agents connected (different clients and models), the proof chart. The
+  terminal shows live MCP traffic, including a rule change that ships v4.
+
+Every screen is in `mock-ui/index.html` (open it directly; → steps through the 2-minute demo).
 
 ---
 
