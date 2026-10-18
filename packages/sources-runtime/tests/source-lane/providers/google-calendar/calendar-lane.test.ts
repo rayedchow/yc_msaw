@@ -483,6 +483,27 @@ describe("per-mailbox auth, quota and retry", () => {
     expect(report.reason).toMatch(/rate limited/);
   });
 
+  it("a valid Retry-After beyond the 1 h backoff cap (14 days) is the persisted floor: no request 2 h later, even in a fresh process", async () => {
+    let throttled = 0;
+    fake.hooks.push(({ account }) => {
+      if (account === `${T}:${MB}`) {
+        throttled++;
+        return json({ error: { code: 429, message: "Rate Limit Exceeded", errors: [{ reason: "rateLimitExceeded" }] } }, 429, { "Retry-After": String(14 * 86_400) });
+      }
+      return undefined;
+    });
+    expect((await run()).mailboxesRateLimited).toBe(1);
+    const [status] = await query(`SELECT * FROM google_source_mailbox_status WHERE tenant_id = $1 AND lane = 'calendar' AND mailbox = $2`, [T, MB]);
+    expect(new Date(status.next_attempt_at).getTime() - Date.now()).toBeGreaterThanOrEqual(14 * 86_400_000 - 5_000);
+
+    await query(`UPDATE google_source_mailbox_status SET next_attempt_at = next_attempt_at - interval '2 hours' WHERE tenant_id = $1 AND mailbox = $2`, [T, MB]);
+    await query(`UPDATE google_calendar_lane_cursors SET next_attempt_at = next_attempt_at - interval '2 hours' WHERE tenant_id = $1 AND mailbox = $2 AND next_attempt_at IS NOT NULL`, [T, MB]);
+    resetGoogleRateLimitCooldownsForTests();
+    const hits = throttled;
+    await run();
+    expect(throttled).toBe(hits);
+  });
+
   it("records auth failures per mailbox (never tenant-wide) and the task handler still succeeds", async () => {
     auth.failures.set(`${T}:cy@acme.test`, new GoogleOAuthScopeError("cy@acme.test", ["https://www.googleapis.com/auth/calendar.readonly"]));
     const handler = googleIntegration.taskHandlers!()["calendar.poll"]!;

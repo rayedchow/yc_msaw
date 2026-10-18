@@ -1,9 +1,10 @@
+import { parseRetryAfterSeconds as parseRetryAfterHeader } from "../lib/retry-after.js";
+
 const DEFAULT_RETRY_AFTER_SECONDS = 60;
 // SOURCE-LANE PATCH (rate-limit compliance): the donor clamped Retry-After to 15 minutes, so a valid longer wait
 // from Google (e.g. a quota reset hours away) was retried early. Every source lane persists the returned wait durably
-// instead of sleeping, so the provider's value is honoured; only absurd values (beyond any Google quota window) are
-// bounded, at 7 days, so a malformed header cannot park a lane indefinitely.
-const MAX_RETRY_AFTER_SECONDS = 7 * 24 * 60 * 60;
+// instead of sleeping, so a valid value is honoured in full (RFC 9110 §10.2.3; see lib/retry-after.ts): only a value
+// too large to represent is bounded (2^31 - 1 s, RFC 9111 §1.2.2), and a malformed one takes the fallback.
 
 const RATE_LIMIT_REASONS = new Set([
   "rateLimitExceeded",
@@ -27,20 +28,7 @@ export class GoogleRateLimitError extends Error {
 }
 
 export function parseRetryAfterSeconds(headers: Headers, fallbackSeconds = DEFAULT_RETRY_AFTER_SECONDS): number {
-  const raw = headers.get("retry-after");
-  if (!raw) return fallbackSeconds;
-
-  const seconds = Number(raw);
-  if (Number.isFinite(seconds) && seconds >= 0) {
-    return Math.min(MAX_RETRY_AFTER_SECONDS, Math.max(1, Math.ceil(seconds)));
-  }
-
-  const dateMs = Date.parse(raw);
-  if (Number.isFinite(dateMs)) {
-    return Math.min(MAX_RETRY_AFTER_SECONDS, Math.max(1, Math.ceil((dateMs - Date.now()) / 1000)));
-  }
-
-  return fallbackSeconds;
+  return parseRetryAfterHeader(headers.get("retry-after"), { responseDate: headers.get("date") }) ?? fallbackSeconds;
 }
 
 export function googleErrorReasonFromPayload(data: unknown): string | null {

@@ -160,11 +160,11 @@ export function classifyLaneFailure(err: unknown): LaneFailure {
 const BACKOFF_BASE_SECONDS = 60;
 const BACKOFF_MAX_SECONDS = 3_600;
 
-/** Retry-After is the floor; consecutive failures back off exponentially (1m, 2m, 4m ... 1h). */
+/** Retry-After is the floor; consecutive failures back off exponentially (1m, 2m, 4m ... 1h). The 1h cap bounds only the backoff. */
 export function backoffSeconds(failure: LaneFailure, consecutiveFailures: number): number {
   const exp = Math.min(BACKOFF_MAX_SECONDS, BACKOFF_BASE_SECONDS * 2 ** Math.min(Math.max(consecutiveFailures - 1, 0), 6));
   if (failure.kind === "auth_blocked") return Math.max(exp, 15 * 60);
-  return Math.min(BACKOFF_MAX_SECONDS, Math.max(failure.retryAfterSeconds ?? 0, exp));
+  return Math.max(failure.retryAfterSeconds ?? 0, exp);
 }
 
 // ---------------------------------------------------------------------------

@@ -154,3 +154,49 @@ describe("coverage decisions", () => {
     expect(decideMailboxCoverage(base, { ...counts, rfc822Withheld: 1 }, noQuota, { now })).toMatchObject({ state: "complete" });
   });
 });
+
+describe("a valid Retry-After longer than any backoff cap", () => {
+  const DAY = 86_400;
+  const cooldownSecs = async () => (await query<{ secs: number }>(`SELECT EXTRACT(EPOCH FROM cooldown_until - now())::float8 AS secs FROM gmail_source_quota WHERE quota_key = $1`, [gmailQuotaKey(MB)]))[0]!.secs;
+
+  // Retry-After as delta-seconds and as an IMF-fixdate HTTP-date, both 14 days out.
+  for (const [label, header] of [["delta-seconds", () => String(14 * DAY)], ["HTTP-date", () => new Date(Date.now() + 14 * DAY * 1000).toUTCString()]] as const) {
+    it(`persists the full 14-day wait (${label}) and makes no request before it, even in a fresh process 2 h later`, async () => {
+      fake.fault(/^\/profile/, 429, { retryAfter: header() });
+      const r = await runGmailSourceBackfill(T1, { mailbox: MB, continueWork: true });
+      expect(r.mailboxes[0]!.outcome).toBe("cooldown");
+      expect(await cooldownSecs()).toBeGreaterThanOrEqual(14 * DAY - 5);
+      // The continuation task is scheduled at the provider's floor, not at a capped backoff.
+      const [task] = await query<{ secs: number }>(`SELECT EXTRACT(EPOCH FROM run_at - now())::float8 AS secs FROM task_queue WHERE tenant_id = $1 AND kind = 'gmail.backfill' AND state = 'queued'`, [T1]);
+      expect(task!.secs).toBeGreaterThanOrEqual(14 * DAY - 5);
+
+      // Two hours pass (beyond the old 1 h cap) and the process restarts: still no upstream request, any tenant.
+      await query(`UPDATE gmail_source_quota SET cooldown_until = cooldown_until - interval '2 hours'`);
+      resetGoogleRateLimitCooldownsForTests();
+      const calls = fake.calls.length;
+      for (const tenant of [T1, T2]) {
+        expect((await runGmailSourceBackfill(tenant, { mailbox: MB, continueWork: false })).mailboxes[0]!.outcome).toBe("cooldown");
+      }
+      expect(fake.calls.length).toBe(calls);
+    });
+  }
+
+  it("keeps the largest representable delay (2^31 - 1 s) and bounds only beyond it, without overflowing the int4 column", async () => {
+    fake.fault(/^\/profile/, 429, { retryAfter: "2147483647" });
+    await runGmailSourceBackfill(T1, { mailbox: MB, continueWork: false });
+    expect(await cooldownSecs()).toBeGreaterThanOrEqual(2_147_483_647 - 5);
+
+    await query(`DELETE FROM gmail_source_quota`);
+    resetGoogleRateLimitCooldownsForTests();
+    fake.fault(/^\/profile/, 429, { retryAfter: "99999999999999999999" });
+    const r = await runGmailSourceBackfill(T1, { mailbox: MB, continueWork: false });
+    expect(r.mailboxes[0]!.outcome).toBe("cooldown");
+    expect(await query(`SELECT last_retry_after_seconds FROM gmail_source_quota`)).toEqual([{ last_retry_after_seconds: 2_147_483_647 }]);
+  });
+
+  it("a malformed Retry-After takes the 60 s fallback, never a 1 s retry from a lenient parse", async () => {
+    fake.fault(/^\/profile/, 429, { retryAfter: "-5" });
+    await runGmailSourceBackfill(T1, { mailbox: MB, continueWork: false });
+    expect(await cooldownSecs()).toBeGreaterThanOrEqual(55);
+  });
+});

@@ -66,7 +66,8 @@ export const googleIntegration: AqueductIntegration = {
               // retry-after hint (observed: 20 reschedules at exactly 120s
               // burned in 40min against a hot window). 2m -> 4m -> 8m ...
               // capped at 1h; a 365-day initial backfill can afford patience.
-              const delaySeconds = Math.min(3_600, Math.max(error.retryAfterSeconds, 120) * 2 ** Math.min(reschedules, 5));
+              // The cap bounds only that backoff: a longer Retry-After is still the floor.
+              const delaySeconds = Math.max(error.retryAfterSeconds, Math.min(3_600, Math.max(error.retryAfterSeconds, 120) * 2 ** Math.min(reschedules, 5)));
               await enqueueTask({
                 queue: "backfill",
                 tenantId,

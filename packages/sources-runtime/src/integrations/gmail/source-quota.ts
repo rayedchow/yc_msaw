@@ -36,12 +36,13 @@ export const MAX_COOLDOWN_SECONDS = 3_600;
 
 /**
  * Cooldown after a rate-limit response: never shorter than Google's Retry-After;
- * repeated rate limits back off exponentially (Retry-After floor x 2^streak), capped at 1h.
+ * repeated rate limits back off exponentially (Retry-After floor x 2^streak). The 1h cap
+ * bounds only that backoff, never the Retry-After floor itself.
  */
 export function rateLimitCooldownSeconds(retryAfterSeconds: number, previousStreak: number): number {
   const floor = Math.max(1, Math.ceil(retryAfterSeconds));
   const exp = floor * 2 ** Math.min(Math.max(0, previousStreak), 6);
-  return Math.min(MAX_COOLDOWN_SECONDS, Math.max(floor, exp));
+  return Math.max(floor, Math.min(MAX_COOLDOWN_SECONDS, exp));
 }
 
 /** Backoff for non-quota errors (5xx, network, transient): 30s, 60s, ... capped at 30 minutes. */
