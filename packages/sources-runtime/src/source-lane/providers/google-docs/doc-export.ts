@@ -235,14 +235,21 @@ export async function exportDocContentFiles(input: DocContentExportInput): Promi
   });
 
   const imageFailures = (input.imageFetchSummary?.failed ?? 0) + (input.imageFetchSummary?.skippedTooLarge ?? 0);
+  // Audit L2: refs beyond storeDocImages' per-run fetch budget that have no bytes yet are a gap, not a success:
+  // keep the content partial and let the sweep re-snapshot (never-captured images are fetched first).
+  const imagesOverCapMissing = input.imageFetchSummary?.overCapMissing ?? 0;
+  const imagesOverCapKept = input.imageFetchSummary?.overCapKeptPrevious ?? 0;
   await setContentState(input.tenantId, input.docId, {
-    state: "complete",
+    state: imagesOverCapMissing > 0 ? "partial" : "complete",
     reason: [
       imageFailures > 0 ? `images_not_captured:${imageFailures}` : null,
+      imagesOverCapMissing > 0 ? `images_over_per_run_cap_pending:${imagesOverCapMissing}` : null,
+      imagesOverCapKept > 0 ? `images_previous_bytes_kept:${imagesOverCapKept}` : null,
       input.images === null ? "images_not_attempted" : null,
       input.driveMetadata ? null : `drive_metadata_unavailable${input.driveMetadataError ? `:${input.driveMetadataError}` : ""}`,
     ].filter(Boolean).join(",") || null,
     version: input.revisionId,
+    ...(imagesOverCapMissing > 0 ? { retryAt: new Date(Date.now() + 60_000) } : {}),
   }, deps);
 
   return { directory, moved, written, removed };

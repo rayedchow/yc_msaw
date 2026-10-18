@@ -16,6 +16,13 @@
  * the stack yet; revisit at scale). Caps bound cost: per-image byte limit,
  * per-doc image limit, and a refetch window so repeated materializations of an
  * unchanged doc don't re-download.
+ *
+ * SOURCE-LANE PATCH (provider-repairs, audit L2): the per-doc limit is a
+ * per-run FETCH budget, not a truncation. `refsFound` counts every reference;
+ * when a run cannot attempt them all, never-captured objects go first (then the
+ * least recently fetched), so a re-run continues where this one stopped, and
+ * the remainder is reported as `overCapMissing` (no bytes captured yet) /
+ * `overCapKeptPrevious` (earlier bytes kept, not re-fetched this run).
  */
 import { createHash } from "node:crypto";
 
@@ -34,7 +41,8 @@ const MAX_IMAGE_BYTES = Math.max(1, Math.floor(Number(process.env.GDOCS_IMAGE_MA
 // Effectively "all images" for real docs (a runaway-doc backstop, not a
 // working limit). Worst case per doc is bounded by bytes, not count:
 // 1,000 × 50MB ≈ 67GB base64 in Postgres - see the doc note before relying
-// on these defaults at scale.
+// on these defaults at scale. Fetch attempts per run; refs beyond it are
+// reported and captured by a later run (never silently dropped).
 const MAX_IMAGES_PER_DOC = Math.max(1, Math.floor(Number(process.env.GDOCS_IMAGE_MAX_PER_DOC ?? 1000)));
 const REFETCH_HOURS = Math.max(1, Math.floor(Number(process.env.GDOCS_IMAGE_REFETCH_HOURS ?? 24)));
 
@@ -94,11 +102,16 @@ export function collectImageRefs(raw: unknown): DocImageRef[] {
 }
 
 export interface StoreDocImagesResult {
+  /** Every fetchable reference in the response (never capped). */
   refsFound: number;
   fetched: number;
   skippedFresh: number;
   skippedTooLarge: number;
   failed: number;
+  /** Not attempted this run (per-run budget) and no bytes ever captured: a gap until a later run fetches them. */
+  overCapMissing: number;
+  /** Not re-fetched this run (per-run budget); bytes from an earlier fetch are kept. */
+  overCapKeptPrevious: number;
 }
 
 /**
@@ -169,16 +182,10 @@ export async function storeDocImages(
   const { googleDocImages } = await import("../../../db/schema.js");
   const { sql } = await import("drizzle-orm");
 
-  const result: StoreDocImagesResult = { refsFound: 0, fetched: 0, skippedFresh: 0, skippedTooLarge: 0, failed: 0 };
+  const result: StoreDocImagesResult = { refsFound: 0, fetched: 0, skippedFresh: 0, skippedTooLarge: 0, failed: 0, overCapMissing: 0, overCapKeptPrevious: 0 };
   const allRefs = collectImageRefs(raw);
-  const refs = allRefs.slice(0, MAX_IMAGES_PER_DOC);
-  if (allRefs.length > refs.length) {
-    console.warn(
-      `[gdocs] doc ${docId} has ${allRefs.length} embedded images; capping at ${MAX_IMAGES_PER_DOC} (GDOCS_IMAGE_MAX_PER_DOC) - ${allRefs.length - refs.length} not fetched.`,
-    );
-  }
-  result.refsFound = refs.length;
-  if (refs.length === 0) return result;
+  result.refsFound = allRefs.length;
+  if (allRefs.length === 0) return result;
 
   // Skip objects fetched recently - repeated materializations of an unchanged
   // doc shouldn't re-download bytes.
@@ -187,15 +194,33 @@ export async function storeDocImages(
     SELECT object_id FROM google_doc_images
     WHERE user_id = ${userId} AND doc_id = ${docId} AND fetched_at >= ${freshCutoffIso}::timestamptz
   `)) as unknown;
-  const fresh = new Set(
-    ((Array.isArray(freshRows) ? freshRows : (freshRows as { rows?: unknown[] }).rows ?? []) as Array<{ object_id: string }>).map((r) => r.object_id),
-  );
+  const rowsOf = <T>(r: unknown) => (Array.isArray(r) ? r : (r as { rows?: unknown[] }).rows ?? []) as T[];
+  const fresh = new Set(rowsOf<{ object_id: string }>(freshRows).map((r) => r.object_id));
 
+  // More refs than one run may fetch: never-captured objects first, then the
+  // least recently fetched (document order within ties), so runs make progress.
+  let refs = allRefs;
+  const stored = new Map<string, number>();
+  if (allRefs.filter((r) => !fresh.has(r.objectId)).length > MAX_IMAGES_PER_DOC) {
+    for (const row of rowsOf<{ object_id: string; fetched_at: unknown }>(await db.execute(sql`
+      SELECT object_id, fetched_at FROM google_doc_images WHERE user_id = ${userId} AND doc_id = ${docId}
+    `))) stored.set(row.object_id, Date.parse(String(row.fetched_at instanceof Date ? row.fetched_at.toISOString() : row.fetched_at)) || 0);
+    const rank = (r: DocImageRef) => (stored.has(r.objectId) ? stored.get(r.objectId)! : -Infinity);
+    refs = allRefs.map((r, i) => ({ r, i })).sort((a, b) => rank(a.r) - rank(b.r) || a.i - b.i).map(({ r }) => r);
+  }
+
+  let attempted = 0;
   for (const ref of refs) {
     if (fresh.has(ref.objectId)) {
       result.skippedFresh++;
       continue;
     }
+    if (attempted >= MAX_IMAGES_PER_DOC) {
+      if (stored.has(ref.objectId)) result.overCapKeptPrevious++;
+      else result.overCapMissing++;
+      continue;
+    }
+    attempted++;
     try {
       const res = await fetcher(ref.contentUri);
       if (!res.ok) {
@@ -260,5 +285,10 @@ export async function storeDocImages(
     }
   }
 
+  if (result.overCapMissing + result.overCapKeptPrevious > 0) {
+    console.warn(
+      `[gdocs] doc ${docId} has ${allRefs.length} embedded images; fetched at most ${MAX_IMAGES_PER_DOC} this run (GDOCS_IMAGE_MAX_PER_DOC) - ${result.overCapMissing} not yet captured, ${result.overCapKeptPrevious} keep earlier bytes; reported for a continuation run.`,
+    );
+  }
   return result;
 }

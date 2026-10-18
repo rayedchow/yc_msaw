@@ -25,6 +25,9 @@
  *    here, yc_msaw confirming every request (fail closed), no admin `userId` override.
  *  - Revoking a consent with `deleteCaptured` tombstones the stored sessions that name the participant.
  *  - Immutable raw versions (`…:v:<hash16>`); the donor updated one row in place.
+ *  - (provider-repairs, audit L2) No 5,000-turn truncation: every turn of a session is stored, in upload order,
+ *    within the 8 MiB request limit (a larger body is refused with 413, never cut). Turns the donor validation
+ *    drops (no index/time/text) are counted in `invalidTurnsDropped` on the session and in the response.
  */
 import { createHash, timingSafeEqual } from "node:crypto";
 import { sql } from "drizzle-orm";
@@ -37,7 +40,6 @@ type Executor = Pick<typeof defaultDb, "execute">;
 export const OFFICE_AUDIO_PROVIDER = "office-audio";
 export const OFFICE_AUDIO_SOURCE = "office_audio";
 const MAX_SESSIONS_PER_BATCH = 10;
-const MAX_TURNS_PER_SESSION = 5_000;
 const MAX_DEVICES_PER_SESSION = 20;
 const MAX_INGEST_BYTES = 8 * 1024 * 1024;
 const rowsOf = <T>(r: unknown): T[] => (Array.isArray(r) ? (r as T[]) : ((r as { rows?: T[] } | null)?.rows ?? []));
@@ -126,11 +128,15 @@ export function normalizeSession(input: unknown): Record<string, unknown> | null
     providerDeviceId: cleanString(a.providerDeviceId), referenceProviderDeviceId: cleanString(a.referenceProviderDeviceId), offsetMsAtStart: intOrNull(a.offsetMsAtStart),
     driftPpm: typeof a.driftPpm === "number" ? a.driftPpm : null, status: cleanString(a.status), modelVersion: cleanString(a.modelVersion), computedAt: isoOrNull(a.computedAt),
   }));
-  const turns = arr(s.turns).slice(0, MAX_TURNS_PER_SESSION).map(normalizeTurn).filter((t): t is Record<string, unknown> => Boolean(t));
+  // Every turn is kept (the request byte limit bounds a session); upload order is preserved.
+  const turns = arr(s.turns).map(normalizeTurn).filter((t): t is Record<string, unknown> => Boolean(t));
+  const invalidTurnsDropped = (Array.isArray(s.turns) ? s.turns.length : 0) - turns.length;
   return {
     sourceSessionId, title: cleanString(s.title), room: cleanString(s.room), organizationId: cleanString(s.organizationId), startedAt, endedAt: isoOrNull(s.endedAt),
     status: cleanString(s.status) ?? "received", shareScope: cleanString(s.shareScope) ?? "participants", retentionPolicy: cleanString(s.retentionPolicy) ?? "default",
     devices, clientConsents, alignments, turns,
+    // Only present when something was dropped, so unaffected sessions keep their content hash.
+    ...(invalidTurnsDropped > 0 ? { invalidTurnsDropped } : {}),
   };
 }
 
@@ -191,6 +197,7 @@ export async function ingestOfficeAudio(ex: Executor, device: { tenantId: string
   let stored = 0;
   let updated = 0;
   let skipped = 0;
+  let invalidTurnsDropped = 0;
   const rejected: Array<{ sourceSessionId: string | null; reason: string }> = [];
   for (const input of sessions) {
     const s = normalizeSession(input);
@@ -198,6 +205,7 @@ export async function ingestOfficeAudio(ex: Executor, device: { tenantId: string
       skipped++;
       continue;
     }
+    invalidTurnsDropped += Number(s.invalidTurnsDropped ?? 0);
     const reason = consentGate(s, consented);
     if (reason) {
       rejected.push({ sourceSessionId: String(s.sourceSessionId), reason });
@@ -234,7 +242,7 @@ export async function ingestOfficeAudio(ex: Executor, device: { tenantId: string
     if (prior) updated++;
     else stored++;
   }
-  return { status: rejected.length && !stored && !updated && !skipped ? 422 : 200, body: { stored, updated, skipped, rejected, total: sessions.length } };
+  return { status: rejected.length && !stored && !updated && !skipped ? 422 : 200, body: { stored, updated, skipped, rejected, total: sessions.length, ...(invalidTurnsDropped > 0 ? { invalidTurnsDropped } : {}) } };
 }
 
 // ---------------------------------------------------------------- consent administration (internal, principal-bound)
@@ -336,7 +344,8 @@ export function renderTranscript(s: Record<string, any>): string {
   const turns = (s.turns ?? []) as Array<Record<string, any>>;
   const fmt = (ms: number) => new Date(ms).toISOString().slice(11, 19);
   return [`# ${s.title ?? `Office session ${s.sourceSessionId}`}`, "", `- room: ${s.room ?? "unknown"}`, `- started: ${s.startedAt}`, `- ended: ${s.endedAt ?? "unknown"}`,
-    `- participants (server consent): ${(s.consentedParticipants ?? []).join(", ")}`, "", "## Transcript", "",
+    `- participants (server consent): ${(s.consentedParticipants ?? []).join(", ")}`,
+    ...(s.invalidTurnsDropped ? [`- turns dropped at intake (missing index, time or text): ${s.invalidTurnsDropped}`] : []), "", "## Transcript", "",
     ...turns.map((t) => {
       const who = t.speakerDisplayName ?? t.speakerLabel ?? "unknown";
       const body = t.consentState === "consented" && t.redactionState === "none" ? t.text : `[withheld: consent ${t.consentState}, redaction ${t.redactionState}]`;

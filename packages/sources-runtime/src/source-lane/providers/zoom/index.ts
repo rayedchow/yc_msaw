@@ -98,16 +98,31 @@ export async function zoomCoverage(ctx: ExportContext, now = new Date()): Promis
   const [conn] = rowsOf<{ status: string }>(await ctx.executor.execute(sql`SELECT status FROM connections WHERE tenant_id = ${ctx.tenantId} AND provider = 'zoom' LIMIT 1`));
   if (!conn) return [{ provider: "zoom", scope: "account", state: "pending", reason: "Zoom is not connected" }];
   if (conn.status !== "active") return [{ provider: "zoom", scope: "account", state: "blocked", reason: `connection ${conn.status}` }];
+  // Audit M6: transcript files listed but not captured (failed download / still processing) keep coverage partial.
+  const [files] = rowsOf<{ processing: number; failed: number; gone: number }>(await ctx.executor.execute(sql`
+    SELECT count(*) FILTER (WHERE state = 'processing')::int AS processing, count(*) FILTER (WHERE state = 'failed')::int AS failed,
+      count(*) FILTER (WHERE state = 'gone')::int AS gone
+    FROM zoom_transcript_files WHERE tenant_id = ${ctx.tenantId}
+  `));
+  const processing = Number(files?.processing ?? 0);
+  const failed = Number(files?.failed ?? 0);
+  const gone = Number(files?.gone ?? 0);
   const by = (lane: string) => rows.find((r) => r.lane === lane);
   const back = by("backfill");
   const poll = by("poll");
   const limits = "transcripts (VTT + parsed turns) and meeting/participant metadata only: no audio, no meeting chat, no Zoom AI summaries; recordings Zoom has already deleted (account retention / auto-delete) cannot be recovered";
   const pollFresh = poll?.last_success_at != null && now.getTime() - Date.parse(String(poll.last_success_at)) <= 3 * 300_000;
   const blocked = [back, poll].find((r) => r?.status === "blocked");
-  const state: CoverageReport["state"] = blocked ? "blocked" : back?.status === "complete" && pollFresh ? "complete" : back || poll ? "partial" : "pending";
+  const state: CoverageReport["state"] = blocked ? "blocked" : back?.status === "complete" && pollFresh && processing + failed === 0 ? "complete" : back || poll ? "partial" : "pending";
+  const outstanding = processing + failed > 0 ? `${failed} transcript file(s) failed to download and ${processing} still processing at Zoom (retrying)` : null;
   return [{
     provider: "zoom", scope: "account:transcripts", state,
-    reason: [state === "complete" ? `every ready cloud-recording transcript since ${back?.covered_from ? String(back.covered_from).slice(0, 10) : "the backfill start"}` : `backfill ${back?.status ?? "not started"}${pollFresh ? "" : "; 5-minute poll not current"}`, blocked ? String(blocked.last_error ?? "blocked") : null, limits].filter(Boolean).join("; "),
+    reason: [
+      state === "complete" ? `every ready cloud-recording transcript since ${back?.covered_from ? String(back.covered_from).slice(0, 10) : "the backfill start"}` : `backfill ${back?.status ?? "not started"}${pollFresh ? "" : "; 5-minute poll not current"}`,
+      outstanding, gone ? `${gone} listed transcript file(s) were deleted at Zoom before they could be captured` : null,
+      blocked ? String(blocked.last_error ?? "blocked") : null, limits,
+    ].filter(Boolean).join("; "),
+    counts: { transcriptFilesFailed: failed, transcriptFilesProcessing: processing, transcriptFilesGone: gone },
     ...(poll?.last_success_at ? { lastSuccessAt: new Date(String(poll.last_success_at)).toISOString() } : {}),
     ...([back, poll].some((r) => r?.last_error) ? { lastError: String((back?.last_error ?? poll?.last_error) || "") } : {}),
   }];

@@ -742,6 +742,16 @@
       ]
     },
     {
+      "path": "drizzle/10200_zoom_transcript_retries.sql",
+      "sha256": "37dddba2b6c1129123d79b594f3e8adfbabcda7e8b2303bf8224031cd511d1bd",
+      "status": "new",
+      "owner": "provider-repairs",
+      "reason": "Audit M6: zoom_transcript_files retry ledger (processing|failed|gone per tenant/meeting uuid/file id, meeting list window + original 30-day window, attempts/backoff/last status). No URL or token stored; operational only, not exported.",
+      "tests": [
+        "tests/source-lane/providers/zoom/transcript-retries.test.ts"
+      ]
+    },
+    {
       "path": "drizzle/9100_gdocs_source_lane.sql",
       "sha256": "08df6349521e959a630029d533ebc726a6e4347bdd31d7f78b44cec2ce727b00",
       "status": "new",
@@ -1625,14 +1635,15 @@
     },
     {
       "path": "src/integrations/google/gdocs/images.ts",
-      "sha256": "326e376d0608bb8d021e5c06cf625ac7da92be69fd7a33b7a1439cfb463b9079",
+      "sha256": "9d3a091cf0b6555e0c48f2863003269e3b5215c88d27b60666403d0e9ed911ba",
       "status": "patched",
-      "owner": "google-docs",
+      "owner": "google-docs, provider-repairs",
       "donorPath": "src/integrations/google/gdocs/images.ts",
       "donorSha256": "a73896052fc203819ddfa24c1a36493bf58108ca8c9e3fce96101154be93f3cc",
-      "reason": "storeDocImages gains an optional 5th options arg {onImage, refetchFresh}: fetched bytes are handed (without contentUri) to the versioned source export; refetchFresh skips the 24h window on the snapshot path (bytes can change under one object id). Defaults keep donor behaviour.",
+      "reason": "storeDocImages gains an optional 5th options arg {onImage, refetchFresh}: fetched bytes are handed (without contentUri) to the versioned source export; refetchFresh skips the 24h window on the snapshot path (bytes can change under one object id). Defaults keep donor behaviour. Audit L2 (provider-repairs): GDOCS_IMAGE_MAX_PER_DOC is a per-run fetch budget, not truncation: refsFound counts every ref, never-captured then least-recently-fetched refs go first so later runs continue, and the remainder is reported as overCapMissing/overCapKeptPrevious (doc-export.ts consumes them via lead hunk provider-repairs/doc-export-L2.diff).",
       "tests": [
-        "tests/mirror/gdocs-review-fixes.test.ts + doc-content-export.test.ts"
+        "tests/mirror/gdocs-review-fixes.test.ts + doc-content-export.test.ts",
+        "tests/source-lane/providers/google-docs/image-cap.test.ts"
       ]
     },
     {
@@ -2115,12 +2126,13 @@
     },
     {
       "path": "src/integrations/office-audio/lane.ts",
-      "sha256": "9bcb5c2620c3824e7bccaa1465b23c671951e73be6365a21dbf92b2b5441cfe4",
+      "sha256": "523fea351f4a5eddac436dcf2a6f387eae30b6c2958d53d8849385129a551aac",
       "status": "new",
-      "owner": "coordinator",
-      "reason": "Consent-gated, transcript-only office audio intake: donor normalization/speaker-identity guard/identity kept; server-issued participant consent by a memory:build principal (body consents are claims only; forged/missing/revoked rejected and recorded); goa_ device keys with per-request yc_msaw authority; immutable versions; revoke-with-delete tombstones; no audio/STT/voice profiling/graph.",
+      "owner": "coordinator, provider-repairs",
+      "reason": "Consent-gated, transcript-only office audio intake: donor normalization/speaker-identity guard/identity kept; server-issued participant consent by a memory:build principal (body consents are claims only; forged/missing/revoked rejected and recorded); goa_ device keys with per-request yc_msaw authority; immutable versions; revoke-with-delete tombstones; no audio/STT/voice profiling/graph. Audit L2 (provider-repairs): the donor 5,000-turn slice is removed; every turn is stored/exported in upload order within the 8 MiB request limit (larger bodies 413, never cut); turns dropped by donor validation are counted (invalidTurnsDropped on the session, response and transcript.md).",
       "tests": [
-        "tests/source-lane/providers/office-audio/office-audio.test.ts"
+        "tests/source-lane/providers/office-audio/office-audio.test.ts",
+        "tests/source-lane/providers/office-audio/turn-cap.test.ts"
       ],
       "derivedFrom": [
         {
@@ -2582,16 +2594,17 @@
     },
     {
       "path": "src/integrations/zoom/index.ts",
-      "sha256": "9dac3a07873e96ffba340aaea25f060017f2385e5555f017777ac88bdc6f940b",
+      "sha256": "6209496f0e193706f706e3b38048733eddfc33a031c063e220aa722641823ff0",
       "status": "patched",
-      "owner": "coordinator",
+      "owner": "coordinator, provider-repairs",
       "donorRepo": "askshepherd/aqueduct",
       "donorCommit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
       "donorPath": "src/integrations/zoom/index.ts",
       "donorSha256": "916e9f34d80d61f28155dee9c9ff3da20f01438f1354c006713115ca86b49ea3",
-      "reason": "Tenant from the task; bounded resumable backfill that re-enqueues itself; callback mounted from callback.ts.",
+      "reason": "Tenant from the task; bounded resumable backfill that re-enqueues itself; callback mounted from callback.ts. Audit M6: the backfill re-enqueue runAt honours the persisted Retry-After/backoff deadline (retryAt); transcript retries ride the existing scheduled zoom.poll (no new task kind).",
       "tests": [
-        "tests/source-lane/providers/zoom/zoom.test.ts"
+        "tests/source-lane/providers/zoom/zoom.test.ts",
+        "tests/source-lane/providers/zoom/transcript-retries.test.ts"
       ]
     },
     {
@@ -2610,16 +2623,17 @@
     },
     {
       "path": "src/integrations/zoom/poller.ts",
-      "sha256": "4a087d433c1cac382728a8a6de187573709fc3881f35a8cf43864b00fdd6e6f1",
+      "sha256": "884ab7439157a0ead168ab5711b000435fec05d88eb7d8619fee74c13e70ccf0",
       "status": "patched",
-      "owner": "coordinator",
+      "owner": "coordinator, provider-repairs",
       "donorRepo": "askshepherd/aqueduct",
       "donorCommit": "c7e1415f2a8b9bc66c69f5baf61f59f751c5fe4f",
       "donorPath": "src/integrations/zoom/poller.ts",
       "donorSha256": "054f3654cbade4322a6ea71b6c79cb50be515fdb7f680b8bf448a44146dfae9b",
-      "reason": "Donor windows/identity/snapshot hashing kept; leased resumable lanes (window index + page token, expiry restart), Retry-After persisted, refresh only under the tenant lease, current snapshot in zoom_meetings, local credential redaction (download/play URLs), no graph enqueue.",
+      "reason": "Donor windows/identity/snapshot hashing kept; leased resumable lanes (window index + page token, expiry restart), Retry-After persisted, refresh only under the tenant lease, current snapshot in zoom_meetings, local credential redaction (download/play URLs), no graph enqueue. Audit M6 (provider-repairs): per-meeting body extracted to captureMeeting (same snapshot identity); transcript files listed but not captured (non-429 download failure, processing/no download_url) are recorded in zoom_transcript_files and retried with exponential backoff by every leased run, re-listing the meeting's own dates then its original window for fresh metadata/URLs; files a successful re-list no longer shows become gone; a 429 defers both lanes (per-account quota) and never charges the file; a complete backfill reports status complete; deferred runs return retryAt.",
       "tests": [
-        "tests/source-lane/providers/zoom/zoom.test.ts"
+        "tests/source-lane/providers/zoom/zoom.test.ts",
+        "tests/source-lane/providers/zoom/transcript-retries.test.ts"
       ]
     },
     {
@@ -4817,12 +4831,13 @@
     },
     {
       "path": "src/source-lane/providers/zoom/index.ts",
-      "sha256": "8bc85c9ad30886b135f136aa01c3cd4a585cb5a0a593f862292c8f58fab9ee68",
+      "sha256": "334df587d18df8eec2f5d9bf2c7cff980a61ba9ee76c861adeb5c4a53950eb2e",
       "status": "new",
-      "owner": "coordinator",
-      "reason": "Zoom provider: summary/transcript/meeting.json per meeting with the branch's renderers and directory naming, rename moves, truthful coverage (transcripts only).",
+      "owner": "coordinator, provider-repairs",
+      "reason": "Zoom provider: summary/transcript/meeting.json per meeting with the branch's renderers and directory naming, rename moves, truthful coverage (transcripts only). Audit M6: coverage stays partial while zoom_transcript_files has failed/processing rows; counts transcriptFilesFailed/Processing/Gone and reasons name the gaps.",
       "tests": [
-        "tests/source-lane/providers/zoom/zoom.test.ts"
+        "tests/source-lane/providers/zoom/zoom.test.ts",
+        "tests/source-lane/providers/zoom/transcript-retries.test.ts"
       ],
       "derivedFrom": [
         {
@@ -6153,6 +6168,16 @@
       ]
     },
     {
+      "path": "tests/source-lane/providers/google-docs/image-cap.test.ts",
+      "sha256": "babdefdc160a48701b9e7d0e2b628c4c8fdd14f3ae63cafae90db35f9d78af1c",
+      "status": "new",
+      "owner": "provider-repairs",
+      "reason": "Audit L2 regression: 1001 refs counted, 1000 fetched, 1 gap reported, re-run captures exactly the missing one; checkpoint/partial-content case runs once doc-export-L2.diff is merged.",
+      "tests": [
+        "tests/source-lane/providers/google-docs/image-cap.test.ts"
+      ]
+    },
+    {
       "path": "tests/source-lane/providers/google-docs/inventory.test.ts",
       "sha256": "f1b9f3273e9f8939ac1ff96d3ad3a0df38029d099197d037baa62f70b11c4d5c",
       "status": "new",
@@ -6651,6 +6676,16 @@
       ]
     },
     {
+      "path": "tests/source-lane/providers/office-audio/turn-cap.test.ts",
+      "sha256": "bef8b47c180b968dae941d77051785c459645d229c44535ff9eedf8e9b3925cd",
+      "status": "new",
+      "owner": "provider-repairs",
+      "reason": "Audit L2 regression: 5,001 synthetic turns through the production route and export in upload order; dropped-turn count; >8 MiB body refused with 413 and nothing stored.",
+      "tests": [
+        "tests/source-lane/providers/office-audio/turn-cap.test.ts"
+      ]
+    },
+    {
       "path": "tests/source-lane/providers/slack/export.test.ts",
       "sha256": "0e1aa7dc5c51062f7a63f8a3193df5da2e4790808cc38eafe918412f8aec5351",
       "status": "new",
@@ -6785,6 +6820,16 @@
       "reason": "Unipile lanes regression suite.",
       "tests": [
         "tests/source-lane/providers/whatsapp-personal/unipile.test.ts"
+      ]
+    },
+    {
+      "path": "tests/source-lane/providers/zoom/transcript-retries.test.ts",
+      "sha256": "2d7d720a28cb883c799afca26b806222bdb117bcf25b96256e3e2ebcdec05b45",
+      "status": "new",
+      "owner": "provider-repairs",
+      "reason": "Audit M6 regression: production OAuth completion + task handlers on PGlite; 500 -> backfill partial -> retry succeeds; processing -> ready after leaving the 7-day poll window; restart/resume; replay without duplicates; 429 deferral across lanes.",
+      "tests": [
+        "tests/source-lane/providers/zoom/transcript-retries.test.ts"
       ]
     },
     {
