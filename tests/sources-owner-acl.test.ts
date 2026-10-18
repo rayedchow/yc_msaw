@@ -93,6 +93,32 @@ beforeAll(async () => {
     res.setHeader("content-type", "application/json");
     if (req.method === "POST" && /\/devices\/imessage$/.test(url)) return void res.writeHead(201).end(JSON.stringify({ device: { id: "dev-1" } }));
     if (req.method === "POST" && /\/connect\/granola$/.test(url)) return void res.writeHead(200).end(JSON.stringify({ connected: true }));
+    if (req.method === "GET" && /\/status$/.test(url)) {
+      return void res.writeHead(200).end(JSON.stringify({
+        tenantId: "t",
+        connections: [
+          { provider: "google", status: "active", external_account_id: "alice@acme.test" },
+          { provider: "google", status: "active", external_account_id: "bob@acme.test" },
+          { provider: "granola", status: "active", external_account_id: null },
+          { provider: "jira", status: "active", external_account_id: "acme" },
+        ],
+        coverage: [
+          { provider: "gmail", scope: "mailbox:alice@acme.test", state: "complete" },
+          { provider: "gmail", scope: "mailbox:bob@acme.test", state: "partial" },
+          { provider: "google-auth", scope: "account:bob@acme.test", state: "complete" },
+          { provider: "granola", scope: "account:api-key", state: "complete" },
+          { provider: "jira", scope: "site:acme", state: "complete" },
+        ],
+      }));
+    }
+    if (req.method === "GET" && /\/google\/auth$/.test(url)) {
+      return void res.writeHead(200).end(JSON.stringify({
+        accounts: [{ email: "alice@acme.test", authMode: "oauth_direct" }, { email: "bob@acme.test", authMode: "oauth_direct" }],
+        pendingAuthorizations: [{ expectedEmail: "dave@acme.test" }],
+        modes: { domain_wide_delegation: { configured: true, approved: { domains: ["acme.test"], mailboxes: ["ceo@acme.test"] }, directoryAdmin: "admin@acme.test" } },
+      }));
+    }
+    if (req.method === "GET" && /\/office-audio\/consents$/.test(url)) return void res.writeHead(200).end(JSON.stringify({ consents: [{ participantKey: "p1" }] }));
     res.writeHead(404).end(JSON.stringify({ error: { code: "not_found" } }));
   });
   await new Promise<void>((r) => fakeRuntime.listen(0, "127.0.0.1", r));
@@ -240,6 +266,25 @@ describe("owner-only personal sources for members of one organization", () => {
     expect(admin.providers.map((p: any) => p.provider)).toContain("granola");
     expect(admin.providers.map((p: any) => p.provider)).not.toContain("imessage");
     expect(JSON.stringify(admin.providers)).not.toContain("alice@acme.test");
+  });
+
+  it("filters the runtime status, Google auth status and office-audio consent relays", async () => {
+    const rt = async (who: keyof typeof tok, route: string) => (await http("GET", route, tok[who])).json() as Promise<any>;
+    const carol = await rt("carol", "/v1/sources/runtime/status");
+    expect(carol.coverage.map((c: any) => c.provider)).toEqual(["jira"]);
+    expect(carol.connections.map((c: any) => c.provider)).toEqual(["jira"]);
+    const alice = await rt("alice", "/v1/sources/runtime/status");
+    expect(alice.coverage.map((c: any) => c.scope)).toEqual(["mailbox:alice@acme.test", "site:acme"]);
+    expect(JSON.stringify(alice)).not.toContain("bob@acme.test");
+    expect((await rt("bob", "/v1/sources/runtime/status")).connections.map((c: any) => c.provider)).toEqual(["google", "granola", "jira"]);
+    // Members see only their own Google accounts; admins manage every grant (auth metadata only, never data).
+    const member = await rt("carol", "/v1/sources/google/auth");
+    expect(member.accounts).toEqual([]);
+    expect(member.pendingAuthorizations).toEqual([]);
+    expect(member.modes.domain_wide_delegation.approved).toBeNull();
+    expect((await rt("alice", "/v1/sources/google/auth")).accounts).toHaveLength(2);
+    expect((await http("GET", "/v1/sources/office-audio/consents", tok.carol)).status).toBe(403);
+    expect((await http("GET", "/v1/sources/office-audio/consents", tok.bob)).status).toBe(200);
   });
 
   it("serves Google-wide files only to the member who owns every Google account, and never across organizations", async () => {

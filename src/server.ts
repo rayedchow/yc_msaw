@@ -513,7 +513,7 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       server.get("/v1/sources/runtime/status", async (c) => {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
         if (principal instanceof Response) return principal;
-        return runtimeStatusRoute(principal, runtime);
+        return runtimeStatusRoute(principal, runtime, sources);
       });
       server.post("/v1/sources/connect/:provider", async (c) => {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
@@ -529,7 +529,7 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       server.get("/v1/sources/google/auth", async (c) => {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
         if (principal instanceof Response) return principal;
-        return googleAuthRoute(c.req.raw, principal, runtime, "status");
+        return googleAuthRoute(c.req.raw, principal, runtime, "status", undefined, sources);
       });
       server.post("/v1/sources/google/auth/oauth/start", async (c) => {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);
@@ -562,7 +562,7 @@ export function createProcmemServer(deps: ServerDeps): MCPServer<never> {
       server.get("/v1/sources/office-audio/consents", async (c) => {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryRead);
         if (principal instanceof Response) return principal;
-        return officeAudioConsentRoute(c.req.raw, principal, runtime, "list");
+        return officeAudioConsentRoute(c.req.raw, principal, runtime, "list", undefined, sources);
       });
       server.post("/v1/sources/office-audio/consents", async (c) => {
         const principal = await authenticateHttp(c.req.raw, auth, SCOPES.memoryBuild);

@@ -339,12 +339,36 @@ export async function provisionRuntimeRoute(principal: Principal, service: Sourc
   }
 }
 
-export async function runtimeStatusRoute(principal: Principal, runtime: SourceRuntimeClient): Promise<Response> {
+const who = (p: Principal) => ({ subject: p.subject, issuer: p.issuer });
+
+/** Runtime status, filtered like sources_status: other owners' coverage and personal connections are withheld. */
+export async function runtimeStatusRoute(principal: Principal, runtime: SourceRuntimeClient, service?: SourceService): Promise<Response> {
+  let r: RuntimeResponse;
   try {
-    return relay(await runtime.status(principal));
+    r = await runtime.status(principal);
   } catch (e) {
     return error(502, "runtime_unreachable", errorMessage(e));
   }
+  if (!service || r.status !== 200 || !r.body || typeof r.body !== "object") return relay(r);
+  const viewer = await service.viewer(principal.tenantNs, who(principal));
+  const body = r.body as { coverage?: Array<{ provider?: unknown; scope?: unknown; reason?: unknown }>; connections?: Array<{ provider?: unknown; external_account_id?: unknown }> };
+  const owned = new Set(viewer.googleAccounts);
+  const filtered = {
+    ...body,
+    ...(Array.isArray(body.coverage)
+      ? { coverage: body.coverage.filter((c) => typeof c.provider === "string" && viewer.access(c.provider) !== "deny" && viewer.coverageVisible(c.provider, { scope: String(c.scope ?? ""), ...(typeof c.reason === "string" ? { reason: c.reason } : {}) })) }
+      : {}),
+    ...(Array.isArray(body.connections)
+      ? {
+          connections: body.connections.filter((c) => {
+            if (c.provider === "google") return typeof c.external_account_id === "string" && owned.has(c.external_account_id.toLowerCase());
+            const dir = typeof c.provider === "string" ? PERSONAL_CONNECT_DIRS[c.provider] : undefined;
+            return dir ? viewer.access(dir) === "allow" : true;
+          }),
+        }
+      : {}),
+  };
+  return json(200, filtered);
 }
 
 /** Runtime integration id -> the personal $SOURCES directory its connection fills (owner-only, access.ts). */
@@ -682,10 +706,14 @@ const OfficeAudioConsentSchema = z
   .strict();
 
 /** Office-audio recording consent: an admin of the verified tenant grants or revokes it for one participant. */
-export async function officeAudioConsentRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: "list" | "grant" | "revoke", participantKey?: string): Promise<Response> {
+export async function officeAudioConsentRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: "list" | "grant" | "revoke", participantKey?: string, service?: SourceService): Promise<Response> {
   try {
     if (action === "grant") return relay(await runtime.officeAudioConsent(principal, "grant", { body: OfficeAudioConsentSchema.parse(await readOptionalJson(request)) }));
     if (action === "revoke") return relay(await runtime.officeAudioConsent(principal, "revoke", { participantKey: participantKey ?? "", deleteCaptured: new URL(request.url).searchParams.get("deleteCaptured") === "true" }));
+    // Consent records name meeting participants: the office-audio owner and admins only.
+    if (service && !principal.scopes.includes(SCOPES.memoryBuild) && (await service.viewer(principal.tenantNs, who(principal))).access("office-audio") !== "allow") {
+      return error(403, "forbidden", "Office-audio consents are visible to the office-audio owner and admins only");
+    }
     return relay(await runtime.officeAudioConsent(principal, "list"));
   } catch (e) {
     return e instanceof SourceError || e instanceof TraceIngestError || e instanceof z.ZodError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
@@ -693,13 +721,27 @@ export async function officeAudioConsentRoute(request: Request, principal: Princ
 }
 
 /** Google provider-grant setup forwarded to runtime providers/google-auth; strict bodies (no tenant/user fields). */
-export async function googleAuthRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: GoogleAuthAction, email?: string): Promise<Response> {
+export async function googleAuthRoute(request: Request, principal: Principal, runtime: SourceRuntimeClient, action: GoogleAuthAction, email?: string, service?: SourceService): Promise<Response> {
   try {
     const body =
       action === "oauth.start" ? GoogleAuthStartSchema.parse(await readOptionalJson(request))
       : action === "dwd.add" ? GoogleDwdMailboxSchema.parse(await readOptionalJson(request))
       : undefined;
-    return relay(await runtime.googleAuth(principal, action, { ...(body !== undefined ? { body } : {}), ...(email !== undefined ? { email } : {}) }));
+    const r = await runtime.googleAuth(principal, action, { ...(body !== undefined ? { body } : {}), ...(email !== undefined ? { email } : {}) });
+    // Members see only their own Google accounts. Admins manage grants and DWD mailboxes, so they see every
+    // account's auth metadata (never its data).
+    if (action === "status" && service && r.status === 200 && r.body && typeof r.body === "object" && !principal.scopes.includes(SCOPES.memoryBuild)) {
+      const owned = new Set((await service.viewer(principal.tenantNs, who(principal))).googleAccounts);
+      const b = r.body as { accounts?: Array<{ email?: unknown }>; modes?: { domain_wide_delegation?: Record<string, unknown> } };
+      const dwd = b.modes?.domain_wide_delegation;
+      return json(200, {
+        ...b,
+        accounts: (b.accounts ?? []).filter((a) => typeof a.email === "string" && owned.has(a.email.toLowerCase())),
+        pendingAuthorizations: [],
+        ...(dwd ? { modes: { ...b.modes, domain_wide_delegation: { ...dwd, approved: null, directoryAdmin: null } } } : {}),
+      });
+    }
+    return relay(r);
   } catch (e) {
     return e instanceof SourceError || e instanceof TraceIngestError || e instanceof z.ZodError ? sourceErrorResponse(e) : error(502, "runtime_unreachable", errorMessage(e));
   }

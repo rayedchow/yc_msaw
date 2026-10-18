@@ -53,6 +53,11 @@ How it is enforced:
 - In status, providers the caller cannot read are omitted. For a partly readable provider, only coverage
   reports naming one of the caller's own accounts are kept.
 - Device bindings are listed in `sources_status` to their enroller only.
+- The runtime relays are filtered the same way:
+  - `GET /v1/sources/runtime/status` drops other owners' coverage and personal connections.
+  - `GET /v1/sources/google/auth` lists a member's own Google accounts only. Admins (`memory:build`) still see
+    every account's auth metadata, because they add DWD mailboxes and revoke grants. They never see the data.
+  - `GET /v1/sources/office-audio/consents` (participant names) is limited to the office-audio owner and admins.
 - **Fail closed:**
   - unowned data is readable by nobody. That covers a domain-wide-delegation-only mailbox, data captured before
     owners were recorded, a donor Google connection without a mailbox, and an owner list the runtime could not

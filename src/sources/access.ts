@@ -63,6 +63,8 @@ export const CONNECT_OWNED_PROVIDERS: readonly string[] = ["granola", "zoom", "c
 const GOOGLE_ACCOUNT_PROVIDERS: Readonly<Record<string, "first" | "accounts">> = { gmail: "first", calendar: "accounts", "google-contacts": "accounts" };
 /** Google providers with no mailbox in the path: readable only by the principal that owns every Google account. */
 const GOOGLE_WIDE_PROVIDERS: readonly string[] = ["google-docs"];
+/** Runtime credential lane that reports per-mailbox grant coverage (no files). */
+const GOOGLE_AUTH_STATUS_PROVIDER = "google-auth";
 /** sources/binary/<provider>/...: shared, Google-wide, or unowned (denied). */
 const BINARY_SHARED = new Set(["slack"]);
 const BINARY_GOOGLE = new Set(["drive-pdf"]);
@@ -134,6 +136,8 @@ export class SourceViewer {
     if (GOOGLE_WIDE_PROVIDERS.includes(provider)) return this.#ownsAllGoogle ? "allow" : "deny";
     const layout = GOOGLE_ACCOUNT_PROVIDERS[provider];
     if (layout) return this.#googleAccountPath(seg, layout);
+    // Status-only provider of the Google credential lane: its coverage names mailboxes.
+    if (provider === GOOGLE_AUTH_STATUS_PROVIDER) return this.#ownsAllGoogle ? "allow" : this.#ownedAccounts.size > 0 ? "mixed" : "deny";
     if (provider === "binary") {
       if (seg.length === 1) return "mixed";
       if (BINARY_SHARED.has(seg[1]!)) return "allow";
@@ -183,7 +187,7 @@ export class SourceViewer {
     const access = this.access(provider);
     if (access === "allow") return true;
     if (access === "deny") return false;
-    if (GOOGLE_ACCOUNT_PROVIDERS[provider]) {
+    if (GOOGLE_ACCOUNT_PROVIDERS[provider] || provider === GOOGLE_AUTH_STATUS_PROVIDER) {
       const scope = c.scope.toLowerCase();
       return [...this.#ownedAccounts].some((a) => scope.includes(a));
     }
