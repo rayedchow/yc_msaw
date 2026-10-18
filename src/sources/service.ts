@@ -85,6 +85,7 @@ export class SourceService {
   readonly #stores = new Map<string, SourceStore>();
   readonly #reportEpoch = new Map<string, number>();
   readonly #sharedProviders: readonly string[];
+  readonly #statusInputCache = new Map<string, { at: number; epoch: string; value: { bindings: PublicBinding[]; reports: StoredStatus[] } }>();
   readonly #evidence = new Map<string, { at: number; epoch: string; value: { providerOwners: Map<string, Identity[]>; googleAccounts: GoogleAccountOwner[] } }>();
 
   /** One byte-bounded metadata cache for every tenant store of this process. */
@@ -201,6 +202,22 @@ export class SourceService {
     return out;
   }
 
+  /**
+   * Bindings and their latest reports, shared by every principal of the tenant (each viewer filters its own copy):
+   * cached like the owner evidence, so status cost does not grow with the number of principals.
+   */
+  async #statusInputs(ns: string): Promise<{ bindings: PublicBinding[]; reports: StoredStatus[] }> {
+    const epoch = `${this.reportEpoch(ns)}/${this.bindings.epoch(ns)}`;
+    const hit = this.#statusInputCache.get(ns);
+    if (hit && hit.epoch === epoch && this.now().getTime() - hit.at < VIEWER_TTL_MS) return hit.value;
+    const bindings = await this.bindings.list(ns);
+    const value = { bindings, reports: await this.#reports(ns, bindings) };
+    this.#statusInputCache.delete(ns);
+    this.#statusInputCache.set(ns, { at: this.now().getTime(), epoch, value });
+    while (this.#statusInputCache.size > MAX_CACHED_TENANTS) this.#statusInputCache.delete(this.#statusInputCache.keys().next().value!);
+    return value;
+  }
+
   /** What `who` (a verified principal of `ns`) may read; see access.ts. */
   async viewer(ns: string, who: Identity): Promise<SourceViewer> {
     return new SourceViewer(who, { ...(await this.#ownerEvidence(ns)), sharedProviders: this.#sharedProviders });
@@ -216,8 +233,7 @@ export class SourceService {
     const head = (await store.head()).value;
     const dirs = new Map<string, DirEntry>();
     for await (const [name, e] of store.children(head.root)) if (e.t === "d") dirs.set(name, e);
-    const allBindings = await this.bindings.list(ns);
-    const reports = await this.#reports(ns, allBindings);
+    const { bindings: allBindings, reports } = await this.#statusInputs(ns);
     const names = new Set<string>(dirs.keys());
     for (const r of reports) for (const p of r.report.providers) names.add(p.provider);
     if (viewer) for (const n of names) if (viewer.access(n) === "deny") names.delete(n);
